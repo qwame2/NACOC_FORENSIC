@@ -1,3 +1,8 @@
+@php
+    $authUser = auth()->user();
+    $headName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
+    $staffName = $authUser->fullname ?? session('user_name') ?? 'Insp. Samuel Mensah';
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -198,7 +203,7 @@
                             <span class="text-xs font-bold text-slate-700 font-mono-code">FIELD OFFICER DOSSIER LOGGING</span>
                         </div>
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Crime Scene Staff Operations</h1>
-                        <p class="text-xs text-slate-500 mt-1">Logged in Officer: <strong class="text-slate-800">Insp. Samuel Mensah</strong> &bull; Unit Head: <strong>Cmdr. Joseph Annan</strong></p>
+                        <p class="text-xs text-slate-500 mt-1">Logged in Officer: <strong class="text-slate-800">{{ $staffName }}</strong> &bull; Unit Head: <strong>{{ $headName }}</strong></p>
                     </div>
 
                     <div class="flex items-center space-x-3">
@@ -267,7 +272,7 @@
                         <div class="mt-3">
                             <div class="text-2xl font-extrabold text-slate-900 font-mono-code tracking-tight">2 Pending</div>
                             <div class="text-[11px] font-semibold text-slate-500 mt-1">
-                                <span>Submitted to Cmdr. Annan</span>
+                                <span>Submitted to {{ $headName }}</span>
                             </div>
                         </div>
                     </div>
@@ -280,7 +285,7 @@
                     <div class="p-5 border-b border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50/50">
                         <div>
                             <h3 class="font-extrabold text-slate-900 text-base">My Assigned Field Scenes &amp; Evidence Workstation</h3>
-                            <p class="text-xs text-slate-500">Log exhibits, upload LiDAR scans, and submit completed dossiers to Unit Head Cmdr. Joseph Annan</p>
+                            <p class="text-xs text-slate-500">Log exhibits, upload LiDAR scans, and submit completed dossiers to Unit Head {{ $headName }}</p>
                         </div>
 
                         <!-- EVENT FILTER DROPDOWN BUTTON -->
@@ -535,9 +540,9 @@
             const statusEl = document.getElementById(`staff-status-${ref}`);
             if(statusEl) {
                 statusEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200';
-                statusEl.innerText = 'Submitted to Cmdr. Annan';
+                statusEl.innerText = 'Submitted to ' + @json($headName);
             }
-            alert(`Dossier ${ref} has been submitted to Unit Head Cmdr. Joseph Annan for review and sign-off.`);
+            alert(`Dossier ${ref} has been submitted to Unit Head ${@json($headName)} for review and sign-off.`);
         }
 
         function submitEvidenceBag() {

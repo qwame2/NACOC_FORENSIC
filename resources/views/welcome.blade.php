@@ -367,10 +367,10 @@
                                     </td>
                                     <td class="py-4 px-5">
                                         <div class="font-bold text-blue-700">Crime Scene Support</div>
-                                        <div class="text-[10px] text-slate-400">Unit Head: Cmdr. Joseph Annan</div>
+                                        <div class="text-[10px] text-slate-400">Unit Head: {{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <div class="text-slate-800">Cmdr. Joseph Annan</div>
+                                        <div class="text-slate-800">{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
                                         <div class="text-[10px] text-slate-400">Scene Unit Head</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -519,7 +519,7 @@
                     </div>
                     <div>
                         <label class="block text-slate-700 font-bold mb-1">Authorizing Director</label>
-                        <input type="text" id="newOfficer" value="Dr. Kwame Mensah" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-blue-700">
+                        <input type="text" id="newOfficer" value="{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-blue-700">
                     </div>
                 </div>
 
@@ -610,7 +610,7 @@
                 statusEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
                 statusEl.innerText = 'Authorized by Director';
             }
-            alert(`Case ${caseRef} Court Evidence Certificate has been officially signed and authorized by Department Head Dr. Kwame Mensah.`);
+            alert(`Case ${caseRef} Court Evidence Certificate has been officially signed and authorized by Department Head ${@json(auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel')}.`);
         }
 
         function toggleIntakeModal() {
@@ -649,7 +649,7 @@
                     <div class="text-[10px] text-slate-400">Assigned Division</div>
                 </td>
                 <td class="py-4 px-5">
-                    <div class="text-slate-800">Dr. Kwame Mensah</div>
+                    <div class="text-slate-800">{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
                     <div class="text-[10px] text-slate-400">Department Head</div>
                 </td>
                 <td class="py-4 px-5">

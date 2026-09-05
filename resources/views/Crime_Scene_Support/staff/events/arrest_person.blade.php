@@ -1125,6 +1125,188 @@
 
                                 </div>
 
+                                <!-- VEHICLE SPECIFIC FIELDS -->
+                                <div id="vehicleFieldsWrapper" class="hidden pt-4 border-t border-red-200/60 mt-4 space-y-5">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-6 h-6 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                        </div>
+                                        <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">Vehicle Specific Details</h4>
+                                    </div>
+
+                                    <!-- 1. Basic Identification -->
+                                    <div class="space-y-3">
+                                        <h5 class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded-md inline-block">1. Basic Identification</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Make <span class="text-red-500">*</span></label>
+                                                <input type="text" id="vehMake" placeholder="e.g. Toyota" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model <span class="text-red-500">*</span></label>
+                                                <input type="text" id="vehModel" placeholder="e.g. Hilux" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div class="relative z-20" id="vehTypeSelectWrapper">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Vehicle Type</label>
+                                                <div class="relative">
+                                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        id="vehTypeSearchInput"
+                                                        placeholder="Select vehicle type..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-red-500 focus:ring-2 focus:ring-red-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
+                                                        readonly
+                                                        onclick="this.removeAttribute('readonly'); document.getElementById('vehTypeListPanel').classList.remove('hidden');"
+                                                        oninput="filterVehTypeList()"
+                                                        onfocus="document.getElementById('vehTypeListPanel').classList.remove('hidden')"
+                                                    >
+                                                    <input type="hidden" id="vehType" value="">
+                                                </div>
+                                                <div id="vehTypeListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                                                    <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="vehTypeSearchInner" placeholder="Type to filter..." oninput="filterVehTypeListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-red-300 transition-all">
+                                                    </div>
+                                                    <ul id="vehTypeList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Passenger Vehicles</li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Sedan / Saloon', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Sedan / Saloon</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Hatchback', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Hatchback</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('SUV / Crossover', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">SUV / Crossover</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Coupe / Sports Car', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Coupe / Sports Car</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Convertible', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Convertible</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Station Wagon / Estate', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Station Wagon / Estate</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Minivan / MPV', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Minivan / MPV</button></li>
+                                                        
+                                                        <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Commercial &amp; Utility</li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Pickup Truck', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Pickup Truck</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Panel Van / Cargo Van', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Panel Van / Cargo Van</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Minibus / Trotro', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Minibus / Trotro</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Large Bus / Coach', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Large Bus / Coach</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Box Truck / Rigid Truck', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Box Truck / Rigid Truck</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Heavy Duty / Articulated Truck', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Heavy Duty / Articulated Truck</button></li>
+                                                        
+                                                        <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Other Types</li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Motorcycle / Motorbike', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Motorcycle / Motorbike</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Tricycle (Aboboyaa / Pragya)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Tricycle (Aboboyaa / Pragya)</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Trailer / Caravan', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Trailer / Caravan</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Agricultural / Tractor', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Agricultural / Tractor</button></li>
+                                                        <li class="veh-type-item" onclick="selectVehType('Construction Equipment', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Construction Equipment</button></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Year of Manufacture</label>
+                                                <input type="text" id="vehYear" placeholder="e.g. 2019" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                <input type="text" id="vehColour" placeholder="e.g. White" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registration Number <span class="text-red-500">*</span></label>
+                                                <input type="text" id="vehRegNo" placeholder="e.g. GT 1234-21" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">VIN / Chassis Number</label>
+                                                <input type="text" id="vehVIN" placeholder="e.g. JT11234567890ABC" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Engine Number</label>
+                                                <input type="text" id="vehEngineNo" placeholder="e.g. 1TR1234567" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Country of Registration</label>
+                                                <input type="text" id="vehCountryReg" placeholder="e.g. Ghana" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Ownership & Possession -->
+                                    <div class="space-y-3">
+                                        <h5 class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded-md inline-block">2. Ownership &amp; Possession</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registered Owner</label>
+                                                <input type="text" id="vehOwner" placeholder="e.g. John Doe" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Driver / Person in Possession</label>
+                                                <input type="text" id="vehDriver" placeholder="e.g. Kwame Mensah" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Owner's Contact</label>
+                                                <input type="text" id="vehOwnerContact" placeholder="e.g. 0244123456" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Docs Available?</label>
+                                                <select id="vehDocsAvailable" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20">
+                                                    <option value="">Select...</option>
+                                                    <option value="Yes">Yes</option>
+                                                    <option value="No">No</option>
+                                                </select>
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reg/Title Doc Reference</label>
+                                                <input type="text" id="vehDocRef" placeholder="e.g. DVLA Title #998877" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Vehicle Condition -->
+                                    <div class="space-y-3">
+                                        <h5 class="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest bg-blue-50 px-2 py-1 rounded-md inline-block">3. Vehicle Condition</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Overall Condition</label>
+                                                <select id="vehCondition" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20">
+                                                    <option value="">Select...</option>
+                                                    <option value="Excellent">Excellent / Driveable</option>
+                                                    <option value="Good">Good</option>
+                                                    <option value="Fair">Fair</option>
+                                                    <option value="Poor">Poor / Damaged</option>
+                                                    <option value="Non-Driveable">Non-Driveable / Towed</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Fuel Level</label>
+                                                <select id="vehFuel" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20">
+                                                    <option value="">Select...</option>
+                                                    <option value="Full">Full</option>
+                                                    <option value="3/4">3/4</option>
+                                                    <option value="Half">Half (1/2)</option>
+                                                    <option value="1/4">1/4</option>
+                                                    <option value="Empty">Empty (Light on)</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Keys Received?</label>
+                                                <div class="flex items-center gap-2 mt-1">
+                                                    <select id="vehKeysRecv" class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Yes">Yes</option>
+                                                        <option value="No">No</option>
+                                                    </select>
+                                                    <input type="number" id="vehKeyCount" placeholder="Qty" min="0" class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                            <div class="md:col-span-3">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Existing Damage</label>
+                                                <input type="text" id="vehDamage" placeholder="e.g. Scratches on front right bumper, cracked left taillight" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div class="md:col-span-3">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Visible Modifications / Compartments</label>
+                                                <input type="text" id="vehMods" placeholder="e.g. False floor welded in trunk, tinted windows" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div class="md:col-span-3">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Notable Identifying Features</label>
+                                                <input type="text" id="vehFeatures" placeholder="e.g. Custom alloy wheels, stickers on rear window" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
                                 <div class="pt-2 border-t border-red-200/60 space-y-3">
                                     <div class="flex items-center justify-between">
@@ -1872,6 +2054,7 @@
             const textWrapper     = document.getElementById('commodityTextWrapper');
             const drugWrapper     = document.getElementById('drugSelectWrapper');
             const currencyWrapper = document.getElementById('currencySelectWrapper');
+            const vehicleWrapper  = document.getElementById('vehicleFieldsWrapper');
             const textInput       = document.getElementById('newSeizureName');
             const drugHidden      = document.getElementById('newSeizureNameDrug');
             const currencyHidden  = document.getElementById('newSeizureNameCurrency');
@@ -1883,6 +2066,7 @@
             if (textWrapper)     textWrapper.classList.add('hidden');
             if (drugWrapper)     drugWrapper.classList.add('hidden');
             if (currencyWrapper) currencyWrapper.classList.add('hidden');
+            if (vehicleWrapper)  vehicleWrapper.classList.add('hidden');
             if (textInput)       { textInput.removeAttribute('required'); textInput.value = ''; }
             if (drugHidden)      { drugHidden.removeAttribute('required'); drugHidden.value = ''; }
             if (currencyHidden)  { currencyHidden.removeAttribute('required'); currencyHidden.value = ''; }
@@ -1909,6 +2093,10 @@
                     'Other Exhibits': 'e.g. Illegal Firearms / Devices'
                 };
                 if (textInput) textInput.placeholder = placeholders[category] || 'e.g. Primary Commodity Name';
+
+                if (category === 'Vehicles' && vehicleWrapper) {
+                    vehicleWrapper.classList.remove('hidden');
+                }
             }
         }
 
@@ -2123,6 +2311,43 @@
                 }, false);
             }
         });
+
+        function selectVehType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const hidden  = document.getElementById('vehType');
+            const display = document.getElementById('vehTypeSearchInput');
+            const panel   = document.getElementById('vehTypeListPanel');
+            if (hidden)  hidden.value = val;
+            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (panel)   panel.classList.add('hidden');
+        }
+
+        function filterVehTypeList() {
+            const q = (document.getElementById('vehTypeSearchInput').value || '').toLowerCase();
+            filterVehTypeListByQuery(q);
+        }
+
+        function filterVehTypeListInner() {
+            const q = (document.getElementById('vehTypeSearchInner').value || '').toLowerCase();
+            filterVehTypeListByQuery(q);
+        }
+
+        function filterVehTypeListByQuery(q) {
+            const items = document.querySelectorAll('#vehTypeList .veh-type-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        // Close veh type panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('vehTypeSelectWrapper');
+            const panel   = document.getElementById('vehTypeListPanel');
+            if (wrapper && panel && !wrapper.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        }, true);
     </script>
 </body>
 </html>

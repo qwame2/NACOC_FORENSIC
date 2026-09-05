@@ -595,7 +595,7 @@
                                         </div>
                                     </td>
                                     <td class="py-4 px-4">
-                                        <div class="font-medium text-slate-800">Cmdr. Joseph Annan</div>
+                                        <div class="font-medium text-slate-800">{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
                                         <div class="text-[10px] text-emerald-600 font-mono-code font-semibold">Maritime Security</div>
                                     </td>
                                     <td class="py-4 px-4 whitespace-nowrap">

@@ -1,3 +1,7 @@
+@php
+    $authUser = auth()->user();
+    $headName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -92,13 +96,8 @@
                 <!-- UNIT HEAD HEADER BANNER -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-100 p-6 rounded-2xl border-none shadow-xl">
                     <div>
-                        <div class="flex items-center space-x-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">UNIT HEAD COMMAND</span>
-                            <span class="text-xs text-slate-400">&bull;</span>
-                            <span class="text-xs font-bold text-slate-700 font-mono-code">CRIME SCENE SUPPORT DIVISION</span>
-                        </div>
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Crime Scene Support Unit Head Portal</h1>
-                        <p class="text-xs text-slate-500 mt-1">Commanding Officer: <strong class="text-slate-800">Cmdr. Joseph Annan</strong> &bull; 14 Field Investigators Reporting</p>
+                        <p class="text-xs text-slate-500 mt-1">Commanding Officer: <strong class="text-slate-800">{{ $headName }}</strong> &bull; 14 Field Investigators Reporting</p>
                     </div>
 
                     <div class="flex items-center space-x-3">
@@ -137,7 +136,7 @@
                         <div class="mt-3">
                             <div class="text-2xl font-extrabold text-amber-600 font-mono-code tracking-tight">8 Dossiers</div>
                             <div class="text-[11px] font-semibold text-slate-500 mt-1">
-                                <span>Awaiting Cmdr. Annan Approval</span>
+                                <span>Awaiting {{ $headName }} Approval</span>
                             </div>
                         </div>
                     </div>
@@ -248,7 +247,7 @@
                                     </td>
                                     <td class="py-4 px-5">
                                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            Approved by Cmdr. Annan
+                                            Approved by {{ $headName }}
                                         </span>
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
@@ -296,7 +295,7 @@
                     </div>
                     <div>
                         <label class="block text-slate-700 font-bold mb-1">Authorizing Unit Head</label>
-                        <input type="text" value="Cmdr. Joseph Annan" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-blue-700">
+                        <input type="text" value="{{ $headName }}" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-blue-700">
                     </div>
                 </div>
 
@@ -323,7 +322,7 @@
                 <div class="flex justify-between"><span class="text-slate-500">GPS COORDINATES:</span> <span class="font-bold text-blue-600">5.6037&deg; N, 0.1870&deg; W</span></div>
                 <div class="flex justify-between"><span class="text-slate-500">3D SCAN RESOLUTION:</span> <span class="text-purple-700 font-bold">0.5mm Point Cloud Data</span></div>
                 <div class="flex justify-between"><span class="text-slate-500">LOGGED EXHIBITS:</span> <span class="text-emerald-600 font-bold">14 Sealed Evidence Bags</span></div>
-                <div class="flex justify-between"><span class="text-slate-500">UNIT HEAD:</span> <span class="text-slate-800">Cmdr. Joseph Annan</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">UNIT HEAD:</span> <span class="text-slate-800">{{ $headName }}</span></div>
             </div>
 
             <div class="pt-2 flex justify-end">
@@ -351,9 +350,9 @@
             const statusEl = document.getElementById(`status-${ref}`);
             if(statusEl) {
                 statusEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
-                statusEl.innerText = 'Approved by Cmdr. Annan';
+                statusEl.innerText = 'Approved by ' + @json($headName);
             }
-            alert(`Field Incident Dossier ${ref} has been officially approved by Unit Head Cmdr. Joseph Annan.`);
+            alert(`Field Incident Dossier ${ref} has been officially approved by Unit Head ${@json($headName)}.`);
         }
 
         function submitHeadDispatch() {
