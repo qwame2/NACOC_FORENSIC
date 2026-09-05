@@ -757,90 +757,280 @@
                                 <!-- SEIZURES INPUT GRID -->
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     
-                                    <!-- EXHIBIT (COMMODITY CATEGORY) - CUSTOM DROPDOWN -->
+                                    <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
                                     <div class="relative z-30">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                             Exhibit (Commodity Category) <span class="text-red-500">*</span>
                                         </label>
-                                        <button type="button" id="exhibitDropdownTrigger" onclick="toggleExhibitDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all shadow-2xs group">
-                                            <span id="selectedExhibitLabel" class="font-bold text-slate-900 text-xs">Drugs</span>
-                                            <input type="hidden" id="newSeizureCategory" value="Drugs">
-                                            <svg id="exhibitChevron" class="w-4 h-4 text-slate-400 group-hover:text-red-600 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                        </button>
-
-                                        <div id="exhibitDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
-                                            <button type="button" onclick="selectExhibitCategory('Drugs', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
-                                                <div>
-                                                    <div class="font-extrabold text-slate-900">Drugs</div>
-                                                    <div class="text-[10px] text-slate-500 font-normal">Narcotics, Synthetics, Opioids</div>
+                                        <div id="exhibitSelectWrapper" class="relative">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="exhibitSearchInput"
+                                                    placeholder="Select exhibit category..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-red-500 focus:ring-2 focus:ring-red-300 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-pointer"
+                                                    readonly
+                                                    onclick="this.removeAttribute('readonly'); document.getElementById('exhibitListPanel').classList.remove('hidden');"
+                                                    oninput="filterExhibitList()"
+                                                    onfocus="document.getElementById('exhibitListPanel').classList.remove('hidden')"
+                                                >
+                                                <input type="hidden" id="newSeizureCategory" value="">
+                                            </div>
+                                            <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="exhibitSearchInner" placeholder="Type to filter categories..." oninput="filterExhibitListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-red-300 transition-all">
                                                 </div>
-                                                <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">DRG</span>
-                                            </button>
-
-                                            <button type="button" onclick="selectExhibitCategory('Money', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
-                                                <div>
-                                                    <div class="font-extrabold text-slate-900">Money</div>
-                                                    <div class="text-[10px] text-slate-500 font-normal">Cash, Foreign Currencies, Laundering</div>
-                                                </div>
-                                                <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">CASH</span>
-                                            </button>
-
-                                            <button type="button" onclick="selectExhibitCategory('Gold', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
-                                                <div>
-                                                    <div class="font-extrabold text-slate-900">Gold</div>
-                                                    <div class="text-[10px] text-slate-500 font-normal">Bullion, Bars, Smuggled Metals</div>
-                                                </div>
-                                                <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
-                                            </button>
-
-                                            <button type="button" onclick="selectExhibitCategory('Vehicles', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
-                                                <div>
-                                                    <div class="font-extrabold text-slate-900">Vehicles</div>
-                                                    <div class="text-[10px] text-slate-500 font-normal">Automobiles, Vessels, Trucks</div>
-                                                </div>
-                                                <span class="text-[10px] font-mono-code bg-blue-50 text-blue-800 px-2 py-0.5 rounded font-bold">VEH</span>
-                                            </button>
-
-                                            <button type="button" onclick="selectExhibitCategory('Other Exhibits', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
-                                                <div>
-                                                    <div class="font-extrabold text-slate-900">Other Exhibits</div>
-                                                    <div class="text-[10px] text-slate-500 font-normal">Weapons, Hardware, Devices</div>
-                                                </div>
-                                                <span class="text-[10px] font-mono-code bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">MISC</span>
-                                            </button>
+                                                <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Drugs', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Drugs</div><div class="text-[10px] text-slate-500 font-normal">Narcotics, Synthetics, Opioids</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">DRG</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Money', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Money</div><div class="text-[10px] text-slate-500 font-normal">Cash, Foreign Currencies, Laundering</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">CASH</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Gold', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Gold</div><div class="text-[10px] text-slate-500 font-normal">Bullion, Bars, Smuggled Metals</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Vehicles', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Vehicles</div><div class="text-[10px] text-slate-500 font-normal">Automobiles, Vessels, Trucks</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-800 px-2 py-0.5 rounded font-bold">VEH</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Other Exhibits', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Other Exhibits</div><div class="text-[10px] text-slate-500 font-normal">Weapons, Hardware, Devices</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">MISC</span>
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <!-- SPECIFIC COMMODITY / DRUG NAME -->
-                                    <div>
+                                    <!-- SPECIFIC COMMODITY / DRUG NAME (SMART FIELD) -->
+                                    <div id="commodityFieldWrapper">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Primary Commodity Name <span class="text-red-500">*</span></label>
-                                        <div class="relative flex items-center group">
+
+                                        <!-- TEXT INPUT (shown for non-drug categories) -->
+                                        <div id="commodityTextWrapper" class="relative flex items-center group">
                                             <span class="absolute left-3 text-slate-400 group-focus-within:text-red-600 transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
                                             </span>
                                             <input type="text" id="newSeizureName" placeholder="e.g. Cocaine (High Purity Slabs)" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                        </div>
+
+                                        <!-- DRUG SELECT2 DROPDOWN (shown when Drugs is selected) -->
+                                        <div id="drugSelectWrapper" class="hidden relative z-40">
+                                            <!-- Search input -->
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-red-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="drugSearchInput"
+                                                    placeholder="Search drug type..."
+                                                    autocomplete="off"
+                                                    oninput="filterDrugList()"
+                                                    onfocus="document.getElementById('drugListPanel').classList.remove('hidden')"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-red-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-red-500 focus:ring-2 focus:ring-red-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
+                                                    readonly
+                                                    onclick="this.removeAttribute('readonly'); document.getElementById('drugListPanel').classList.remove('hidden');"
+                                                >
+                                                <input type="hidden" id="newSeizureNameDrug" name="newSeizureName">
+                                            </div>
+                                            <!-- Dropdown panel -->
+                                            <div id="drugListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-red-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="drugSearchInner" placeholder="Type to filter drugs..." oninput="filterDrugListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-red-300 transition-all">
+                                                </div>
+                                                <ul id="drugList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- Opioids & Analgesics -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Opioids &amp; Analgesics</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Heroin (Brown Sugar / Diacetylmorphine)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center justify-between"><span>Heroin</span><span class="text-[10px] font-mono-code bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold">Brown Sugar</span></button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Fentanyl (Synthetic Opioid Patches / Powder)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Fentanyl (Synthetic Opioid)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Morphine (Raw Opium Extract)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Morphine (Raw Opium Extract)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Tramadol (High-Dose Tablets / Capsules)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center justify-between"><span>Tramadol</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">High-Dose</span></button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Codeine (Cough Syrup Misuse / Purple Drank)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Codeine (Purple Drank)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Oxycodone (OxyContin Tablets)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Oxycodone (OxyContin)</button></li>
+
+                                                    <!-- Stimulants -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Stimulants &amp; Cocaine-Class</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cocaine (High-Purity Powder / Slabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center justify-between"><span>Cocaine (Powder)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-bold">COC</span></button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Crack Cocaine (Rock Form / Freebase)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Crack Cocaine (Rock Form)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Methamphetamine (Crystal Meth / Ice)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center justify-between"><span>Methamphetamine (Ice)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">METH</span></button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Amphetamine (Speed / Pep Pills)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Amphetamine (Speed Pills)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('MDMA (Ecstasy / Molly Tablets)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center justify-between"><span>MDMA (Ecstasy / Molly)</span><span class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">XTC</span></button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Khat (Catha Edulis Fresh Leaves / Bundles)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Khat (Catha Edulis)</button></li>
+
+                                                    <!-- Cannabis -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Cannabis &amp; Derivatives</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cannabis / Marijuana (Dried Flower / Weed)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors flex items-center justify-between"><span>Cannabis / Marijuana</span><span class="text-[10px] font-mono-code bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-bold">THC</span></button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cannabis Resin (Hashish / Black Hash Slabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Cannabis Resin (Hashish)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cannabis Oil / THC Concentrate (Wax / Dabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Cannabis Oil / THC Concentrate</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Synthetic Cannabinoids (Spice / K2 Herbal)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Synthetic Cannabinoids (Spice/K2)</button></li>
+
+                                                    <!-- Sedatives & Depressants -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Sedatives &amp; Depressants</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Rohypnol (Flunitrazepam / Date Rape Drug)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Rohypnol (Flunitrazepam)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('GHB (Gamma-Hydroxybutyrate / Liquid Ecstasy)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">GHB (Liquid Ecstasy)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Diazepam / Valium (Benzodiazepine Tablets)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Diazepam / Valium (Benzo)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Ketamine (Special K / Dissociative Anesthetic)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Ketamine (Special K)</button></li>
+
+                                                    <!-- Hallucinogens -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Hallucinogens &amp; Psychedelics</li>
+                                                    <li class="drug-item" onclick="selectDrugType('LSD (Lysergic Acid Diethylamide / Acid Tabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">LSD (Acid Tabs)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Psilocybin (Magic Mushrooms / Shrooms)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Psilocybin (Magic Mushrooms)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('PCP (Phencyclidine / Angel Dust)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">PCP (Angel Dust)</button></li>
+
+                                                    <!-- Precursors -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Precursor Chemicals</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Ephedrine / Pseudoephedrine (Meth Precursor)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Ephedrine / Pseudoephedrine</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Acetic Anhydride (Heroin Precursor Chemical)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Acetic Anhydride (Heroin Precursor)</button></li>
+                                                    <li class="drug-item" onclick="selectDrugType('Phenylacetic Acid (Amphetamine Precursor)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors">Phenylacetic Acid</button></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- CURRENCY SELECT2 DROPDOWN (shown when Money is selected) -->
+                                        <div id="currencySelectWrapper" class="hidden relative z-40">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="currencySearchInput"
+                                                    placeholder="Select currency..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
+                                                    readonly
+                                                    onclick="this.removeAttribute('readonly'); document.getElementById('currencyListPanel').classList.remove('hidden');"
+                                                    oninput="filterCurrencyList()"
+                                                    onfocus="document.getElementById('currencyListPanel').classList.remove('hidden')"
+                                                >
+                                                <input type="hidden" id="newSeizureNameCurrency" name="newSeizureName">
+                                            </div>
+                                            <div id="currencyListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-emerald-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="currencySearchInner" placeholder="Type to filter currencies..." oninput="filterCurrencyListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-300 transition-all">
+                                                </div>
+                                                <ul id="currencyList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- West Africa -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">West Africa</li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Ghana Cedi (GHS ₵)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ghana Cedi</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GHS ₵</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Nigerian Naira (NGN ₦)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Nigerian Naira</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">NGN ₦</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('CFA Franc BCEAO (XOF)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>CFA Franc (BCEAO)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">XOF</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Sierra Leonean Leone (SLL)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Sierra Leonean Leone</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SLL</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Liberian Dollar (LRD)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Liberian Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">LRD</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Gambian Dalasi (GMD)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Gambian Dalasi</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GMD</span></button></li>
+
+                                                    <!-- Major Global -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">Major Global Currencies</li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('US Dollar (USD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>US Dollar</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">USD $</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Euro (EUR €)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Euro</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">EUR €</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('British Pound Sterling (GBP £)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>British Pound Sterling</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">GBP £</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Swiss Franc (CHF)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Swiss Franc</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">CHF</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Japanese Yen (JPY ¥)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Japanese Yen</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">JPY ¥</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Chinese Yuan Renminbi (CNY ¥)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Chinese Yuan (Renminbi)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">CNY ¥</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Canadian Dollar (CAD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Canadian Dollar</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">CAD $</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Australian Dollar (AUD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Australian Dollar</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">AUD $</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('UAE Dirham (AED)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>UAE Dirham</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">AED</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Saudi Riyal (SAR)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Saudi Riyal</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SAR</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Indian Rupee (INR ₹)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Indian Rupee</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">INR ₹</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('South Korean Won (KRW ₩)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South Korean Won</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">KRW ₩</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Singapore Dollar (SGD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Singapore Dollar</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SGD $</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Hong Kong Dollar (HKD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Hong Kong Dollar</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">HKD $</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Russian Ruble (RUB ₽)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Russian Ruble</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">RUB ₽</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Turkish Lira (TRY ₺)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Turkish Lira</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">TRY ₺</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Brazilian Real (BRL R$)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Brazilian Real</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">BRL R$</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Mexican Peso (MXN $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Mexican Peso</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">MXN $</span></button></li>
+
+                                                    <!-- Africa -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">Africa</li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('South African Rand (ZAR R)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South African Rand</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZAR R</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Kenyan Shilling (KES)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Kenyan Shilling</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KES</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Ethiopian Birr (ETB)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethiopian Birr</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ETB</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Egyptian Pound (EGP £)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Egyptian Pound</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EGP £</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Tanzanian Shilling (TZS)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tanzanian Shilling</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TZS</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Moroccan Dirham (MAD)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Moroccan Dirham</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MAD</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Angolan Kwanza (AOA)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Angolan Kwanza</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AOA</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Congolese Franc (CDF)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Congolese Franc</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CDF</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Zambian Kwacha (ZMW)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Zambian Kwacha</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZMW</span></button></li>
+
+                                                    <!-- Crypto -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">Cryptocurrencies</li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Bitcoin (BTC ₿)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Bitcoin</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">BTC ₿</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Ethereum (ETH Ξ)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethereum</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">ETH Ξ</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Tether (USDT)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tether (Stablecoin)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">USDT</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Monero (XMR – Privacy Coin)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Monero (Privacy Coin)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">XMR</span></button></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <!-- QUANTITY & UNIT -->
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity / Weight</label>
+                                            <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity / Weight</label>
                                             <input type="number" step="0.01" id="newSeizureQuantity" placeholder="e.g. 24.50" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
                                         </div>
-                                        <div>
+                                        <div class="relative z-20">
                                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Unit</label>
-                                            <select id="newSeizureUnit" class="w-full px-2 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20">
-                                                <option value="Kilograms (kg)">Kilograms (kg)</option>
-                                                <option value="Grams (g)">Grams (g)</option>
-                                                <option value="Tonnes (t)">Tonnes (t)</option>
-                                                <option value="Litres (L)">Litres (L)</option>
-                                                <option value="Slabs / Blocks">Slabs / Blocks</option>
-                                                <option value="Bundles / Sacks">Bundles / Sacks</option>
-                                                <option value="Pieces / Units">Pieces / Units</option>
-                                                <option value="USD ($)">USD ($)</option>
-                                                <option value="GHS (₵)">GHS (₵)</option>
-                                            </select>
+                                            <div id="unitSelectWrapper" class="relative">
+                                                <div class="relative">
+                                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        id="unitSearchInput"
+                                                        placeholder="Select unit..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-red-500 focus:ring-2 focus:ring-red-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
+                                                        readonly
+                                                        onclick="this.removeAttribute('readonly'); document.getElementById('unitListPanel').classList.remove('hidden');"
+                                                        oninput="filterUnitList()"
+                                                        onfocus="document.getElementById('unitListPanel').classList.remove('hidden')"
+                                                    >
+                                                    <input type="hidden" id="newSeizureUnit" value="">
+                                                </div>
+                                                <div id="unitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                                                    <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="unitSearchInner" placeholder="Type to filter units..." oninput="filterUnitListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-red-300 transition-all">
+                                                    </div>
+                                                    <ul id="unitList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Weight &amp; Mass</li>
+                                                        <li class="unit-item" onclick="selectUnit('Kilograms (kg)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Kilograms</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">kg</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Grams (g)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Grams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">g</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Tonnes (t)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Tonnes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">t</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Milligrams (mg)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Milligrams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mg</span></button></li>
+                                                        <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Volume &amp; Liquid</li>
+                                                        <li class="unit-item" onclick="selectUnit('Litres (L)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Litres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">L</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Millilitres (mL)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Millilitres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mL</span></button></li>
+                                                        <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Packaging &amp; Quantity</li>
+                                                        <li class="unit-item" onclick="selectUnit('Slabs / Blocks')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Slabs / Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Bundles / Sacks')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Bundles / Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Pieces / Units')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Pieces / Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Cartons / Boxes')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Cartons / Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Wraps / Rolls')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Wraps / Rolls</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
+                                                        <li class="unit-item" onclick="selectUnit('Capsules / Tablets')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-between transition-colors"><span>Capsules / Tablets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -874,6 +1064,65 @@
                                             <input type="text" id="newSeizureConcealment" placeholder="e.g. Vacuum foil wrapped in false trunk bottom" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
+
+                                    <!-- DATE & TIME SEIZED -->
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <!-- DATE SEIZED -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date Seized <span class="text-red-500">*</span></label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-red-600 transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                </span>
+                                                <input type="date" id="newSeizureDate" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+
+                                        <!-- TIME SEIZED -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time Seized</label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-red-600 transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                </span>
+                                                <input type="time" id="newSeizureTime" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- LOCATION SEIZED -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location Seized <span class="text-red-500">*</span></label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-red-600 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureLocation" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
+                                    <!-- SEIZING OFFICER -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seizing Officer <span class="text-red-500">*</span></label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-red-600 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureOfficer" placeholder="e.g. DSP Kwame Mensah (Badge No. NACOC-0042)" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
+                                    <!-- REASON FOR SEIZURE -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason for Seizure <span class="text-red-500">*</span></label>
+                                        <div class="relative flex items-start group">
+                                            <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-red-600 transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            </span>
+                                            <textarea id="newSeizureReason" rows="3" placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                        </div>
+                                    </div>
+
                                 </div>
 
                                 <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
@@ -1538,27 +1787,208 @@
             }
         }
 
-        function toggleExhibitDropdown(e) {
+        function toggleUnitDropdown(e) {
             if (e) e.stopPropagation();
-            const menu = document.getElementById('exhibitDropdownMenu');
-            const chevron = document.getElementById('exhibitChevron');
-            if (!menu) return;
-            const isHidden = menu.classList.contains('hidden');
-            closeAllDropdowns('exhibitDropdownMenu');
-            if (isHidden) {
-                menu.classList.remove('hidden');
-                if (chevron) chevron.classList.add('rotate-180');
+            const panel = document.getElementById('unitListPanel');
+            if (panel) panel.classList.toggle('hidden');
+        }
+
+        function selectUnit(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const hidden  = document.getElementById('newSeizureUnit');
+            const display = document.getElementById('unitSearchInput');
+            const panel   = document.getElementById('unitListPanel');
+            if (hidden)  hidden.value = val;
+            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (panel)   panel.classList.add('hidden');
+        }
+
+        function filterUnitList() {
+            const q = (document.getElementById('unitSearchInput').value || '').toLowerCase();
+            filterUnitListByQuery(q);
+        }
+
+        function filterUnitListInner() {
+            const q = (document.getElementById('unitSearchInner').value || '').toLowerCase();
+            filterUnitListByQuery(q);
+        }
+
+        function filterUnitListByQuery(q) {
+            const items = document.querySelectorAll('#unitList .unit-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        // Close unit panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('unitSelectWrapper');
+            const panel   = document.getElementById('unitListPanel');
+            if (wrapper && panel && !wrapper.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        }, true);
+
+        function selectExhibitCategory(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const input   = document.getElementById('newSeizureCategory');
+            const display = document.getElementById('exhibitSearchInput');
+            const panel   = document.getElementById('exhibitListPanel');
+            if (input)   input.value = val;
+            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (panel)   panel.classList.add('hidden');
+            updateCommodityField(val);
+        }
+
+        function filterExhibitList() {
+            const q = (document.getElementById('exhibitSearchInput').value || '').toLowerCase();
+            filterExhibitListByQuery(q);
+        }
+
+        function filterExhibitListInner() {
+            const q = (document.getElementById('exhibitSearchInner').value || '').toLowerCase();
+            filterExhibitListByQuery(q);
+        }
+
+        function filterExhibitListByQuery(q) {
+            const items = document.querySelectorAll('#exhibitList .exhibit-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        // Close exhibit panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('exhibitSelectWrapper');
+            const panel   = document.getElementById('exhibitListPanel');
+            if (wrapper && panel && !wrapper.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        }, true);
+
+        function updateCommodityField(category) {
+            const textWrapper     = document.getElementById('commodityTextWrapper');
+            const drugWrapper     = document.getElementById('drugSelectWrapper');
+            const currencyWrapper = document.getElementById('currencySelectWrapper');
+            const textInput       = document.getElementById('newSeizureName');
+            const drugHidden      = document.getElementById('newSeizureNameDrug');
+            const currencyHidden  = document.getElementById('newSeizureNameCurrency');
+            const drugSearch      = document.getElementById('drugSearchInput');
+            const currencySearch  = document.getElementById('currencySearchInput');
+            const quantityLabel   = document.getElementById('quantityLabel');
+
+            // Hide all first
+            if (textWrapper)     textWrapper.classList.add('hidden');
+            if (drugWrapper)     drugWrapper.classList.add('hidden');
+            if (currencyWrapper) currencyWrapper.classList.add('hidden');
+            if (textInput)       { textInput.removeAttribute('required'); textInput.value = ''; }
+            if (drugHidden)      { drugHidden.removeAttribute('required'); drugHidden.value = ''; }
+            if (currencyHidden)  { currencyHidden.removeAttribute('required'); currencyHidden.value = ''; }
+
+            if (category === 'Drugs') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Weight';
+                if (drugWrapper) drugWrapper.classList.remove('hidden');
+                if (drugHidden)  drugHidden.setAttribute('required', 'required');
+                if (drugSearch)  { drugSearch.value = ''; drugSearch.placeholder = 'Select drug type...'; }
+                filterDrugListByQuery('');
+            } else if (category === 'Money') {
+                if (quantityLabel) quantityLabel.innerText = 'Amount';
+                if (currencyWrapper) currencyWrapper.classList.remove('hidden');
+                if (currencyHidden)  currencyHidden.setAttribute('required', 'required');
+                if (currencySearch)  { currencySearch.value = ''; currencySearch.placeholder = 'Select currency...'; }
+                filterCurrencyListByQuery('');
+            } else {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Weight';
+                if (textWrapper) textWrapper.classList.remove('hidden');
+                if (textInput)   textInput.setAttribute('required', 'required');
+                const placeholders = {
+                    'Gold':           'e.g. Gold Bars / Bullion (24K)',
+                    'Vehicles':       'e.g. Toyota Hilux (Unregistered)',
+                    'Other Exhibits': 'e.g. Illegal Firearms / Devices'
+                };
+                if (textInput) textInput.placeholder = placeholders[category] || 'e.g. Primary Commodity Name';
             }
         }
 
-        function selectExhibitCategory(val, e) {
-            if (e) e.stopPropagation();
-            const input = document.getElementById('newSeizureCategory');
-            if (input) input.value = val;
-            const label = document.getElementById('selectedExhibitLabel');
-            if (label) label.innerText = val;
-            closeAllDropdowns();
+        function selectDrugType(val) {
+            const hidden  = document.getElementById('newSeizureNameDrug');
+            const display = document.getElementById('drugSearchInput');
+            const panel   = document.getElementById('drugListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (panel)   panel.classList.add('hidden');
+            // sync to the original text input for form processing
+            const textInput = document.getElementById('newSeizureName');
+            if (textInput) textInput.value = val;
         }
+
+        function filterDrugList() {
+            const q = (document.getElementById('drugSearchInput').value || '').toLowerCase();
+            filterDrugListByQuery(q);
+        }
+
+        function filterDrugListInner() {
+            const q = (document.getElementById('drugSearchInner').value || '').toLowerCase();
+            filterDrugListByQuery(q);
+        }
+
+        function filterDrugListByQuery(q) {
+            const items = document.querySelectorAll('#drugList .drug-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        // Close drug panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const drugWrapper = document.getElementById('drugSelectWrapper');
+            const panel = document.getElementById('drugListPanel');
+            if (drugWrapper && panel && !drugWrapper.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        }, true);
+
+        function selectCurrencyType(val) {
+            const hidden   = document.getElementById('newSeizureNameCurrency');
+            const display  = document.getElementById('currencySearchInput');
+            const panel    = document.getElementById('currencyListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (panel)   panel.classList.add('hidden');
+            // sync to the original text input for form processing
+            const textInput = document.getElementById('newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterCurrencyList() {
+            const q = (document.getElementById('currencySearchInput').value || '').toLowerCase();
+            filterCurrencyListByQuery(q);
+        }
+
+        function filterCurrencyListInner() {
+            const q = (document.getElementById('currencySearchInner').value || '').toLowerCase();
+            filterCurrencyListByQuery(q);
+        }
+
+        function filterCurrencyListByQuery(q) {
+            const items = document.querySelectorAll('#currencyList .currency-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        // Close currency panel when clicking outside
+        document.addEventListener('click', function(e) {
+            const currencyWrapper = document.getElementById('currencySelectWrapper');
+            const panel = document.getElementById('currencyListPanel');
+            if (currencyWrapper && panel && !currencyWrapper.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        }, true);
 
 
 
