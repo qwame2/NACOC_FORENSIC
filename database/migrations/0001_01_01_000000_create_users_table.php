@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('phone_number');
             $table->boolean('is_staff')->default(true);
             $table->boolean('is_head')->default(false);
+            $table->boolean('is_approved')->default(true);
             $table->string('unit');
             $table->string('email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();

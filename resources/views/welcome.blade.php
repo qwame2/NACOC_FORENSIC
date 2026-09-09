@@ -42,7 +42,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white">
 
     <!-- SYSTEM APP CONTAINER WITH SIDEBAR & MAIN WORKSPACE -->
     <div class="flex h-screen overflow-hidden">
@@ -86,7 +86,7 @@
                     <div class="h-6 w-px bg-slate-200"></div>
 
                     <!-- EXECUTIVE ACTION BUTTON -->
-                    <button onclick="toggleIntakeModal()" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm shadow-blue-600/25 transition-all">
+                    <button onclick="toggleIntakeModal()" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm shadow-emerald-600/25 transition-all">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span>Authorize Case File</span>
                     </button>
@@ -95,12 +95,13 @@
 
             <!-- MAIN WORKSPACE EXECUTIVE DASHBOARD VIEW -->
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
+                @include('partials.flash')
 
                 <!-- EXECUTIVE HEADER & TITLE -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">DEPARTMENT HEAD PORTAL</span>
+                            <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">DEPARTMENT HEAD PORTAL</span>
                             <span class="text-xs text-slate-400">&bull;</span>
                             <span class="text-xs font-bold text-slate-700 font-mono-code">DIRECTORATE COMMAND &amp; OVERSIGHT</span>
                         </div>
@@ -122,7 +123,7 @@
                     <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold font-mono-code uppercase text-slate-500">Directorate Cases</span>
-                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
                             </div>
                         </div>
@@ -196,9 +197,9 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         
                         <!-- UNIT 1 CARD -->
-                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs border-t-4 border-t-blue-600 space-y-3">
+                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs border-t-4 border-t-emerald-600 space-y-3">
                             <div class="flex items-center justify-between">
-                                <span class="text-[10px] font-mono-code font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">UNIT 01</span>
+                                <span class="text-[10px] font-mono-code font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200">UNIT 01</span>
                                 <span class="text-xs font-bold text-slate-500">14 Officers</span>
                             </div>
                             <div>
@@ -274,7 +275,7 @@
 
                         <!-- UNIT FILTER BUTTON TABS -->
                         <div class="flex items-center space-x-2 text-xs font-medium">
-                            <button onclick="filterDeptHeadUnit('all')" class="dept-unit-tab px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold">All 4 Units</button>
+                            <button onclick="filterDeptHeadUnit('all')" class="dept-unit-tab px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold">All 4 Units</button>
                             <button onclick="filterDeptHeadUnit('Crime Scene Support')" class="dept-unit-tab px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Crime Scene Support</button>
                             <button onclick="filterDeptHeadUnit('Evidence Management')" class="dept-unit-tab px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">Evidence Management</button>
                             <button onclick="filterDeptHeadUnit('LAB Analysis')" class="dept-unit-tab px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50">LAB Analysis</button>
@@ -409,7 +410,7 @@
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
                                         <button onclick="viewDetails('FSD-2026-8825')" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">Inspect</button>
-                                        <button onclick="alert('Inter-unit Transfer Authorized by Department Head.')" class="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-[11px] font-semibold shadow-2xs">Transfer</button>
+                                        <button onclick="alert('Inter-unit Transfer Authorized by Department Head.')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-semibold shadow-2xs">Transfer</button>
                                     </td>
                                 </tr>
 
@@ -426,12 +427,12 @@
                                 <h3 class="font-extrabold text-slate-900 text-sm">Directorate Real-time Audit Stream</h3>
                                 <p class="text-xs text-slate-500">Logged actions across all 4 division heads</p>
                             </div>
-                            <span class="text-[10px] font-mono-code font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md">LIVE LOG</span>
+                            <span class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md">LIVE LOG</span>
                         </div>
 
                         <div class="space-y-3">
                             <div class="flex items-start space-x-3 text-xs p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                <div class="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1 shrink-0"></div>
+                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 shrink-0"></div>
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between">
                                         <span class="font-bold text-slate-900 font-mono-code">FSD-2026-8842</span>
@@ -457,15 +458,15 @@
                     <div class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-4">
                         <h3 class="font-extrabold text-slate-900 text-sm pb-2 border-b border-slate-100">Department Head Actions</h3>
                         <div class="space-y-2.5">
-                            <button onclick="toggleIntakeModal()" class="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-blue-50/60 border border-slate-200 transition-all flex items-center justify-between group">
+                            <button onclick="toggleIntakeModal()" class="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 transition-all flex items-center justify-between group">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">+</div>
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">+</div>
                                     <div>
-                                        <div class="text-xs font-bold text-slate-900 group-hover:text-blue-600">Authorize Case File</div>
+                                        <div class="text-xs font-bold text-slate-900 group-hover:text-emerald-600">Authorize Case File</div>
                                         <div class="text-[10px] text-slate-500">Create high-priority directorate case</div>
                                     </div>
                                 </div>
-                                <svg class="w-4 h-4 text-slate-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                <svg class="w-4 h-4 text-slate-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </button>
 
                             <button onclick="alert('Exporting Certified Directorate Audit Certificate...')" class="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 transition-all flex items-center justify-between group">
@@ -525,7 +526,7 @@
 
                 <div class="pt-3 flex justify-end space-x-3">
                     <button type="button" onclick="toggleIntakeModal()" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/30">Issue Directorate Authorization</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-600/30">Issue Directorate Authorization</button>
                 </div>
             </form>
         </div>
@@ -587,7 +588,7 @@
                     btn = clickedElement.closest('.sidebar-unit-btn');
                 }
                 if (btn) {
-                    btn.className = 'sidebar-unit-btn w-full text-left flex items-center px-3 py-2 rounded-xl text-white bg-blue-600 shadow-sm shadow-blue-600/30 font-bold transition-all';
+                    btn.className = 'sidebar-unit-btn w-full text-left flex items-center px-3 py-2 rounded-xl text-white bg-emerald-600 shadow-sm shadow-emerald-600/30 font-bold transition-all';
                 }
             }
 
@@ -597,7 +598,7 @@
                 const tabText = tab.textContent.trim();
                 if ((unitName === 'all' && tabText.includes('All')) || 
                     (unitName !== 'all' && tabText.toLowerCase() === unitName.toLowerCase())) {
-                    tab.className = 'dept-unit-tab px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold';
+                    tab.className = 'dept-unit-tab px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold';
                 } else {
                     tab.className = 'dept-unit-tab px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50';
                 }

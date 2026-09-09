@@ -41,15 +41,13 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white transition-opacity duration-300 opacity-100">
+<body class="min-h-screen flex flex-col justify-between bg-slate-50 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white transition-opacity duration-300 opacity-100">
 
     <!-- TOP SYSTEM STATUS BAR -->
     <header class="w-full px-6 py-4 flex items-center justify-between border-b border-slate-200 bg-white shadow-2xs">
         <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-md shadow-blue-600/30">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                </svg>
+            <div class="w-10 h-10 rounded-xl bg-white p-0.5 border border-slate-200 flex items-center justify-center shadow-xs overflow-hidden">
+                <img src="{{ asset('NACOC LOGO.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
             </div>
             <div>
                 <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">NACOC FORENSIC DIRECTORATE</div>
@@ -62,10 +60,6 @@
                 <div class="text-xs font-semibold text-slate-800" id="liveClock">2026-09-05 00:00:00 UTC</div>
                 <div class="text-[10px] font-mono-code text-blue-600 font-bold">SECURE REGISTRATION</div>
             </div>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold font-mono-code bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                SYSTEM ONLINE
-            </span>
         </div>
     </header>
 
@@ -75,10 +69,8 @@
             
             <!-- BRAND HEADER INSIGNIA -->
             <div class="text-center space-y-2">
-                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30 mb-1">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
-                    </svg>
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white p-1.5 shadow-md border border-slate-200 mb-1 overflow-hidden">
+                    <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Official Logo" class="w-full h-full object-contain">
                 </div>
                 <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Create Officer Account</h1>
                 <p class="text-xs text-slate-500 max-w-xs mx-auto">
@@ -88,6 +80,21 @@
 
             <!-- MAIN REGISTRATION FORM CARD -->
             <div class="white-card p-6 sm:p-8 rounded-2xl space-y-5">
+                @include('partials.flash')
+
+                @if(!$hasForensicHead)
+                    <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-xs text-amber-900 flex items-start space-x-3 shadow-sm">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-md shadow-amber-500/20">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-extrabold font-mono-code uppercase tracking-wider text-amber-900 text-xs">DIRECTORATE COMMAND MANDATE &bull; REGISTRATION RESTRICTED</div>
+                            <div class="text-[11px] font-semibold text-amber-800 mt-0.5 leading-relaxed">
+                                The <strong>Head of Forensic Directorate</strong> must register first as the primary commanding authority before Unit Heads and Field Operational Staff members can register accounts.
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 
                 @if ($errors->any())
                     <div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-800 flex items-center space-x-2">
@@ -179,24 +186,39 @@
                             </div>
                         </div>
 
-                        <!-- TOGGLE SWITCH: USER IS STAFF -->
-                        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 border border-blue-200 flex items-center justify-center text-blue-600">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        <!-- TOGGLE SWITCH / ROLE BANNER -->
+                        @if(!$hasForensicHead)
+                            <div class="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 rounded-lg bg-amber-500 text-white font-bold flex items-center justify-center shadow-xs">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-extrabold text-amber-900">Mandatory Role: Head of Forensic Directorate</div>
+                                        <div class="text-[10px] text-amber-700 font-medium">Primary System Command Registration</div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div class="text-xs font-bold text-slate-900">User is Staff Member</div>
-                                    <div class="text-[10px] text-slate-500">Toggle ON to assign field operational staff clearance</div>
-                                </div>
+                                <span class="px-2.5 py-1 bg-amber-600 text-white rounded-lg text-[10px] font-extrabold font-mono-code uppercase shadow-xs">DIRECTOR HEAD</span>
                             </div>
+                        @else
+                            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-900">User is Staff Member</div>
+                                        <div class="text-[10px] text-slate-500">Toggle ON to assign field operational staff clearance (Toggle OFF for Unit Head)</div>
+                                    </div>
+                                </div>
 
-                            <!-- TOGGLE SWITCH BUTTON -->
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="isStaffToggle" name="is_staff" checked onchange="toggleStaffStatus(this)" class="sr-only peer">
-                                <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
+                                <!-- TOGGLE SWITCH BUTTON -->
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="isStaffToggle" name="is_staff" checked onchange="toggleStaffStatus(this)" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                </label>
+                            </div>
+                        @endif
 
                         @php
                             $defaultUnit = isset($units) ? $units->first() : null;
@@ -206,86 +228,100 @@
                                 : 'Your unit head has not registered yet';
                         @endphp
 
-                        <!-- ROW 3: UNITS / DIVISION & ASSIGNED UNIT HEAD (READ-ONLY) -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="unitsGrid">
-                            <!-- UNITS (CUSTOM SELECT2-STYLE SEARCHABLE DROPDOWN) -->
-                            <div id="unitsDropdownWrapper" class="col-span-1">
-                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Units / Division <span class="text-red-600 font-bold">*</span></label>
-                                
-                                <!-- SELECT2 CUSTOM DROPDOWN CONTAINER -->
-                                <div class="relative" id="select2Container">
-                                    <!-- Trigger Button -->
-                                    <button 
-                                        type="button" 
-                                        id="select2Trigger" 
-                                        onclick="toggleSelect2Dropdown()" 
-                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 flex items-center justify-between focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all"
-                                    >
-                                        <div class="flex items-center space-x-2 truncate">
-                                            <svg class="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h5m-5 0V7m5 5v6m-5-6v6"/></svg>
-                                            <span id="selectedUnitText" class="font-semibold text-slate-900">{{ $defaultUnitName }}</span>
-                                        </div>
-                                        <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" id="select2Arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                    </button>
-
-                                    <input type="hidden" id="selectedUnitInput" name="unit" value="{{ $defaultUnitName }}">
-
-                                    <!-- Select2 Searchable Dropdown Popup -->
-                                    <div id="select2Menu" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-50 overflow-hidden">
-                                        
-                                        <!-- Search Input -->
-                                        <div class="p-2 border-b border-slate-200 bg-slate-50">
-                                            <div class="relative">
-                                                <input 
-                                                    type="text" 
-                                                    id="select2SearchInput" 
-                                                    onkeyup="filterSelect2Options()" 
-                                                    placeholder="Search unit name..." 
-                                                    class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 font-mono-code"
-                                                >
-                                                <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                            </div>
-                                        </div>
-
-                                        <!-- Option List (Fetched dynamically from PostgreSQL) -->
-                                        <div class="max-h-48 overflow-y-auto divide-y divide-slate-100 py-1" id="select2OptionsList">
-                                            @if(isset($units) && count($units) > 0)
-                                                @foreach($units as $u)
-                                                    <div onclick="selectUnitOption('{{ $u->name }}')" class="select2-option px-3.5 py-2.5 hover:bg-blue-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
-                                                        <span>{{ $u->name }}</span>
-                                                        <span class="text-[10px] text-blue-600 font-mono-code font-bold">{{ $u->category }}</span>
-                                                    </div>
-                                                @endforeach
-                                            @else
-                                                <div onclick="selectUnitOption('Crime Scene Support')" class="select2-option px-3.5 py-2.5 hover:bg-blue-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
-                                                    <span>Crime Scene Support</span>
-                                                    <span class="text-[10px] text-blue-600 font-mono-code font-bold">FIELD OPS</span>
-                                                </div>
-                                            @endif
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- ASSIGNED UNIT HEAD (ONLY SHOWN WHEN USER IS STAFF MEMBER) -->
-                            <div id="unitHeadContainer" class="col-span-1 transition-all duration-200">
-                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Assigned Unit Head</label>
+                        <!-- ROW 3: UNITS / DIVISION & ASSIGNED UNIT HEAD -->
+                        @if(!$hasForensicHead)
+                            <div class="col-span-1 sm:col-span-2">
+                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Assigned Directorate / Division</label>
                                 <div class="relative">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-600">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-600">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h5m-5 0V7m5 5v6m-5-6v6"/></svg>
                                     </div>
-                                    <input 
-                                        type="text" 
-                                        id="unitHeadInput" 
-                                        name="unit_head" 
-                                        readonly 
-                                        value="{{ $defaultHeadDisplay }}" 
-                                        class="w-full pl-9 pr-3.5 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-xs text-slate-800 font-semibold font-mono-code cursor-not-allowed select-none focus:outline-none transition-all"
-                                    >
+                                    <input type="text" readonly value="Forensic Directorate" class="w-full pl-10 pr-4 py-2.5 bg-amber-50/80 border border-amber-300 rounded-xl text-xs font-extrabold font-mono-code text-amber-900 cursor-not-allowed select-none">
+                                    <input type="hidden" name="unit" value="Forensic Directorate">
                                 </div>
                             </div>
-                        </div>
+                        @else
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="unitsGrid">
+                                <!-- UNITS (CUSTOM SELECT2-STYLE SEARCHABLE DROPDOWN) -->
+                                <div id="unitsDropdownWrapper" class="col-span-1">
+                                    <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Units / Division <span class="text-red-600 font-bold">*</span></label>
+                                    
+                                    <!-- SELECT2 CUSTOM DROPDOWN CONTAINER -->
+                                    <div class="relative" id="select2Container">
+                                        <!-- Trigger Button -->
+                                        <button 
+                                            type="button" 
+                                            id="select2Trigger" 
+                                            onclick="toggleSelect2Dropdown()" 
+                                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 flex items-center justify-between focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all"
+                                        >
+                                            <div class="flex items-center space-x-2 truncate">
+                                                <svg class="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m0 0h5m-5 0V7m5 5v6m-5-6v6"/></svg>
+                                                <span id="selectedUnitText" class="font-semibold text-slate-900">{{ $defaultUnitName }}</span>
+                                            </div>
+                                            <svg class="w-4 h-4 text-slate-400 transition-transform duration-200" id="select2Arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+
+                                        <input type="hidden" id="selectedUnitInput" name="unit" value="{{ $defaultUnitName }}">
+
+                                        <!-- Select2 Searchable Dropdown Popup -->
+                                        <div id="select2Menu" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-slate-300 rounded-xl shadow-xl z-50 overflow-hidden">
+                                            
+                                            <!-- Search Input -->
+                                            <div class="p-2 border-b border-slate-200 bg-slate-50">
+                                                <div class="relative">
+                                                    <input 
+                                                        type="text" 
+                                                        id="select2SearchInput" 
+                                                        onkeyup="filterSelect2Options()" 
+                                                        placeholder="Search unit name..." 
+                                                        class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 font-mono-code"
+                                                        class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 font-mono-code"
+                                                    >
+                                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </div>
+                                            </div>
+
+                                            <!-- Option List (Fetched dynamically from database) -->
+                                            <div class="max-h-48 overflow-y-auto divide-y divide-slate-100 py-1" id="select2OptionsList">
+                                                @if(isset($units) && count($units) > 0)
+                                                    @foreach($units as $u)
+                                                        <div onclick="selectUnitOption('{{ $u->name }}')" class="select2-option px-3.5 py-2.5 hover:bg-emerald-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
+                                                            <span>{{ $u->name }}</span>
+                                                            <span class="text-[10px] text-emerald-600 font-mono-code font-bold">{{ $u->category }}</span>
+                                                        </div>
+                                                    @endforeach
+                                                @else
+                                                    <div onclick="selectUnitOption('Crime Scene Support')" class="select2-option px-3.5 py-2.5 hover:bg-emerald-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
+                                                        <span>Crime Scene Support</span>
+                                                        <span class="text-[10px] text-emerald-600 font-mono-code font-bold">FIELD OPS</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ASSIGNED UNIT HEAD (ONLY SHOWN WHEN USER IS STAFF MEMBER) -->
+                                <div id="unitHeadContainer" class="col-span-1 transition-all duration-200">
+                                    <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Assigned Unit Head</label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-blue-600">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            id="unitHeadInput" 
+                                            name="unit_head" 
+                                            readonly 
+                                            value="{{ $defaultHeadDisplay }}" 
+                                            class="w-full pl-9 pr-3.5 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-xs text-slate-800 font-semibold font-mono-code cursor-not-allowed select-none focus:outline-none transition-all"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
 
                         <!-- PASSWORD & CONFIRM PASSWORD WITH STRENGTH BAR -->
                         <div class="space-y-3">
@@ -374,12 +410,12 @@
                         <button 
                             type="submit" 
                             id="regSubmitBtn" 
-                            class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-blue-600/25 border border-blue-500 transition-all hover:scale-[1.01] flex items-center justify-center space-x-2 cursor-pointer mt-2"
+                            class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/25 border border-emerald-500 transition-all hover:scale-[1.01] flex items-center justify-center space-x-2 cursor-pointer mt-2"
                         >
                             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
                             </svg>
-                            <span id="regBtnText">Create Service Account</span>
+                            <span id="regBtnText">{{ !$hasForensicHead ? 'Register as Head of Forensic' : 'Create Service Account' }}</span>
                         </button>
 
                         <!-- LOGIN LINK -->
@@ -397,8 +433,7 @@
 
             <!-- SECURITY BADGE FOOTER -->
             <div class="text-center text-[11px] text-slate-500 font-mono-code">
-                NACOC FORENSIC DIRECTORATE &bull; HQ ACCRA, GHANA<br>
-                <span>ISO/IEC 17025 ACCREDITED LAW ENFORCEMENT LAB</span>
+                NACOC FORENSIC DIRECTORATE &bull; HQ ACCRA, GHANA
             </div>
 
         </div>
@@ -518,9 +553,9 @@
                 text.className = 'font-bold text-amber-600';
             } else if (score === 3) {
                 bar.style.width = '75%';
-                bar.className = 'h-1.5 bg-blue-500 transition-all duration-300 rounded-full';
+                bar.className = 'h-1.5 bg-emerald-500 transition-all duration-300 rounded-full';
                 text.innerText = 'Good';
-                text.className = 'font-bold text-blue-600';
+                text.className = 'font-bold text-emerald-600';
             } else if (score === 4) {
                 bar.style.width = '100%';
                 bar.className = 'h-1.5 bg-emerald-500 transition-all duration-300 rounded-full';

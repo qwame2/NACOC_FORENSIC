@@ -13,9 +13,65 @@ Route::post('/register', [AuthController::class, 'register']);
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+use App\Http\Controllers\CaseController;
+use App\Models\User;
+use App\Models\ForensicCase;
+
 Route::get('/Forensic_Head', function () {
-    return view('Forensic_Head.head');
+    $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+    $pendingCasesCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count();
+    $pendingCount = User::where('is_approved', false)->count();
+    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
 });
+
+Route::get('/Forensic_Head/cases', function () {
+    $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+    $pendingCasesCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count();
+    $pendingCount = User::where('is_approved', false)->count();
+    return view('Forensic_Head.cases', compact('cases', 'pendingCasesCount', 'pendingCount'));
+});
+
+Route::get('/cases', function () {
+    $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+    return view('cases.landing', compact('cases'));
+});
+
+Route::get('/api/cases', [CaseController::class, 'index']);
+Route::get('/cases/{id}/review', [CaseController::class, 'showReview'])->name('cases.review');
+Route::get('/Forensic_Head/cases/{id}/review', [CaseController::class, 'showReview']);
+Route::get('/cases/{id}/pdf', [CaseController::class, 'showPdf'])->name('cases.pdf');
+Route::get('/Forensic_Head/cases/{id}/pdf', [CaseController::class, 'showPdf']);
+Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
+Route::post('/cases/batch-approve', [CaseController::class, 'batchApprove']);
+Route::post('/cases/{id}/approve', [CaseController::class, 'approve']);
+Route::post('/cases/{id}/decline', [CaseController::class, 'decline']);
+
+Route::get('/Forensic_Head/approvals', function (\Illuminate\Http\Request $request) {
+    $users = User::orderBy('created_at', 'desc')->get();
+
+    $pendingCount = User::where('is_approved', false)->count();
+    $activeCount = User::where('is_approved', true)->count();
+    $headsCount = User::where('is_head', true)->count();
+    $totalCount = User::count();
+
+    $pendingCasesCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count();
+
+    if ($request->wantsJson()) {
+        return response()->json(compact('users', 'pendingCount', 'activeCount', 'headsCount', 'totalCount', 'pendingCasesCount'));
+    }
+
+    return view('Forensic_Head.approvals', compact(
+        'users',
+        'pendingCount',
+        'activeCount',
+        'headsCount',
+        'totalCount',
+        'pendingCasesCount'
+    ));
+});
+
+Route::post('/Forensic_Head/users/{id}/approve', [AuthController::class, 'approveUser']);
+Route::post('/Forensic_Head/users/{id}/deactivate', [AuthController::class, 'deactivateUser']);
 
 Route::get('/Crime_Scene_Support', function () {
     return view('Crime_Scene_Support.head.head');
@@ -83,15 +139,13 @@ Route::get('/crime-scene-support', function () {
     return view('Crime_Scene_Support.head.head');
 });
 
-// MASTER CASE DIRECTORY LANDING PAGE
-Route::get('/cases', function () {
-    return view('cases.landing');
-});
-
+// MASTER CASE DIRECTORY LANDING PAGES
 Route::get('/cases/landing', function () {
-    return view('cases.landing');
+    $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+    return view('cases.landing', compact('cases'));
 });
 
 Route::get('/Crime_Scene_Support/cases', function () {
-    return view('cases.landing');
+    $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+    return view('cases.landing', compact('cases'));
 });

@@ -40,8 +40,34 @@ class AuthController extends Controller
             ->first();
 
         if ($user && Hash::check($password, $user->password)) {
+            $isForensicHead = $user->is_head && (
+                $user->unit === 'Forensic Directorate' ||
+                $user->unit === 'Forensic Head' ||
+                $user->unit === 'Directorate Head' ||
+                str_contains($user->unit, 'Forensic Directorate')
+            );
+
+            // Block Unit Head login if account is not approved by Head of Forensic Directorate
+            if ($user->is_head && !$isForensicHead && isset($user->is_approved) && !$user->is_approved) {
+                return back()->withErrors([
+                    'login_id' => 'Account Pending Approval: Your Unit Head registration has been submitted to the Head of Forensic Directorate for approval. You cannot log in until your account is approved.',
+                ])->onlyInput('login_id');
+            }
+
             Auth::login($user, $request->has('remember'));
             $request->session()->regenerate();
+
+            if ($isForensicHead) {
+                return redirect()->intended('/Forensic_Head')->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate Command Portal.');
+            }
+
+            if ($user->is_head) {
+                return redirect()->intended('/Crime_Scene_Support/head')->with('status', 'Login Successful! Welcome to Unit Command Portal.');
+            }
+
+            if ($user->is_staff) {
+                return redirect()->intended('/Crime_Scene_Support/staff')->with('status', 'Login Successful! Welcome to Field Operations Portal.');
+            }
 
             return redirect()->intended('/cases')->with('status', 'Login Successful! Welcome to NACOC Master Case Directory.');
         }
@@ -53,20 +79,57 @@ class AuthController extends Controller
 
     /**
      * Show the registration form with dynamic units from database.
+     * Enforces Head of Forensic to register first.
      */
     public function showRegister()
     {
         $units = Unit::all();
         $registeredHeads = User::where('is_head', true)->pluck('fullname', 'unit')->toArray();
 
-        return view('auth.register', compact('units', 'registeredHeads'));
+        // Check if Head of Forensic has registered
+        $forensicHead = User::where('is_head', true)
+            ->where(function($q) {
+                $q->where('unit', 'Forensic Directorate')
+                  ->orWhere('unit', 'Forensic Head')
+                  ->orWhere('unit', 'Directorate Head')
+                  ->orWhere('unit', 'LIKE', '%Forensic Directorate%');
+            })
+            ->first();
+
+        $hasForensicHead = !is_null($forensicHead);
+
+        return view('auth.register', compact('units', 'registeredHeads', 'hasForensicHead', 'forensicHead'));
     }
 
     /**
-     * Handle officer registration and save to PostgreSQL database.
+     * Handle officer registration and save to database.
+     * Enforces Head of Forensic first registration mandate.
      */
     public function register(Request $request)
     {
+        $forensicHeadExists = User::where('is_head', true)
+            ->where(function($q) {
+                $q->where('unit', 'Forensic Directorate')
+                  ->orWhere('unit', 'Forensic Head')
+                  ->orWhere('unit', 'Directorate Head')
+                  ->orWhere('unit', 'LIKE', '%Forensic Directorate%');
+            })
+            ->exists();
+
+        if (!$forensicHeadExists) {
+            // Force Head of Forensic registration parameters
+            $request->merge([
+                'unit' => 'Forensic Directorate',
+            ]);
+        } else {
+            // Head of Forensic already exists. Prevent creating another Forensic Head account
+            if ($request->input('unit') === 'Forensic Directorate') {
+                throw ValidationException::withMessages([
+                    'unit' => 'The Head of Forensic Directorate has already registered. Please select a specialized unit.',
+                ]);
+            }
+        }
+
         $validated = $request->validate([
             'fullname' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
@@ -102,21 +165,31 @@ class AuthController extends Controller
             }
         }
 
-        $isStaff = $request->has('is_staff');
+        $isStaff = !$forensicHeadExists ? false : $request->has('is_staff');
+        $isHead = !$isStaff;
+        // Unit Heads require Head of Forensic Directorate approval first before logging in
+        $isApproved = !$forensicHeadExists ? true : ($isHead ? false : true);
 
-        // Create new officer user in PostgreSQL
+        // Create officer user in database
         $user = User::create([
             'fullname' => $validated['fullname'],
             'username' => $validated['username'],
             'service_id' => $validated['service_id'],
             'phone_number' => $validated['phone_number'],
             'is_staff' => $isStaff,
-            'is_head' => !$isStaff,
+            'is_head' => $isHead,
+            'is_approved' => $isApproved,
             'unit' => $validated['unit'],
             'password' => Hash::make($validated['password']),
         ]);
 
-        return redirect('/login')->with('status', 'Registration successful! Please sign in with your Service ID or Username.');
+        $statusMsg = !$forensicHeadExists
+            ? 'Head of Forensic registration successful! Directorate command established. Unit Heads and Staff may now sign up.'
+            : ($isHead
+                ? 'Unit Head registration submitted! Your account has been forwarded to the Head of Forensic Directorate for approval first before you can log in.'
+                : 'Registration successful! Please sign in with your Service ID or Username.');
+
+        return redirect('/login')->with('status', $statusMsg);
     }
 
     /**
@@ -129,5 +202,33 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/login')->with('status', 'Officer logged out successfully.');
+    }
+
+    /**
+     * Approve and activate a Unit Head or Officer account.
+     */
+    public function approveUser($id)
+    {
+        $user = User::find($id);
+        if ($user) {
+            $user->is_approved = true;
+            $user->save();
+            return response()->json(['success' => true, 'message' => 'Account approved and activated.']);
+        }
+        return response()->json(['success' => false, 'message' => 'User not found.'], 404);
+    }
+
+    /**
+     * Deactivate a user account.
+     */
+    public function deactivateUser($id)
+    {
+        $user = User::find($id);
+        if ($user) {
+            $user->is_approved = false;
+            $user->save();
+            return response()->json(['success' => true, 'message' => 'Account access deactivated.']);
+        }
+        return response()->json(['success' => false, 'message' => 'User not found.'], 404);
     }
 }

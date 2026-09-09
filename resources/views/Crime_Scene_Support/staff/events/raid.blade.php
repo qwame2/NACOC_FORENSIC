@@ -73,7 +73,7 @@
                             </button>
                             <div id="sidebarEventMenu" class="pl-6 pr-1 py-1 space-y-1">
                                 <a href="{{ url('/Crime_Scene_Support/staff/cargo-parcel-interception') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 mr-2"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span>
                                     Cargo/Parcel Interception
                                 </a>
                                 <a href="{{ url('/Crime_Scene_Support/staff/raid') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-bold text-white bg-red-600 rounded-lg flex items-center shadow-xs">

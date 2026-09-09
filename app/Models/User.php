@@ -25,6 +25,7 @@ class User extends Authenticatable
         'phone_number',
         'is_staff',
         'is_head',
+        'is_approved',
         'unit',
         'email',
         'password',
@@ -50,6 +51,7 @@ class User extends Authenticatable
         return [
             'is_staff' => 'boolean',
             'is_head' => 'boolean',
+            'is_approved' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];

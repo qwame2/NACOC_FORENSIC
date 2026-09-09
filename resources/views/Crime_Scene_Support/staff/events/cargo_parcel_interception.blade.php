@@ -39,15 +39,15 @@
         <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800 select-none">
             <div class="h-16 px-5 flex items-center justify-between border-b border-slate-800/80 bg-slate-950">
                 <a href="{{ url('/Crime_Scene_Support/staff') }}" class="flex items-center space-x-3 group">
-                    <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-600/30">
+                    <div class="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold shadow-md shadow-emerald-600/30">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     </div>
                     <div>
                         <div class="font-extrabold text-white tracking-wider text-xs font-mono-code leading-none mb-1">CRIME SCENE SUPPORT</div>
-                        <div class="text-[10px] text-blue-400 font-semibold uppercase">CARGO INTERCEPTION</div>
+                        <div class="text-[10px] text-emerald-400 font-semibold uppercase">CARGO INTERCEPTION</div>
                     </div>
                 </a>
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono-code bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     EVENT
                 </span>
             </div>
@@ -64,15 +64,15 @@
 
                         <!-- EVENT DROPDOWN ACTIVE -->
                         <div class="relative">
-                            <button type="button" onclick="toggleSidebarEventMenu()" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-white bg-blue-600/30 border border-blue-500/40 transition-colors">
+                            <button type="button" onclick="toggleSidebarEventMenu()" class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-white bg-emerald-600/30 border border-emerald-500/40 transition-colors">
                                 <div class="flex items-center">
-                                    <svg class="w-5 h-5 mr-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    <svg class="w-5 h-5 mr-3 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                     <span class="text-xs font-bold">Event Pages</span>
                                 </div>
-                                <svg id="sidebarEventChevron" class="w-4 h-4 text-blue-400 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                <svg id="sidebarEventChevron" class="w-4 h-4 text-emerald-400 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
                             <div id="sidebarEventMenu" class="pl-6 pr-1 py-1 space-y-1">
-                                <a href="{{ url('/Crime_Scene_Support/staff/cargo-parcel-interception') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-bold text-white bg-blue-600 rounded-lg flex items-center shadow-xs">
+                                <a href="{{ url('/Crime_Scene_Support/staff/cargo-parcel-interception') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 rounded-lg flex items-center shadow-xs">
                                     <span class="w-1.5 h-1.5 rounded-full bg-white mr-2"></span>
                                     Cargo/Parcel Interception
                                 </a>
@@ -101,10 +101,10 @@
             <!-- PROFILE -->
             <div class="p-3.5 bg-slate-950 border-t border-slate-800">
                 <div class="flex items-center space-x-3 px-2 py-1">
-                    <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-xs text-white">SM</div>
+                    <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-bold text-xs text-white">SM</div>
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-bold text-white truncate">Insp. Samuel Mensah</div>
-                        <div class="text-[10px] text-blue-400 font-mono-code font-bold truncate">Field Investigator / Staff</div>
+                        <div class="text-[10px] text-emerald-400 font-mono-code font-bold truncate">Field Investigator / Staff</div>
                     </div>
                 </div>
             </div>
@@ -114,10 +114,10 @@
         <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
             <header class="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 shadow-2xs">
                 <div class="flex items-center flex-1 max-w-lg">
-                    <input type="text" placeholder="Search Cargo Waybill, Container #, X-Ray Scan Ref..." class="w-full pl-4 pr-4 py-2 bg-slate-100/70 border border-slate-200 rounded-xl text-xs font-mono-code focus:outline-none focus:bg-white focus:border-blue-600">
+                    <input type="text" placeholder="Search Cargo Waybill, Container #, X-Ray Scan Ref..." class="w-full pl-4 pr-4 py-2 bg-slate-100/70 border border-slate-200 rounded-xl text-xs font-mono-code focus:outline-none focus:bg-white focus:border-emerald-600">
                 </div>
                 <div class="flex items-center space-x-3">
-                    <button onclick="alert('Initiating Port X-Ray Scan Log...')" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs">
+                    <button onclick="alert('Initiating Port X-Ray Scan Log...')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs">
                         + Log Cargo Interception
                     </button>
                 </div>
@@ -128,14 +128,14 @@
                 <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs flex justify-between items-center">
                     <div>
                         <div class="flex items-center space-x-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">EVENT PAGE</span>
+                            <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">EVENT PAGE</span>
                             <span class="text-xs text-slate-400">&bull;</span>
-                            <span class="text-xs font-bold text-blue-600 font-mono-code">MARITIME &amp; AVIATION FREIGHT</span>
+                            <span class="text-xs font-bold text-emerald-600 font-mono-code">MARITIME &amp; AVIATION FREIGHT</span>
                         </div>
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Cargo &amp; Parcel Interception Portal</h1>
                         <p class="text-xs text-slate-500 mt-1">Inspection &amp; Tamper-Sealed Bagging for Intercepted Shipping Containers, Air Freight &amp; Postal Parcels</p>
                     </div>
-                    <span class="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 font-mono-code font-bold text-xs border border-blue-200">
+                    <span class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-mono-code font-bold text-xs border border-emerald-200">
                         12 Active Seizures
                     </span>
                 </div>

@@ -47,7 +47,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white">
 
     <!-- SYSTEM APP CONTAINER WITH SIDEBAR & MAIN WORKSPACE -->
     <div class="flex h-screen overflow-hidden">
@@ -97,7 +97,7 @@
                             <!-- DROPDOWN BUTTONS -->
                             <div id="sidebarEventMenu" class="hidden pl-6 pr-1 py-1 space-y-1">
                                 <a href="{{ url('/Crime_Scene_Support/staff/cargo-parcel-interception') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 mr-2"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span>
                                     Cargo/Parcel Interception
                                 </a>
                                 <a href="{{ url('/Crime_Scene_Support/staff/raid') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
@@ -193,6 +193,7 @@
 
             <!-- MAIN WORKSPACE VIEW -->
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
+                @include('partials.flash')
 
                 <!-- STAFF HEADER BANNER -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs">
@@ -235,12 +236,12 @@
                     <div class="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold font-mono-code uppercase text-slate-500">Exhibits Logged Today</span>
-                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 01-2 2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
                             </div>
                         </div>
                         <div class="mt-3">
-                            <div class="text-2xl font-extrabold text-blue-600 font-mono-code tracking-tight">18 Bags</div>
+                            <div class="text-2xl font-extrabold text-emerald-600 font-mono-code tracking-tight">18 Bags</div>
                             <div class="text-[11px] font-semibold text-slate-500 mt-1">
                                 <span>Barcoded &amp; Tamper-Sealed</span>
                             </div>
@@ -301,7 +302,7 @@
                                     <span class="w-2 h-2 rounded-full bg-slate-400 mr-2"></span> All Events
                                 </button>
                                 <button type="button" onclick="selectEvent('Cargo/Parcel Interception')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-blue-500 mr-2"></span> Cargo/Parcel Interception
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> Cargo/Parcel Interception
                                 </button>
                                 <button type="button" onclick="selectEvent('Raid')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
                                     <span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span> Raid
@@ -342,7 +343,7 @@
                                         <div class="text-[10px] text-slate-400 font-mono-code">Assigned: 2026-09-04</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                             Cargo/Parcel Interception
                                         </span>
                                     </td>
@@ -365,7 +366,7 @@
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
                                         <button onclick="toggleEvidenceModal()" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">+ Bag Exhibit</button>
-                                        <button onclick="submitToHead('CSS-2026-0912')" class="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
+                                        <button onclick="submitToHead('CSS-2026-0912')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
                                     </td>
                                 </tr>
 
@@ -393,13 +394,13 @@
                                         <div class="text-[10px] text-slate-400">Camera Active</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200" id="staff-status-CSS-2026-0914">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" id="staff-status-CSS-2026-0914">
                                             In-Progress
                                         </span>
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
                                         <button onclick="toggleScanModal()" class="px-2.5 py-1 bg-purple-600 text-white hover:bg-purple-700 rounded-lg text-[11px] font-bold shadow-2xs">Upload 3D</button>
-                                        <button onclick="submitToHead('CSS-2026-0914')" class="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
+                                        <button onclick="submitToHead('CSS-2026-0914')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
                                     </td>
                                 </tr>
 

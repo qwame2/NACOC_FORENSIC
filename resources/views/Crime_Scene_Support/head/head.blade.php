@@ -46,7 +46,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white">
 
     <!-- SYSTEM APP CONTAINER WITH SIDEBAR & MAIN WORKSPACE -->
     <div class="flex h-screen overflow-hidden">
@@ -70,7 +70,7 @@
                             type="text" 
                             id="globalSearch"
                             placeholder="Head Search: Field Incident ID, Officer Name, GPS Coordinates..." 
-                            class="w-full pl-10 pr-12 py-2 bg-slate-100/70 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono-code focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all"
+                            class="w-full pl-10 pr-12 py-2 bg-slate-100/70 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono-code focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/15 transition-all"
                         >
                         <span class="absolute inset-y-0 right-0 flex items-center pr-3">
                             <kbd class="px-1.5 py-0.5 text-[10px] font-mono-code font-semibold text-slate-400 bg-white rounded border border-slate-200 shadow-2xs">Ctrl K</kbd>
@@ -83,7 +83,7 @@
 
 
                     <!-- ACTION BUTTON -->
-                    <button onclick="toggleDispatchModal()" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm shadow-blue-600/25 transition-all">
+                    <button onclick="toggleDispatchModal()" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm shadow-emerald-600/25 transition-all">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span>Dispatch Field Team</span>
                     </button>
@@ -92,6 +92,7 @@
 
             <!-- MAIN WORKSPACE VIEW -->
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
+                @include('partials.flash')
 
                 <!-- UNIT HEAD HEADER BANNER -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-100 p-6 rounded-2xl border-none shadow-xl">
@@ -102,7 +103,7 @@
 
                     <div class="flex items-center space-x-3">
                         <button onclick="alert('Exporting Unit Head Field Summary PDF...')" class="inline-flex items-center px-3.5 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all">
-                            <svg class="w-4 h-4 mr-1.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <svg class="w-4 h-4 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             Export Head Report
                         </button>
                     </div>
@@ -114,7 +115,7 @@
                     <div class="bg-slate-100 p-5 rounded-2xl border-none shadow-xl hover:shadow-2xl transition-all flex flex-col justify-between">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold font-mono-code uppercase text-slate-500">Active Field Operations</span>
-                            <div class="w-8 h-8 rounded-lg bg-blue-100/70 text-blue-700 flex items-center justify-center shadow-xs">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-100/70 text-emerald-700 flex items-center justify-center shadow-xs">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             </div>
                         </div>
@@ -252,7 +253,7 @@
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
                                         <button onclick="viewHeadDetails('CSS-2026-0908')" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">Inspect 3D</button>
-                                        <button onclick="alert('Transferring Exhibits to Evidence Unit...')" class="px-2.5 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-[11px] font-bold shadow-2xs">Transfer Unit</button>
+                                        <button onclick="alert('Transferring Exhibits to Evidence Unit...')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Transfer Unit</button>
                                     </td>
                                 </tr>
 
@@ -301,7 +302,7 @@
 
                 <div class="pt-3 flex justify-end space-x-3">
                     <button type="button" onclick="toggleDispatchModal()" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-sm shadow-blue-600/30">Issue Field Authorization</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-sm shadow-emerald-600/30">Issue Field Authorization</button>
                 </div>
             </form>
         </div>
@@ -381,7 +382,7 @@
                     <div class="text-[10px] text-slate-400">Field Scanning</div>
                 </td>
                 <td class="py-4 px-5">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         Dispatch Active
                     </span>
                 </td>
@@ -402,6 +403,75 @@
                 document.getElementById('globalSearch').focus();
             }
         });
+
+        /* ── 3-Second Real-Time Polling Interval ─────── */
+        async function pollUnitHeadCasesTable() {
+            try {
+                const dispatchModal = document.getElementById('dispatchModal');
+                const headDetailsModal = document.getElementById('headDetailsModal');
+                if ((dispatchModal && !dispatchModal.classList.contains('hidden')) ||
+                    (headDetailsModal && !headDetailsModal.classList.contains('hidden'))) {
+                    return;
+                }
+
+                const res = await fetch('/api/cases', { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) return;
+                const cases = await res.json();
+                if (!Array.isArray(cases)) return;
+
+                const tbody = document.getElementById('headTableBody');
+                if (!tbody) return;
+
+                const searchQuery = (document.getElementById('globalSearch')?.value || '').toLowerCase().trim();
+
+                let html = '';
+                if (cases.length === 0) {
+                    html = `<tr><td colspan="6" class="py-8 text-center text-slate-500 font-mono-code text-xs">No unit cases found in database.</td></tr>`;
+                } else {
+                    cases.forEach(c => {
+                        const createdDate = c.created_at ? c.created_at.slice(0, 16).replace('T', ' ') : new Date().toISOString().slice(0, 16).replace('T', ' ');
+                        const isApproved = ['Approved', 'Authorized', 'Court Ready', 'Completed'].includes(c.status);
+
+                        let statusBadge = isApproved
+                            ? `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Approved by Unit Head</span>`
+                            : `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200" id="status-${c.case_number}">Awaiting Head Approval</span>`;
+
+                        let actionBtns = isApproved
+                            ? `<button onclick="viewHeadDetails('${c.case_number}')" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">Inspect 3D</button> <a href="/cases/${c.case_number}/review" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs inline-block">Review Dossier</a>`
+                            : `<button onclick="viewHeadDetails('${c.case_number}')" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">Inspect 3D</button> <button onclick="approveHeadDossier('${c.case_number}')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Approve Dossier</button>`;
+
+                        const rowText = `${c.case_number} ${c.title} ${c.location} ${c.submitting_officer}`.toLowerCase();
+                        const matchesSearch = !searchQuery || rowText.includes(searchQuery);
+
+                        html += `<tr class="hover:bg-slate-50/80 transition-colors" style="${matchesSearch ? '' : 'display:none;'}">
+                            <td class="py-4 px-5">
+                                <div class="font-bold text-slate-900 font-mono-code text-sm">${c.case_number}</div>
+                                <div class="text-[10px] text-slate-400 font-mono-code">Submitted: ${createdDate}</div>
+                            </td>
+                            <td class="py-4 px-5 max-w-xs">
+                                <div class="font-semibold text-slate-800">${c.location || c.raid_location || 'Theme Harbour Terminal'}</div>
+                                <div class="text-[11px] text-slate-500 truncate">${c.title || 'Field Incident Record'}</div>
+                            </td>
+                            <td class="py-4 px-5">
+                                <div class="font-bold text-slate-800">${c.submitting_officer || c.commanding_officer || 'Field Lead'}</div>
+                                <div class="text-[10px] text-slate-400">Senior Field Lead</div>
+                            </td>
+                            <td class="py-4 px-5">
+                                <div class="text-purple-700 font-bold font-mono-code">LiDAR-3D #${c.case_number.slice(-4)}</div>
+                                <div class="text-[10px] text-slate-400">${c.exhibits_summary || 'Exhibits Bagged'}</div>
+                            </td>
+                            <td class="py-4 px-5">${statusBadge}</td>
+                            <td class="py-4 px-5 text-right space-x-2">${actionBtns}</td>
+                        </tr>`;
+                    });
+                }
+
+                tbody.innerHTML = html;
+            } catch (e) {
+                console.warn('Unit head polling failed:', e);
+            }
+        }
+        setInterval(pollUnitHeadCasesTable, 3000);
     </script>
 </body>
 </html>

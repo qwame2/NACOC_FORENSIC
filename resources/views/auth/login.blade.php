@@ -33,15 +33,13 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white transition-opacity duration-300 opacity-100">
+<body class="min-h-screen flex flex-col justify-between bg-slate-50 text-slate-900 antialiased selection:bg-emerald-600 selection:text-white transition-opacity duration-300 opacity-100">
 
     <!-- TOP SYSTEM STATUS BAR (WHITE THEME) -->
     <header class="w-full px-6 py-4 flex items-center justify-between border-b border-slate-200 bg-white shadow-2xs">
         <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-md shadow-blue-600/30">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                </svg>
+            <div class="w-10 h-10 rounded-xl bg-white p-0.5 border border-slate-200 flex items-center justify-center shadow-xs overflow-hidden">
+                <img src="{{ asset('NACOC LOGO.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
             </div>
             <div>
                 <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">NACOC FORENSIC DIRECTORATE</div>
@@ -54,10 +52,6 @@
                 <div class="text-xs font-semibold text-slate-800" id="liveClock">2026-09-05 00:00:00 UTC</div>
                 <div class="text-[10px] font-mono-code text-blue-600 font-bold">SECURE PORTAL v4.2</div>
             </div>
-            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold font-mono-code bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                SYSTEM ONLINE
-            </span>
         </div>
     </header>
 
@@ -67,10 +61,8 @@
             
             <!-- BRAND HEADER INSIGNIA -->
             <div class="text-center space-y-2">
-                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/30 mb-1">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white p-1.5 shadow-md border border-slate-200 mb-1 overflow-hidden">
+                    <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Official Logo" class="w-full h-full object-contain">
                 </div>
                 <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Sign In to Forensic Portal</h1>
                 <p class="text-xs text-slate-500 max-w-xs mx-auto">
@@ -83,17 +75,7 @@
             <!-- MAIN LOGIN CARD (WHITE CARD) -->
             <div class="white-card p-6 sm:p-8 rounded-2xl space-y-5">
 
-                @if (session('status'))
-                    <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center space-x-3 shadow-xs">
-                        <div class="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
-                            <svg class="w-4.5 h-4.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        </div>
-                        <div class="flex-1">
-                            <div class="font-bold text-emerald-900 leading-tight">Registration Successful</div>
-                            <div class="text-[11px] text-emerald-700 font-medium mt-0.5">{{ session('status') }}</div>
-                        </div>
-                    </div>
-                @endif
+                @include('partials.flash')
 
                 @if ($errors->any())
                     <div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-800 flex items-center space-x-2">
@@ -172,7 +154,7 @@
                         <button 
                             type="submit" 
                             id="submitBtn" 
-                            class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-blue-600/25 border border-blue-500 transition-all hover:scale-[1.01] flex items-center justify-center space-x-2 cursor-pointer mt-2"
+                            class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/25 border border-emerald-500 transition-all hover:scale-[1.01] flex items-center justify-center space-x-2 cursor-pointer mt-2"
                         >
                             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
@@ -216,10 +198,69 @@
         </div>
     </footer>
 
+    <!-- ACCOUNT APPROVED BY HEAD OF FORENSIC DIRECTORATE POPOVER MODAL CONTAINER -->
+    <div id="loginAccountApprovedPopoverModal" class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300">
+        <div class="bg-white rounded-3xl border border-emerald-500/30 shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 relative transform transition-all scale-100">
+            
+            <!-- HEADER -->
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 p-1 border border-emerald-200 flex items-center justify-center shadow-xs overflow-hidden">
+                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono-code font-bold text-[10px] uppercase tracking-wider">
+                            DIRECTORATE COMMAND NOTIFICATION
+                        </span>
+                        <div class="text-xs font-black text-slate-900 mt-0.5">HEAD OF FORENSIC DIRECTORATE</div>
+                    </div>
+                </div>
+                <button onclick="closeLoginApprovedPopover()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-lg font-bold cursor-pointer transition-colors">&times;</button>
+            </div>
+
+            <!-- CONTENT -->
+            <div class="text-center space-y-3 py-2">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 shadow-inner mb-1">
+                    <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                
+                <h3 class="text-xl font-black text-slate-900 tracking-tight leading-snug">
+                    Account Approved by Head of Forensic Directorate!
+                </h3>
+                
+                <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                    Your user account has been officially reviewed, verified, and approved by the Head of Forensic Directorate. You are now authorized to sign in to the NACOC Forensic Portal.
+                </p>
+            </div>
+
+            <!-- STATUS BOX -->
+            <div class="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 font-mono-code text-xs space-y-2">
+                <div class="flex items-center justify-between text-emerald-900 font-bold">
+                    <span>AUTHORIZATION STATUS:</span>
+                    <span class="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] uppercase">APPROVED &amp; ACTIVE</span>
+                </div>
+                <p class="text-[11px] text-emerald-800 font-sans">
+                    Please enter your Service ID / Username and Password below to access your unit workspace.
+                </p>
+            </div>
+
+            <!-- ACTION BUTTON -->
+            <div class="pt-2">
+                <button onclick="closeLoginApprovedPopover()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center space-x-2">
+                    <span>Proceed to Login</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
     <div id="toastNotification" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300 translate-y-2">
         <div class="flex items-center space-x-3 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl">
-            <div class="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+            <div class="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <div>
@@ -231,6 +272,16 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        function showLoginApprovedPopover() {
+            const modal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeLoginApprovedPopover() {
+            const modal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
         // Live UTC Clock
         function updateClock() {
             const now = new Date();
@@ -257,8 +308,6 @@
                 passwordInput.type = 'password';
             }
         }
-
-
 
         // Page transition fade-out
         function navigateWithFade(e, url) {

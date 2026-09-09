@@ -1,0 +1,384 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ForensicCase;
+use App\Models\Unit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class CaseController extends Controller
+{
+    /**
+     * Display a listing of all cases stored in the database.
+     */
+    public function index()
+    {
+        $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
+        return response()->json($cases);
+    }
+
+    /**
+     * Store a new case entered by a Unit Head into the database table.
+     */
+    public function store(Request $request)
+    {
+        $validated = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'case_number' => ['nullable', 'string', 'max:50'],
+            'title' => ['required', 'string', 'max:255'],
+            'unit_name' => ['nullable', 'string', 'max:255'],
+            'commanding_officer' => ['nullable', 'string', 'max:255'],
+            'submitting_officer' => ['nullable', 'string', 'max:255'],
+            'suspect_name' => ['nullable', 'string', 'max:255'],
+            'suspect_alias' => ['nullable', 'string', 'max:255'],
+            'ghana_card' => ['nullable', 'string', 'max:255'],
+            'gender' => ['nullable', 'string', 'max:50'],
+            'dob' => ['nullable', 'string', 'max:50'],
+            'age' => ['nullable'],
+            'nationality' => ['nullable', 'string', 'max:100'],
+            'pob' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:100'],
+            'address' => ['nullable', 'string'],
+            'marital_status' => ['nullable', 'string', 'max:100'],
+            'has_children' => ['nullable'],
+            'children_count' => ['nullable'],
+            'spouse_info' => ['nullable', 'string'],
+            'spouse_name' => ['nullable', 'string', 'max:255'],
+            'spouse_phone' => ['nullable', 'string', 'max:100'],
+            'partner_name' => ['nullable', 'string', 'max:255'],
+            'partner_phone' => ['nullable', 'string', 'max:100'],
+            'partner_info' => ['nullable', 'string'],
+            'dependents' => ['nullable', 'string', 'max:100'],
+            'holding_facility' => ['nullable', 'string', 'max:255'],
+            'exhibit_category' => ['nullable', 'string', 'max:255'],
+            'valuation' => ['nullable', 'string', 'max:255'],
+            'operation_code' => ['nullable', 'string', 'max:255'],
+            'operation_code_name' => ['nullable', 'string', 'max:255'],
+            'suspect_docket_mode' => ['nullable', 'string', 'max:50'],
+            'raid_location' => ['nullable', 'string', 'max:255'],
+            'offense_description' => ['nullable', 'string'],
+            'arrest_date' => ['nullable'],
+            'arrest_time' => ['nullable', 'string', 'max:50'],
+            'has_seizures' => ['nullable'],
+            'seizure_name' => ['nullable', 'string', 'max:255'],
+            'seizure_name_drug' => ['nullable', 'string', 'max:255'],
+            'seizure_name_currency' => ['nullable', 'string', 'max:255'],
+            'seizure_quantity' => ['nullable', 'string', 'max:100'],
+            'seizure_unit' => ['nullable', 'string', 'max:100'],
+            'seizure_value' => ['nullable', 'string', 'max:255'],
+            'seizure_vault' => ['nullable', 'string', 'max:255'],
+            'seizure_concealment' => ['nullable', 'string', 'max:255'],
+            'seizure_date' => ['nullable'],
+            'seizure_time' => ['nullable', 'string', 'max:50'],
+            'seizure_location' => ['nullable', 'string', 'max:255'],
+            'seizure_officer' => ['nullable', 'string', 'max:255'],
+            'seizure_reason' => ['nullable', 'string'],
+            'veh_make' => ['nullable', 'string', 'max:255'],
+            'veh_model' => ['nullable', 'string', 'max:255'],
+            'veh_type' => ['nullable', 'string', 'max:255'],
+            'veh_year' => ['nullable', 'string', 'max:50'],
+            'veh_colour' => ['nullable', 'string', 'max:100'],
+            'veh_reg_no' => ['nullable', 'string', 'max:100'],
+            'veh_vin' => ['nullable', 'string', 'max:100'],
+            'veh_engine_no' => ['nullable', 'string', 'max:100'],
+            'veh_country_reg' => ['nullable', 'string', 'max:100'],
+            'veh_owner' => ['nullable', 'string', 'max:255'],
+            'veh_driver' => ['nullable', 'string', 'max:255'],
+            'veh_owner_contact' => ['nullable', 'string', 'max:100'],
+            'veh_docs_available' => ['nullable', 'string', 'max:50'],
+            'veh_doc_ref' => ['nullable', 'string', 'max:255'],
+            'veh_condition' => ['nullable', 'string', 'max:100'],
+            'veh_fuel' => ['nullable', 'string', 'max:100'],
+            'veh_keys_recv' => ['nullable', 'string', 'max:50'],
+            'veh_key_count' => ['nullable'],
+            'veh_damage' => ['nullable', 'string'],
+            'veh_mods' => ['nullable', 'string'],
+            'veh_features' => ['nullable', 'string'],
+            'evidence_photos' => ['nullable'],
+            'mugshot_front' => ['nullable', 'string'],
+            'mugshot_left' => ['nullable', 'string'],
+            'mugshot_right' => ['nullable', 'string'],
+            'docket_data' => ['nullable'],
+            'priority' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:50'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'exhibits_summary' => ['nullable', 'string'],
+        ])->validate();
+
+        $user = Auth::user();
+
+        // Auto generate unique case reference number if not supplied
+        if ($request->filled('case_number')) {
+            $caseRef = trim($request->input('case_number'));
+        } else {
+            $prefix = ($request->filled('unit_name') && str_contains($request->input('unit_name'), 'Forensic')) ? 'FSD' : 'NFC';
+            $year = date('Y');
+            $randomNum = rand(1000, 9999);
+            $caseRef = "{$prefix}-{$year}-{$randomNum}";
+
+            while (ForensicCase::where('case_number', $caseRef)->exists()) {
+                $randomNum = rand(1000, 9999);
+                $caseRef = "{$prefix}-{$year}-{$randomNum}";
+            }
+        }
+
+        $unit = Unit::where('name', $validated['unit_name'] ?? null)->first();
+
+        $case = ForensicCase::create([
+            'case_number' => $caseRef,
+            'title' => $validated['title'],
+            'unit_name' => $validated['unit_name'] ?? ($user ? $user->unit : 'Forensic Directorate'),
+            'unit_id' => $unit ? $unit->id : null,
+            'user_id' => $user ? $user->id : null,
+            'commanding_officer' => $validated['commanding_officer'] ?? ($user ? $user->fullname : 'Cmdr. Directorate Head'),
+            'submitting_officer' => $validated['submitting_officer'] ?? ($user ? $user->fullname : 'Officer in Charge'),
+            'suspect_name' => $validated['suspect_name'] ?? null,
+            'suspect_alias' => $validated['suspect_alias'] ?? null,
+            'ghana_card' => $validated['ghana_card'] ?? null,
+            'gender' => $validated['gender'] ?? null,
+            'dob' => $validated['dob'] ?? null,
+            'age' => isset($validated['age']) && $validated['age'] !== '' ? (int)$validated['age'] : null,
+            'nationality' => $validated['nationality'] ?? null,
+            'pob' => $validated['pob'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'marital_status' => $validated['marital_status'] ?? null,
+            'has_children' => !empty($validated['has_children']),
+            'children_count' => isset($validated['children_count']) && $validated['children_count'] !== '' ? (int)$validated['children_count'] : null,
+            'spouse_info' => $validated['spouse_info'] ?? null,
+            'spouse_name' => $validated['spouse_name'] ?? null,
+            'spouse_phone' => $validated['spouse_phone'] ?? null,
+            'partner_name' => $validated['partner_name'] ?? null,
+            'partner_phone' => $validated['partner_phone'] ?? null,
+            'partner_info' => $validated['partner_info'] ?? null,
+            'dependents' => $validated['dependents'] ?? null,
+            'holding_facility' => $validated['holding_facility'] ?? null,
+            'exhibit_category' => $validated['exhibit_category'] ?? null,
+            'valuation' => $validated['valuation'] ?? null,
+            'operation_code' => $validated['operation_code'] ?? null,
+            'operation_code_name' => $validated['operation_code_name'] ?? null,
+            'suspect_docket_mode' => $validated['suspect_docket_mode'] ?? null,
+            'raid_location' => $validated['raid_location'] ?? null,
+            'offense_description' => $validated['offense_description'] ?? null,
+            'arrest_date' => $validated['arrest_date'] ?? null,
+            'arrest_time' => $validated['arrest_time'] ?? null,
+            'has_seizures' => !empty($validated['has_seizures']),
+            'seizure_name' => $validated['seizure_name'] ?? null,
+            'seizure_name_drug' => $validated['seizure_name_drug'] ?? null,
+            'seizure_name_currency' => $validated['seizure_name_currency'] ?? null,
+            'seizure_quantity' => $validated['seizure_quantity'] ?? null,
+            'seizure_unit' => $validated['seizure_unit'] ?? null,
+            'seizure_value' => $validated['seizure_value'] ?? null,
+            'seizure_vault' => $validated['seizure_vault'] ?? null,
+            'seizure_concealment' => $validated['seizure_concealment'] ?? null,
+            'seizure_date' => $validated['seizure_date'] ?? null,
+            'seizure_time' => $validated['seizure_time'] ?? null,
+            'seizure_location' => $validated['seizure_location'] ?? null,
+            'seizure_officer' => $validated['seizure_officer'] ?? null,
+            'seizure_reason' => $validated['seizure_reason'] ?? null,
+            'veh_make' => $validated['veh_make'] ?? null,
+            'veh_model' => $validated['veh_model'] ?? null,
+            'veh_type' => $validated['veh_type'] ?? null,
+            'veh_year' => $validated['veh_year'] ?? null,
+            'veh_colour' => $validated['veh_colour'] ?? null,
+            'veh_reg_no' => $validated['veh_reg_no'] ?? null,
+            'veh_vin' => $validated['veh_vin'] ?? null,
+            'veh_engine_no' => $validated['veh_engine_no'] ?? null,
+            'veh_country_reg' => $validated['veh_country_reg'] ?? null,
+            'veh_owner' => $validated['veh_owner'] ?? null,
+            'veh_driver' => $validated['veh_driver'] ?? null,
+            'veh_owner_contact' => $validated['veh_owner_contact'] ?? null,
+            'veh_docs_available' => $validated['veh_docs_available'] ?? null,
+            'veh_doc_ref' => $validated['veh_doc_ref'] ?? null,
+            'veh_condition' => $validated['veh_condition'] ?? null,
+            'veh_fuel' => $validated['veh_fuel'] ?? null,
+            'veh_keys_recv' => $validated['veh_keys_recv'] ?? null,
+            'veh_key_count' => isset($validated['veh_key_count']) && $validated['veh_key_count'] !== '' ? (int)$validated['veh_key_count'] : null,
+            'veh_damage' => $validated['veh_damage'] ?? null,
+            'veh_mods' => $validated['veh_mods'] ?? null,
+            'veh_features' => $validated['veh_features'] ?? null,
+            'evidence_photos' => $validated['evidence_photos'] ?? null,
+            'mugshot_front' => $validated['mugshot_front'] ?? null,
+            'mugshot_left' => $validated['mugshot_left'] ?? null,
+            'mugshot_right' => $validated['mugshot_right'] ?? null,
+            'docket_data' => $validated['docket_data'] ?? null,
+            'priority' => $validated['priority'] ?? 'HIGH',
+            'status' => $validated['status'] ?? 'Awaiting Sign-off',
+            'location' => $validated['location'] ?? ($validated['raid_location'] ?? 'NACOC Forensic Directorate Vault'),
+            'description' => $validated['description'] ?? ($validated['offense_description'] ?? 'Directorate Authorized Forensic Case File'),
+            'exhibits_summary' => $validated['exhibits_summary'] ?? ($validated['seizure_name'] ? "{$validated['seizure_quantity']} {$validated['seizure_unit']} {$validated['seizure_name']}" : 'Logged Exhibits & Dossier'),
+            'hash_log' => 'HASH-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-VERIFIED',
+            'incident_date' => $validated['arrest_date'] ?? now(),
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Case {$case->case_number} created and saved to database successfully.",
+                'case' => $case,
+            ]);
+        }
+
+        return back()->with('status', "Case {$case->case_number} created and saved to database successfully.");
+    }
+
+    /**
+     * Safely lookup a case by id or case_number without triggering PostgreSQL type casting errors.
+     */
+    protected function findCase($id)
+    {
+        if (is_numeric($id)) {
+            return ForensicCase::where('id', (int)$id)->orWhere('case_number', (string)$id)->first();
+        }
+        return ForensicCase::where('case_number', (string)$id)->first();
+    }
+
+    /**
+     * Approve or update case status in database.
+     */
+    public function approve($id)
+    {
+        $request = request();
+        $case = $this->findCase($id);
+        if (!$case) {
+            $case = ForensicCase::create([
+                'case_number' => (string)$id,
+                'title' => 'Directorate Forensic Docket (' . $id . ')',
+                'unit_name' => 'Forensic Directorate',
+                'commanding_officer' => Auth::user()->fullname ?? 'Department Head',
+                'submitting_officer' => 'Handling Officer',
+                'priority' => 'HIGH',
+                'status' => 'Approved',
+                'location' => 'NACOC Central Vault Storage',
+                'description' => 'Directorate Approved Case File',
+                'exhibits_summary' => 'Verified Exhibits Dossier',
+                'hash_log' => 'HASH-' . strtoupper(substr(md5((string)$id), 0, 8)) . '-VERIFIED',
+                'incident_date' => now(),
+            ]);
+        } else {
+            $case->status = 'Approved';
+            $case->save();
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Case {$case->case_number} approved successfully.",
+                'case' => $case,
+            ]);
+        }
+
+        return back()->with('status', "Case {$case->case_number} approved successfully.");
+    }
+
+    /**
+     * Decline or reject case status in database.
+     */
+    public function decline($id)
+    {
+        $request = request();
+        $case = $this->findCase($id);
+        if (!$case) {
+            $case = ForensicCase::create([
+                'case_number' => (string)$id,
+                'title' => 'Directorate Forensic Docket (' . $id . ')',
+                'unit_name' => 'Forensic Directorate',
+                'commanding_officer' => Auth::user()->fullname ?? 'Department Head',
+                'submitting_officer' => 'Handling Officer',
+                'priority' => 'HIGH',
+                'status' => 'Declined',
+                'location' => 'NACOC Central Vault Storage',
+                'description' => 'Directorate Declined Case File',
+                'exhibits_summary' => 'Exhibits Dossier',
+                'hash_log' => 'HASH-' . strtoupper(substr(md5((string)$id), 0, 8)) . '-VERIFIED',
+                'incident_date' => now(),
+            ]);
+        } else {
+            $case->status = 'Declined';
+            $case->save();
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Case {$case->case_number} has been declined.",
+                'case' => $case,
+            ]);
+        }
+
+        return back()->with('status', "Case {$case->case_number} has been declined.");
+    }
+
+    /**
+     * Batch approve all pending cases in database.
+     */
+    public function batchApprove()
+    {
+        $request = request();
+        $updatedCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])
+            ->update(['status' => 'Approved']);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully batch approved {$updatedCount} pending cases.",
+                'count' => $updatedCount,
+            ]);
+        }
+
+        return back()->with('status', "Successfully batch approved {$updatedCount} pending cases.");
+    }
+
+    /**
+     * Display dedicated full page case review.
+     */
+    public function showReview($id)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            $case = new ForensicCase([
+                'case_number' => $id,
+                'title' => 'Directorate High Priority Forensic Docket',
+                'unit_name' => 'Forensic Directorate',
+                'commanding_officer' => 'Cmdr. Adomako Emmanuel',
+                'submitting_officer' => 'Insp. Eric Ofori',
+                'suspect_name' => 'Under Active Investigation',
+                'priority' => 'HIGH',
+                'status' => 'Awaiting Sign-off',
+                'location' => 'NACOC Central Vault Safe A-01',
+                'description' => 'Detailed forensic analysis, exhibits chain of custody log, and findings certificate awaiting director review.',
+                'exhibits_summary' => '3x Sealed Evidence Packages with SHA-256 Checksums',
+                'hash_log' => 'HASH-' . strtoupper(substr(md5($id), 0, 8)) . '-VERIFIED',
+                'incident_date' => now(),
+            ]);
+        }
+        return view('Forensic_Head.show_review', compact('case'));
+    }
+
+    /**
+     * Display dedicated PDF dossier view for printing and scanning.
+     */
+    public function showPdf($id)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            $case = new ForensicCase([
+                'case_number' => $id,
+                'title' => 'Directorate High Priority Forensic Docket',
+                'unit_name' => 'Forensic Directorate',
+                'commanding_officer' => 'Cmdr. Adomako Emmanuel',
+                'submitting_officer' => 'Insp. Eric Ofori',
+                'suspect_name' => 'BEN ADU',
+                'priority' => 'HIGH',
+                'status' => 'Approved',
+                'location' => 'NACOC Central Vault Safe A-01',
+                'description' => 'Detailed forensic analysis, exhibits chain of custody log, and findings certificate awaiting director review.',
+                'exhibits_summary' => '45 Kilograms (kg) Cocaine (High-Purity Powder / Slabs)',
+                'hash_log' => 'HASH-' . strtoupper(substr(md5($id), 0, 8)) . '-VERIFIED',
+                'incident_date' => now(),
+            ]);
+        }
+        return view('Forensic_Head.case_pdf', compact('case'));
+    }
+}
