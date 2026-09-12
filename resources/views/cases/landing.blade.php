@@ -128,7 +128,7 @@
                                 class="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/30 flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none"
                             >
                                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                <span>+ Add New Case File</span>
+                                <span>Add New Case File</span>
                             </a>
                         </div>
                     </div>
@@ -315,9 +315,9 @@
                                         </td>
                                         <td class="py-4 px-4">
                                             <div class="flex items-center space-x-3">
-                                                <div class="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden shadow-2xs">
+                                                <div class="w-9 h-9 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden shadow-2xs">
                                                     @if(!empty($frontPic))
-                                                        <img src="{{ $frontPic }}" alt="{{ $suspectDisplayName }}" class="w-full h-full object-cover">
+                                                        <img src="{{ $frontPic }}" alt="{{ $suspectDisplayName }}" class="w-full h-full object-contain object-center">
                                                     @else
                                                         <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                                     @endif
@@ -517,7 +517,7 @@
                             if (!frontPic.startsWith('data:') && !frontPic.startsWith('http://') && !frontPic.startsWith('https://')) {
                                 if (!frontPic.startsWith('/')) frontPic = '/' + frontPic;
                             }
-                            avatarHtml = `<img src="${frontPic}" alt="${suspectDisplayName.replace(/"/g, '&quot;')}" class="w-full h-full object-cover">`;
+                            avatarHtml = `<img src="${frontPic}" alt="${suspectDisplayName.replace(/"/g, '&quot;')}" class="w-full h-full object-contain object-center">`;
                         } else {
                             avatarHtml = `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
                         }
@@ -545,7 +545,7 @@
                             </td>
                             <td class="py-4 px-4">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                                    <div class="w-9 h-9 rounded-full bg-white border border-slate-300 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
                                         ${avatarHtml}
                                     </div>
                                     <div>

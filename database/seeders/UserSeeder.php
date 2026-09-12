@@ -19,7 +19,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Adomako Emmanuel',
                 'username' => 'headofforensic',
-                'service_id' => 'NACOC-HEAD-01',
+                'email' => 'headofforensic@nacoc.gov.gh',
+                'service_id' => 'SD-101',
                 'phone_number' => '0244000000',
                 'is_staff' => false,
                 'is_head' => true,
@@ -30,7 +31,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Dr. Evelyn Osei',
                 'username' => 'evelyn_osei',
-                'service_id' => 'NAC-8842-EM',
+                'email' => 'evelyn_osei@nacoc.gov.gh',
+                'service_id' => 'SD-884',
                 'phone_number' => '0244112233',
                 'is_staff' => false,
                 'is_head' => true,
@@ -41,7 +43,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Eng. Michael Mensah',
                 'username' => 'michael_mensah',
-                'service_id' => 'NAC-9041-DP',
+                'email' => 'michael_mensah@nacoc.gov.gh',
+                'service_id' => 'JD-904',
                 'phone_number' => '0208889900',
                 'is_staff' => false,
                 'is_head' => true,
@@ -52,7 +55,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Dr. K. Appiah',
                 'username' => 'k_appiah',
-                'service_id' => 'NAC-1004-LA',
+                'email' => 'k_appiah@nacoc.gov.gh',
+                'service_id' => 'SD-100',
                 'phone_number' => '0244001122',
                 'is_staff' => false,
                 'is_head' => true,
@@ -63,7 +67,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Dr. Janet Owusu',
                 'username' => 'janet_owusu',
-                'service_id' => 'NAC-3320-LA',
+                'email' => 'janet_owusu@nacoc.gov.gh',
+                'service_id' => 'JD-332',
                 'phone_number' => '0551122445',
                 'is_staff' => true,
                 'is_head' => false,
@@ -74,7 +79,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Insp. Eric Ofori',
                 'username' => 'eric_ofori',
-                'service_id' => 'NAC-5541-CS',
+                'email' => 'eric_ofori@nacoc.gov.gh',
+                'service_id' => 'SD-554',
                 'phone_number' => '0209988776',
                 'is_staff' => true,
                 'is_head' => false,
@@ -85,7 +91,8 @@ class UserSeeder extends Seeder
             [
                 'fullname' => 'Chief Insp. R. Quarshie',
                 'username' => 'r_quarshie',
-                'service_id' => 'NAC-4412-EM',
+                'email' => 'r_quarshie@nacoc.gov.gh',
+                'service_id' => 'JD-441',
                 'phone_number' => '0201122334',
                 'is_staff' => true,
                 'is_head' => false,

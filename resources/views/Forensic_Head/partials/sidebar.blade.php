@@ -12,9 +12,6 @@
                 <div class="text-[10px] text-blue-600 font-bold tracking-wide uppercase">DEPT HEAD PORTAL</div>
             </div>
         </a>
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-extrabold font-mono-code bg-blue-500/15 text-blue-700">
-            EXEC
-        </span>
     </div>
 
     <!-- NAVIGATION MENU -->
@@ -22,7 +19,10 @@
         
         <!-- DIRECTORATE COMMAND -->
         <div>
-            <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-blue-600 tracking-wider mb-2">Directorate Command</div>
+            <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-blue-600 tracking-wider mb-2 flex items-center justify-between">
+                <span>Directorate Command</span>
+                <span class="text-[9px] text-slate-400 font-normal">3s Sync</span>
+            </div>
             <nav class="space-y-1 text-xs font-medium">
                 
                 <!-- DASHBOARD -->
@@ -38,9 +38,7 @@
                     @php
                         $pendingCasesCountVal = (int)($pendingCasesCount ?? \App\Models\ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count());
                     @endphp
-                    @if($pendingCasesCountVal > 0)
-                        <span id="sidebarPendingCasesCount" class="ml-auto {{ request()->is('Forensic_Head/cases*') ? 'bg-white/20 text-white' : 'bg-red-500/15 text-red-700' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">{{ $pendingCasesCountVal }}</span>
-                    @endif
+                    <span id="sidebarPendingCasesCount" class="ml-auto {{ request()->is('Forensic_Head/cases*') ? 'bg-white/20 text-white' : 'bg-red-500/15 text-red-700' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-300 {{ $pendingCasesCountVal > 0 ? '' : 'hidden' }}">{{ $pendingCasesCountVal }}</span>
                 </a>
 
                 <!-- HEAD APPROVALS & SIGN-OFF -->
@@ -48,11 +46,9 @@
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Forensic_Head/approvals*') ? 'text-white' : 'text-amber-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span class="text-xs flex-1">Head Approvals &amp; Sign-off</span>
                     @php
-                        $pendingCountVal = (int)($pendingCount ?? \App\Models\ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count());
+                        $pendingCountVal = (int)($pendingCount ?? \App\Models\User::where('is_approved', false)->count());
                     @endphp
-                    @if($pendingCountVal > 0)
-                        <span id="sidebarPendingBadgeCount" class="ml-auto {{ request()->is('Forensic_Head/approvals*') ? 'bg-white/20 text-white' : 'bg-amber-500/15 text-amber-800' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">{{ $pendingCountVal }}</span>
-                    @endif
+                    <span id="sidebarPendingBadgeCount" class="ml-auto {{ request()->is('Forensic_Head/approvals*') ? 'bg-white/20 text-white' : 'bg-amber-500/15 text-amber-800' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-300 {{ $pendingCountVal > 0 ? '' : 'hidden' }}">{{ $pendingCountVal }}</span>
                 </a>
 
                 <!-- 4 UNITS OVERSIGHT -->
@@ -104,7 +100,7 @@
             <nav class="space-y-1 text-xs font-semibold">
                 <a href="#" class="flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-decoration-none">
                     <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    <span class="text-xs">Personnel Roster (54 Staff)</span>
+                    <span class="text-xs">Personnel Roster (<span id="sidebarTotalPersonnelCount">Roster</span>)</span>
                 </a>
                 <a href="#" class="flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-decoration-none">
                     <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -118,7 +114,18 @@
     <!-- DEPT HEAD PROFILE BANNER -->
     @php
         $authUser = auth()->user();
-        $userName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
+        if ($authUser) {
+            $userName = $authUser->fullname;
+        } else {
+            $dbForensicHead = \App\Models\User::where('is_head', true)
+                ->where(function($q) {
+                    $q->where('unit', 'LIKE', '%Forensic Directorate%')
+                      ->orWhere('unit', 'LIKE', '%Forensic Head%')
+                      ->orWhere('unit', 'LIKE', '%Directorate Head%');
+                })->first() ?? \App\Models\User::where('is_head', true)->first();
+            $userName = session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'Anita Johnson');
+        }
+
         $nameParts = preg_split('/\s+/', trim($userName));
         $initials = count($nameParts) >= 2 
             ? strtoupper(substr($nameParts[0], 0, 1) . substr(end($nameParts), 0, 1))
@@ -145,3 +152,68 @@
     </div>
 
 </aside>
+
+<!-- SILENT 3-SECOND REAL-TIME POLLING SCRIPT -->
+<script>
+    (function() {
+        let lastCases = null;
+        let lastUsers = null;
+        let lastTotal = null;
+
+        async function pollSidebarStats() {
+            try {
+                const res = await fetch('/api/head-stats', {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // 1. Silently update Case Management pending badge
+                const casesBadge = document.getElementById('sidebarPendingCasesCount');
+                if (casesBadge && data.pendingCasesCount !== undefined) {
+                    const newCases = parseInt(data.pendingCasesCount);
+                    if (lastCases !== newCases) {
+                        casesBadge.innerText = newCases;
+                        if (newCases > 0) {
+                            casesBadge.classList.remove('hidden');
+                        } else {
+                            casesBadge.classList.add('hidden');
+                        }
+                        lastCases = newCases;
+                    }
+                }
+
+                // 2. Silently update Head Approvals pending badge
+                const usersBadge = document.getElementById('sidebarPendingBadgeCount');
+                if (usersBadge && data.pendingUsersCount !== undefined) {
+                    const newUsers = parseInt(data.pendingUsersCount);
+                    if (lastUsers !== newUsers) {
+                        usersBadge.innerText = newUsers;
+                        if (newUsers > 0) {
+                            usersBadge.classList.remove('hidden');
+                        } else {
+                            usersBadge.classList.add('hidden');
+                        }
+                        lastUsers = newUsers;
+                    }
+                }
+
+                // 3. Silently update Personnel count
+                const totalEl = document.getElementById('sidebarTotalPersonnelCount');
+                if (totalEl && data.totalUsersCount !== undefined) {
+                    const newTotal = parseInt(data.totalUsersCount);
+                    if (lastTotal !== newTotal) {
+                        totalEl.innerText = `${newTotal} Staff`;
+                        lastTotal = newTotal;
+                    }
+                }
+            } catch (e) {
+                // Silent catch: zero disruption to user active work
+            }
+        }
+
+        // Execute immediately and set 3-second interval
+        pollSidebarStats();
+        setInterval(pollSidebarStats, 3000);
+    })();
+</script>

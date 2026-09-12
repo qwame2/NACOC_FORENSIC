@@ -18,6 +18,11 @@
         <script src="https://cdn.tailwindcss.com"></script>
     @endif
 
+    <!-- jQuery & Select2 CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <style>
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -30,6 +35,108 @@
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #F1F5F9; }
         ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+        /* Select2 Executive Clean Styling */
+        .select2-container {
+            width: 100% !important;
+        }
+        .select2-container--default .select2-selection--single {
+            background-color: #FFFFFF !important;
+            border: 1px solid #CBD5E1 !important;
+            border-radius: 0.75rem !important; /* rounded-xl */
+            height: 48px !important;
+            display: flex !important;
+            align-items: center !important;
+            padding-left: 1rem !important;
+            padding-right: 2.5rem !important;
+            font-size: 0.8125rem !important;
+            font-weight: 700 !important;
+            color: #0F172A !important;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04) !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+        .select2-container--default .select2-selection--single:hover {
+            border-color: #94A3B8 !important;
+        }
+        .select2-container--default .select2-selection--single:focus,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: #059669 !important; /* emerald-600 */
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.18) !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #0F172A !important;
+            line-height: 46px !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            font-weight: 700 !important;
+            font-size: 0.8125rem !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__placeholder {
+            color: #94A3B8 !important;
+            font-weight: 500 !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 46px !important;
+            right: 14px !important;
+            width: 16px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow b {
+            border-color: #64748B transparent transparent transparent !important;
+            border-width: 5px 5px 0 5px !important;
+        }
+        .select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
+            border-color: transparent transparent #059669 transparent !important;
+            border-width: 0 5px 5px 5px !important;
+        }
+        /* DROPDOWN OPTIONS LIST POPUP CONTAINER - REDUCED COMPACT WIDTH */
+        .select2-dropdown {
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 0.875rem !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.03) !important;
+            overflow: hidden !important;
+            z-index: 9999 !important;
+            background: #FFFFFF !important;
+            padding: 4px !important;
+            width: 240px !important;
+            min-width: 220px !important;
+            max-width: 260px !important;
+        }
+        .select2-results__option {
+            padding: 8px 12px !important;
+            font-size: 0.8125rem !important;
+            font-weight: 700 !important;
+            color: #1E293B !important;
+            border-radius: 0.5rem !important;
+            margin-bottom: 2px !important;
+            transition: all 0.15s ease !important;
+        }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: #ECFDF5 !important;
+            color: #047857 !important;
+        }
+        .select2-container--default .select2-results__option[aria-selected=true] {
+            background-color: #D1FAE5 !important;
+            color: #065F46 !important;
+            font-weight: 800 !important;
+        }
+        .select2-search--dropdown {
+            padding: 4px 4px 6px 4px !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            border: 1px solid #E2E8F0 !important;
+            border-radius: 0.5rem !important;
+            padding: 6px 10px !important;
+            font-size: 0.75rem !important;
+            font-weight: 600 !important;
+            outline: none !important;
+            background-color: #F8FAFC !important;
+            color: #0F172A !important;
+        }
+        .select2-search--dropdown .select2-search__field:focus {
+            border-color: #059669 !important;
+            background-color: #FFFFFF !important;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased select-none">
@@ -117,22 +224,25 @@
                             </div>
                         </div>
 
-                        <!-- OPERATION ID (OPTIONAL) -->
+                        <!-- OPERATION TYPE (SELECT2 DROPDOWN) -->
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                <span>Operation ID</span>
+                                <span>Operation Type</span>
                                 <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Optional</span>
                             </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                </span>
-                                <input 
-                                    type="text" 
-                                    id="operationCodeNameInput" 
-                                    placeholder="e.g. Operation Golden Cobra / Op Storm" 
-                                    class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal"
+                            <div class="relative w-full">
+                                <select 
+                                    id="operationTypeSelect" 
+                                    name="operation_type"
+                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
                                 >
+                                    <option value="">Select Operation Type...</option>
+                                    <option value="Cargo/Parcel">Cargo/Parcel</option>
+                                    <option value="Raid">Raid</option>
+                                    <option value="Search Warrant">Search Warrant</option>
+                                    <option value="Intel-led Ops">Intel-led Ops</option>
+                                    <option value="Transferred Case">Transferred Case</option>
+                                </select>
                             </div>
                         </div>
 
@@ -202,8 +312,8 @@
                                         <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-600 text-white uppercase">Angle 1</span>
                                         <span class="text-[10px] font-bold text-slate-500 font-mono-code">Front View (0&deg;)</span>
                                     </div>
-                                    <div class="relative w-full h-36 bg-slate-200/80 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front')">
-                                        <img id="preview-front" class="hidden w-full h-full object-cover" alt="Front Mugshot">
+                                    <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front')">
+                                        <img id="preview-front" class="hidden w-full h-full object-contain object-center" alt="Front Mugshot">
                                         <div id="placeholder-front" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
                                             <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                             <span class="text-[10px] font-bold">Upload Front Photo</span>
@@ -222,8 +332,8 @@
                                         <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 2</span>
                                         <span class="text-[10px] font-bold text-slate-500 font-mono-code">Left Profile (90&deg;)</span>
                                     </div>
-                                    <div class="relative w-full h-36 bg-slate-200/80 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile')">
-                                        <img id="preview-left-profile" class="hidden w-full h-full object-cover" alt="Left Profile Mugshot">
+                                    <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile')">
+                                        <img id="preview-left-profile" class="hidden w-full h-full object-contain object-center" alt="Left Profile Mugshot">
                                         <div id="placeholder-left-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
                                             <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                                             <span class="text-[10px] font-bold">Upload Left Profile</span>
@@ -242,8 +352,8 @@
                                         <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 3</span>
                                         <span class="text-[10px] font-bold text-slate-500 font-mono-code">Right Profile (90&deg;)</span>
                                     </div>
-                                    <div class="relative w-full h-36 bg-slate-200/80 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile')">
-                                        <img id="preview-right-profile" class="hidden w-full h-full object-cover" alt="Right Profile Mugshot">
+                                    <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile')">
+                                        <img id="preview-right-profile" class="hidden w-full h-full object-contain object-center" alt="Right Profile Mugshot">
                                         <div id="placeholder-right-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
                                             <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                                             <span class="text-[10px] font-bold">Upload Right Profile</span>
@@ -304,11 +414,11 @@
                         <div id="suspectsContainer" class="space-y-6">
                             <div id="suspectCard-1" class="space-y-6">
 
-                        <!-- SUB-HEADER 3A: LEGAL IDENTITY & ORIGIN -->
+                        <!-- SUB-HEADER 3A: LEGAL IDENTITY -->
                         <div class="space-y-4">
                             <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
-                                <span>3A. Legal Identity &amp; Origin Details</span>
+                                <span>3A. Legal Identity</span>
                             </div>
 
                             <!-- ROW 1: REF (READONLY), FULL NAME, ALIAS -->
@@ -355,8 +465,8 @@
                                 </div>
                             </div>
 
-                            <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE, NATIONALITY -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                            <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                                 
                                 <!-- GHANA CARD # -->
                                 <div>
@@ -428,46 +538,249 @@
                                         <input type="number" id="newArrestedAge" value="" placeholder="Auto-calculated age..." min="0" max="120" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                                     </div>
                                 </div>
-                                
-                                <!-- CUSTOM NATIONALITY DROPDOWN -->
-                                <div class="relative z-30">
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Nationality <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <button type="button" id="natDropdownTrigger" onclick="toggleNationalityDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
-                                        <div class="flex items-center space-x-2">
-                                            <span id="selectedNationalityBadge" class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold">GH</span>
-                                            <span id="selectedNationalityLabel" class="font-bold text-slate-900 text-xs truncate">Ghanaian</span>
-                                        </div>
-                                        <input type="hidden" id="newArrestedNationality" value="Ghanaian">
-                                        <svg id="nationalityChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                    </button>
+                            </div>
 
-                                    <div id="nationalityDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-2 max-h-64 overflow-y-auto">
-                                        <div class="relative sticky top-0 bg-white pt-1 pb-2 border-b border-slate-100" onclick="event.stopPropagation()">
-                                            <input type="text" id="nationalitySearchInput" onkeyup="filterNationalities()" placeholder="Search nationality..." class="w-full pl-8 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                            <svg class="w-4 h-4 absolute left-2.5 top-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                        </div>
-                                        <div class="space-y-1" id="nationalityList">
-                                            <button type="button" onclick="selectNationality('Ghanaian', 'GH', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ghanaian</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">GH</span></button>
-                                            <button type="button" onclick="selectNationality('Nigerian', 'NG', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Nigerian</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">NG</span></button>
-                                            <button type="button" onclick="selectNationality('Togolese', 'TG', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Togolese</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">TG</span></button>
-                                            <button type="button" onclick="selectNationality('Ivorian (Ivory Coast)', 'CI', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ivorian (Ivory Coast)</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">CI</span></button>
-                                            <button type="button" onclick="selectNationality('Burkinabe (Burkina Faso)', 'BF', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Burkinabe (Burkina Faso)</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">BF</span></button>
-                                            <button type="button" onclick="selectNationality('Malian', 'ML', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Malian</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">ML</span></button>
-                                            <button type="button" onclick="selectNationality('Liberian', 'LR', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Liberian</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">LR</span></button>
-                                            <button type="button" onclick="selectNationality('Sierra Leonean', 'SL', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Sierra Leonean</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">SL</span></button>
-                                            <button type="button" onclick="selectNationality('British (United Kingdom)', 'GB', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>British (United Kingdom)</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">GB</span></button>
-                                            <button type="button" onclick="selectNationality('American (USA)', 'US', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>American (USA)</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">US</span></button>
-                                            <button type="button" onclick="selectNationality('Canadian', 'CA', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Canadian</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">CA</span></button>
-                                            <button type="button" onclick="selectNationality('Chinese', 'CN', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Chinese</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">CN</span></button>
-                                            <button type="button" onclick="selectNationality('Indian', 'IN', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Indian</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">IN</span></button>
-                                            <button type="button" onclick="selectNationality('South African', 'ZA', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>South African</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">ZA</span></button>
-                                            <button type="button" onclick="selectNationality('German', 'DE', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>German</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">DE</span></button>
-                                            <button type="button" onclick="selectNationality('French', 'FR', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>French</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">FR</span></button>
-                                            <button type="button" onclick="selectNationality('Lebanese', 'LB', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Lebanese</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">LB</span></button>
-                                            <button type="button" onclick="selectNationality('Other / Dual Nationality', 'INT', event)" class="nat-option w-full text-left px-3 py-1.5 text-xs text-slate-800 font-bold hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Other / Dual Nationality</span> <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono-code font-bold">INT</span></button>
-                                        </div>
+                            <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                
+                                <!-- HEIGHT -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Height (cm / ft-in)
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedHeight" placeholder="e.g. 175 cm / 5'9&quot;" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+
+                                <!-- EYE COLOR -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Eye Color
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedEyeColor" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+                                
+                                <!-- NATIONALITY (SELECT2 DROPDOWN WITH TAGGING / CUSTOM ENTRY SUPPORT) -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Nationality <span class="text-red-600 font-bold">*</span></span>
+                                        <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Search / Type Custom</span>
+                                    </label>
+                                    <div class="relative w-full">
+                                        <input type="hidden" id="newArrestedNationality" name="newArrestedNationality" value="Ghanaian">
+                                        <select 
+                                            id="nationalitySelect" 
+                                            name="nationality"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
+                                        >
+                                            <option value="Ghanaian" selected>Ghanaian (GH)</option>
+                                            <option value="Nigerian">Nigerian (NG)</option>
+                                            <option value="Togolese">Togolese (TG)</option>
+                                            <option value="Ivorian (Ivory Coast)">Ivorian (Ivory Coast) (CI)</option>
+                                            <option value="Burkinabe (Burkina Faso)">Burkinabe (Burkina Faso) (BF)</option>
+                                            <option value="Malian">Malian (ML)</option>
+                                            <option value="Liberian">Liberian (LR)</option>
+                                            <option value="Sierra Leonean">Sierra Leonean (SL)</option>
+                                            <option value="Beninese">Beninese (BJ)</option>
+                                            <option value="Nigerien (Niger)">Nigerien (Niger) (NE)</option>
+                                            <option value="Senegalese">Senegalese (SN)</option>
+                                            <option value="Guinean">Guinean (GN)</option>
+                                            <option value="Gambian">Gambian (GM)</option>
+                                            <option value="Cameroonian">Cameroonian (CM)</option>
+                                            <option value="British (United Kingdom)">British (United Kingdom) (GB)</option>
+                                            <option value="American (USA)">American (USA) (US)</option>
+                                            <option value="Canadian">Canadian (CA)</option>
+                                            <option value="Chinese">Chinese (CN)</option>
+                                            <option value="Indian">Indian (IN)</option>
+                                            <option value="South African">South African (ZA)</option>
+                                            <option value="German">German (DE)</option>
+                                            <option value="French">French (FR)</option>
+                                            <option value="Lebanese">Lebanese (LB)</option>
+                                            <option value="Afghan">Afghan (AF)</option>
+                                            <option value="Albanian">Albanian (AL)</option>
+                                            <option value="Algerian">Algerian (DZ)</option>
+                                            <option value="Andorran">Andorran (AD)</option>
+                                            <option value="Angolan">Angolan (AO)</option>
+                                            <option value="Antiguan / Barbudan">Antiguan / Barbudan (AG)</option>
+                                            <option value="Argentine">Argentine (AR)</option>
+                                            <option value="Armenian">Armenian (AM)</option>
+                                            <option value="Australian">Australian (AU)</option>
+                                            <option value="Austrian">Austrian (AT)</option>
+                                            <option value="Azerbaijani">Azerbaijani (AZ)</option>
+                                            <option value="Bahamian">Bahamian (BS)</option>
+                                            <option value="Bahraini">Bahraini (BH)</option>
+                                            <option value="Bangladeshi">Bangladeshi (BD)</option>
+                                            <option value="Barbadian">Barbadian (BB)</option>
+                                            <option value="Belarusian">Belarusian (BY)</option>
+                                            <option value="Belgian">Belgian (BE)</option>
+                                            <option value="Belizean">Belizean (BZ)</option>
+                                            <option value="Bhutanese">Bhutanese (BT)</option>
+                                            <option value="Bolivian">Bolivian (BO)</option>
+                                            <option value="Bosnian / Herzegovinian">Bosnian / Herzegovinian (BA)</option>
+                                            <option value="Motswana / Batswana (Botswana)">Motswana / Batswana (Botswana) (BW)</option>
+                                            <option value="Brazilian">Brazilian (BR)</option>
+                                            <option value="Bruneian">Bruneian (BN)</option>
+                                            <option value="Bulgarian">Bulgarian (BG)</option>
+                                            <option value="Burmese / Myanmar">Burmese / Myanmar (MM)</option>
+                                            <option value="Burundian">Burundian (BI)</option>
+                                            <option value="Cabo Verdean">Cabo Verdean (CV)</option>
+                                            <option value="Cambodian">Cambodian (KH)</option>
+                                            <option value="Central African">Central African (CF)</option>
+                                            <option value="Chadian">Chadian (TD)</option>
+                                            <option value="Chilean">Chilean (CL)</option>
+                                            <option value="Colombian">Colombian (CO)</option>
+                                            <option value="Comorian">Comorian (KM)</option>
+                                            <option value="Congolese (Congo-Brazzaville)">Congolese (Congo-Brazzaville) (CG)</option>
+                                            <option value="Congolese (DRC)">Congolese (DRC) (CD)</option>
+                                            <option value="Costa Rican">Costa Rican (CR)</option>
+                                            <option value="Croatian">Croatian (HR)</option>
+                                            <option value="Cuban">Cuban (CU)</option>
+                                            <option value="Cypriot">Cypriot (CY)</option>
+                                            <option value="Czech">Czech (CZ)</option>
+                                            <option value="Danish">Danish (DK)</option>
+                                            <option value="Djiboutian">Djiboutian (DJ)</option>
+                                            <option value="Dominican (Dominica)">Dominican (Dominica) (DM)</option>
+                                            <option value="Dominican (Dominican Rep.)">Dominican (Dominican Rep.) (DO)</option>
+                                            <option value="Dutch (Netherlands)">Dutch (Netherlands) (NL)</option>
+                                            <option value="East Timorese">East Timorese (TL)</option>
+                                            <option value="Ecuadorian">Ecuadorian (EC)</option>
+                                            <option value="Egyptian">Egyptian (EG)</option>
+                                            <option value="Salvadoran">Salvadoran (SV)</option>
+                                            <option value="Equatorial Guinean">Equatorial Guinean (GQ)</option>
+                                            <option value="Eritrean">Eritrean (ER)</option>
+                                            <option value="Estonian">Estonian (EE)</option>
+                                            <option value="Eswatini / Swazi">Eswatini / Swazi (SZ)</option>
+                                            <option value="Ethiopian">Ethiopian (ET)</option>
+                                            <option value="Fijian">Fijian (FJ)</option>
+                                            <option value="Finnish">Finnish (FI)</option>
+                                            <option value="Gabonese">Gabonese (GA)</option>
+                                            <option value="Georgian">Georgian (GE)</option>
+                                            <option value="Greek">Greek (GR)</option>
+                                            <option value="Grenadian">Grenadian (GD)</option>
+                                            <option value="Guatemalan">Guatemalan (GT)</option>
+                                            <option value="Bissau-Guinean">Bissau-Guinean (GW)</option>
+                                            <option value="Guyanese">Guyanese (GY)</option>
+                                            <option value="Haitian">Haitian (HT)</option>
+                                            <option value="Honduran">Honduran (HN)</option>
+                                            <option value="Hungarian">Hungarian (HU)</option>
+                                            <option value="Icelandic">Icelandic (IS)</option>
+                                            <option value="Indonesian">Indonesian (ID)</option>
+                                            <option value="Iranian">Iranian (IR)</option>
+                                            <option value="Iraqi">Iraqi (IQ)</option>
+                                            <option value="Irish">Irish (IE)</option>
+                                            <option value="Israeli">Israeli (IL)</option>
+                                            <option value="Italian">Italian (IT)</option>
+                                            <option value="Jamaican">Jamaican (JM)</option>
+                                            <option value="Japanese">Japanese (JP)</option>
+                                            <option value="Jordanian">Jordanian (JO)</option>
+                                            <option value="Kazakh">Kazakh (KZ)</option>
+                                            <option value="Kenyan">Kenyan (KE)</option>
+                                            <option value="I-Kiribati">I-Kiribati (KI)</option>
+                                            <option value="North Korean">North Korean (KP)</option>
+                                            <option value="South Korean">South Korean (KR)</option>
+                                            <option value="Kuwaiti">Kuwaiti (KW)</option>
+                                            <option value="Kyrgyz">Kyrgyz (KG)</option>
+                                            <option value="Lao">Lao (LA)</option>
+                                            <option value="Latvian">Latvian (LV)</option>
+                                            <option value="Basotho (Lesotho)">Basotho (Lesotho) (LS)</option>
+                                            <option value="Libyan">Libyan (LY)</option>
+                                            <option value="Liechtenstein">Liechtenstein (LI)</option>
+                                            <option value="Lithuanian">Lithuanian (LT)</option>
+                                            <option value="Luxembourgish">Luxembourgish (LU)</option>
+                                            <option value="Malagasy (Madagascar)">Malagasy (Madagascar) (MG)</option>
+                                            <option value="Malawian">Malawian (MW)</option>
+                                            <option value="Malaysian">Malaysian (MY)</option>
+                                            <option value="Maldivian">Maldivian (MV)</option>
+                                            <option value="Maltese">Maltese (MT)</option>
+                                            <option value="Marshallese">Marshallese (MH)</option>
+                                            <option value="Mauritanian">Mauritanian (MR)</option>
+                                            <option value="Mauritian">Mauritian (MU)</option>
+                                            <option value="Mexican">Mexican (MX)</option>
+                                            <option value="Micronesian">Micronesian (FM)</option>
+                                            <option value="Moldovan">Moldovan (MD)</option>
+                                            <option value="Monacan">Monacan (MC)</option>
+                                            <option value="Mongolian">Mongolian (MN)</option>
+                                            <option value="Montenegrin">Montenegrin (ME)</option>
+                                            <option value="Moroccan">Moroccan (MA)</option>
+                                            <option value="Mozambican">Mozambican (MZ)</option>
+                                            <option value="Namibian">Namibian (NA)</option>
+                                            <option value="Nauruan">Nauruan (NR)</option>
+                                            <option value="Nepali">Nepali (NP)</option>
+                                            <option value="New Zealander">New Zealander (NZ)</option>
+                                            <option value="Nicaraguan">Nicaraguan (NI)</option>
+                                            <option value="North Macedonian">North Macedonian (MK)</option>
+                                            <option value="Norwegian">Norwegian (NO)</option>
+                                            <option value="Omani">Omani (OM)</option>
+                                            <option value="Pakistani">Pakistani (PK)</option>
+                                            <option value="Palauan">Palauan (PW)</option>
+                                            <option value="Palestinian">Palestinian (PS)</option>
+                                            <option value="Panamanian">Panamanian (PA)</option>
+                                            <option value="Papua New Guinean">Papua New Guinean (PG)</option>
+                                            <option value="Paraguayan">Paraguayan (PY)</option>
+                                            <option value="Peruvian">Peruvian (PE)</option>
+                                            <option value="Philippine / Filipino">Philippine / Filipino (PH)</option>
+                                            <option value="Polish">Polish (PL)</option>
+                                            <option value="Portuguese">Portuguese (PT)</option>
+                                            <option value="Qatari">Qatari (QA)</option>
+                                            <option value="Romanian">Romanian (RO)</option>
+                                            <option value="Russian">Russian (RU)</option>
+                                            <option value="Rwandan">Rwandan (RW)</option>
+                                            <option value="Kittitian / Nevisian">Kittitian / Nevisian (KN)</option>
+                                            <option value="Saint Lucian">Saint Lucian (LC)</option>
+                                            <option value="Vincentian">Vincentian (VC)</option>
+                                            <option value="Samoan">Samoan (WS)</option>
+                                            <option value="Sammarinese">Sammarinese (SM)</option>
+                                            <option value="Sao Tomean">Sao Tomean (ST)</option>
+                                            <option value="Saudi (Saudi Arabia)">Saudi (Saudi Arabia) (SA)</option>
+                                            <option value="Serbian">Serbian (RS)</option>
+                                            <option value="Seychellois">Seychellois (SC)</option>
+                                            <option value="Singaporean">Singaporean (SG)</option>
+                                            <option value="Slovak">Slovak (SK)</option>
+                                            <option value="Slovenian">Slovenian (SI)</option>
+                                            <option value="Solomon Islander">Solomon Islander (SB)</option>
+                                            <option value="Somali">Somali (SO)</option>
+                                            <option value="South Sudanese">South Sudanese (SS)</option>
+                                            <option value="Spanish">Spanish (ES)</option>
+                                            <option value="Sri Lankan">Sri Lankan (LK)</option>
+                                            <option value="Sudanese">Sudanese (SD)</option>
+                                            <option value="Surinamese">Surinamese (SR)</option>
+                                            <option value="Swedish">Swedish (SE)</option>
+                                            <option value="Swiss">Swiss (CH)</option>
+                                            <option value="Syrian">Syrian (SY)</option>
+                                            <option value="Taiwanese">Taiwanese (TW)</option>
+                                            <option value="Tajik">Tajik (TJ)</option>
+                                            <option value="Tanzanian">Tanzanian (TZ)</option>
+                                            <option value="Thai">Thai (TH)</option>
+                                            <option value="Tongan">Tongan (TO)</option>
+                                            <option value="Trinidadian / Tobagonian">Trinidadian / Tobagonian (TT)</option>
+                                            <option value="Tunisian">Tunisian (TN)</option>
+                                            <option value="Turkish">Turkish (TR)</option>
+                                            <option value="Turkmen">Turkmen (TM)</option>
+                                            <option value="Tuvaluan">Tuvaluan (TV)</option>
+                                            <option value="Ugandan">Ugandan (UG)</option>
+                                            <option value="Ukrainian">Ukrainian (UA)</option>
+                                            <option value="Emirati (UAE)">Emirati (UAE) (AE)</option>
+                                            <option value="Uruguayan">Uruguayan (UY)</option>
+                                            <option value="Uzbek">Uzbek (UZ)</option>
+                                            <option value="Ni-Vanuatu (Vanuatu)">Ni-Vanuatu (Vanuatu) (VU)</option>
+                                            <option value="Vatican / Holy See">Vatican / Holy See (VA)</option>
+                                            <option value="Venezuelan">Venezuelan (VE)</option>
+                                            <option value="Vietnamese">Vietnamese (VN)</option>
+                                            <option value="Yemeni">Yemeni (YE)</option>
+                                            <option value="Zambian">Zambian (ZM)</option>
+                                            <option value="Zimbabwean">Zimbabwean (ZW)</option>
+                                            <option value="Other / Dual Nationality">Other / Dual Nationality (INT)</option>
+                                        </select>
+                                        <input type="hidden" id="newArrestedNationality" value="Ghanaian">
                                     </div>
                                 </div>
                             </div>
@@ -581,8 +894,9 @@
                                         <p id="relationshipSubtitle" class="text-[11px] text-black">Mandatory record for suspect legal spouse identity, phone contact, and occupation</p>
                                     </div>
                                 </div>
-
                                 <!-- SPOUSE FIELDS CARD -->
+                                <div id="spouseFieldsCard" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                 <!-- SPOUSE FIELDS CARD -->
                                 <div id="spouseFieldsCard" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Spouse Full Legal Name</label>
@@ -657,7 +971,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Place of Raid Scene &amp; Offence <span class="text-red-600 font-bold">*</span>
+                                        Place of Incident <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <div class="relative flex items-center group">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
@@ -684,7 +998,7 @@
                                 <!-- DATE OF Arrested -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Date of Arrested <span class="text-red-600 font-bold">*</span>
+                                        Date of Arrest <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <div class="relative flex items-center group">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
@@ -697,7 +1011,7 @@
                                 <!-- TIME OF Arrested -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Time of Arrested <span class="text-red-600 font-bold">*</span>
+                                        Time of Arrest <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <div class="relative flex items-center group">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
@@ -734,7 +1048,7 @@
                             </div>
                             <div>
                                 <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures (Commodities)</h3>
-                                <p class="text-xs text-slate-500">Record illicit substance types, gross weight/quantity, street valuation, and evidence vault allocation</p>
+                                <p class="text-xs text-slate-500">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
@@ -765,21 +1079,45 @@
                                         </div>
                                         <div>
                                             <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Seized Commodities &amp; Contraband Manifest</h4>
-                                            <p class="text-[11px] text-black">Record illicit substance types, gross weight/quantity, street valuation, and evidence vault allocation</p>
+                                            <p class="text-[11px] text-black">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
                                         </div>
                                     </div>
-                                    <span class="px-2.5 py-1 bg-emerald-100 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase">Evidence Tagging Active</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="px-2.5 py-1 bg-emerald-100 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase">Evidence Tagging Active</span>
+                                        <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
+                                            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                            Add Seizure
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <!-- SEIZURES INPUT GRID -->
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <!-- SEIZURES LIST CONTAINER FOR MULTIPLE SEIZURES -->
+                                <div id="seizuresListContainer" class="space-y-6">
+                                    <!-- SEIZURE BLOCK #1 -->
+                                    <div class="seizure-block bg-white p-5 rounded-2xl border border-slate-300/80 shadow-2xs space-y-5 relative" data-seizure-index="1">
+                                        <!-- SEIZURE ITEM HEADER -->
+                                        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center seizure-number-badge">1</span>
+                                                <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">Seizure Item #1</h5>
+                                            </div>
+                                            <div class="flex items-center space-x-2 seizure-header-right">
+                                                <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200">ACTIVE EXHIBIT</span>
+                                                <button type="button" onclick="removeSeizureBlock(this)" class="remove-seizure-btn hidden text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1" title="Remove Seizure Item">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Remove Item
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- SEIZURES INPUT GRID -->
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     
                                     <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
-                                    <div class="relative z-30">
+                                    <div class="relative z-[9999]" style="z-index: 9999;">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                             Exhibit (Commodity Category) <span class="text-red-600 font-bold">*</span>
                                         </label>
-                                        <div id="exhibitSelectWrapper" class="relative">
+                                        <div id="exhibitSelectWrapper" class="relative z-[9999]" style="z-index: 9999;">
                                             <div class="relative">
                                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -791,15 +1129,15 @@
                                                     autocomplete="off"
                                                     class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-pointer"
                                                     readonly
-                                                    onclick="this.removeAttribute('readonly'); document.getElementById('exhibitListPanel').classList.remove('hidden');"
-                                                    oninput="filterExhibitList()"
-                                                    onfocus="document.getElementById('exhibitListPanel').classList.remove('hidden')"
+                                                    onclick="openExhibitListPanel(this)"
+                                                    oninput="filterExhibitList(this)"
+                                                    onfocus="openExhibitListPanel(this)"
                                                 >
                                                 <input type="hidden" id="newSeizureCategory" value="">
                                             </div>
-                                            <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
+                                            <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden" style="z-index: 9999;">
                                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                    <input type="text" id="exhibitSearchInner" placeholder="Type to filter categories..." oninput="filterExhibitListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    <input type="text" id="exhibitSearchInner" placeholder="Type to filter categories..." oninput="filterExhibitListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
                                                 </div>
                                                 <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
                                                     <li class="exhibit-item" onclick="selectExhibitCategory('Drugs', event)">
@@ -826,9 +1164,27 @@
                                                             <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">VEH</span>
                                                         </button>
                                                     </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Electronic Devices', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Electronic Devices</div><div class="text-[10px] text-slate-500 font-normal">Phones, Encrypted Laptops, Drives</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">ELEC</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Weapons', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Weapons</div><div class="text-[10px] text-slate-500 font-normal">Firearms, Handguns, Blades</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">WPN</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Ammunition', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Ammunition</div><div class="text-[10px] text-slate-500 font-normal">Bullets, Cartridges, Explosives</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-2 py-0.5 rounded font-bold">AMMO</span>
+                                                        </button>
+                                                    </li>
                                                     <li class="exhibit-item" onclick="selectExhibitCategory('Other Exhibits', event)">
                                                         <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Other Exhibits</div><div class="text-[10px] text-slate-500 font-normal">Weapons, Hardware, Devices</div></div>
+                                                            <div><div class="font-extrabold text-slate-900">Other Exhibits</div><div class="text-[10px] text-slate-500 font-normal">Hardware, Miscellaneous Devices</div></div>
                                                             <span class="text-[10px] font-mono-code bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">MISC</span>
                                                         </button>
                                                     </li>
@@ -849,75 +1205,309 @@
                                             <input type="text" id="newSeizureName" placeholder="e.g. Cocaine (High Purity Slabs)" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
 
-                                        <!-- DRUG SELECT2 DROPDOWN (shown when Drugs is selected) -->
+                                        <!-- DRUG SELECT DROPDOWN (matching Exhibit Category styling) -->
                                         <div id="drugSelectWrapper" class="hidden relative z-40">
-                                            <!-- Search input -->
                                             <div class="relative">
-                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-red-400 pointer-events-none">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                                                 </span>
                                                 <input
                                                     type="text"
                                                     id="drugSearchInput"
-                                                    placeholder="Search drug type..."
+                                                    placeholder="Select or type custom drug name..."
                                                     autocomplete="off"
-                                                    oninput="filterDrugList()"
-                                                    onfocus="document.getElementById('drugListPanel').classList.remove('hidden')"
-                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
-                                                    readonly
-                                                    onclick="this.removeAttribute('readonly'); document.getElementById('drugListPanel').classList.remove('hidden');"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                    onclick="openDrugListPanel(this)"
+                                                    oninput="filterDrugList(this)"
+                                                    onfocus="openDrugListPanel(this)"
                                                 >
-                                                <input type="hidden" id="newSeizureNameDrug" name="newSeizureName">
+                                                <input type="hidden" id="newSeizureNameDrug" name="newSeizureNameDrug" value="">
                                             </div>
-                                            <!-- Dropdown panel -->
-                                            <div id="drugListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-300 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                            <div id="drugListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
                                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                    <input type="text" id="drugSearchInner" placeholder="Type to filter drugs..." oninput="filterDrugListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    <input type="text" id="drugSearchInner" placeholder="Type to filter drugs..." oninput="filterDrugListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
                                                 </div>
                                                 <ul id="drugList" class="py-1.5 space-y-0.5 px-1.5">
                                                     <!-- Opioids & Analgesics -->
-                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Opioids &amp; Analgesics</li>
-                                                    <li class="drug-item" onclick="selectDrugType('Heroin (Brown Sugar / Diacetylmorphine)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors flex items-center justify-between"><span>Heroin</span><span class="text-[10px] font-mono-code bg-emerald-50 text-black px-1.5 py-0.5 rounded font-bold">Brown Sugar</span></button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Fentanyl (Synthetic Opioid Patches / Powder)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Fentanyl (Synthetic Opioid)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Morphine (Raw Opium Extract)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Morphine (Raw Opium Extract)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Tramadol (High-Dose Tablets / Capsules)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors flex items-center justify-between"><span>Tramadol</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">High-Dose</span></button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Codeine (Cough Syrup Misuse / Purple Drank)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Codeine (Purple Drank)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Oxycodone (OxyContin Tablets)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Oxycodone (OxyContin)</button></li>
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Opioids &amp; Analgesics</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Heroin (Brown Sugar / Diacetylmorphine)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Heroin (Brown Sugar / Diacetylmorphine)</span>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Fentanyl (Synthetic Opioid Patches / Powder)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Fentanyl (Synthetic Opioid Patches / Powder)</span>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Morphine (Raw Opium Extract)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Morphine (Raw Opium Extract)</span>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Tramadol (High-Dose Tablets / Capsules)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Tramadol (High-Dose Tablets / Capsules)</span>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Codeine (Cough Syrup Misuse / Purple Drank)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Codeine (Cough Syrup Misuse / Purple Drank)</span>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Oxycodone (OxyContin Tablets)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Oxycodone (OxyContin Tablets)</span>
+                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                        </button>
+                                                    </li>
 
-                                                    <!-- Stimulants -->
-                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Stimulants &amp; Cocaine-Class</li>
-                                                    <li class="drug-item" onclick="selectDrugType('Cocaine (High-Purity Powder / Slabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors flex items-center justify-between"><span>Cocaine (Powder)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-black px-1.5 py-0.5 rounded font-bold">COC</span></button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Crack Cocaine (Rock Form / Freebase)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Crack Cocaine (Rock Form)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Methamphetamine (Crystal Meth / Ice)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors flex items-center justify-between"><span>Methamphetamine (Ice)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">METH</span></button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Amphetamine (Speed / Pep Pills)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Amphetamine (Speed Pills)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('MDMA (Ecstasy / Molly Tablets)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors flex items-center justify-between"><span>MDMA (Ecstasy / Molly)</span><span class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">XTC</span></button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Khat (Catha Edulis Fresh Leaves / Bundles)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Khat (Catha Edulis)</button></li>
+                                                    <!-- Stimulants & Cocaine-Class -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Stimulants &amp; Cocaine-Class</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cocaine (High-Purity Powder / Slabs)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Cocaine (High-Purity Powder / Slabs)</span>
+                                                            <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">COC</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Crack Cocaine (Rock Form / Freebase)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Crack Cocaine (Rock Form / Freebase)</span>
+                                                            <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">COC</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Methamphetamine (Crystal Meth / Ice)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Methamphetamine (Crystal Meth / Ice)</span>
+                                                            <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Amphetamine (Speed / Pep Pills)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Amphetamine (Speed / Pep Pills)</span>
+                                                            <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('MDMA (Ecstasy / Molly Tablets)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>MDMA (Ecstasy / Molly Tablets)</span>
+                                                            <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Khat (Catha Edulis Fresh Leaves / Bundles)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Khat (Catha Edulis Fresh Leaves / Bundles)</span>
+                                                            <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                        </button>
+                                                    </li>
 
-                                                    <!-- Cannabis -->
-                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Cannabis &amp; Derivatives</li>
-                                                    <li class="drug-item" onclick="selectDrugType('Cannabis / Marijuana (Dried Flower / Weed)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors flex items-center justify-between"><span>Cannabis / Marijuana</span><span class="text-[10px] font-mono-code bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-bold">THC</span></button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Cannabis Resin (Hashish / Black Hash Slabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Cannabis Resin (Hashish)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Cannabis Oil / THC Concentrate (Wax / Dabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Cannabis Oil / THC Concentrate</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Synthetic Cannabinoids (Spice / K2 Herbal)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Synthetic Cannabinoids (Spice/K2)</button></li>
+                                                    <!-- Cannabis & Derivatives -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Cannabis &amp; Derivatives</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cannabis / Marijuana (Dried Flower / Weed)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Cannabis / Marijuana (Dried Flower / Weed)</span>
+                                                            <span class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cannabis Resin (Hashish / Black Hash Slabs)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Cannabis Resin (Hashish / Black Hash Slabs)</span>
+                                                            <span class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Cannabis Oil / THC Concentrate (Wax / Dabs)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Cannabis Oil / THC Concentrate (Wax / Dabs)</span>
+                                                            <span class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Synthetic Cannabinoids (Spice / K2 Herbal)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Synthetic Cannabinoids (Spice / K2 Herbal)</span>
+                                                            <span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SYN</span>
+                                                        </button>
+                                                    </li>
 
                                                     <!-- Sedatives & Depressants -->
-                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Sedatives &amp; Depressants</li>
-                                                    <li class="drug-item" onclick="selectDrugType('Rohypnol (Flunitrazepam / Date Rape Drug)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Rohypnol (Flunitrazepam)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('GHB (Gamma-Hydroxybutyrate / Liquid Ecstasy)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">GHB (Liquid Ecstasy)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Diazepam / Valium (Benzodiazepine Tablets)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Diazepam / Valium (Benzo)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Ketamine (Special K / Dissociative Anesthetic)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Ketamine (Special K)</button></li>
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Sedatives &amp; Depressants</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Rohypnol (Flunitrazepam / Date Rape Drug)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Rohypnol (Flunitrazepam / Date Rape Drug)</span>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('GHB (Gamma-Hydroxybutyrate / Liquid Ecstasy)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>GHB (Gamma-Hydroxybutyrate / Liquid Ecstasy)</span>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Diazepam / Valium (Benzodiazepine Tablets)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Diazepam / Valium (Benzodiazepine Tablets)</span>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Ketamine (Special K / Dissociative Anesthetic)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Ketamine (Special K / Dissociative Anesthetic)</span>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                        </button>
+                                                    </li>
 
-                                                    <!-- Hallucinogens -->
-                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Hallucinogens &amp; Psychedelics</li>
-                                                    <li class="drug-item" onclick="selectDrugType('LSD (Lysergic Acid Diethylamide / Acid Tabs)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">LSD (Acid Tabs)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Psilocybin (Magic Mushrooms / Shrooms)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Psilocybin (Magic Mushrooms)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('PCP (Phencyclidine / Angel Dust)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">PCP (Angel Dust)</button></li>
+                                                    <!-- Hallucinogens & Psychedelics -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Hallucinogens &amp; Psychedelics</li>
+                                                    <li class="drug-item" onclick="selectDrugType('LSD (Lysergic Acid Diethylamide / Acid Tabs)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>LSD (Lysergic Acid Diethylamide / Acid Tabs)</span>
+                                                            <span class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Psilocybin (Magic Mushrooms / Shrooms)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Psilocybin (Magic Mushrooms / Shrooms)</span>
+                                                            <span class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('PCP (Phencyclidine / Angel Dust)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>PCP (Phencyclidine / Angel Dust)</span>
+                                                            <span class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
+                                                        </button>
+                                                    </li>
 
-                                                    <!-- Precursors -->
-                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-red-400 uppercase tracking-widest">Precursor Chemicals</li>
-                                                    <li class="drug-item" onclick="selectDrugType('Ephedrine / Pseudoephedrine (Meth Precursor)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Ephedrine / Pseudoephedrine</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Acetic Anhydride (Heroin Precursor Chemical)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Acetic Anhydride (Heroin Precursor)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Phenylacetic Acid (Amphetamine Precursor)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Phenylacetic Acid</button></li>
+                                                    <!-- Precursor Chemicals -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Precursor Chemicals</li>
+                                                    <li class="drug-item" onclick="selectDrugType('Ephedrine / Pseudoephedrine (Meth Precursor)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Ephedrine / Pseudoephedrine (Meth Precursor)</span>
+                                                            <span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Acetic Anhydride (Heroin Precursor Chemical)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Acetic Anhydride (Heroin Precursor Chemical)</span>
+                                                            <span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
+                                                        </button>
+                                                    </li>
+                                                    <li class="drug-item" onclick="selectDrugType('Phenylacetic Acid (Amphetamine Precursor)', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <span>Phenylacetic Acid (Amphetamine Precursor)</span>
+                                                            <span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- WEAPON SELECT DROPDOWN (matching Exhibit Category styling) -->
+                                        <div id="weaponSelectWrapper" class="hidden relative z-40">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="weaponSearchInput"
+                                                    placeholder="Select or type custom weapon type..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                    onclick="openWeaponListPanel(this)"
+                                                    oninput="filterWeaponList(this)"
+                                                    onfocus="openWeaponListPanel(this)"
+                                                >
+                                                <input type="hidden" id="newSeizureNameWeapon" name="newSeizureNameWeapon" value="">
+                                            </div>
+                                            <div id="weaponListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="weaponSearchInner" placeholder="Type to filter weapons..." oninput="filterWeaponListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                </div>
+                                                <ul id="weaponList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- Handguns & Pistols -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Handguns &amp; Pistols</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('AK-47 / AKM Shorty Pistol (7.62x39mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-47 / AKM Shorty Pistol (7.62x39mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Glock 17 Semi-Automatic Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Glock 17 Semi-Automatic Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Glock 19 Compact Tactical Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Glock 19 Compact Tactical Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Beretta 92FS / M9 Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Beretta 92FS / M9 Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('SIG Sauer P226 / P320 Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIG Sauer P226 / P320 Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Colt M1911 / M1911A1 Pistol (.45 ACP)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Colt M1911 / M1911A1 Pistol (.45 ACP)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Smith &amp; Wesson M&amp;P 9mm Pistol', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smith &amp; Wesson M&amp;P 9mm Pistol</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Browning Hi-Power Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Browning Hi-Power Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('CZ 75 / CZ P-10 C Tactical Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>CZ 75 / CZ P-10 C Tactical Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Tokarev TT-33 Pistol (7.62x25mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tokarev TT-33 Pistol (7.62x25mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Makarov PM Concealed Pistol (9x18mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Makarov PM Concealed Pistol (9x18mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Revolver (.38 Special / .357 Magnum)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Revolver (.38 Special / .357 Magnum)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">REV</span></button></li>
+
+                                                    <!-- Rifles & Assault Rifles -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Rifles &amp; Assault Rifles</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('AK-47 / AKM Kalashnikov Rifle (7.62x39mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-47 / AKM Kalashnikov Rifle (7.62x39mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('AK-74 Tactical Rifle (5.45x39mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-74 Tactical Rifle (5.45x39mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('M16A2 / M16A4 Military Assault Rifle (5.56mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M16A2 / M16A4 Military Assault Rifle (5.56mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('M4A1 Carbine / AR-15 Platform (5.56x45mm NATO)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M4A1 Carbine / AR-15 Platform (5.56x45mm NATO)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Heckler &amp; Koch HK416 Assault Rifle (5.56mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler &amp; Koch HK416 Assault Rifle (5.56mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('FN FAL Battle Rifle (7.62x51mm NATO)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN FAL Battle Rifle (7.62x51mm NATO)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Heckler &amp; Koch G3 Battle Rifle (7.62x51mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler &amp; Koch G3 Battle Rifle (7.62x51mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Galil ARM / Tavor TAR-21 Assault Rifle (5.56mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Galil ARM / Tavor TAR-21 Assault Rifle (5.56mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Steyr AUG Bullpup Assault Rifle (5.56mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Steyr AUG Bullpup Assault Rifle (5.56mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Type 56 Norinco Rifle (7.62x39mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Type 56 Norinco Rifle (7.62x39mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('SKS Semi-Automatic Carbine (7.62x39mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SKS Semi-Automatic Carbine (7.62x39mm)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button></li>
+
+                                                    <!-- Submachine Guns (SMGs) -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Submachine Guns (SMGs)</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Heckler &amp; Koch MP5 / MP5K SMG (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler &amp; Koch MP5 / MP5K SMG (9mm)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Uzi / Mini-Uzi Submachine Gun (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Uzi / Mini-Uzi Submachine Gun (9mm)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('CZ Scorpion EVO 3 Submachine Gun (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>CZ Scorpion EVO 3 Submachine Gun (9mm)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('FN P90 Personal Defense Weapon (5.7x28mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN P90 Personal Defense Weapon (5.7x28mm)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('MAC-10 / MAC-11 Submachine Gun (.45 ACP / 9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>MAC-10 / MAC-11 Submachine Gun (.45 ACP / 9mm)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Beretta M12 Submachine Gun (9mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Beretta M12 Submachine Gun (9mm)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button></li>
+
+                                                    <!-- Shotguns -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Shotguns</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Remington 870 Tactical Shotgun (12 Gauge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Remington 870 Tactical Shotgun (12 Gauge)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Mossberg 500 / 590 Pump Shotgun (12 Gauge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mossberg 500 / 590 Pump Shotgun (12 Gauge)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Benelli M4 Combat Shotgun (12 Gauge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Benelli M4 Combat Shotgun (12 Gauge)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Saiga-12 Semi-Auto Tactical Shotgun (12 Gauge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Saiga-12 Semi-Auto Tactical Shotgun (12 Gauge)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Double-Barrel Break-Action Shotgun (Sawed-Off)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Double-Barrel Break-Action Shotgun (Sawed-Off)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Single-Barrel Hunting Shotgun (12 Gauge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Barrel Hunting Shotgun (12 Gauge)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button></li>
+
+                                                    <!-- Sniper & Precision Rifles -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Sniper &amp; Precision Rifles</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Barrett M82A1 / M107 Anti-Materiel (.50 BMG)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrett M82A1 / M107 Anti-Materiel (.50 BMG)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Remington 700 / M24 Sniper Rifle (7.62 NATO)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Remington 700 / M24 Sniper Rifle (7.62 NATO)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Dragunov SVD Sniper Rifle (7.62x54mmR)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Dragunov SVD Sniper Rifle (7.62x54mmR)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Accuracy International AWM / AWSM (.338 Lapua)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Accuracy International AWM / AWSM (.338 Lapua)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button></li>
+
+                                                    <!-- Machine Guns & Heavy Ordnance -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Machine Guns &amp; Heavy Ordnance</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('PKM / PKP General Purpose Machine Gun (7.62x54mmR)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>PKM / PKP General Purpose Machine Gun (7.62x54mmR)</span><span class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('FN MAG / M240 Belt-Fed Machine Gun (7.62mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN MAG / M240 Belt-Fed Machine Gun (7.62mm)</span><span class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('M249 SAW / FN Minimi Light Machine Gun (5.56mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M249 SAW / FN Minimi Light Machine Gun (5.56mm)</span><span class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Browning M2HB Heavy Machine Gun (.50 BMG)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Browning M2HB Heavy Machine Gun (.50 BMG)</span><span class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">HMG</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('RPG-7 Anti-Tank Rocket Launcher', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RPG-7 Anti-Tank Rocket Launcher</span><span class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">ORD</span></button></li>
+
+                                                    <!-- Edged, Bladed & Impact Weapons -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Edged, Bladed &amp; Impact Weapons</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Combat / Tactical Military Knife', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Combat / Tactical Military Knife</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Heavy Steel Machete / Cutlass', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heavy Steel Machete / Cutlass</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Switchblade / Automatic Stiletto Knife', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Switchblade / Automatic Stiletto Knife</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Dagger / Push Knife / Concealed Blade', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Dagger / Push Knife / Concealed Blade</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Samurai Sword / Katana / Machete Blade', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Samurai Sword / Katana / Machete Blade</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Brass Knuckles / Heavy Iron Knuckles', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Brass Knuckles / Heavy Iron Knuckles</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">IMP</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Crossbow / Tactical Compound Bow', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crossbow / Tactical Compound Bow</span><span class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BOW</span></button></li>
+
+                                                    <!-- Explosives & Less-Lethal Tactical Devices -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Explosives &amp; Less-Lethal Tactical Devices</li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('High-Explosive Hand Grenade (Frag)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>High-Explosive Hand Grenade (Frag)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">EXP</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Flashbang Grenade / Tactical Stun Grenade', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Flashbang Grenade / Tactical Stun Grenade</span><span class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">TAC</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('C4 Plastic Explosive / Dynamite Blocks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>C4 Plastic Explosive / Dynamite Blocks</span><span class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">EXP</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Improvised Explosive Device (IED / Pipe Bomb)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Improvised Explosive Device (IED / Pipe Bomb)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">IED</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Taser Stun Gun / Electroshock Weapon', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Taser Stun Gun / Electroshock Weapon</span><span class="text-[10px] font-mono-code bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">TSR</span></button></li>
+                                                    <li class="weapon-item" onclick="selectWeaponType('Pepper Spray / OC Tear Gas Canister', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pepper Spray / OC Tear Gas Canister</span><span class="text-[10px] font-mono-code bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">GAS</span></button></li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -935,15 +1525,15 @@
                                                     autocomplete="off"
                                                     class="w-full pl-8 pr-3 py-2.5 bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
                                                     readonly
-                                                    onclick="this.removeAttribute('readonly'); document.getElementById('currencyListPanel').classList.remove('hidden');"
-                                                    oninput="filterCurrencyList()"
-                                                    onfocus="document.getElementById('currencyListPanel').classList.remove('hidden')"
+                                                    onclick="openCurrencyListPanel(this)"
+                                                    oninput="filterCurrencyList(this)"
+                                                    onfocus="openCurrencyListPanel(this)"
                                                 >
                                                 <input type="hidden" id="newSeizureNameCurrency" name="newSeizureName">
                                             </div>
                                             <div id="currencyListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-emerald-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
                                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                    <input type="text" id="currencySearchInner" placeholder="Type to filter currencies..." oninput="filterCurrencyListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-300 transition-all">
+                                                    <input type="text" id="currencySearchInner" placeholder="Type to filter currencies..." oninput="filterCurrencyListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-300 transition-all">
                                                 </div>
                                                 <ul id="currencyList" class="py-1.5 space-y-0.5 px-1.5">
                                                     <!-- West Africa -->
@@ -997,55 +1587,267 @@
                                                 </ul>
                                             </div>
                                         </div>
+
+                                        <!-- AMMUNITION SELECT DROPDOWN (shown when Ammunition is selected) -->
+                                        <div id="ammoSelectWrapper" class="hidden relative z-40">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="ammoSearchInput"
+                                                    placeholder="Select or type custom ammunition type..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                    onclick="openAmmoListPanel(this)"
+                                                    oninput="filterAmmoList(this)"
+                                                    onfocus="openAmmoListPanel(this)"
+                                                >
+                                                <input type="hidden" id="newSeizureNameAmmo" name="newSeizureNameAmmo" value="">
+                                            </div>
+                                            <div id="ammoListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="ammoSearchInner" placeholder="Type to filter ammunitions..." oninput="filterAmmoListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                </div>
+                                                <ul id="ammoList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- Pistol & Handgun Ammunition -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Pistol &amp; Handgun Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('9x19mm Parabellum / NATO (9mm Luger)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x19mm Parabellum / NATO (9mm Luger)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9MM</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.45 ACP (Automatic Colt Pistol / 11.43x23mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.45 ACP (Automatic Colt Pistol / 11.43x23mm)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.45</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.40 S&amp;W (Smith &amp; Wesson / 10x22mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.40 S&amp;W (Smith &amp; Wesson / 10x22mm)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.40</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.380 ACP (9mm Short / Browning)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.380 ACP (9mm Short / Browning)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.380</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.38 Special (9x29mmR Revolver Ammunition)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.38 Special (9x29mmR Revolver Ammunition)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.38</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.357 Magnum (9x33mmR High Velocity)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.357 Magnum (9x33mmR High Velocity)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.357</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.44 Remington Magnum (10.9x33mmR)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.44 Remington Magnum (10.9x33mmR)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.44</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x25mm Tokarev (TT Pistol Cartridge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x25mm Tokarev (TT Pistol Cartridge)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('9x18mm Makarov (PM Round)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x18mm Makarov (PM Round)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9x18</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('5.7x28mm (FN P90 / Five-seveN High-Velocity)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.7x28mm (FN P90 / Five-seveN High-Velocity)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">5.7</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('10mm Auto (10x25mm Tactical)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>10mm Auto (10x25mm Tactical)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">10MM</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.50 Action Express (.50 AE Desert Eagle)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50 Action Express (.50 AE Desert Eagle)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.50AE</span></button></li>
+
+                                                    <!-- Rifle & Intermediate Ammunition -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Rifle &amp; Intermediate Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x39mm Soviet (AK-47 / SKS / Type 56)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x39mm Soviet (AK-47 / SKS / Type 56)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('5.56x45mm NATO / .223 Remington (M16 / M4 / AR-15)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.56x45mm NATO / .223 Remington (M16 / M4 / AR-15)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.56</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x51mm NATO / .308 Winchester (FN FAL / G3)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x51mm NATO / .308 Winchester (FN FAL / G3)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('5.45x39mm Soviet (AK-74 Assault Rifle)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.45x39mm Soviet (AK-74 Assault Rifle)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.45</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x54mmR Russian (Dragunov SVD / PKM Belt)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x54mmR Russian (Dragunov SVD / PKM Belt)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62R</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.300 AAC Blackout (7.62x35mm Subsonic / Supersonic)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300 AAC Blackout (7.62x35mm Subsonic / Supersonic)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.300</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('6.5mm Creedmoor (Precision Long Range Match)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>6.5mm Creedmoor (Precision Long Range Match)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">6.5</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.30-06 Springfield (7.62x63mm Military Rifle)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.30-06 Springfield (7.62x63mm Military Rifle)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.30-06</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.303 British (7.7x56mmR Lee-Enfield)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.303 British (7.7x56mmR Lee-Enfield)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.303</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.92x57mm Mauser (8mm Mauser Infantry)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.92x57mm Mauser (8mm Mauser Infantry)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">8MM</span></button></li>
+
+                                                    <!-- Shotgun Shells & Shotshell Cartridges -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Shotgun Shells &amp; Shotshell Cartridges</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Buckshot (00 Buck / 9 Pellets Tactical)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Buckshot (00 Buck / 9 Pellets Tactical)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Rifled Slug (Heavy Solid Lead Penetrator)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Rifled Slug (Heavy Solid Lead Penetrator)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Birdshot / Game Load Cartridges', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Birdshot / Game Load Cartridges</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Less-Lethal Rubber Baton / Beanbag Round', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Less-Lethal Rubber Baton / Beanbag Round</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('20 Gauge Shotgun Cartridge (Buck &amp; Slug)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>20 Gauge Shotgun Cartridge (Buck &amp; Slug)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">20GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('16 Gauge Shotgun Cartridge', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>16 Gauge Shotgun Cartridge</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">16GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.410 Bore Shotgun Shell (Buckshot / Slug)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.410 Bore Shotgun Shell (Buckshot / Slug)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">.410</span></button></li>
+
+                                                    <!-- Heavy & Anti-Materiel Ammunition -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Heavy &amp; Anti-Materiel Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.50 BMG (12.7x99mm NATO Armor-Piercing Incendiary)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50 BMG (12.7x99mm NATO Armor-Piercing Incendiary)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.50</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12.7x108mm Russian Heavy Machine Gun Cartridge', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12.7x108mm Russian Heavy Machine Gun Cartridge</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">12.7</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.338 Lapua Magnum (8.6x70mm Long-Range Sniper)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.338 Lapua Magnum (8.6x70mm Long-Range Sniper)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.338</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.300 Winchester Magnum (.300 Win Mag Match)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300 Winchester Magnum (.300 Win Mag Match)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.300</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('14.5x114mm Heavy Armor-Piercing Cartridge', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>14.5x114mm Heavy Armor-Piercing Cartridge</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">14.5</span></button></li>
+
+                                                    <!-- Rimfire & Specialty Ammunition -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Rimfire &amp; Specialty Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.22 Long Rifle (.22 LR Rimfire Round)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22 Long Rifle (.22 LR Rimfire Round)</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22LR</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.22 WMR (.22 Magnum Rimfire Cartridge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22 WMR (.22 Magnum Rimfire Cartridge)</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22WMR</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('40x46mm High-Explosive Grenade Round (M203 / M320)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>40x46mm High-Explosive Grenade Round (M203 / M320)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">40MM</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('37mm / 40mm Tear Gas / CS Smoke / Flare Round', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>37mm / 40mm Tear Gas / CS Smoke / Flare Round</span><span class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">37MM</span></button></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- ELECTRONIC DEVICE SELECT DROPDOWN (shown when Electronic Devices is selected) -->
+                                        <div id="deviceSelectWrapper" class="hidden relative z-40">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="deviceSearchInput"
+                                                    placeholder="Select or type custom electronic device type..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                    onclick="openDeviceListPanel(this)"
+                                                    oninput="filterDeviceList(this)"
+                                                    onfocus="openDeviceListPanel(this)"
+                                                >
+                                                <input type="hidden" id="newSeizureNameDevice" name="newSeizureNameDevice" value="">
+                                            </div>
+                                            <div id="deviceListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="deviceSearchInner" placeholder="Type to filter electronic devices..." oninput="filterDeviceListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                </div>
+                                                <ul id="deviceList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- Smartphones & Mobile Devices -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Smartphones &amp; Mobile Devices</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Apple iPhone (iOS Smartphone)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Apple iPhone (iOS Smartphone)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">IPHONE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Android Smartphone (Samsung / Google Pixel / Xiaomi)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Android Smartphone (Samsung / Google Pixel / Xiaomi)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">ANDROID</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Feature Phone / Burner Keypad Phone', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Feature Phone / Burner Keypad Phone</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">BURNER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Satellite Phone (Iridium / Thuraya / Inmarsat)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Satellite Phone (Iridium / Thuraya / Inmarsat)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SAT-PHONE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Tablet / iPad (iOS / Android / Windows Tablet)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablet / iPad (iOS / Android / Windows Tablet)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">TABLET</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Smartwatch / Wearable Fitness Tracker', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smartwatch / Wearable Fitness Tracker</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">WATCH</span></button></li>
+
+                                                    <!-- Computers & Laptops -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Computers &amp; Laptops</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Laptop / Notebook Computer (MacBook / Windows / Linux)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Laptop / Notebook Computer (MacBook / Windows / Linux)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">LAPTOP</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Desktop PC / Workstation Computer', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Desktop PC / Workstation Computer</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">DESKTOP</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Encrypted / Hardened Custom Laptop', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Encrypted / Hardened Custom Laptop</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">ENCRYPTED</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Enterprise Server / Rackmount Server Unit', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Enterprise Server / Rackmount Server Unit</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SERVER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Single-Board Computer (Raspberry Pi / Arduino / Mini PC)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Board Computer (Raspberry Pi / Arduino / Mini PC)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SBC</span></button></li>
+
+                                                    <!-- Storage & Memory Media -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Storage &amp; Memory Media</li>
+                                                    <li class="device-item" onclick="selectDeviceType('External Hard Drive (HDD / Portable Hard Disk)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>External Hard Drive (HDD / Portable Hard Disk)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">HDD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Portable Solid State Drive (External SSD / NVMe)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Portable Solid State Drive (External SSD / NVMe)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SSD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('USB Flash Drive / Thumb Drive / Pen Drive', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>USB Flash Drive / Thumb Drive / Pen Drive</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">USB</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Memory Card (SD Card / MicroSD / CF Card)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Memory Card (SD Card / MicroSD / CF Card)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SD-CARD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('NAS / Network Attached Storage Array', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>NAS / Network Attached Storage Array</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">NAS</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Optical Media (CD / DVD / Blu-ray Disc)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Optical Media (CD / DVD / Blu-ray Disc)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">DISC</span></button></li>
+
+                                                    <!-- Skimming, Fraud & Hardware Attack Devices -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Skimming, Fraud &amp; Hardware Attack Devices</li>
+                                                    <li class="device-item" onclick="selectDeviceType('ATM Card Skimmer / Bezel Overlay Device', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>ATM Card Skimmer / Bezel Overlay Device</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SKIMMER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('POS Terminal / Handheld Card Reader', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>POS Terminal / Handheld Card Reader</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">POS</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Magstripe Card Writer / Encoder (MSR / MSR605)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magstripe Card Writer / Encoder (MSR / MSR605)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ENCODER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('SIM Box / Multi-SIM GSM Cellular Gateway', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIM Box / Multi-SIM GSM Cellular Gateway</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SIMBOX</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('BadUSB / Hardware Keylogger / Rubber Ducky', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>BadUSB / Hardware Keylogger / Rubber Ducky</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ATTACK-USB</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('RFID / NFC Cloner / Flipper Zero Device', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RFID / NFC Cloner / Flipper Zero Device</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">CLONER</span></button></li>
+
+                                                    <!-- Crypto & Financial Hardware -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Crypto &amp; Financial Hardware</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Cryptocurrency Hardware Wallet (Ledger / Trezor / KeepKey)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cryptocurrency Hardware Wallet (Ledger / Trezor / KeepKey)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">HW-WALLET</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Crypto Mining Rig / ASIC Miner (Antminer / GPU Rig)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crypto Mining Rig / ASIC Miner (Antminer / GPU Rig)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">MINER</span></button></li>
+
+                                                    <!-- Cameras, Drones & Surveillance Equipment -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Cameras, Drones &amp; Surveillance Equipment</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Security Camera / CCTV DVR / NVR Unit', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Security Camera / CCTV DVR / NVR Unit</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CCTV</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Digital Camera / Camcorder / DSLR', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital Camera / Camcorder / DSLR</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CAMERA</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Covert Spy Camera / Hidden Camera Device', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Covert Spy Camera / Hidden Camera Device</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">SPY-CAM</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Drone / Unmanned Aerial Vehicle (DJI / FPV Drone)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drone / Unmanned Aerial Vehicle (DJI / FPV Drone)</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">DRONE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('GPS Tracking Bug / Tracker Tag (AirTag / GPS Unit)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>GPS Tracking Bug / Tracker Tag (AirTag / GPS Unit)</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">GPS</span></button></li>
+
+                                                    <!-- Networking & Communication Equipment -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Networking &amp; Communication Equipment</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Wi-Fi Router / Wireless Access Point / Modem', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wi-Fi Router / Wireless Access Point / Modem</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">ROUTER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Network Switch / Managed Network Hardware', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Network Switch / Managed Network Hardware</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">SWITCH</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Mobile Hotspot / MiFi Device / 4G-5G Dongle', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mobile Hotspot / MiFi Device / 4G-5G Dongle</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">MIFI</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Two-Way Radio / Walkie-Talkie (VHF / UHF Transceiver)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Two-Way Radio / Walkie-Talkie (VHF / UHF Transceiver)</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">RADIO</span></button></li>
+
+                                                    <!-- Gaming & Audio/Video Equipment -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Gaming &amp; Audio/Video Equipment</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Gaming Console (PlayStation / Xbox / Nintendo)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gaming Console (PlayStation / Xbox / Nintendo)</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">CONSOLE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Handheld Gaming Unit (Steam Deck / ROG Ally)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Handheld Gaming Unit (Steam Deck / ROG Ally)</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">HANDHELD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Digital Voice Recorder / Dictaphone', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital Voice Recorder / Dictaphone</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">AUDIO</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Smart TV / Media Streaming Dongle (Apple TV / Firestick)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smart TV / Media Streaming Dongle (Apple TV / Firestick)</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">MEDIA</span></button></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <!-- QUANTITY & UNIT -->
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity / Weight</label>
-                                            <input type="number" step="0.01" id="newSeizureQuantity" placeholder="e.g. 24.50" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                    <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL (shown when Electronic Devices is selected) -->
+                                    <div id="deviceFieldsWrapper" class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200/80 shadow-2xs space-y-3">
+                                        <div class="flex items-center space-x-2 text-slate-800">
+                                            <div class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                            </div>
+                                            <span class="text-xs font-extrabold uppercase tracking-wider text-blue-950">Electronic Device Forensic Specifications</span>
                                         </div>
-                                        <div class="relative z-20">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Unit</label>
-                                            <div id="unitSelectWrapper" class="relative">
-                                                <div class="relative">
-                                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                                            <!-- 1. MODEL -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
                                                     </span>
-                                                    <input
-                                                        type="text"
-                                                        id="unitSearchInput"
-                                                        placeholder="Select unit..."
-                                                        autocomplete="off"
-                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
-                                                        readonly
-                                                        onclick="this.removeAttribute('readonly'); document.getElementById('unitListPanel').classList.remove('hidden');"
-                                                        oninput="filterUnitList()"
-                                                        onfocus="document.getElementById('unitListPanel').classList.remove('hidden')"
-                                                    >
-                                                    <input type="hidden" id="newSeizureUnit" value="">
+                                                    <input type="text" id="newDevModel" placeholder="e.g. iPhone 15 Pro Max" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                                 </div>
-                                                <div id="unitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
-                                                    <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                        <input type="text" id="unitSearchInner" placeholder="Type to filter units..." oninput="filterUnitListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                    </div>
-                                                    <ul id="unitList" class="py-1.5 space-y-0.5 px-1.5">
-                                                        <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Weight &amp; Mass</li>
-                                                        <li class="unit-item" onclick="selectUnit('Kilograms (kg)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Kilograms</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">kg</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Grams (g)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Grams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">g</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Tonnes (t)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tonnes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">t</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Milligrams (mg)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Milligrams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mg</span></button></li>
-                                                        <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Volume &amp; Liquid</li>
-                                                        <li class="unit-item" onclick="selectUnit('Litres (L)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Litres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">L</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Millilitres (mL)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Millilitres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mL</span></button></li>
-                                                        <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Packaging &amp; Quantity</li>
-                                                        <li class="unit-item" onclick="selectUnit('Slabs / Blocks')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs / Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Bundles / Sacks')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles / Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Pieces / Units')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces / Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Cartons / Boxes')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons / Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Wraps / Rolls')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps / Rolls</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
-                                                        <li class="unit-item" onclick="selectUnit('Capsules / Tablets')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules / Tablets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button></li>
-                                                    </ul>
+                                            </div>
+
+                                            <!-- 2. SERIAL NUMBER -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial Number</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
+                                                    <input type="text" id="newDevSerialNo" placeholder="e.g. F2LZX984K102" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                            </div>
+
+                                            <!-- 3. IMEI 1 -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI 1 <span class="text-[9px] text-slate-400 font-normal lowercase">(if applicable)</span></label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newDevImei1" placeholder="e.g. 356938035643809" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                            </div>
+
+                                            <!-- 4. IMEI 2 -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI 2 <span class="text-[9px] text-slate-400 font-normal lowercase">(if applicable)</span></label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newDevImei2" placeholder="e.g. 356938035643817" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                            </div>
+
+                                            <!-- 5. MAC ADDRESS -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">MAC Address <span class="text-[9px] text-slate-400 font-normal lowercase">(if applicable)</span></label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newDevMacAddress" placeholder="e.g. 00:1A:2B:3C:4D:5E" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                            </div>
+
+                                            <!-- 6. STORAGE CAPACITY -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage Capacity</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newDevStorage" placeholder="e.g. 256 GB / 1 TB NVMe SSD" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+
+                                            <!-- 7. COLOUR -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newDevColour" placeholder="e.g. Space Gray / Midnight Black" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+
+                                            <!-- 8. OTHER IDENTIFYING MARKS -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Other Identifying Marks</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newDevMarks" placeholder="e.g. Cracked back glass, custom sticker" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
                                         </div>
@@ -1060,14 +1862,117 @@
                                         </div>
                                     </div>
 
-                                    <!-- EVIDENCE VAULT TAG -->
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Evidence Vault Tag / Storage Ref</label>
-                                        <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
-                                            </span>
-                                            <input type="text" id="newSeizureVault" placeholder="e.g. NACOC Vault-B Locker 14" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                    <!-- QUANTITY, PACKAGING TYPE, WEIGHT & UNIT METRICS PANEL -->
+                                    <div class="col-span-full bg-white/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
+                                        <div class="flex items-center space-x-2 text-slate-800">
+                                            <div class="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                            </div>
+                                            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Seizure Quantification &amp; Packaging Metrics</span>
+                                        </div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                                            <!-- 1. QUANTITY -->
+                                            <div>
+                                                <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
+                                                    <input type="number" step="0.01" id="newSeizureQuantity" placeholder="e.g. 10" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+
+                                            <!-- 2. PACKAGING TYPE -->
+                                            <div class="relative z-30">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging Type</label>
+                                                <div id="packagingSelectWrapper" class="relative">
+                                                    <div class="relative">
+                                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                                        </span>
+                                                        <input
+                                                            type="text"
+                                                            id="pkgSearchInput"
+                                                            placeholder="Select or type packaging..."
+                                                            autocomplete="off"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
+                                                            onclick="openPkgListPanel(this)"
+                                                            oninput="filterPackagingList(this)"
+                                                            onfocus="openPkgListPanel(this)"
+                                                        >
+                                                        <input type="hidden" id="newSeizurePackaging" value="">
+                                                    </div>
+                                                    <div id="pkgListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                                                        <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                            <input type="text" id="pkgSearchInner" placeholder="Type to filter packaging..." oninput="filterPackagingListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                        </div>
+                                                        <ul id="pkgList" class="py-1.5 space-y-0.5 px-1.5">
+                                                            <li class="pkg-item" onclick="selectPackagingType('Slabs / Blocks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs / Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Bundles / Sacks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles / Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Cartons / Boxes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons / Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Pieces / Units', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces / Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Wraps / Rolls', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps / Rolls</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Capsules / Tablets', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules / Tablets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Bags / Pouches', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bags / Pouches</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BAG</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Drums / Barrels', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drums / Barrels</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">DRM</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Vials / Ampoules', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Vials / Ampoules</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">VIL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Bottles', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bottles</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BTL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Packets / Envelopes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packets / Envelopes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKT</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Parcels / Packages', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Parcels / Packages</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Bales', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bales</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLE</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Jars / Containers', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Jars / Containers</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">JAR</span></button></li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- 3. Weight -->
+                                            <div>
+                                                <label id="weightLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Weight</label>
+                                                <div class="relative flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">⚖</span>
+                                                    <input type="number" step="0.01" id="newSeizureWeight" placeholder="e.g. 25.50" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+
+                                            <!-- 4. MEASUREMENT UNIT -->
+                                            <div class="relative z-20">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Measurement Unit</label>
+                                                <div id="unitSelectWrapper" class="relative">
+                                                    <div class="relative">
+                                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                        </span>
+                                                        <input
+                                                            type="text"
+                                                            id="unitSearchInput"
+                                                            placeholder="Select or type unit..."
+                                                            autocomplete="off"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
+                                                            onclick="openUnitListPanel(this)"
+                                                            oninput="filterUnitList(this)"
+                                                            onfocus="openUnitListPanel(this)"
+                                                        >
+                                                        <input type="hidden" id="newSeizureUnit" value="">
+                                                    </div>
+                                                    <div id="unitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                                                        <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                            <input type="text" id="unitSearchInner" placeholder="Type to filter units..." oninput="filterUnitListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                        </div>
+                                                        <ul id="unitList" class="py-1.5 space-y-0.5 px-1.5">
+                                                            <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Weight &amp; Mass</li>
+                                                            <li class="unit-item" onclick="selectUnit('Kilograms (kg)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Kilograms</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">kg</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Grams (g)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Grams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">g</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Tonnes (t)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tonnes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">t</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Milligrams (mg)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Milligrams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mg</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Pounds (lbs)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pounds</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">lbs</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Ounces (oz)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ounces</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">oz</span></button></li>
+                                                            <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Volume &amp; Liquid</li>
+                                                            <li class="unit-item" onclick="selectUnit('Litres (L)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Litres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">L</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Millilitres (mL)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Millilitres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mL</span></button></li>
+                                                            <li class="unit-item" onclick="selectUnit('Gallons (gal)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gallons</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">gal</span></button></li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1118,19 +2023,47 @@
                                         </div>
                                     </div>
 
-                                    <!-- SEIZING OFFICER -->
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seizing Officer <span class="text-red-600 font-bold">*</span></label>
-                                        <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                            </span>
-                                            <input type="text" id="newSeizureOfficer" placeholder="e.g. DSP Kwame Mensah (Badge No. NACOC-0042)" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                    <!-- SEIZING OFFICERS (MULTI-ROW) -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                Seizing Officer(s) <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <button type="button" onclick="addSeizureOfficerRow()" class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                Add Seizing Officer
+                                            </button>
+                                        </div>
+
+                                        <!-- OFFICER ROWS CONTAINER -->
+                                        <div id="seizureOfficersContainer" class="space-y-2">
+                                            <!-- Row 1 -->
+                                            <div class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                    <div class="relative flex items-center group">
+                                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                        </span>
+                                                        <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
+                                                    </div>
+                                                    <div class="flex items-center gap-1.5">
+                                                        <div class="relative flex-1 flex items-center group">
+                                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                                                            </span>
+                                                            <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
+                                                        </div>
+                                                        <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <!-- REASON FOR SEIZURE -->
-                                    <div>
+                                    <div class="col-span-full md:col-span-1">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason for Seizure <span class="text-red-600 font-bold">*</span></label>
                                         <div class="relative flex items-start group">
                                             <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
@@ -1176,15 +2109,15 @@
                                                         autocomplete="off"
                                                         class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
                                                         readonly
-                                                        onclick="this.removeAttribute('readonly'); document.getElementById('vehTypeListPanel').classList.remove('hidden');"
-                                                        oninput="filterVehTypeList()"
-                                                        onfocus="document.getElementById('vehTypeListPanel').classList.remove('hidden')"
+                                                        onclick="openVehTypeListPanel(this)"
+                                                        oninput="filterVehTypeList(this)"
+                                                        onfocus="openVehTypeListPanel(this)"
                                                     >
                                                     <input type="hidden" id="vehType" value="">
                                                 </div>
                                                 <div id="vehTypeListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
                                                     <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                        <input type="text" id="vehTypeSearchInner" placeholder="Type to filter..." oninput="filterVehTypeListInner()" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                        <input type="text" id="vehTypeSearchInner" placeholder="Type to filter..." oninput="filterVehTypeListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
                                                     </div>
                                                     <ul id="vehTypeList" class="py-1.5 space-y-0.5 px-1.5">
                                                         <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Passenger Vehicles</li>
@@ -1324,6 +2257,76 @@
                                     </div>
                                 </div>
 
+                                <!-- WEAPON SPECIFIC FIELDS -->
+                                <div id="weaponFieldsWrapper" class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        </div>
+                                        <h4 class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">Weapon / Firearm Specific Details</h4>
+                                    </div>
+
+                                    <!-- 1. Weapon Identification & Physical Specs -->
+                                    <div class="space-y-3">
+                                        <h5 class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">1. Identification &amp; Specifications</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
+                                                <input type="text" id="wpnModel" placeholder="e.g. 19 Gen 5, M&P 9, Type 56, Glock 17" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial Number</label>
+                                                <input type="text" id="wpnSerialNo" placeholder="e.g. G17-984210X / Defaced" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Calibre / Gauge</label>
+                                                <input type="text" id="wpnCalibre" placeholder="e.g. 9mm, 7.62x39mm, 12-Gauge, .45 ACP" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                <input type="text" id="wpnColour" placeholder="e.g. Matte Black, Silver, Camouflage" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Approx. Size / Length</label>
+                                                <input type="text" id="wpnSize" placeholder="e.g. 18.5 cm (Overall), Short Barrel, 87 cm" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Recovery Condition & Status -->
+                                    <div class="space-y-3 pt-2">
+                                        <h5 class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">2. Recovery Condition &amp; Location</h5>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Loaded Status</label>
+                                                <select id="wpnLoadedStatus" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                    <option value="">Select...</option>
+                                                    <option value="Loaded">Loaded</option>
+                                                    <option value="Unloaded">Unloaded</option>
+                                                    <option value="Unknown">Unknown / Not Applicable</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition at Recovery</label>
+                                                <select id="wpnCondition" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                    <option value="">Select...</option>
+                                                    <option value="Intact">Intact</option>
+                                                    <option value="Damaged">Damaged</option>
+                                                    <option value="Broken">Broken</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Exact Location Found</label>
+                                                <input type="text" id="wpnLocationFound" placeholder="e.g. Bedroom closet, Under vehicle driver seat, Roadside ditch" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                            <div class="md:col-span-3">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Distinguishing Marks / Features</label>
+                                                <textarea id="wpnMarks" rows="2" placeholder="e.g. Scratch on left grip, custom insignia engraved, missing safety switch" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
                                 <div class="pt-2 border-t border-slate-300/60 space-y-3">
                                     <div class="flex items-center justify-between">
@@ -1346,9 +2349,16 @@
                                     <input type="file" id="fileSeizurePhoto" accept="image/*" multiple class="hidden" onchange="previewSeizurePhotos(event)">
 
                                     <!-- DYNAMIC MULTIPLE PHOTOS GALLERY GRID -->
-                                    <div id="seizurePhotosGrid" class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-1">
-                                        <!-- Photo thumbnails dynamically injected here -->
                                     </div>
+                                </div>
+                                <!-- END SEIZURES LIST CONTAINER -->
+
+                                <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
+                                <div class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
+                                    <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                                        <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                        + Add Another Seizure Item
+                                    </button>
                                 </div>
                             </div>
 
@@ -1417,8 +2427,8 @@
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-600 text-white uppercase">Angle 1</span>
                             <span class="text-[10px] font-bold text-slate-500 font-mono-code">Front View (0&deg;)</span>
                         </div>
-                        <div class="relative w-full h-36 bg-slate-200/80 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front-${mugshotCount}')">
-                            <img id="preview-front-${mugshotCount}" class="hidden w-full h-full object-cover" alt="Front Mugshot">
+                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front-${mugshotCount}')">
+                            <img id="preview-front-${mugshotCount}" class="hidden w-full h-full object-contain object-center" alt="Front Mugshot">
                             <div id="placeholder-front-${mugshotCount}" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
                                 <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 <span class="text-[10px] font-bold">Upload Front Photo</span>
@@ -1436,8 +2446,8 @@
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 2</span>
                             <span class="text-[10px] font-bold text-slate-500 font-mono-code">Left Profile (90&deg;)</span>
                         </div>
-                        <div class="relative w-full h-36 bg-slate-200/80 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile-${mugshotCount}')">
-                            <img id="preview-left-profile-${mugshotCount}" class="hidden w-full h-full object-cover" alt="Left Profile Mugshot">
+                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile-${mugshotCount}')">
+                            <img id="preview-left-profile-${mugshotCount}" class="hidden w-full h-full object-contain object-center" alt="Left Profile Mugshot">
                             <div id="placeholder-left-profile-${mugshotCount}" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
                                 <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                                 <span class="text-[10px] font-bold">Upload Left Profile</span>
@@ -1455,8 +2465,8 @@
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 3</span>
                             <span class="text-[10px] font-bold text-slate-500 font-mono-code">Right Profile (90&deg;)</span>
                         </div>
-                        <div class="relative w-full h-36 bg-slate-200/80 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile-${mugshotCount}')">
-                            <img id="preview-right-profile-${mugshotCount}" class="hidden w-full h-full object-cover" alt="Right Profile Mugshot">
+                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile-${mugshotCount}')">
+                            <img id="preview-right-profile-${mugshotCount}" class="hidden w-full h-full object-contain object-center" alt="Right Profile Mugshot">
                             <div id="placeholder-right-profile-${mugshotCount}" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
                                 <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                                 <span class="text-[10px] font-bold">Upload Right Profile</span>
@@ -1582,7 +2592,7 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Place of Raid Scene &amp; Offense</label>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Place of Incident</label>
                             <input type="text" placeholder="e.g. East Legon Sector 4" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
                         </div>
                         <div>
@@ -1712,6 +2722,8 @@
             const gender = document.getElementById('newArrestedGender')?.value || 'Unspecified';
             const dob = document.getElementById('newArrestedDOB')?.value || 'N/A';
             const age = document.getElementById('newArrestedAge')?.value || '';
+            const height = document.getElementById('newArrestedHeight')?.value || '';
+            const eyeColor = document.getElementById('newArrestedEyeColor')?.value || '';
             const pob = document.getElementById('newArrestedPOB')?.value || '';
             const phone = document.getElementById('newArrestedPhone')?.value || '';
             const address = document.getElementById('newArrestedAddress')?.value || '';
@@ -1749,45 +2761,170 @@
             }
 
             const hasSeizures = document.getElementById('hasSeizuresCheckbox')?.checked;
-            const seizureName = document.getElementById('newSeizureName')?.value || document.getElementById('newSeizureNameDrug')?.value || document.getElementById('newSeizureNameCurrency')?.value || '';
-            const seizureQty = document.getElementById('newSeizureQuantity')?.value || '';
-            const seizureUnit = document.getElementById('newSeizureUnit')?.value || '';
+            const seizureBlocks = document.querySelectorAll('.seizure-block');
+
+            const seizuresList = [];
+            let seizureSummaryParts = [];
+
+            seizureBlocks.forEach((block, idx) => {
+                const itemNum = idx + 1;
+                const exhibitCat = block.querySelector('#newSeizureCategory')?.value || 'General Contraband';
+
+                const drugName = block.querySelector('#drugSelect')?.value || block.querySelector('#newSeizureNameDrug')?.value || '';
+                const wpnName = block.querySelector('#weaponSelect')?.value || block.querySelector('#newSeizureNameWeapon')?.value || '';
+                const currName = block.querySelector('#newSeizureNameCurrency')?.value || '';
+                const ammoName = block.querySelector('#ammoSearchInput')?.value || block.querySelector('#newSeizureNameAmmo')?.value || '';
+                const devName = block.querySelector('#deviceSearchInput')?.value || block.querySelector('#newSeizureNameDevice')?.value || '';
+                const genName = block.querySelector('#newSeizureName')?.value || '';
+
+                const seizureName = drugName || wpnName || currName || ammoName || devName || genName || '';
+                const seizureQty = block.querySelector('#newSeizureQuantity')?.value || '';
+                const seizurePackaging = block.querySelector('#pkgSearchInput')?.value || block.querySelector('#newSeizurePackaging')?.value || '';
+                const seizureWeight = block.querySelector('#newSeizureWeight')?.value || '';
+                const seizureUnit = block.querySelector('#unitSearchInput')?.value || block.querySelector('#newSeizureUnit')?.value || '';
+                const seizureValue = block.querySelector('#newSeizureValue')?.value || '';
+                const seizureConcealment = block.querySelector('#newSeizureConcealment')?.value || '';
+                const seizureDate = block.querySelector('#newSeizureDate')?.value || '';
+                const seizureTime = block.querySelector('#newSeizureTime')?.value || '';
+                const seizureLocation = block.querySelector('#newSeizureLocation')?.value || '';
+                const seizureOfficer = getSeizureOfficersFormatted(block);
+                const seizureReason = block.querySelector('#newSeizureReason')?.value || '';
+
+                // Device fields
+                const devModel = block.querySelector('#newDevModel')?.value || '';
+                const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
+                const devImei1 = block.querySelector('#newDevImei1')?.value || '';
+                const devImei2 = block.querySelector('#newDevImei2')?.value || '';
+                const devMacAddress = block.querySelector('#newDevMacAddress')?.value || '';
+                const devStorage = block.querySelector('#newDevStorage')?.value || '';
+                const devColour = block.querySelector('#newDevColour')?.value || '';
+                const devMarks = block.querySelector('#newDevMarks')?.value || '';
+
+                // Vehicle fields
+                const vehMake = block.querySelector('#vehMake')?.value || '';
+                const vehModel = block.querySelector('#vehModel')?.value || '';
+                const vehType = block.querySelector('#vehType')?.value || '';
+                const vehYear = block.querySelector('#vehYear')?.value || '';
+                const vehColour = block.querySelector('#vehColour')?.value || '';
+                const vehRegNo = block.querySelector('#vehRegNo')?.value || '';
+                const vehVIN = block.querySelector('#vehVIN')?.value || '';
+                const vehEngineNo = block.querySelector('#vehEngineNo')?.value || '';
+                const vehCountryReg = block.querySelector('#vehCountryReg')?.value || '';
+                const vehOwner = block.querySelector('#vehOwner')?.value || '';
+                const vehDriver = block.querySelector('#vehDriver')?.value || '';
+                const vehOwnerContact = block.querySelector('#vehOwnerContact')?.value || '';
+                const vehDocsAvailable = block.querySelector('#vehDocsAvailable')?.value || '';
+                const vehDocRef = block.querySelector('#vehDocRef')?.value || '';
+                const vehCondition = block.querySelector('#vehCondition')?.value || '';
+                const vehFuel = block.querySelector('#vehFuel')?.value || '';
+                const vehKeysRecv = block.querySelector('#vehKeysRecv')?.value || '';
+                const vehKeyCount = block.querySelector('#vehKeyCount')?.value || '';
+                const vehDamage = block.querySelector('#vehDamage')?.value || '';
+                const vehMods = block.querySelector('#vehMods')?.value || '';
+                const vehFeatures = block.querySelector('#vehFeatures')?.value || '';
+
+                // Weapon fields
+                const wpnModel = block.querySelector('#wpnModel')?.value || '';
+                const wpnSerialNo = block.querySelector('#wpnSerialNo')?.value || '';
+                const wpnCalibre = block.querySelector('#wpnCalibre')?.value || '';
+                const wpnColour = block.querySelector('#wpnColour')?.value || '';
+                const wpnSize = block.querySelector('#wpnSize')?.value || '';
+                const wpnMarks = block.querySelector('#wpnMarks')?.value || '';
+                const wpnLocationFound = block.querySelector('#wpnLocationFound')?.value || '';
+                const wpnLoadedStatus = block.querySelector('#wpnLoadedStatus')?.value || '';
+                const wpnCondition = block.querySelector('#wpnCondition')?.value || '';
+
+                seizuresList.push({
+                    item_number: itemNum,
+                    exhibit_category: exhibitCat,
+                    seizure_name: seizureName,
+                    seizure_name_drug: drugName,
+                    seizure_name_weapon: wpnName,
+                    seizure_name_currency: currName,
+                    seizure_name_ammo: ammoName,
+                    seizure_name_device: devName,
+                    seizure_quantity: seizureQty,
+                    seizure_packaging: seizurePackaging,
+                    seizure_weight: seizureWeight,
+                    seizure_unit: seizureUnit,
+                    seizure_value: seizureValue,
+                    seizure_concealment: seizureConcealment,
+                    seizure_date: seizureDate,
+                    seizure_time: seizureTime,
+                    seizure_location: seizureLocation,
+                    seizure_officer: seizureOfficer,
+                    seizure_reason: seizureReason,
+                    dev_model: devModel,
+                    dev_serial_no: devSerialNo,
+                    dev_imei1: devImei1,
+                    dev_imei2: devImei2,
+                    dev_mac_address: devMacAddress,
+                    dev_storage: devStorage,
+                    dev_colour: devColour,
+                    dev_marks: devMarks,
+                    veh: {
+                        make: vehMake, model: vehModel, type: vehType, year: vehYear, colour: vehColour,
+                        reg_no: vehRegNo, vin: vehVIN, engine_no: vehEngineNo, country_reg: vehCountryReg,
+                        owner: vehOwner, driver: vehDriver, owner_contact: vehOwnerContact, docs_available: vehDocsAvailable,
+                        doc_ref: vehDocRef, condition: vehCondition, fuel: vehFuel, keys_recv: vehKeysRecv,
+                        key_count: vehKeyCount, damage: vehDamage, mods: vehMods, features: vehFeatures
+                    },
+                    wpn: {
+                        model: wpnModel, serial_no: wpnSerialNo, calibre: wpnCalibre, colour: wpnColour,
+                        size: wpnSize, marks: wpnMarks, location_found: wpnLocationFound, loaded_status: wpnLoadedStatus, condition: wpnCondition
+                    }
+                });
+
+                let parts = [];
+                if (seizureQty) parts.push(`Qty: ${seizureQty}`);
+                if (seizurePackaging) parts.push(`Pkg: ${seizurePackaging}`);
+                if (seizureWeight) parts.push(`Wt: ${seizureWeight} ${seizureUnit}`.trim());
+                else if (seizureUnit) parts.push(`Unit: ${seizureUnit}`);
+                if (seizureName) parts.push(seizureName);
+
+                let itemDesc = parts.join(' | ').trim();
+                if (!itemDesc) itemDesc = `Item #${itemNum} (${exhibitCat})`;
+                seizureSummaryParts.push(`Item #${itemNum} [${exhibitCat}]: ${itemDesc}`);
+            });
+
             let seizureSummary = 'No contraband logged';
             let seizureHtml = '';
-            if (hasSeizures) {
-                seizureSummary = `${seizureQty} ${seizureUnit} ${seizureName}`.trim();
-                seizureHtml = `<div class="mt-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded inline-block border border-emerald-200">Seized: ${seizureSummary}</div>`;
+            if (hasSeizures && seizuresList.length > 0) {
+                seizureSummary = seizureSummaryParts.join(' \n ');
+                seizureHtml = `<div class="mt-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded inline-block border border-emerald-200">Seized (${seizuresList.length} items): ${seizuresList.map(s => s.seizure_name || s.exhibit_category).filter(Boolean).join(', ')}</div>`;
             }
+
+            const primarySeizure = seizuresList[0] || {};
 
             const mugshotFront = document.getElementById('preview-front')?.src || null;
             const mugshotLeft = document.getElementById('preview-left-profile')?.src || null;
             const mugshotRight = document.getElementById('preview-right-profile')?.src || null;
 
-            const exhibitCat = document.getElementById('newSeizureCategory')?.value || 'General Contraband';
-            const valuationText = seizureSummary !== 'No contraband logged' ? seizureSummary : (document.getElementById('newSeizureValue')?.value || 'N/A');
+            const exhibitCat = primarySeizure.exhibit_category || 'General Contraband';
+            const valuationText = seizureSummary !== 'No contraband logged' ? seizureSummary : (primarySeizure.seizure_value || 'N/A');
 
-            // Vehicle Specs
-            const vehMake = document.getElementById('vehMake')?.value || '';
-            const vehModel = document.getElementById('vehModel')?.value || '';
-            const vehType = document.getElementById('vehType')?.value || '';
-            const vehYear = document.getElementById('vehYear')?.value || '';
-            const vehColour = document.getElementById('vehColour')?.value || '';
-            const vehRegNo = document.getElementById('vehRegNo')?.value || '';
-            const vehVIN = document.getElementById('vehVIN')?.value || '';
-            const vehEngineNo = document.getElementById('vehEngineNo')?.value || '';
-            const vehCountryReg = document.getElementById('vehCountryReg')?.value || '';
-            const vehOwner = document.getElementById('vehOwner')?.value || '';
-            const vehDriver = document.getElementById('vehDriver')?.value || '';
-            const vehOwnerContact = document.getElementById('vehOwnerContact')?.value || '';
-            const vehDocsAvailable = document.getElementById('vehDocsAvailable')?.value || '';
-            const vehDocRef = document.getElementById('vehDocRef')?.value || '';
-            const vehCondition = document.getElementById('vehCondition')?.value || '';
-            const vehFuel = document.getElementById('vehFuel')?.value || '';
-            const vehKeysRecv = document.getElementById('vehKeysRecv')?.value || '';
-            const vehKeyCount = document.getElementById('vehKeyCount')?.value || '';
-            const vehDamage = document.getElementById('vehDamage')?.value || '';
-            const vehMods = document.getElementById('vehMods')?.value || '';
-            const vehFeatures = document.getElementById('vehFeatures')?.value || '';
+            // Vehicle Specs (Primary Seizure)
+            const vehMake = primarySeizure.veh?.make || '';
+            const vehModel = primarySeizure.veh?.model || '';
+            const vehType = primarySeizure.veh?.type || '';
+            const vehYear = primarySeizure.veh?.year || '';
+            const vehColour = primarySeizure.veh?.colour || '';
+            const vehRegNo = primarySeizure.veh?.reg_no || '';
+            const vehVIN = primarySeizure.veh?.vin || '';
+            const vehEngineNo = primarySeizure.veh?.engine_no || '';
+            const vehCountryReg = primarySeizure.veh?.country_reg || '';
+            const vehOwner = primarySeizure.veh?.owner || '';
+            const vehDriver = primarySeizure.veh?.driver || '';
+            const vehOwnerContact = primarySeizure.veh?.owner_contact || '';
+            const vehDocsAvailable = primarySeizure.veh?.docs_available || '';
+            const vehDocRef = primarySeizure.veh?.doc_ref || '';
+            const vehCondition = primarySeizure.veh?.condition || '';
+            const vehFuel = primarySeizure.veh?.fuel || '';
+            const vehKeysRecv = primarySeizure.veh?.keys_recv || '';
+            const vehKeyCount = primarySeizure.veh?.key_count || '';
+            const vehDamage = primarySeizure.veh?.damage || '';
+            const vehMods = primarySeizure.veh?.mods || '';
+            const vehFeatures = primarySeizure.veh?.features || '';
 
             const docketPayload = {
                 raid_ref: ref,
@@ -1797,6 +2934,8 @@
                 gender: gender,
                 dob: dob,
                 age: age,
+                height: height,
+                eye_color: eyeColor,
                 pob: pob,
                 phone: phone,
                 address: address,
@@ -1809,28 +2948,10 @@
                 exhibit_category: exhibitCat,
                 exhibits_summary: seizureSummary,
                 valuation: valuationText,
+                seizures: seizuresList,
                 evidence_photos: seizedExhibitDataUrls,
-                vehicle: {
-                    make: vehMake,
-                    model: vehModel,
-                    reg: vehRegNo,
-                    color: vehColour,
-                    type: vehType,
-                    chassis: vehVIN,
-                    engine: vehEngineNo,
-                    owner: vehOwner,
-                    driver: vehDriver,
-                    owner_contact: vehOwnerContact,
-                    docs_available: vehDocsAvailable,
-                    doc_ref: vehDocRef,
-                    condition: vehCondition,
-                    fuel: vehFuel,
-                    keys_recv: vehKeysRecv,
-                    key_count: vehKeyCount,
-                    damage: vehDamage,
-                    mods: vehMods,
-                    features: vehFeatures
-                }
+                vehicle: primarySeizure.veh || {},
+                weapon: primarySeizure.wpn || {}
             };
 
             // AJAX call to store case in database for Head of Forensic Directorate review & approval
@@ -1847,7 +2968,7 @@
                     case_number: caseRef,
                     title: caseTitle,
                     unit_name: 'Crime Scene Support',
-                    operation_code_name: document.getElementById('operationCodeNameInput')?.value || null,
+                    operation_code_name: document.getElementById('operationTypeSelect')?.value || document.getElementById('operationCodeNameInput')?.value || null,
                     suspect_docket_mode: document.getElementById('caseEntryTypeSelect')?.value || 'SINGLE',
 
                     // Suspect info
@@ -1857,7 +2978,9 @@
                     gender: gender,
                     dob: dob,
                     age: age,
-                    nationality: document.getElementById('newArrestedNationality')?.value || 'Ghanaian',
+                    height: height,
+                    eye_color: eyeColor,
+                    nationality: document.getElementById('nationalitySelect')?.value || document.getElementById('newArrestedNationality')?.value || 'Ghanaian',
                     pob: pob,
                     phone: phone,
                     address: address,
@@ -1875,7 +2998,7 @@
                     dependents: childrenText,
 
                     // Offence & Arrest Details
-                    operation_code: ref,
+                    operation_code: document.getElementById('operationTypeSelect')?.value || ref,
                     raid_location: raidLocation,
                     offense_description: offense,
                     arrest_date: document.getElementById('newArrestedDate')?.value || null,
@@ -1884,22 +3007,35 @@
 
                     // Seizures (Commodities)
                     has_seizures: hasSeizures,
-                    exhibit_category: exhibitCat,
-                    seizure_name: seizureName,
-                    seizure_name_drug: document.getElementById('newSeizureNameDrug')?.value || null,
-                    seizure_name_currency: document.getElementById('newSeizureNameCurrency')?.value || null,
-                    seizure_quantity: seizureQty,
-                    seizure_unit: seizureUnit,
-                    seizure_value: document.getElementById('newSeizureValue')?.value || null,
-                    seizure_vault: document.getElementById('newSeizureVault')?.value || null,
-                    seizure_concealment: document.getElementById('newSeizureConcealment')?.value || null,
-                    seizure_date: document.getElementById('newSeizureDate')?.value || null,
-                    seizure_time: document.getElementById('newSeizureTime')?.value || null,
-                    seizure_location: document.getElementById('newSeizureLocation')?.value || null,
-                    seizure_officer: document.getElementById('newSeizureOfficer')?.value || null,
-                    seizure_reason: document.getElementById('newSeizureReason')?.value || null,
+                    exhibit_category: primarySeizure.exhibit_category || 'General Contraband',
+                    seizure_name: primarySeizure.seizure_name || null,
+                    seizure_name_drug: primarySeizure.seizure_name_drug || null,
+                    seizure_name_weapon: primarySeizure.seizure_name_weapon || null,
+                    seizure_name_currency: primarySeizure.seizure_name_currency || null,
+                    seizure_name_ammo: primarySeizure.seizure_name_ammo || null,
+                    seizure_name_device: primarySeizure.seizure_name_device || null,
+                    dev_model: primarySeizure.dev_model || null,
+                    dev_serial_no: primarySeizure.dev_serial_no || null,
+                    dev_imei1: primarySeizure.dev_imei1 || null,
+                    dev_imei2: primarySeizure.dev_imei2 || null,
+                    dev_mac_address: primarySeizure.dev_mac_address || null,
+                    dev_storage: primarySeizure.dev_storage || null,
+                    dev_colour: primarySeizure.dev_colour || null,
+                    dev_marks: primarySeizure.dev_marks || null,
+                    seizure_quantity: primarySeizure.seizure_quantity || null,
+                    seizure_packaging: primarySeizure.seizure_packaging || null,
+                    seizure_weight: primarySeizure.seizure_weight || null,
+                    seizure_unit: primarySeizure.seizure_unit || null,
+                    seizure_value: primarySeizure.seizure_value || null,
+                    seizure_concealment: primarySeizure.seizure_concealment || null,
+                    seizure_date: primarySeizure.seizure_date || null,
+                    seizure_time: primarySeizure.seizure_time || null,
+                    seizure_location: primarySeizure.seizure_location || null,
+                    seizure_officer: primarySeizure.seizure_officer || null,
+                    seizure_reason: primarySeizure.seizure_reason || null,
                     valuation: valuationText,
                     exhibits_summary: seizureSummary,
+                    docket_data: docketPayload,
 
                     // Vehicle Specifications
                     veh_make: vehMake,
@@ -1923,6 +3059,17 @@
                     veh_damage: vehDamage,
                     veh_mods: vehMods,
                     veh_features: vehFeatures,
+
+                    // Weapon Specifications
+                    wpn_model: document.getElementById('wpnModel')?.value || null,
+                    wpn_serial_no: document.getElementById('wpnSerialNo')?.value || null,
+                    wpn_calibre: document.getElementById('wpnCalibre')?.value || null,
+                    wpn_colour: document.getElementById('wpnColour')?.value || null,
+                    wpn_size: document.getElementById('wpnSize')?.value || null,
+                    wpn_marks: document.getElementById('wpnMarks')?.value || null,
+                    wpn_location_found: document.getElementById('wpnLocationFound')?.value || null,
+                    wpn_loaded_status: document.getElementById('wpnLoadedStatus')?.value || null,
+                    wpn_condition: document.getElementById('wpnCondition')?.value || null,
 
                     // Photos
                     evidence_photos: seizedExhibitDataUrls,
@@ -2051,6 +3198,42 @@
                         }
                     }
                 });
+
+                if (draft['nationalitySelect'] && window.jQuery && $.fn.select2) {
+                    const savedNat = draft['nationalitySelect'];
+                    if ($('#nationalitySelect').length) {
+                        if ($('#nationalitySelect').find("option[value='" + $.escapeSelector(savedNat) + "']").length === 0) {
+                            const newOption = new Option(savedNat, savedNat, true, true);
+                            $('#nationalitySelect').append(newOption).trigger('change');
+                        } else {
+                            $('#nationalitySelect').val(savedNat).trigger('change');
+                        }
+                    }
+                }
+
+                if (draft['drugSelect'] && window.jQuery && $.fn.select2) {
+                    const savedDrug = draft['drugSelect'];
+                    if ($('#drugSelect').length) {
+                        if ($('#drugSelect').find("option[value='" + $.escapeSelector(savedDrug) + "']").length === 0) {
+                            const newOption = new Option(savedDrug, savedDrug, true, true);
+                            $('#drugSelect').append(newOption).trigger('change');
+                        } else {
+                            $('#drugSelect').val(savedDrug).trigger('change');
+                        }
+                    }
+                }
+
+                if (draft['weaponSelect'] && window.jQuery && $.fn.select2) {
+                    const savedWeapon = draft['weaponSelect'];
+                    if ($('#weaponSelect').length) {
+                        if ($('#weaponSelect').find("option[value='" + $.escapeSelector(savedWeapon) + "']").length === 0) {
+                            const newOption = new Option(savedWeapon, savedWeapon, true, true);
+                            $('#weaponSelect').append(newOption).trigger('change');
+                        } else {
+                            $('#weaponSelect').val(savedWeapon).trigger('change');
+                        }
+                    }
+                }
 
                 if (draft._custom_labels) {
                     const l = draft._custom_labels;
@@ -2358,128 +3541,365 @@
             }
         }
 
+        function getSeizureBlockFromEvent(e) {
+            if (!e) return document.querySelector('.seizure-block') || document;
+            const target = e.target || e.srcElement;
+            if (target && target.closest) {
+                return target.closest('.seizure-block') || document.querySelector('.seizure-block') || document;
+            }
+            return document.querySelector('.seizure-block') || document;
+        }
+
+        function addSeizureBlock() {
+            const container = document.getElementById('seizuresListContainer');
+            if (!container) return;
+
+            const firstBlock = container.querySelector('.seizure-block');
+            if (!firstBlock) return;
+
+            const newIndex = container.querySelectorAll('.seizure-block').length + 1;
+            const clone = firstBlock.cloneNode(true);
+
+            clone.setAttribute('data-seizure-index', newIndex);
+
+            // Update title
+            const titleEl = clone.querySelector('.seizure-title');
+            if (titleEl) titleEl.innerText = `Seizure Item #${newIndex}`;
+
+            // Reset inputs in clone
+            clone.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea').forEach(input => {
+                input.value = '';
+            });
+            clone.querySelectorAll('input[type="hidden"]').forEach(input => {
+                input.value = '';
+            });
+            clone.querySelectorAll('select').forEach(select => {
+                select.selectedIndex = 0;
+            });
+
+            // Hide all specialized wrappers in clone initially
+            const drugWrapper = clone.querySelector('#drugSelectWrapper');
+            const weaponWrapper = clone.querySelector('#weaponSelectWrapper');
+            const currencyWrapper = clone.querySelector('#currencySelectWrapper');
+            const ammoWrapper = clone.querySelector('#ammoSelectWrapper');
+            const deviceWrapper = clone.querySelector('#deviceSelectWrapper');
+            const deviceFieldsWrapper = clone.querySelector('#deviceFieldsWrapper');
+            const vehicleFieldsWrapper = clone.querySelector('#vehicleFieldsWrapper');
+            const weaponFieldsWrapper = clone.querySelector('#weaponFieldsWrapper');
+
+            // Hide all dropdown panels in clone
+            clone.querySelectorAll('#exhibitListPanel, #drugListPanel, #weaponListPanel, #currencyListPanel, #ammoListPanel, #deviceListPanel, #pkgListPanel, #unitListPanel').forEach(panel => {
+                panel.classList.add('hidden');
+            });
+
+            if (drugWrapper) drugWrapper.classList.add('hidden');
+            if (weaponWrapper) weaponWrapper.classList.add('hidden');
+            if (currencyWrapper) currencyWrapper.classList.add('hidden');
+            if (ammoWrapper) ammoWrapper.classList.add('hidden');
+            if (deviceWrapper) deviceWrapper.classList.add('hidden');
+            if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
+            if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.add('hidden');
+            if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
+
+            const commodityTextWrapper = clone.querySelector('#commodityTextWrapper');
+            if (commodityTextWrapper) commodityTextWrapper.classList.remove('hidden');
+
+            container.appendChild(clone);
+            updateSeizureBlockNumbers();
+        }
+
+        function removeSeizureBlock(btn) {
+            const block = btn ? btn.closest('.seizure-block') : null;
+            const container = document.getElementById('seizuresListContainer');
+            if (block && container && container.querySelectorAll('.seizure-block').length > 1) {
+                block.remove();
+                updateSeizureBlockNumbers();
+            }
+        }
+
+        function updateSeizureBlockNumbers() {
+            const blocks = document.querySelectorAll('.seizure-block');
+            blocks.forEach((block, index) => {
+                const num = index + 1;
+                block.setAttribute('data-seizure-index', num);
+                const titleEl = block.querySelector('.seizure-title');
+                const numberBadge = block.querySelector('.seizure-number-badge');
+                if (titleEl) titleEl.innerText = `Seizure Item #${num}`;
+                if (numberBadge) numberBadge.innerText = num;
+
+                const removeBtn = block.querySelector('.remove-seizure-btn');
+                if (removeBtn) {
+                    if (blocks.length > 1) {
+                        removeBtn.classList.remove('hidden');
+                    } else {
+                        removeBtn.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
         function toggleUnitDropdown(e) {
             if (e) e.stopPropagation();
-            const panel = document.getElementById('unitListPanel');
+            const root = getSeizureBlockFromEvent(e);
+            const panel = root.querySelector('#unitListPanel');
             if (panel) panel.classList.toggle('hidden');
         }
 
         function selectUnit(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
-            const hidden  = document.getElementById('newSeizureUnit');
-            const display = document.getElementById('unitSearchInput');
-            const panel   = document.getElementById('unitListPanel');
-            if (hidden)  hidden.value = val;
-            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#newSeizureUnit');
+            const display = root.querySelector('#unitSearchInput');
+            const panel   = root.querySelector('#unitListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
         }
 
-        function filterUnitList() {
-            const q = (document.getElementById('unitSearchInput').value || '').toLowerCase();
-            filterUnitListByQuery(q);
+        // Generic Seizure Block Panel Opener Helper
+        function openSeizurePanel(el, panelSelector) {
+            if (el && el.removeAttribute) el.removeAttribute('readonly');
+            const block = el ? el.closest('.seizure-block') : null;
+            const panel = block ? block.querySelector(panelSelector) : document.querySelector(panelSelector);
+            if (panel) panel.classList.remove('hidden');
         }
 
-        function filterUnitListInner() {
-            const q = (document.getElementById('unitSearchInner').value || '').toLowerCase();
-            filterUnitListByQuery(q);
+        function openExhibitListPanel(el) { openSeizurePanel(el, '#exhibitListPanel'); }
+        function openDrugListPanel(el) { openSeizurePanel(el, '#drugListPanel'); }
+        function openWeaponListPanel(el) { openSeizurePanel(el, '#weaponListPanel'); }
+        function openCurrencyListPanel(el) { openSeizurePanel(el, '#currencyListPanel'); }
+        function openAmmoListPanel(el) { openSeizurePanel(el, '#ammoListPanel'); }
+        function openDeviceListPanel(el) { openSeizurePanel(el, '#deviceListPanel'); }
+        function openPkgListPanel(el) { openSeizurePanel(el, '#pkgListPanel'); }
+        function openUnitListPanel(el) { openSeizurePanel(el, '#unitListPanel'); }
+        function openVehTypeListPanel(el) { openSeizurePanel(el, '#vehTypeListPanel'); }
+
+        function filterUnitList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#unitSearchInput')?.value || '';
+            syncUnitCustomInput(rawVal, root);
+            filterUnitListByQuery(rawVal.toLowerCase(), root);
         }
 
-        function filterUnitListByQuery(q) {
-            const items = document.querySelectorAll('#unitList .unit-item');
+        function filterUnitListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#unitSearchInner')?.value || '';
+            syncUnitCustomInput(rawVal, root);
+            filterUnitListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function syncUnitCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureUnit');
+            if (hidden) hidden.value = val;
+        }
+
+        function filterUnitListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#unitList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#unitCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'unitCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectUnit('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.unit-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
         }
 
-        // Close unit panel when clicking outside
-        document.addEventListener('click', function(e) {
-            const wrapper = document.getElementById('unitSelectWrapper');
-            const panel   = document.getElementById('unitListPanel');
-            if (wrapper && panel && !wrapper.contains(e.target)) {
-                panel.classList.add('hidden');
+        function selectPackagingType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#newSeizurePackaging');
+            const display = root.querySelector('#pkgSearchInput');
+            const panel   = root.querySelector('#pkgListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+        }
+
+        function filterPackagingList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#pkgSearchInput')?.value || '';
+            syncPackagingCustomInput(rawVal, root);
+            filterPackagingListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function filterPackagingListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#pkgSearchInner')?.value || '';
+            syncPackagingCustomInput(rawVal, root);
+            filterPackagingListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function syncPackagingCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizurePackaging');
+            if (hidden) hidden.value = val;
+        }
+
+        function filterPackagingListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#pkgList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#pkgCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'pkgCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectPackagingType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
             }
-        }, true);
+
+            const items = list.querySelectorAll('.pkg-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
 
         function selectExhibitCategory(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
-            const input   = document.getElementById('newSeizureCategory');
-            const display = document.getElementById('exhibitSearchInput');
-            const panel   = document.getElementById('exhibitListPanel');
+            const root = getSeizureBlockFromEvent(e);
+            const input   = root.querySelector('#newSeizureCategory');
+            const display = root.querySelector('#exhibitSearchInput');
+            const panel   = root.querySelector('#exhibitListPanel');
             if (input)   input.value = val;
             if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
             if (panel)   panel.classList.add('hidden');
-            updateCommodityField(val);
+            updateCommodityField(val, root);
         }
 
-        function filterExhibitList() {
-            const q = (document.getElementById('exhibitSearchInput').value || '').toLowerCase();
-            filterExhibitListByQuery(q);
+        function filterExhibitList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const q = (root.querySelector('#exhibitSearchInput')?.value || '').toLowerCase();
+            filterExhibitListByQuery(q, root);
         }
 
-        function filterExhibitListInner() {
-            const q = (document.getElementById('exhibitSearchInner').value || '').toLowerCase();
-            filterExhibitListByQuery(q);
+        function filterExhibitListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const q = (root.querySelector('#exhibitSearchInner')?.value || '').toLowerCase();
+            filterExhibitListByQuery(q, root);
         }
 
-        function filterExhibitListByQuery(q) {
-            const items = document.querySelectorAll('#exhibitList .exhibit-item');
+        function filterExhibitListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const items = root.querySelectorAll('.exhibit-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
         }
 
-        // Close exhibit panel when clicking outside
-        document.addEventListener('click', function(e) {
-            const wrapper = document.getElementById('exhibitSelectWrapper');
-            const panel   = document.getElementById('exhibitListPanel');
-            if (wrapper && panel && !wrapper.contains(e.target)) {
-                panel.classList.add('hidden');
-            }
-        }, true);
-
-        function updateCommodityField(category) {
-            const textWrapper     = document.getElementById('commodityTextWrapper');
-            const drugWrapper     = document.getElementById('drugSelectWrapper');
-            const currencyWrapper = document.getElementById('currencySelectWrapper');
-            const vehicleWrapper  = document.getElementById('vehicleFieldsWrapper');
-            const textInput       = document.getElementById('newSeizureName');
-            const drugHidden      = document.getElementById('newSeizureNameDrug');
-            const currencyHidden  = document.getElementById('newSeizureNameCurrency');
-            const drugSearch      = document.getElementById('drugSearchInput');
-            const currencySearch  = document.getElementById('currencySearchInput');
-            const quantityLabel   = document.getElementById('quantityLabel');
+        function updateCommodityField(category, rootEl) {
+            const root = rootEl || document.querySelector('.seizure-block') || document;
+            const textWrapper     = root.querySelector('#commodityTextWrapper');
+            const drugWrapper     = root.querySelector('#drugSelectWrapper');
+            const weaponWrapper   = root.querySelector('#weaponSelectWrapper');
+            const currencyWrapper = root.querySelector('#currencySelectWrapper');
+            const ammoWrapper     = root.querySelector('#ammoSelectWrapper');
+            const deviceWrapper   = root.querySelector('#deviceSelectWrapper');
+            const deviceFieldsWrapper = root.querySelector('#deviceFieldsWrapper');
+            const vehicleWrapper  = root.querySelector('#vehicleFieldsWrapper');
+            const weaponFieldsWrapper = root.querySelector('#weaponFieldsWrapper');
+            const textInput       = root.querySelector('#newSeizureName');
+            const drugHidden      = root.querySelector('#newSeizureNameDrug');
+            const weaponHidden    = root.querySelector('#newSeizureNameWeapon');
+            const currencyHidden  = root.querySelector('#newSeizureNameCurrency');
+            const ammoHidden      = root.querySelector('#newSeizureNameAmmo');
+            const deviceHidden    = root.querySelector('#newSeizureNameDevice');
+            const drugSearch      = root.querySelector('#drugSearchInput');
+            const currencySearch  = root.querySelector('#currencySearchInput');
+            const ammoSearch      = root.querySelector('#ammoSearchInput');
+            const deviceSearch    = root.querySelector('#deviceSearchInput');
+            const quantityLabel   = root.querySelector('#quantityLabel');
 
             // Hide all first
-            if (textWrapper)     textWrapper.classList.add('hidden');
-            if (drugWrapper)     drugWrapper.classList.add('hidden');
-            if (currencyWrapper) currencyWrapper.classList.add('hidden');
-            if (vehicleWrapper)  vehicleWrapper.classList.add('hidden');
-            if (textInput)       { textInput.removeAttribute('required'); textInput.value = ''; }
-            if (drugHidden)      { drugHidden.removeAttribute('required'); drugHidden.value = ''; }
-            if (currencyHidden)  { currencyHidden.removeAttribute('required'); currencyHidden.value = ''; }
+            if (textWrapper)         textWrapper.classList.add('hidden');
+            if (drugWrapper)         drugWrapper.classList.add('hidden');
+            if (weaponWrapper)       weaponWrapper.classList.add('hidden');
+            if (currencyWrapper)     currencyWrapper.classList.add('hidden');
+            if (ammoWrapper)         ammoWrapper.classList.add('hidden');
+            if (deviceWrapper)       deviceWrapper.classList.add('hidden');
+            if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
+            if (vehicleWrapper)      vehicleWrapper.classList.add('hidden');
+            if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
+            if (textInput)       { textInput.removeAttribute('required'); }
+            if (drugHidden)      { drugHidden.removeAttribute('required'); }
+            if (weaponHidden)    { weaponHidden.removeAttribute('required'); }
+            if (currencyHidden)  { currencyHidden.removeAttribute('required'); }
+            if (ammoHidden)      { ammoHidden.removeAttribute('required'); }
+            if (deviceHidden)    { deviceHidden.removeAttribute('required'); }
 
             if (category === 'Drugs') {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity / Weight';
+                if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (drugWrapper) drugWrapper.classList.remove('hidden');
                 if (drugHidden)  drugHidden.setAttribute('required', 'required');
-                if (drugSearch)  { drugSearch.value = ''; drugSearch.placeholder = 'Select drug type...'; }
-                filterDrugListByQuery('');
+                if (drugSearch)  { drugSearch.placeholder = 'Select drug type...'; }
+            } else if (category === 'Weapons') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity';
+                if (weaponWrapper) weaponWrapper.classList.remove('hidden');
+                if (weaponFieldsWrapper) weaponFieldsWrapper.classList.remove('hidden');
+                if (weaponHidden)  weaponHidden.setAttribute('required', 'required');
+                const weaponSearch = root.querySelector('#weaponSearchInput');
+                if (weaponSearch) { weaponSearch.placeholder = 'Select weapon type...'; }
             } else if (category === 'Money') {
                 if (quantityLabel) quantityLabel.innerText = 'Amount';
                 if (currencyWrapper) currencyWrapper.classList.remove('hidden');
                 if (currencyHidden)  currencyHidden.setAttribute('required', 'required');
-                if (currencySearch)  { currencySearch.value = ''; currencySearch.placeholder = 'Select currency...'; }
-                filterCurrencyListByQuery('');
+                if (currencySearch)  { currencySearch.placeholder = 'Select currency...'; }
+            } else if (category === 'Ammunition') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';
+                if (ammoWrapper) ammoWrapper.classList.remove('hidden');
+                if (ammoHidden)  ammoHidden.setAttribute('required', 'required');
+                if (ammoSearch)  { ammoSearch.placeholder = 'Select or type custom ammunition type...'; }
+            } else if (category === 'Electronic Devices') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
+                if (deviceWrapper) deviceWrapper.classList.remove('hidden');
+                if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
+                if (deviceHidden)  deviceHidden.setAttribute('required', 'required');
+                if (deviceSearch)  { deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
             } else {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity / Weight';
+                if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (textWrapper) textWrapper.classList.remove('hidden');
                 if (textInput)   textInput.setAttribute('required', 'required');
                 const placeholders = {
-                    'Gold':           'e.g. Gold Bars / Bullion (24K)',
-                    'Vehicles':       'e.g. Toyota Hilux (Unregistered)',
-                    'Other Exhibits': 'e.g. Illegal Firearms / Devices'
+                    'Gold':                'e.g. Gold Bars / Bullion (24K)',
+                    'Vehicles':            'e.g. Toyota Hilux (Unregistered)',
+                    'Other Exhibits':      'e.g. Hardware Devices / Illegal Tools'
                 };
                 if (textInput) textInput.placeholder = placeholders[category] || 'e.g. Primary Commodity Name';
 
@@ -2489,83 +3909,385 @@
             }
         }
 
-        function selectDrugType(val) {
-            const hidden  = document.getElementById('newSeizureNameDrug');
-            const display = document.getElementById('drugSearchInput');
-            const panel   = document.getElementById('drugListPanel');
+        function selectDrugType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#newSeizureNameDrug');
+            const display = root.querySelector('#drugSearchInput');
+            const panel   = root.querySelector('#drugListPanel');
             if (hidden)  hidden.value  = val;
-            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
-            // sync to the original text input for form processing
-            const textInput = document.getElementById('newSeizureName');
+            const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
         }
 
-        function filterDrugList() {
-            const q = (document.getElementById('drugSearchInput').value || '').toLowerCase();
-            filterDrugListByQuery(q);
+        function selectWeaponType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#newSeizureNameWeapon');
+            const display = root.querySelector('#weaponSearchInput');
+            const panel   = root.querySelector('#weaponListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
         }
 
-        function filterDrugListInner() {
-            const q = (document.getElementById('drugSearchInner').value || '').toLowerCase();
-            filterDrugListByQuery(q);
+        function selectCurrencyType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#newSeizureNameCurrency');
+            const display = root.querySelector('#currencySearchInput');
+            const panel   = root.querySelector('#currencyListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
         }
 
-        function filterDrugListByQuery(q) {
-            const items = document.querySelectorAll('#drugList .drug-item');
+        function selectAmmoType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden   = root.querySelector('#newSeizureNameAmmo');
+            const display  = root.querySelector('#ammoSearchInput');
+            const panel    = root.querySelector('#ammoListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function selectDeviceType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root   = getSeizureBlockFromEvent(e);
+            const hidden   = root.querySelector('#newSeizureNameDevice');
+            const display  = root.querySelector('#deviceSearchInput');
+            const panel    = root.querySelector('#deviceListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        // Universal panel close listener
+        document.addEventListener('click', function(e) {
+            document.querySelectorAll('.seizure-block').forEach(block => {
+                const items = [
+                    { wrapper: block.querySelector('#exhibitSelectWrapper'), panel: block.querySelector('#exhibitListPanel') },
+                    { wrapper: block.querySelector('#drugSelectWrapper'), panel: block.querySelector('#drugListPanel') },
+                    { wrapper: block.querySelector('#weaponSelectWrapper'), panel: block.querySelector('#weaponListPanel') },
+                    { wrapper: block.querySelector('#currencySelectWrapper'), panel: block.querySelector('#currencyListPanel') },
+                    { wrapper: block.querySelector('#ammoSelectWrapper'), panel: block.querySelector('#ammoListPanel') },
+                    { wrapper: block.querySelector('#deviceSelectWrapper'), panel: block.querySelector('#deviceListPanel') },
+                    { wrapper: block.querySelector('#packagingSelectWrapper'), panel: block.querySelector('#pkgListPanel') },
+                    { wrapper: block.querySelector('#unitSelectWrapper'), panel: block.querySelector('#unitListPanel') },
+                ];
+                items.forEach(item => {
+                    if (item.wrapper && item.panel && !item.wrapper.contains(e.target)) {
+                        item.panel.classList.add('hidden');
+                    }
+                });
+            });
+        }, true);
+
+        function filterAmmoList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#ammoSearchInput')?.value || '';
+            syncAmmoCustomInput(rawVal, root);
+            filterAmmoListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function filterAmmoListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#ammoSearchInner')?.value || '';
+            syncAmmoCustomInput(rawVal, root);
+            filterAmmoListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function syncAmmoCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureNameAmmo');
+            if (hidden) hidden.value = val;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterAmmoListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#ammoList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#ammoCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'ammoCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectAmmoType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.ammo-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
         }
 
-        // Close drug panel when clicking outside
-        document.addEventListener('click', function(e) {
-            const drugWrapper = document.getElementById('drugSelectWrapper');
-            const panel = document.getElementById('drugListPanel');
-            if (drugWrapper && panel && !drugWrapper.contains(e.target)) {
-                panel.classList.add('hidden');
-            }
-        }, true);
-
-        function selectCurrencyType(val) {
-            const hidden   = document.getElementById('newSeizureNameCurrency');
-            const display  = document.getElementById('currencySearchInput');
-            const panel    = document.getElementById('currencyListPanel');
+        function selectDeviceType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root     = getSeizureBlockFromEvent(e);
+            const hidden   = root.querySelector('#newSeizureNameDevice');
+            const display  = root.querySelector('#deviceSearchInput');
+            const panel    = root.querySelector('#deviceListPanel');
             if (hidden)  hidden.value  = val;
-            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
-            // sync to the original text input for form processing
-            const textInput = document.getElementById('newSeizureName');
+            const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
         }
 
-        function filterCurrencyList() {
-            const q = (document.getElementById('currencySearchInput').value || '').toLowerCase();
-            filterCurrencyListByQuery(q);
+        function filterDeviceList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#deviceSearchInput')?.value || '';
+            syncDeviceCustomInput(rawVal, root);
+            filterDeviceListByQuery(rawVal.toLowerCase(), root);
         }
 
-        function filterCurrencyListInner() {
-            const q = (document.getElementById('currencySearchInner').value || '').toLowerCase();
-            filterCurrencyListByQuery(q);
+        function filterDeviceListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#deviceSearchInner')?.value || '';
+            filterDeviceListByQuery(rawVal.toLowerCase(), root);
         }
 
-        function filterCurrencyListByQuery(q) {
-            const items = document.querySelectorAll('#currencyList .currency-item');
+        function syncDeviceCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureNameDevice');
+            if (hidden) hidden.value = val;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterDeviceListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#deviceList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#deviceCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'deviceCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectDeviceType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.device-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
         }
 
-        // Close currency panel when clicking outside
-        document.addEventListener('click', function(e) {
-            const currencyWrapper = document.getElementById('currencySelectWrapper');
-            const panel = document.getElementById('currencyListPanel');
-            if (currencyWrapper && panel && !currencyWrapper.contains(e.target)) {
-                panel.classList.add('hidden');
+        function selectDrugType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root    = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#newSeizureNameDrug');
+            const display = root.querySelector('#drugSearchInput');
+            const panel   = root.querySelector('#drugListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterDrugList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#drugSearchInput')?.value || '';
+            syncDrugCustomInput(rawVal, root);
+            filterDrugListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function filterDrugListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#drugSearchInner')?.value || '';
+            syncDrugCustomInput(rawVal, root);
+            filterDrugListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function syncDrugCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureNameDrug');
+            if (hidden) hidden.value = val;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterDrugListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#drugList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#drugCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'drugCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectDrugType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
             }
-        }, true);
+
+            const items = list.querySelectorAll('.drug-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        function selectCurrencyType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root     = getSeizureBlockFromEvent(e);
+            const hidden   = root.querySelector('#newSeizureNameCurrency');
+            const display  = root.querySelector('#currencySearchInput');
+            const panel    = root.querySelector('#currencyListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterCurrencyList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const q = (root.querySelector('#currencySearchInput')?.value || '').toLowerCase();
+            filterCurrencyListByQuery(q, root);
+        }
+
+        function filterCurrencyListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const q = (root.querySelector('#currencySearchInner')?.value || '').toLowerCase();
+            filterCurrencyListByQuery(q, root);
+        }
+
+        function filterCurrencyListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const items = root.querySelectorAll('.currency-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+        function selectWeaponType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root     = getSeizureBlockFromEvent(e);
+            const hidden   = root.querySelector('#newSeizureNameWeapon');
+            const display  = root.querySelector('#weaponSearchInput');
+            const panel    = root.querySelector('#weaponListPanel');
+            if (hidden)  hidden.value  = val;
+            if (display) display.value = val;
+            if (panel)   panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterWeaponList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#weaponSearchInput')?.value || '';
+            syncWeaponCustomInput(rawVal, root);
+            filterWeaponListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function filterWeaponListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#weaponSearchInner')?.value || '';
+            syncWeaponCustomInput(rawVal, root);
+            filterWeaponListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function syncWeaponCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureNameWeapon');
+            if (hidden) hidden.value = val;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+        }
+
+        function filterWeaponListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#weaponList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#weaponCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'weaponCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectWeaponType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.weapon-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
+
 
 
 
@@ -2664,6 +4386,37 @@
 
         // Auto-read URL query ref parameter & calculate initial age if DOB exists + Setup Drag & Drop & Draft Restoration
         document.addEventListener('DOMContentLoaded', function() {
+            if (window.jQuery && $.fn.select2) {
+                $('#operationTypeSelect').select2({
+                    placeholder: "Select Operation Type...",
+                    allowClear: true,
+                    dropdownParent: $('#operationTypeSelect').parent(),
+                    width: '100%'
+                });
+
+                $('#nationalitySelect').select2({
+                    placeholder: "Select or type custom nationality...",
+                    allowClear: true,
+                    tags: true,
+                    createTag: function(params) {
+                        var term = $.trim(params.term);
+                        if (term === '') return null;
+                        return {
+                            id: term,
+                            text: term,
+                            newTag: true
+                        };
+                    },
+                    dropdownParent: $('#nationalitySelect').parent(),
+                    width: '100%'
+                }).on('change', function() {
+                    const val = $(this).val();
+                    const hidden = document.getElementById('newArrestedNationality');
+                    if (hidden) hidden.value = val || 'Ghanaian';
+                    saveDocketFormDraft();
+                });
+            }
+
             restoreDocketFormDraft();
 
             const form = document.querySelector('form');
@@ -2711,40 +4464,140 @@
 
         function selectVehType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
-            const hidden  = document.getElementById('vehType');
-            const display = document.getElementById('vehTypeSearchInput');
-            const panel   = document.getElementById('vehTypeListPanel');
+            const root    = getSeizureBlockFromEvent(e);
+            const hidden  = root.querySelector('#vehType');
+            const display = root.querySelector('#vehTypeSearchInput');
+            const panel   = root.querySelector('#vehTypeListPanel');
             if (hidden)  hidden.value = val;
             if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
             if (panel)   panel.classList.add('hidden');
         }
 
-        function filterVehTypeList() {
-            const q = (document.getElementById('vehTypeSearchInput').value || '').toLowerCase();
-            filterVehTypeListByQuery(q);
+        function filterVehTypeList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const q = (root.querySelector('#vehTypeSearchInput')?.value || '').toLowerCase();
+            filterVehTypeListByQuery(q, root);
         }
 
-        function filterVehTypeListInner() {
-            const q = (document.getElementById('vehTypeSearchInner').value || '').toLowerCase();
-            filterVehTypeListByQuery(q);
+        function filterVehTypeListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const q = (root.querySelector('#vehTypeSearchInner')?.value || '').toLowerCase();
+            filterVehTypeListByQuery(q, root);
         }
 
-        function filterVehTypeListByQuery(q) {
-            const items = document.querySelectorAll('#vehTypeList .veh-type-item');
+        function filterVehTypeListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const items = root.querySelectorAll('.veh-type-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
         }
 
-        // Close veh type panel when clicking outside
+        // Close panels when clicking outside (Block-scoped)
         document.addEventListener('click', function(e) {
-            const wrapper = document.getElementById('vehTypeSelectWrapper');
-            const panel   = document.getElementById('vehTypeListPanel');
-            if (wrapper && panel && !wrapper.contains(e.target)) {
-                panel.classList.add('hidden');
-            }
+            const blocks = document.querySelectorAll('.seizure-block');
+            blocks.forEach(block => {
+                const panels = [
+                    { wrapper: '#exhibitSelectWrapper', panel: '#exhibitListPanel' },
+                    { wrapper: '#drugSelectWrapper', panel: '#drugListPanel' },
+                    { wrapper: '#weaponSelectWrapper', panel: '#weaponListPanel' },
+                    { wrapper: '#currencySelectWrapper', panel: '#currencyListPanel' },
+                    { wrapper: '#ammoSelectWrapper', panel: '#ammoListPanel' },
+                    { wrapper: '#deviceSelectWrapper', panel: '#deviceListPanel' },
+                    { wrapper: '#pkgSelectWrapper', panel: '#pkgListPanel' },
+                    { wrapper: '#unitSelectWrapper', panel: '#unitListPanel' },
+                    { wrapper: '#vehTypeSelectWrapper', panel: '#vehTypeListPanel' },
+                ];
+                panels.forEach(p => {
+                    const w = block.querySelector(p.wrapper);
+                    const pan = block.querySelector(p.panel);
+                    if (w && pan && !w.contains(e.target)) {
+                        pan.classList.add('hidden');
+                    }
+                });
+            });
         }, true);
+
+        // Seizing Officers Dynamic Multi-Row Handling
+        function addSeizureOfficerRow(btn) {
+            const block = btn ? btn.closest('.seizure-block') : null;
+            const container = block ? block.querySelector('#seizureOfficersContainer') : document.getElementById('seizureOfficersContainer');
+            if (!container) return;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl';
+            rowDiv.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div class="relative flex items-center group">
+                        <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        </span>
+                        <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <div class="relative flex-1 flex items-center group">
+                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                            </span>
+                            <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
+                        </div>
+                        <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(rowDiv);
+            updateSeizureOfficerRemoveButtons(container);
+        }
+
+        function removeSeizureOfficerRow(btn) {
+            const row = btn.closest('.seizure-officer-row');
+            const container = btn.closest('#seizureOfficersContainer');
+            if (row) {
+                row.remove();
+                if (container) updateSeizureOfficerRemoveButtons(container);
+            }
+        }
+
+        function updateSeizureOfficerRemoveButtons(container) {
+            const containers = container ? [container] : document.querySelectorAll('#seizureOfficersContainer');
+            containers.forEach(c => {
+                const rows = c.querySelectorAll('.seizure-officer-row');
+                rows.forEach(row => {
+                    const btn = row.querySelector('.remove-officer-btn');
+                    if (btn) {
+                        if (rows.length > 1) {
+                            btn.classList.remove('hidden');
+                        } else {
+                            btn.classList.add('hidden');
+                        }
+                    }
+                });
+            });
+        }
+
+        function getSeizureOfficersFormatted(block) {
+            const parent = block || document;
+            const container = parent.querySelector('#seizureOfficersContainer');
+            if (!container) return null;
+            const rows = container.querySelectorAll('.seizure-officer-row');
+            const list = [];
+            rows.forEach(row => {
+                const nameInput = row.querySelector('.seizure-officer-name');
+                const idInput = row.querySelector('.seizure-officer-service-id');
+                const name = nameInput ? nameInput.value.trim() : '';
+                const svcId = idInput ? idInput.value.trim() : '';
+                if (name && svcId) {
+                    list.push(`${name} (${svcId})`);
+                } else if (name) {
+                    list.push(name);
+                } else if (svcId) {
+                    list.push(`(ID: ${svcId})`);
+                }
+            });
+            return list.length > 0 ? list.join('; ') : null;
+        }
 
     </script>
 

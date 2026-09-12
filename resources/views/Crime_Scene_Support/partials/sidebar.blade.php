@@ -91,14 +91,31 @@
     </div>
 
     <!-- UNIT HEAD PROFILE BANNER -->
+    @php
+        $authUser = auth()->user();
+        if ($authUser) {
+            $userName = $authUser->fullname;
+            $userUnit = $authUser->unit;
+        } else {
+            $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first()
+                       ?? \App\Models\User::where('is_head', true)->first();
+            $userName = session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'John Adu');
+            $userUnit = session('user_unit') ?? ($dbUnitHead ? $dbUnitHead->unit : 'Crime Scene Support');
+        }
+
+        $nameParts = preg_split('/\s+/', trim($userName));
+        $initials = count($nameParts) >= 2 
+            ? strtoupper(substr($nameParts[0], 0, 1) . substr(end($nameParts), 0, 1))
+            : strtoupper(substr($userName, 0, 2));
+    @endphp
     <div class="p-3.5 bg-slate-200/50 space-y-2">
         <div class="flex items-center space-x-3 px-2 py-1">
             <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-extrabold text-xs text-white shadow-sm shadow-emerald-600/30 shrink-0">
-                {{ Auth::check() ? strtoupper(substr(Auth::user()->fullname, 0, 2)) : 'HD' }}
+                {{ $initials }}
             </div>
             <div class="flex-1 min-w-0">
-                <div class="text-xs font-extrabold text-slate-900 truncate">{{ Auth::check() ? Auth::user()->fullname : 'Unit Head Officer' }}</div>
-                <div class="text-[10px] text-blue-600 font-mono-code font-bold truncate">{{ Auth::check() ? Auth::user()->unit : 'Crime Scene Support' }} Head</div>
+                <div class="text-xs font-extrabold text-slate-900 truncate">{{ $userName }}</div>
+                <div class="text-[10px] text-blue-600 font-mono-code font-bold truncate">{{ $userUnit }} Head</div>
             </div>
         </div>
         <form method="POST" action="{{ route('logout') }}">

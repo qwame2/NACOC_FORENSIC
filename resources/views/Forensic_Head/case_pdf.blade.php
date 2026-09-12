@@ -1,6 +1,6 @@
 @php
     $authUser = auth()->user();
-    $officerName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
+    $officerName = $authUser->fullname ?? session('user_name') ?? (\App\Models\User::where('is_head', true)->first()->fullname ?? 'Officer');
     $officerRole = ($authUser && $authUser->is_head) ? 'Forensic Head' : 'Commanding Officer';
 
     $status = $case->status ?? 'Approved';
@@ -159,8 +159,8 @@
                 </h1>
                 <div class="text-xs font-mono-code text-slate-600 mt-0.5 font-bold">
                     CASE REF NO: <span class="text-blue-700">{{ $case->case_number }}</span>
-                    @if(!empty($case->operation_code))
-                        <span class="mx-2">•</span> OPERATION ID: <span class="text-slate-900">{{ $case->operation_code }}</span>
+                    @if(!empty($case->operation_code_name) || !empty($case->operation_code))
+                        <span class="mx-2">•</span> OPERATION TYPE: <span class="text-slate-900">{{ $case->operation_code_name ?: $case->operation_code }}</span>
                     @endif
                 </div>
             </div>
@@ -192,9 +192,9 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-800 text-white">ANGLE 1</span>
                         <span class="text-slate-700 uppercase">Frontal View</span>
                     </div>
-                    <div class="w-full h-44 bg-slate-200 rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
+                    <div class="w-full h-44 bg-white rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
                         @if(!empty($case->mugshot_front))
-                            <img src="{{ $getImgSrc($case->mugshot_front) }}" class="w-full h-full object-cover" alt="Frontal Mugshot">
+                            <img src="{{ $getImgSrc($case->mugshot_front) }}" class="w-full h-full object-contain object-center" alt="Frontal Mugshot">
                         @else
                             <div class="flex flex-col items-center justify-center text-slate-400 text-xs font-bold">
                                 <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -210,9 +210,9 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-800 text-white">ANGLE 2</span>
                         <span class="text-slate-700 uppercase">Left Profile</span>
                     </div>
-                    <div class="w-full h-44 bg-slate-200 rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
+                    <div class="w-full h-44 bg-white rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
                         @if(!empty($case->mugshot_left))
-                            <img src="{{ $getImgSrc($case->mugshot_left) }}" class="w-full h-full object-cover" alt="Left Profile Mugshot">
+                            <img src="{{ $getImgSrc($case->mugshot_left) }}" class="w-full h-full object-contain object-center" alt="Left Profile Mugshot">
                         @else
                             <div class="flex flex-col items-center justify-center text-slate-400 text-xs font-bold">
                                 <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
@@ -228,9 +228,9 @@
                         <span class="px-1.5 py-0.5 rounded bg-slate-800 text-white">ANGLE 3</span>
                         <span class="text-slate-700 uppercase">Right Profile</span>
                     </div>
-                    <div class="w-full h-44 bg-slate-200 rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
+                    <div class="w-full h-44 bg-white rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center">
                         @if(!empty($case->mugshot_right))
-                            <img src="{{ $getImgSrc($case->mugshot_right) }}" class="w-full h-full object-cover" alt="Right Profile Mugshot">
+                            <img src="{{ $getImgSrc($case->mugshot_right) }}" class="w-full h-full object-contain object-center" alt="Right Profile Mugshot">
                         @else
                             <div class="flex flex-col items-center justify-center text-slate-400 text-xs font-bold">
                                 <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
@@ -264,6 +264,8 @@
                             {{ $case->gender ?? ($docketData['gender'] ?? 'N/A') }}
                             {{ !empty($case->age) ? "• Age: {$case->age}" : (!empty($docketData['age']) ? "• Age: {$docketData['age']}" : '') }}
                             {{ !empty($case->dob) ? "• DOB: {$case->dob}" : '' }}
+                            {{ !empty($case->height) ? "• Height: {$case->height}" : (!empty($docketData['height']) ? "• Height: {$docketData['height']}" : '') }}
+                            {{ !empty($case->eye_color) ? "• Eyes: {$case->eye_color}" : (!empty($docketData['eye_color']) ? "• Eyes: {$docketData['eye_color']}" : '') }}
                         </td>
                     </tr>
                     <tr class="bg-slate-100 border-b border-slate-300">
@@ -339,7 +341,11 @@
                 <div class="p-3 bg-slate-50 border border-slate-300 rounded-xl">
                     <div class="text-[9px] font-mono-code font-bold text-slate-500 uppercase">Quantity / Weight</div>
                     <div class="font-extrabold font-mono-code text-slate-900 mt-0.5">
-                        {{ $case->seizure_quantity ? "{$case->seizure_quantity} {$case->seizure_unit}" : ($case->exhibits_summary ?: 'N/A') }}
+                        @if($case->seizure_quantity || $case->seizure_weight)
+                            {{ implode(' • ', array_filter([$case->seizure_quantity ? "Qty: {$case->seizure_quantity}" : null, $case->seizure_weight ? "Wt: {$case->seizure_weight} {$case->seizure_unit}" : ($case->seizure_unit ? "Unit: {$case->seizure_unit}" : null)])) }}
+                        @else
+                            {{ $case->exhibits_summary ?: 'N/A' }}
+                        @endif
                     </div>
                 </div>
                 <div class="p-3 bg-slate-50 border border-slate-300 rounded-xl">
@@ -348,11 +354,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-3 gap-3 text-xs">
-                <div class="p-3 bg-slate-50 border border-slate-300 rounded-xl">
-                    <div class="text-[9px] font-mono-code font-bold text-slate-500 uppercase">Evidence Vault Tag</div>
-                    <div class="font-bold text-slate-900 mt-0.5">{{ $case->seizure_vault ?: 'N/A' }}</div>
-                </div>
+            <div class="grid grid-cols-2 gap-3 text-xs">
                 <div class="p-3 bg-slate-50 border border-slate-300 rounded-xl">
                     <div class="text-[9px] font-mono-code font-bold text-slate-500 uppercase">Concealment Notes</div>
                     <div class="font-bold text-slate-900 mt-0.5">{{ $case->seizure_concealment ?: 'N/A' }}</div>
@@ -374,6 +376,24 @@
                     <div><span class="text-slate-400 block font-mono-code text-[9px]">Chassis/VIN:</span> <span class="font-mono-code font-bold text-slate-200">{{ $case->veh_vin ?: ($docketData['vehicle']['chassis'] ?? 'N/A') }}</span></div>
                     <div><span class="text-slate-400 block font-mono-code text-[9px]">Owner:</span> <span class="font-bold text-slate-200">{{ $case->veh_owner ?: ($docketData['vehicle']['owner'] ?? 'N/A') }}</span></div>
                     <div><span class="text-slate-400 block font-mono-code text-[9px]">Driver:</span> <span class="font-bold text-slate-200">{{ $case->veh_driver ?: ($docketData['vehicle']['driver'] ?? 'N/A') }}</span></div>
+                </div>
+            </div>
+            @endif
+
+            @if(!empty($case->wpn_model) || !empty($case->wpn_serial_no) || !empty($docketData['weapon']['model']))
+            <div class="p-3.5 bg-slate-900 text-white rounded-xl space-y-2 text-xs">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-1.5">
+                    <span class="text-[10px] font-mono-code font-bold text-red-400 uppercase">Seized Firearm / Weapon Specification Record</span>
+                    <span class="font-mono-code text-[10px] font-bold text-emerald-400">SERIAL: {{ $case->wpn_serial_no ?: ($docketData['weapon']['serial_no'] ?? 'N/A') }}</span>
+                </div>
+                <div class="grid grid-cols-4 gap-2 text-[11px]">
+                    <div><span class="text-slate-400 block font-mono-code text-[9px]">Model/Firearm:</span> <span class="font-bold text-white">{{ $case->wpn_model ?: ($docketData['weapon']['model'] ?? 'N/A') }}</span></div>
+                    <div><span class="text-slate-400 block font-mono-code text-[9px]">Calibre/Gauge:</span> <span class="font-bold text-slate-200">{{ $case->wpn_calibre ?: ($docketData['weapon']['calibre'] ?? 'N/A') }}</span></div>
+                    <div><span class="text-slate-400 block font-mono-code text-[9px]">Loaded Status:</span> <span class="font-bold text-slate-200">{{ $case->wpn_loaded_status ?: ($docketData['weapon']['loaded_status'] ?? 'N/A') }}</span></div>
+                    <div><span class="text-slate-400 block font-mono-code text-[9px]">Condition:</span> <span class="font-bold text-slate-200">{{ $case->wpn_condition ?: ($docketData['weapon']['condition'] ?? 'N/A') }}</span></div>
+                    <div><span class="text-slate-400 block font-mono-code text-[9px]">Colour/Size:</span> <span class="font-bold text-slate-200">{{ $case->wpn_colour ?: ($docketData['weapon']['colour'] ?? 'N/A') }} {{ $case->wpn_size ? "({$case->wpn_size})" : '' }}</span></div>
+                    <div><span class="text-slate-400 block font-mono-code text-[9px]">Location Found:</span> <span class="font-bold text-slate-200">{{ $case->wpn_location_found ?: ($docketData['weapon']['location_found'] ?? 'N/A') }}</span></div>
+                    <div class="col-span-2"><span class="text-slate-400 block font-mono-code text-[9px]">Marks/Features:</span> <span class="font-semibold text-slate-200">{{ $case->wpn_marks ?: ($docketData['weapon']['marks'] ?? 'None') }}</span></div>
                 </div>
             </div>
             @endif

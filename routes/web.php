@@ -37,6 +37,45 @@ Route::get('/cases', function () {
 });
 
 Route::get('/api/cases', [CaseController::class, 'index']);
+Route::get('/api/head-stats', function () {
+    $pendingCasesCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count();
+    $pendingUsersCount = User::where('is_approved', false)->count();
+    $activeUsersCount = User::where('is_approved', true)->count();
+    $totalUsersCount = User::count();
+
+    return response()->json([
+        'pendingCasesCount' => $pendingCasesCount,
+        'pendingUsersCount' => $pendingUsersCount,
+        'activeUsersCount' => $activeUsersCount,
+        'totalUsersCount' => $totalUsersCount,
+        'totalAlerts' => $pendingCasesCount + $pendingUsersCount + 1,
+    ]);
+});
+
+Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $request) {
+    $loginId = trim($request->query('login_id', ''));
+    if (!$loginId) {
+        return response()->json(['exists' => false]);
+    }
+
+    $user = User::where('service_id', $loginId)
+        ->orWhere('username', $loginId)
+        ->orWhere('email', $loginId)
+        ->first();
+
+    if (!$user) {
+        return response()->json(['exists' => false]);
+    }
+
+    return response()->json([
+        'exists' => true,
+        'is_approved' => (bool) $user->is_approved,
+        'is_head' => (bool) $user->is_head,
+        'fullname' => $user->fullname,
+        'service_id' => $user->service_id,
+        'username' => $user->username,
+    ]);
+});
 Route::get('/cases/{id}/review', [CaseController::class, 'showReview'])->name('cases.review');
 Route::get('/Forensic_Head/cases/{id}/review', [CaseController::class, 'showReview']);
 Route::get('/cases/{id}/pdf', [CaseController::class, 'showPdf'])->name('cases.pdf');

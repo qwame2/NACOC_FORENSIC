@@ -1,6 +1,8 @@
 @php
     $authUser = auth()->user();
-    $headName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
+    $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first()
+               ?? \App\Models\User::where('is_head', true)->first();
+    $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'John Adu');
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

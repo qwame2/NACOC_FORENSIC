@@ -51,7 +51,7 @@ class AuthController extends Controller
             if ($user->is_head && !$isForensicHead && isset($user->is_approved) && !$user->is_approved) {
                 return back()->withErrors([
                     'login_id' => 'Account Pending Approval: Your Unit Head registration has been submitted to the Head of Forensic Directorate for approval. You cannot log in until your account is approved.',
-                ])->onlyInput('login_id');
+                ])->with('pending_login_id', $loginId)->onlyInput('login_id');
             }
 
             Auth::login($user, $request->has('remember'));
@@ -130,16 +130,28 @@ class AuthController extends Controller
             }
         }
 
+        if ($request->has('service_prefix') && $request->has('service_number')) {
+            $prefix = strtoupper(trim($request->input('service_prefix')));
+            $number = trim($request->input('service_number'));
+            if (!empty($number)) {
+                $request->merge([
+                    'service_id' => $prefix . '-' . $number,
+                ]);
+            }
+        }
+
         $validated = $request->validate([
             'fullname' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
-            'service_id' => ['required', 'string', 'max:50', 'unique:users,service_id'],
+            'service_id' => ['required', 'string', 'regex:/^(SD|JD)-[0-9]{3,}$/i', 'unique:users,service_id'],
             'phone_number' => ['required', 'string', 'regex:/^[0-9]{10}$/'],
             'unit' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'terms' => ['accepted'],
         ], [
             'username.unique' => 'The username has already been taken.',
+            'service_id.required' => 'Please enter your Service ID Number.',
+            'service_id.regex' => 'Service ID Number format must be SD-345 or JD-343 (SD or JD followed by digits).',
             'service_id.unique' => 'The Service ID Number has already been registered.',
             'phone_number.regex' => 'Phone Number must be exactly 10 digits (e.g. 0200000000).',
             'terms.accepted' => 'You must agree to the NACOC Security Policy & Confidentiality Mandate before registering.',
@@ -170,10 +182,23 @@ class AuthController extends Controller
         // Unit Heads require Head of Forensic Directorate approval first before logging in
         $isApproved = !$forensicHeadExists ? true : ($isHead ? false : true);
 
+        $inputUsername = trim($validated['username']);
+        $userEmail = null;
+
+        if (filter_var($inputUsername, FILTER_VALIDATE_EMAIL) || str_contains($inputUsername, '@')) {
+            $userEmail = strtolower($inputUsername);
+            if (User::where('email', $userEmail)->exists()) {
+                throw ValidationException::withMessages([
+                    'username' => 'The email address has already been registered.',
+                ]);
+            }
+        }
+
         // Create officer user in database
         $user = User::create([
             'fullname' => $validated['fullname'],
-            'username' => $validated['username'],
+            'username' => $inputUsername,
+            'email' => $userEmail,
             'service_id' => $validated['service_id'],
             'phone_number' => $validated['phone_number'],
             'is_staff' => $isStaff,
@@ -189,7 +214,11 @@ class AuthController extends Controller
                 ? 'Unit Head registration submitted! Your account has been forwarded to the Head of Forensic Directorate for approval first before you can log in.'
                 : 'Registration successful! Please sign in with your Service ID or Username.');
 
-        return redirect('/login')->with('status', $statusMsg);
+        $redirect = redirect('/login')->with('status', $statusMsg);
+        if ($isHead) {
+            $redirect->with('pending_login_id', $validated['service_id']);
+        }
+        return $redirect;
     }
 
     /**

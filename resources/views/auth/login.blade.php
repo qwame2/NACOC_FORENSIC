@@ -76,21 +76,14 @@
             <div class="white-card p-6 sm:p-8 rounded-2xl space-y-5">
 
                 @include('partials.flash')
-
-                @if ($errors->any())
-                    <div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-800 flex items-center space-x-2">
-                        <svg class="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>{{ $errors->first() }}</span>
-                    </div>
-                @endif
                 
                 <form id="loginForm" method="POST" action="{{ url('/login') }}">
                     @csrf
                     <div class="space-y-4">
                         
-                        <!-- SERVICE ID / EMAIL INPUT -->
+                        <!-- SERVICE ID / USERNAME / EMAIL INPUT -->
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Username</label>
+                            <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Username / Email / Service ID</label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -101,7 +94,7 @@
                                     name="login_id"
                                     required 
                                     value="{{ old('login_id') }}" 
-                                    placeholder="e.g. NFC-89201 or smensah" 
+                                    placeholder="e.g. SD-345, smensah or officer@nacoc.gov.gh" 
                                     class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-mono-code focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all"
                                 >
                             </div>
@@ -199,7 +192,7 @@
     </footer>
 
     <!-- ACCOUNT APPROVED BY HEAD OF FORENSIC DIRECTORATE POPOVER MODAL CONTAINER -->
-    <div id="loginAccountApprovedPopoverModal" class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300">
+    <div id="loginAccountApprovedPopoverModal" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300">
         <div class="bg-white rounded-3xl border border-emerald-500/30 shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 relative transform transition-all scale-100">
             
             <!-- HEADER -->
@@ -231,7 +224,7 @@
                 </h3>
                 
                 <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-                    Your user account has been officially reviewed, verified, and approved by the Head of Forensic Directorate. You are now authorized to sign in to the NACOC Forensic Portal.
+                    Your user account <span id="popoverOfficerName" class="font-extrabold text-slate-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden"></span> has been officially reviewed, verified, and approved by the Head of Forensic Directorate. You are now authorized to sign in to the NACOC Forensic Portal.
                 </p>
             </div>
 
@@ -272,15 +265,123 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        function showLoginApprovedPopover() {
+        let activeApprovedUserId = null;
+
+        function showLoginApprovedPopover(officerName) {
             const modal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (officerName) {
+                const nameSpan = document.getElementById('popoverOfficerName');
+                if (nameSpan) {
+                    nameSpan.innerText = 'for ' + officerName;
+                    nameSpan.classList.remove('hidden');
+                }
+            }
             if (modal) modal.classList.remove('hidden');
         }
 
         function closeLoginApprovedPopover() {
             const modal = document.getElementById('loginAccountApprovedPopoverModal');
             if (modal) modal.classList.add('hidden');
+            if (activeApprovedUserId) {
+                sessionStorage.setItem('nacoc_account_approved_dismissed_' + activeApprovedUserId, 'true');
+            }
+            sessionStorage.setItem('nacoc_account_approved_dismissed', 'true');
+            localStorage.removeItem('nacoc_pending_login_id');
         }
+
+        async function checkApprovalForUser(loginId) {
+            if (!loginId || typeof loginId !== 'string') return;
+            loginId = loginId.trim();
+            if (loginId.length < 2) return;
+
+            try {
+                const res = await fetch('/api/check-user-approval?login_id=' + encodeURIComponent(loginId));
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (data.exists && data.is_approved) {
+                    activeApprovedUserId = data.service_id || data.username || loginId;
+                    const isDismissedForUser = sessionStorage.getItem('nacoc_account_approved_dismissed_' + activeApprovedUserId) === 'true';
+
+                    if (!isDismissedForUser) {
+                        showLoginApprovedPopover(data.fullname);
+                        localStorage.removeItem('nacoc_pending_login_id');
+                    }
+                }
+            } catch (e) {
+                console.warn('Approval check error:', e);
+            }
+        }
+
+        function initApprovalChecking() {
+            const sessionPending = @json(session('pending_login_id'));
+            const oldLogin = @json(old('login_id'));
+
+            if (sessionPending) {
+                localStorage.setItem('nacoc_pending_login_id', sessionPending);
+                sessionStorage.removeItem('nacoc_account_approved_dismissed');
+            } else if (oldLogin) {
+                localStorage.setItem('nacoc_pending_login_id', oldLogin);
+            }
+
+            const pendingId = localStorage.getItem('nacoc_pending_login_id');
+            const inputId = document.getElementById('serviceId')?.value?.trim();
+            const targetId = pendingId || inputId;
+
+            if (targetId) {
+                checkApprovalForUser(targetId);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const modal = document.getElementById('loginAccountApprovedPopoverModal');
+
+            const hasQueryParam = urlParams.has('account_approved') || urlParams.has('approved');
+            const isSessionFlash = @json(session('account_approved') || session('account_just_approved') || session('approved') ? true : false);
+
+            if (hasQueryParam) {
+                sessionStorage.removeItem('nacoc_account_approved_dismissed');
+            }
+
+            // Perform immediate check
+            initApprovalChecking();
+
+            if ((hasQueryParam || isSessionFlash) && sessionStorage.getItem('nacoc_account_approved_dismissed') !== 'true') {
+                if (modal) {
+                    modal.classList.remove('hidden');
+                }
+                sessionStorage.setItem('nacoc_account_approved_dismissed', 'true');
+
+                if (hasQueryParam) {
+                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+                }
+            }
+
+            // Real-time input check on Service ID / Username field
+            const serviceIdInput = document.getElementById('serviceId');
+            if (serviceIdInput) {
+                let debounceTimer;
+                serviceIdInput.addEventListener('input', function() {
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(() => {
+                        const val = this.value.trim();
+                        if (val.length >= 3) {
+                            checkApprovalForUser(val);
+                        }
+                    }, 500);
+                });
+            }
+
+            // 3-second silent background polling for pending user approval
+            setInterval(() => {
+                const pendingId = localStorage.getItem('nacoc_pending_login_id');
+                if (pendingId) {
+                    checkApprovalForUser(pendingId);
+                }
+            }, 3000);
+        });
 
         // Live UTC Clock
         function updateClock() {

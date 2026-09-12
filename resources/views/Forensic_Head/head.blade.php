@@ -1,7 +1,12 @@
 @php
     $authUser = auth()->user();
     $cases = $cases ?? collect();
-    $officerName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
+    $dbForensicHead = \App\Models\User::where('is_head', true)
+        ->where(function($q) {
+            $q->where('unit', 'LIKE', '%Forensic%')
+              ->orWhere('unit', 'LIKE', '%Directorate%');
+        })->first() ?? \App\Models\User::where('is_head', true)->first();
+    $officerName = $authUser->fullname ?? session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'Anita Johnson');
     $officerRole = ($authUser && $authUser->is_head) ? 'Forensic Head' : 'Commanding Officer';
 @endphp
 <!DOCTYPE html>
@@ -944,29 +949,29 @@
                             @forelse($cases as $case)
                                 @php
                                     $unitColors = [
-                                        'Crime Scene Support' => 'text-blue-400',
-                                        'Evidence Management' => 'text-indigo-400',
-                                        'LAB Analysis' => 'text-emerald-400',
-                                        'Digital & Physical Forensics' => 'text-amber-400',
+                                        'Crime Scene Support' => 'text-blue-600',
+                                        'Evidence Management' => 'text-indigo-600',
+                                        'LAB Analysis' => 'text-emerald-600',
+                                        'Digital & Physical Forensics' => 'text-amber-600',
                                     ];
-                                    $color = $unitColors[$case->unit_name] ?? 'text-blue-400';
+                                    $color = $unitColors[$case->unit_name] ?? 'text-blue-600';
                                 @endphp
                                 <tr class="case-row dept-case-row" data-unit="{{ $case->unit_name }}">
                                     <td>
-                                        <div class="font-bold text-blue-400 font-mono-code text-sm">{{ $case->case_number }}</div>
-                                        <div class="text-[10px] text-slate-600 font-mono-code mt-0.5">Submitted: {{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}</div>
+                                        <div class="font-extrabold text-blue-600 font-mono-code text-sm">{{ $case->case_number }}</div>
+                                        <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">Submitted: {{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}</div>
                                     </td>
                                     <td>
-                                        <div class="font-semibold text-slate-200 text-xs">{{ $case->title }}</div>
-                                        <div class="text-[11px] text-slate-500">{{ $case->exhibits_summary ?? 'Director Authorized Case' }}</div>
+                                        <div class="font-extrabold text-slate-900 text-xs">{{ $case->title }}</div>
+                                        <div class="text-[11px] text-slate-600 font-medium">{{ $case->exhibits_summary ?? 'Director Authorized Case' }}</div>
                                     </td>
                                     <td>
-                                        <div class="font-bold {{ $color }} text-xs">{{ $case->unit_name ?? 'Forensic Directorate' }}</div>
-                                        <div class="text-[10px] text-slate-600">{{ $case->commanding_officer ?? 'Department Head' }}</div>
+                                        <div class="font-extrabold {{ $color }} text-xs">{{ $case->unit_name ?? 'Forensic Directorate' }}</div>
+                                        <div class="text-[10px] text-slate-600 font-medium">{{ $case->commanding_officer ?? 'Department Head' }}</div>
                                     </td>
                                     <td>
-                                        <div class="text-slate-300 text-xs font-semibold">{{ $case->submitting_officer ?? $case->commanding_officer }}</div>
-                                        <div class="text-[10px] text-slate-600">Handling Officer</div>
+                                        <div class="text-slate-900 text-xs font-bold">{{ $case->submitting_officer ?? $case->commanding_officer }}</div>
+                                        <div class="text-[10px] text-slate-500 font-medium">Handling Officer</div>
                                     </td>
                                     <td>
                                         @if($case->status === 'Approved' || $case->status === 'Authorized')

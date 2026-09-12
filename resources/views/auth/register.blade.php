@@ -95,13 +95,6 @@
                         </div>
                     </div>
                 @endif
-                
-                @if ($errors->any())
-                    <div class="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-800 flex items-center space-x-2">
-                        <svg class="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span>{{ $errors->first() }}</span>
-                    </div>
-                @endif
 
                 <form id="registerForm" method="POST" action="{{ url('/register') }}" onsubmit="handleRegisterSubmit(event)">
                     @csrf
@@ -127,10 +120,10 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Username <span class="text-red-600 font-bold">*</span></label>
+                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Username / Email <span class="text-red-600 font-bold">*</span></label>
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                        <span class="text-xs font-bold font-mono-code text-slate-400">@</span>
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/></svg>
                                     </div>
                                     <input 
                                         type="text" 
@@ -138,7 +131,7 @@
                                         name="username" 
                                         required 
                                         oninput="checkPasswordStrength(document.getElementById('password').value)"
-                                        placeholder="e.g. smensah" 
+                                        placeholder="e.g. smensah or officer@nacoc.gov.gh" 
                                         class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-mono-code focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all"
                                     >
                                 </div>
@@ -148,19 +141,68 @@
                         <!-- ROW 2: SERVICE ID NUMBER & PHONE NUMBER -->
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5">Service ID Number <span class="text-red-600 font-bold">*</span></label>
-                                <div class="relative">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                                <label class="block text-xs font-bold text-slate-700 font-mono-code uppercase mb-1.5 flex items-center justify-between">
+                                    <span>Service ID Number <span class="text-red-600 font-bold">*</span></span>
+                                    <span class="text-[10px] text-blue-600 font-extrabold font-mono-code">Format: SD-345 or JD-343</span>
+                                </label>
+                                
+                                <div class="flex items-center rounded-xl border border-slate-300 bg-slate-50 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-600/15 transition-all relative">
+                                    
+                                    <!-- CUSTOM PREFIX DROPDOWN TRIGGER -->
+                                    <div class="relative shrink-0" id="prefixDropdownWrapper">
+                                        <button 
+                                            type="button" 
+                                            id="prefixDropdownTrigger" 
+                                            onclick="togglePrefixDropdown(event)" 
+                                            class="px-3 py-2.5 bg-slate-100/90 border-r border-slate-300 text-xs font-black font-mono-code text-blue-700 flex items-center space-x-2 hover:bg-slate-200 focus:outline-none transition-colors cursor-pointer select-none rounded-l-xl"
+                                        >
+                                            <span id="selectedPrefixBadge" class="px-2 py-0.5 rounded-md bg-blue-600 text-white font-black text-[11px] font-mono-code shadow-2xs">SD</span>
+                                            <svg class="w-3.5 h-3.5 text-slate-500 transition-transform duration-200" id="prefixArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+
+                                        <!-- HIDDEN INPUT FOR FORM SUBMISSION -->
+                                        <input type="hidden" id="service_prefix" name="service_prefix" value="{{ old('service_prefix', 'SD') }}">
+
+                                        <!-- CUSTOM DROPDOWN POPOVER MENU (JUST SD OR JD) -->
+                                        <div id="prefixMenu" class="hidden absolute top-full left-0 mt-1 w-24 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden p-1 space-y-1">
+                                            <div 
+                                                onclick="selectPrefixOption('SD')" 
+                                                class="prefix-option px-3 py-2 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors flex items-center space-x-2 font-mono-code font-black text-xs text-blue-700"
+                                            >
+                                                <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                                                <span>SD</span>
+                                            </div>
+
+                                            <div 
+                                                onclick="selectPrefixOption('JD')" 
+                                                class="prefix-option px-3 py-2 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors flex items-center space-x-2 font-mono-code font-black text-xs text-indigo-700"
+                                            >
+                                                <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                                                <span>JD</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <input 
-                                        type="text" 
-                                        id="service_id" 
-                                        name="service_id" 
-                                        required 
-                                        placeholder="e.g. NFC-89201" 
-                                        class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-mono-code focus:outline-none focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition-all"
-                                    >
+
+                                    <span class="px-2 font-mono-code font-black text-slate-400 select-none text-sm shrink-0">-</span>
+
+                                    <!-- NUMERIC ID INPUT -->
+                                    <div class="relative flex-1">
+                                        <input 
+                                            type="text" 
+                                            id="service_number" 
+                                            name="service_number" 
+                                            required 
+                                            maxlength="6"
+                                            inputmode="numeric"
+                                            oninput="this.value = this.value.replace(/[^0-9]/g, ''); updateFullServiceId();"
+                                            placeholder="345" 
+                                            value="{{ old('service_number') }}"
+                                            class="w-full pr-3.5 py-2.5 bg-transparent text-xs text-slate-900 font-bold placeholder-slate-400 font-mono-code focus:outline-none"
+                                        >
+                                    </div>
+
+                                    <!-- HIDDEN FULL SERVICE_ID FIELD FOR FORM SUBMIT -->
+                                    <input type="hidden" id="service_id" name="service_id" value="{{ old('service_id') }}">
                                 </div>
                             </div>
                             <div>
@@ -385,14 +427,14 @@
 
                                 <!-- REQUIREMENTS NOTICE TEXT -->
                                 <p class="text-[11px] text-slate-500 leading-tight">
-                                    Your password must be <strong class="text-slate-700">at least 8 characters</strong> and include a <strong class="text-slate-700">number, uppercase letter, and symbol</strong>, without containing your <strong class="text-red-600">name or username</strong>.
+                                    Your password must be <strong class="text-slate-700">at least 8 characters</strong> and include a <strong class="text-slate-700">number and uppercase letter</strong> (symbol optional), without containing your <strong class="text-red-600">name or username</strong>.
                                 </p>
 
                                 <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1 text-[10px] font-mono-code">
                                     <div id="reqLen" class="px-2 py-0.5 rounded bg-slate-200 text-slate-500 font-semibold text-center transition-colors">8+ Chars</div>
                                     <div id="reqCaps" class="px-2 py-0.5 rounded bg-slate-200 text-slate-500 font-semibold text-center transition-colors">Caps (A-Z)</div>
                                     <div id="reqNum" class="px-2 py-0.5 rounded bg-slate-200 text-slate-500 font-semibold text-center transition-colors">Num (0-9)</div>
-                                    <div id="reqSym" class="px-2 py-0.5 rounded bg-slate-200 text-slate-500 font-semibold text-center transition-colors">Symbol (@#$)</div>
+                                    <div id="reqSym" class="px-2 py-0.5 rounded bg-slate-200 text-slate-500 font-semibold text-center transition-colors">Symbol (Optional)</div>
                                     <div id="reqNoUser" class="col-span-2 sm:col-span-1 px-2 py-0.5 rounded bg-slate-200 text-slate-500 font-semibold text-center transition-colors">No Name/User</div>
                                 </div>
                             </div>
@@ -744,9 +786,9 @@
                 return;
             }
 
-            // 2. Check 8+ chars, uppercase, number, symbol
-            if (p1.length < 8 || !/[A-Z]/.test(p1) || !/[0-9]/.test(p1) || !/[^A-Za-z0-9]/.test(p1)) {
-                alert("Security Error: Password must be at least 8 characters long and contain uppercase letters, numbers, and symbols.");
+            // 2. Check 8+ chars, uppercase, number (symbol is optional)
+            if (p1.length < 8 || !/[A-Z]/.test(p1) || !/[0-9]/.test(p1)) {
+                alert("Security Error: Password must be at least 8 characters long and contain uppercase letters and numbers.");
                 return;
             }
 
@@ -770,7 +812,67 @@
                 </span>
             `;
 
+            updateFullServiceId();
             document.getElementById('registerForm').submit();
+        }
+
+        function togglePrefixDropdown(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('prefixMenu');
+            const arrow = document.getElementById('prefixArrow');
+            if (menu) {
+                menu.classList.toggle('hidden');
+                if (arrow) arrow.classList.toggle('rotate-180');
+            }
+        }
+
+        function selectPrefixOption(prefix) {
+            const hiddenPrefix = document.getElementById('service_prefix');
+            const badge = document.getElementById('selectedPrefixBadge');
+            const menu = document.getElementById('prefixMenu');
+            const arrow = document.getElementById('prefixArrow');
+
+            if (hiddenPrefix) hiddenPrefix.value = prefix;
+            if (badge) {
+                badge.innerText = prefix;
+                if (prefix === 'JD') {
+                    badge.className = 'px-2 py-0.5 rounded-md bg-indigo-600 text-white font-black text-[11px] font-mono-code shadow-2xs';
+                } else {
+                    badge.className = 'px-2 py-0.5 rounded-md bg-blue-600 text-white font-black text-[11px] font-mono-code shadow-2xs';
+                }
+            }
+
+            if (menu) menu.classList.add('hidden');
+            if (arrow) arrow.classList.remove('rotate-180');
+
+            updateFullServiceId();
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrapper = document.getElementById('prefixDropdownWrapper');
+            const menu = document.getElementById('prefixMenu');
+            const arrow = document.getElementById('prefixArrow');
+            if (wrapper && menu && !wrapper.contains(e.target)) {
+                menu.classList.add('hidden');
+                if (arrow) arrow.classList.remove('rotate-180');
+            }
+        });
+
+        function updateFullServiceId() {
+            const prefixEl = document.getElementById('service_prefix');
+            const numEl = document.getElementById('service_number');
+            const fullIdEl = document.getElementById('service_id');
+            if (prefixEl && numEl && fullIdEl) {
+                const prefix = prefixEl.value;
+                const num = numEl.value.trim();
+                fullIdEl.value = num ? `${prefix}-${num}` : '';
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateFullServiceId);
+        } else {
+            updateFullServiceId();
         }
     </script>
 </body>

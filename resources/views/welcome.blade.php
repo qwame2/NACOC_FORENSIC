@@ -1,3 +1,15 @@
+@php
+    $authUser = auth()->user();
+    $dbForensicHead = \App\Models\User::where('is_head', true)
+        ->where(function($q) {
+            $q->where('unit', 'LIKE', '%Forensic%')
+              ->orWhere('unit', 'LIKE', '%Directorate%');
+        })->first() ?? \App\Models\User::where('is_head', true)->first();
+    $forensicHeadName = $authUser->fullname ?? session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'Anita Johnson');
+
+    $dbCrimeHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first();
+    $crimeHeadName = $dbCrimeHead ? $dbCrimeHead->fullname : 'John Adu';
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -204,7 +216,7 @@
                             </div>
                             <div>
                                 <h4 class="font-extrabold text-slate-900 text-sm">Crime Scene Support</h4>
-                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">Cmdr. J. Annan</strong></p>
+                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">{{ $crimeHeadName }}</strong></p>
                             </div>
                             <div class="pt-2 border-t border-slate-100 flex justify-between text-xs font-mono-code">
                                 <span class="text-slate-500">Active Cases:</span>
@@ -368,10 +380,10 @@
                                     </td>
                                     <td class="py-4 px-5">
                                         <div class="font-bold text-blue-700">Crime Scene Support</div>
-                                        <div class="text-[10px] text-slate-400">Unit Head: {{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
+                                        <div class="text-[10px] text-slate-400">Unit Head: {{ $crimeHeadName }}</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <div class="text-slate-800">{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
+                                        <div class="text-slate-800">{{ $crimeHeadName }}</div>
                                         <div class="text-[10px] text-slate-400">Scene Unit Head</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -520,7 +532,7 @@
                     </div>
                     <div>
                         <label class="block text-slate-700 font-bold mb-1">Authorizing Director</label>
-                        <input type="text" id="newOfficer" value="{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-blue-700">
+                        <input type="text" id="newOfficer" value="{{ $forensicHeadName }}" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-blue-700">
                     </div>
                 </div>
 
@@ -611,7 +623,7 @@
                 statusEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200';
                 statusEl.innerText = 'Authorized by Director';
             }
-            alert(`Case ${caseRef} Court Evidence Certificate has been officially signed and authorized by Department Head ${@json(auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel')}.`);
+            alert(`Case ${caseRef} Court Evidence Certificate has been officially signed and authorized by Department Head ${@json($forensicHeadName)}.`);
         }
 
         function toggleIntakeModal() {
@@ -643,14 +655,14 @@
                 </td>
                 <td class="py-4 px-5 max-w-xs">
                     <div class="font-semibold text-slate-800">${desc}</div>
-                    <div class="text-[11px] text-slate-500 truncate">Director Authorized Case</div>
+                    <div class="text-[11px] text-slate-500">Director Authorized Case</div>
                 </td>
                 <td class="py-4 px-5">
                     <div class="font-bold text-blue-700">${unit}</div>
                     <div class="text-[10px] text-slate-400">Assigned Division</div>
                 </td>
                 <td class="py-4 px-5">
-                    <div class="text-slate-800">{{ auth()->user()->fullname ?? session('user_name') ?? 'Adomako Emmanuel' }}</div>
+                    <div class="text-slate-800">${@json($forensicHeadName)}</div>
                     <div class="text-[10px] text-slate-400">Department Head</div>
                 </td>
                 <td class="py-4 px-5">
@@ -660,11 +672,10 @@
                 </td>
                 <td class="py-4 px-5 text-right space-x-2">
                     <button onclick="viewDetails('${caseRef}')" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">Inspect</button>
-                    <button onclick="approveCert('${caseRef}')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Approve Report</button>
+                    <button onclick="alert('Exporting Certified Court Report PDF...')" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">Export Report</button>
                 </td>
             `;
-
-            tableBody.insertBefore(newRow, tableBody.firstChild);
+            tableBody.prepend(newRow);
             toggleIntakeModal();
         }
 

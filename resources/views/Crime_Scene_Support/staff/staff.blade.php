@@ -1,7 +1,14 @@
 @php
     $authUser = auth()->user();
-    $headName = $authUser->fullname ?? session('user_name') ?? 'Adomako Emmanuel';
-    $staffName = $authUser->fullname ?? session('user_name') ?? 'Insp. Samuel Mensah';
+    $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first()
+               ?? \App\Models\User::where('is_head', true)->first();
+    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'John Adu';
+    $staffName = $authUser->fullname ?? session('user_name') ?? 'Field Staff Officer';
+
+    $staffParts = preg_split('/\s+/', trim($staffName));
+    $staffInitials = count($staffParts) >= 2 
+        ? strtoupper(substr($staffParts[0], 0, 1) . substr(end($staffParts), 0, 1))
+        : strtoupper(substr($staffName, 0, 2));
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -147,10 +154,10 @@
             <div class="p-3.5 bg-slate-950 border-t border-slate-800">
                 <div class="flex items-center space-x-3 px-2 py-1">
                     <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-bold text-xs text-white shadow-md shadow-emerald-600/30">
-                        SM
+                        {{ $staffInitials }}
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="text-xs font-bold text-white truncate">Insp. Samuel Mensah</div>
+                        <div class="text-xs font-bold text-white truncate">{{ $staffName }}</div>
                         <div class="text-[10px] text-emerald-400 font-mono-code font-bold truncate">Field Investigator / Staff</div>
                     </div>
                 </div>
@@ -450,7 +457,7 @@
                     </div>
                     <div>
                         <label class="block text-slate-700 font-bold mb-1">Logging Staff Officer</label>
-                        <input type="text" value="Insp. Samuel Mensah" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800">
+                        <input type="text" value="{{ $staffName }}" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800">
                     </div>
                 </div>
 
