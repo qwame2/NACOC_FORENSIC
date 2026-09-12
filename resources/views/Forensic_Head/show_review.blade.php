@@ -9,6 +9,25 @@
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     $evidencePhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
 
+    $unitsList = [
+        'Crime Scene Support',
+        'Evidence Management',
+        'Lab Analysis',
+        'Digital & Physical Forensics'
+    ];
+    $unitProgress = $docketData['unit_progress'] ?? [
+        'Crime Scene Support' => ['status' => 'COMPLETED', 'officer' => $case->commanding_officer ?? 'Crime Scene Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
+        'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+        'Lab Analysis' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+        'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+    ];
+    $completedUnitsCount = 0;
+    foreach ($unitsList as $uKey) {
+        if (isset($unitProgress[$uKey]['status']) && strtoupper($unitProgress[$uKey]['status']) === 'COMPLETED') {
+            $completedUnitsCount++;
+        }
+    }
+
     if (empty($evidencePhotos) && ($case->has_seizures || !empty($case->seizure_name) || !empty($case->exhibits_summary) || !empty($case->exhibit_category))) {
         $cat = strtolower($case->exhibit_category ?? '');
         $sName = strtolower(($case->seizure_name ?: $case->exhibits_summary) ?? '');
@@ -394,6 +413,91 @@
                             <span>Print Case PDF</span>
                         </a>
                     </div>
+                </div>
+            </div>
+
+            <!-- INTER-UNIT WORKFLOW & PROGRESS TRACKER -->
+            <div class="dossier-card p-6 border-l-4 border-l-purple-600 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 gap-4">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                                MULTI-UNIT CASE TRACKER
+                            </span>
+                            <span id="unitCompletedCountBadge" class="text-xs font-bold text-purple-700 font-mono-code bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
+                                {{ $completedUnitsCount }}/4 Units Completed
+                            </span>
+                        </div>
+                        <h2 class="text-base font-black text-slate-900 mt-1">4-Unit Directorate Progress &amp; Inter-Unit Workflow</h2>
+                        <p class="text-xs text-slate-500">All 4 units build on this case. HOF approval triggers once all 4 units complete their analysis.</p>
+                    </div>
+
+                    <!-- PROGRESS BAR -->
+                    <div class="w-full sm:w-56 bg-slate-100 rounded-full h-4 p-0.5 border border-slate-200 shadow-inner shrink-0">
+                        <div id="unitProgressBar" class="bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-500 h-full rounded-full transition-all duration-500 flex items-center justify-end pr-1 text-[9px] font-mono-code font-bold text-white shadow-xs" style="width: {{ max(15, ($completedUnitsCount / 4) * 100) }}%;">
+                            {{ round(($completedUnitsCount / 4) * 100) }}%
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4 UNITS CARDS GRID -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="unitsGridContainer">
+                    @foreach($unitsList as $unitNameKey)
+                        @php
+                            $uData = $unitProgress[$unitNameKey] ?? ['status' => 'PENDING'];
+                            $uStatus = strtoupper($uData['status'] ?? 'PENDING');
+                            $uSlug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $unitNameKey));
+                        @endphp
+                        <div id="unitCard-{{ $uSlug }}" class="p-4 rounded-xl border transition-all flex flex-col justify-between {{ $uStatus === 'COMPLETED' ? 'bg-emerald-50/70 border-emerald-300 shadow-xs' : ($uStatus === 'IN_PROGRESS' ? 'bg-amber-50/70 border-amber-300 shadow-xs' : 'bg-slate-50 border-slate-200') }}">
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <span id="unitBadge-{{ $uSlug }}" class="text-[9px] font-extrabold font-mono-code uppercase px-2 py-0.5 rounded-md border {{ $uStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : ($uStatus === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-200 text-slate-700 border-slate-300') }}">
+                                        {{ $uStatus === 'COMPLETED' ? '✓ COMPLETED' : ($uStatus === 'IN_PROGRESS' ? '⏳ IN PROGRESS' : '⭕ PENDING') }}
+                                    </span>
+                                    <span class="text-[9px] font-mono-code font-bold text-slate-400">UNIT {{ $loop->iteration }}</span>
+                                </div>
+                                <div class="font-extrabold text-slate-900 text-xs leading-snug">{{ $unitNameKey }}</div>
+                                
+                                <div id="unitOfficerBox-{{ $uSlug }}">
+                                    @if(!empty($uData['officer']))
+                                        <div class="text-[11px] font-medium text-slate-600 mt-2">Officer: <span class="font-bold text-slate-900">{{ $uData['officer'] }}</span></div>
+                                    @endif
+                                </div>
+
+                                <div id="unitNotesBox-{{ $uSlug }}">
+                                    @if(!empty($uData['notes']))
+                                        <div class="text-[11px] text-slate-700 mt-2 p-2.5 bg-white/90 rounded-lg border border-slate-200/80 leading-relaxed">
+                                            <span class="font-bold text-[10px] text-slate-400 block font-mono-code uppercase mb-0.5">Unit Findings:</span>
+                                            "{{ $uData['notes'] }}"
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                            <div id="unitUpdatedBox-{{ $uSlug }}">
+                                @if(!empty($uData['updated_at']))
+                                    <div class="text-[10px] font-mono-code text-slate-400 mt-3 pt-2 border-t border-slate-200/60">
+                                        Updated: {{ \Carbon\Carbon::parse($uData['updated_at'])->format('M d, Y @ H:i') }}
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- ALL 4 UNITS COMPLETED NOTICE BANNER -->
+                <div id="completedUnitsBanner" class="p-5 bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950 text-white rounded-2xl border border-emerald-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg {{ $completedUnitsCount < 4 ? 'hidden' : '' }}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-base shrink-0 shadow-2xs">
+                            ✓
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-black text-white uppercase tracking-wider font-mono-code">Multi-Unit Directorate Processing Complete (4/4 Units)</h4>
+                            <p class="text-[11px] text-slate-300">All 4 specialized units have completed their findings and saved their case sections. Docket is submitted for HOF executive sign-off.</p>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-[10px] font-mono-code font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider shrink-0">
+                        AWAITING HOF SIGN-OFF
+                    </span>
                 </div>
             </div>
 
@@ -882,6 +986,167 @@
             t.style.transform = 'translateY(10px)'; t.style.opacity = '0';
             setTimeout(() => t.remove(), 400);
         }, 4000);
+    }
+
+    /* ── Submit Unit Progress Action (Real-Time DOM Update) ────────────────── */
+    async function submitUnitProgress(e) {
+        e.preventDefault();
+        const submitBtn = document.getElementById('unitSubmitBtn');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const unitName = document.getElementById('updateUnitName').value;
+        const unitStatus = document.getElementById('updateUnitStatus').value;
+        const officer = document.getElementById('updateOfficer').value;
+        const notes = document.getElementById('updateNotes').value;
+
+        try {
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const res = await fetch(`/cases/${caseNumber}/update-unit-progress`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                },
+                body: JSON.stringify({
+                    unit_name: unitName,
+                    unit_status: unitStatus,
+                    officer: officer,
+                    notes: notes
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                const compCount = data.completed_count || 0;
+                const updatedUnitKey = data.unit_name || unitName;
+                const unitProgMap = data.unit_progress || {};
+
+                // Update unitProgressData state
+                if (unitProgMap[updatedUnitKey]) {
+                    unitProgressData[updatedUnitKey] = unitProgMap[updatedUnitKey];
+                }
+
+                // 1. Update target unit card in real-time
+                const slug = updatedUnitKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const cardEl = document.getElementById(`unitCard-${slug}`);
+                const badgeEl = document.getElementById(`unitBadge-${slug}`);
+                const officerBoxEl = document.getElementById(`unitOfficerBox-${slug}`);
+                const notesBoxEl = document.getElementById(`unitNotesBox-${slug}`);
+                const updatedBoxEl = document.getElementById(`unitUpdatedBox-${slug}`);
+
+                const st = (unitStatus || 'PENDING').toUpperCase();
+
+                if (cardEl) {
+                    if (st === 'COMPLETED') {
+                        cardEl.className = 'p-4 rounded-xl border transition-all flex flex-col justify-between bg-emerald-50/70 border-emerald-300 shadow-xs';
+                    } else if (st === 'IN_PROGRESS') {
+                        cardEl.className = 'p-4 rounded-xl border transition-all flex flex-col justify-between bg-amber-50/70 border-amber-300 shadow-xs';
+                    } else {
+                        cardEl.className = 'p-4 rounded-xl border transition-all flex flex-col justify-between bg-slate-50 border-slate-200';
+                    }
+                }
+
+                if (badgeEl) {
+                    if (st === 'COMPLETED') {
+                        badgeEl.className = 'text-[9px] font-extrabold font-mono-code uppercase px-2 py-0.5 rounded-md border bg-emerald-100 text-emerald-800 border-emerald-300';
+                        badgeEl.textContent = '✓ COMPLETED';
+                    } else if (st === 'IN_PROGRESS') {
+                        badgeEl.className = 'text-[9px] font-extrabold font-mono-code uppercase px-2 py-0.5 rounded-md border bg-amber-100 text-amber-800 border-amber-300';
+                        badgeEl.textContent = '⏳ IN PROGRESS';
+                    } else {
+                        badgeEl.className = 'text-[9px] font-extrabold font-mono-code uppercase px-2 py-0.5 rounded-md border bg-slate-200 text-slate-700 border-slate-300';
+                        badgeEl.textContent = '⭕ PENDING';
+                    }
+                }
+
+                if (officerBoxEl) {
+                    officerBoxEl.innerHTML = officer ? `<div class="text-[11px] font-medium text-slate-600 mt-2">Officer: <span class="font-bold text-slate-900">${escapeHtml(officer)}</span></div>` : '';
+                }
+
+                if (notesBoxEl) {
+                    notesBoxEl.innerHTML = notes ? `<div class="text-[11px] text-slate-700 mt-2 p-2.5 bg-white/90 rounded-lg border border-slate-200/80 leading-relaxed"><span class="font-bold text-[10px] text-slate-400 block font-mono-code uppercase mb-0.5">Unit Findings:</span>"${escapeHtml(notes)}"</div>` : '';
+                }
+
+                if (updatedBoxEl) {
+                    updatedBoxEl.innerHTML = `<div class="text-[10px] font-mono-code text-slate-400 mt-3 pt-2 border-t border-slate-200/60">Updated: Just Now</div>`;
+                }
+
+                // 2. Update progress tracker counter and progress bar
+                const badgeCounter = document.getElementById('unitCompletedCountBadge');
+                if (badgeCounter) {
+                    badgeCounter.textContent = `${compCount}/4 Units Completed`;
+                }
+
+                const progressBar = document.getElementById('unitProgressBar');
+                if (progressBar) {
+                    const pct = Math.round((compCount / 4) * 100);
+                    progressBar.style.width = `${Math.max(15, pct)}%`;
+                    progressBar.textContent = `${pct}%`;
+                }
+
+                // 3. Handle Completion or Pending Portal Updates - Immediately REMOVE/HIDE Unit Data Entry Portal
+                const portal = document.getElementById('unitDataEntryPortal');
+                const banner = document.getElementById('completedUnitsBanner');
+                const headerStatusBadge = document.getElementById('headerStatusBadge');
+
+                // Instantly hide the Unit Data Entry Portal section once saved!
+                if (portal) {
+                    portal.classList.add('hidden');
+                }
+
+                if (compCount >= 4) {
+                    if (banner) banner.classList.remove('hidden');
+                    if (headerStatusBadge) {
+                        headerStatusBadge.innerHTML = `<span class="status-badge status-await"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span> Awaiting Sign-off</span>`;
+                    }
+                    showToast(`✔ Multi-Unit Directorate Processing Complete (4/4 Units)! All 4 specialized units have completed findings. Docket is submitted for HOF executive sign-off.`);
+                } else {
+                    showToast(`✔ Progress for unit "${updatedUnitKey}" updated successfully! (${compCount}/4 Units Completed)`);
+                }
+            } else {
+                showToast(`❌ Error updating unit progress: ${data.message || 'Server error'}`);
+            }
+        } catch(err) {
+            console.error(err);
+            showToast(`❌ Connection error updating unit progress.`);
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    }
+
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    /* ── Dynamic Button Text: Save Case vs Submit Case for Approval ── */
+    const unitProgressData = @json($unitProgress);
+    const unitsListArray = ['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'];
+
+    function updateUnitSubmitButtonText() {
+        const selectedUnit = document.getElementById('updateUnitName')?.value;
+        const selectedStatus = document.getElementById('updateUnitStatus')?.value;
+        const btnTextEl = document.getElementById('unitSubmitBtnText');
+        if (!btnTextEl) return;
+
+        let simulatedCompletedCount = 0;
+        unitsListArray.forEach(u => {
+            let st = (unitProgressData[u] && unitProgressData[u].status) ? unitProgressData[u].status.toUpperCase() : 'PENDING';
+            if (u === selectedUnit) {
+                st = selectedStatus ? selectedStatus.toUpperCase() : st;
+            }
+            if (st === 'COMPLETED') {
+                simulatedCompletedCount++;
+            }
+        });
+
+        if (simulatedCompletedCount >= 4) {
+            btnTextEl.innerText = 'Submit Case for Approval';
+        } else {
+            btnTextEl.innerText = 'Save Case';
+        }
+    }
+    document.addEventListener('DOMContentLoaded', updateUnitSubmitButtonText);
+
     /* ── Notifications & Global Search ──────────── */
     function toggleNotificationDropdown() {
         const dropdown = document.getElementById('notificationDropdown');

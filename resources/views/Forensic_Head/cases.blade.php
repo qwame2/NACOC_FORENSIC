@@ -511,6 +511,20 @@
                                                     <span class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span>
                                                     Declined
                                                 </span>
+                                            @elseif($case->status === 'Under Multi-Unit Processing')
+                                                @php
+                                                    $dDataHead = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+                                                    $uProgHead = $dDataHead['unit_progress'] ?? [];
+                                                    $cCountHead = 0;
+                                                    foreach(['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'] as $uK) {
+                                                        if (isset($uProgHead[$uK]['status']) && strtoupper($uProgHead[$uK]['status']) === 'COMPLETED') $cCountHead++;
+                                                    }
+                                                    if ($cCountHead === 0) $cCountHead = 1;
+                                                @endphp
+                                                <span class="status-badge bg-purple-100 text-purple-800 border-purple-300" id="status-{{ $case->case_number }}">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-purple-600 mr-1.5 inline-block"></span>
+                                                    Multi-Unit ({{ $cCountHead }}/4)
+                                                </span>
                                             @else
                                                 <span class="status-badge status-await" id="status-{{ $case->case_number }}">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span>

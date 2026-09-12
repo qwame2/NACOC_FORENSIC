@@ -607,70 +607,6 @@
         </div>
     </div>
 
-    <!-- ACCOUNT APPROVED BY HEAD OF FORENSIC DIRECTORATE POPOVER CONTAINER -->
-    <div id="accountApprovedPopoverModal" class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300">
-        <div class="bg-white rounded-3xl border border-emerald-500/30 shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 relative transform transition-all scale-100">
-            
-            <!-- TOP HEADER WITH LOGO AND BADGE -->
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 p-1 border border-emerald-200 flex items-center justify-center shadow-xs overflow-hidden">
-                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
-                    </div>
-                    <div>
-                        <span class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono-code font-bold text-[10px] uppercase tracking-wider">
-                            NACOC COMMAND AUTHORIZATION
-                        </span>
-                        <div class="text-xs font-black text-slate-900 mt-0.5">HEAD OF FORENSIC DIRECTORATE</div>
-                    </div>
-                </div>
-                <button onclick="closeAccountApprovedPopover()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-lg font-bold cursor-pointer transition-colors">&times;</button>
-            </div>
-
-            <!-- HERO ICON & APPROVAL MESSAGE -->
-            <div class="text-center space-y-3 py-2">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 shadow-inner mb-1">
-                    <svg class="w-9 h-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                
-                <h3 class="text-xl font-black text-slate-900 tracking-tight leading-snug">
-                    Account Approved by Head of Forensic Directorate!
-                </h3>
-                
-                <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-                    The account for <span id="approvedOfficerName" class="font-extrabold text-slate-900 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Officer</span> has been officially approved. The officer has been granted access permissions and can now log in to the system.
-                </p>
-            </div>
-
-            <!-- AUDIT METADATA PANEL -->
-            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2.5 font-mono-code text-xs">
-                <div class="flex items-center justify-between">
-                    <span class="text-slate-500 text-[11px]">Approval Authority:</span>
-                    <span class="font-bold text-slate-900">Head of Forensic Directorate</span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-slate-500 text-[11px]">Account Access Status:</span>
-                    <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase">Active &amp; Authorized</span>
-                </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-slate-500 text-[11px]">Login Portal Status:</span>
-                    <span class="font-bold text-emerald-700">Login Enabled</span>
-                </div>
-            </div>
-
-            <!-- ACTION BUTTON -->
-            <div class="pt-2">
-                <button onclick="closeAccountApprovedPopover()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 transition-all cursor-pointer flex items-center justify-center space-x-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                    <span>Acknowledge &amp; Confirm Approval</span>
-                </button>
-            </div>
-
-        </div>
-    </div>
-
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toastNotification" class="toast-notification bg-slate-900 text-white px-5 py-4 rounded-2xl shadow-2xl border border-slate-800 flex items-center space-x-3 font-mono-code text-xs">
         <div id="toastIcon" class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
@@ -689,18 +625,6 @@
         let activeInspectUserId = null;
         let activeInspectName = null;
         let activeInspectStatus = null;
-
-        function showAccountApprovedPopover(officerName) {
-            const modal = document.getElementById('accountApprovedPopoverModal');
-            const nameEl = document.getElementById('approvedOfficerName');
-            if (nameEl) nameEl.innerText = officerName;
-            if (modal) modal.classList.remove('hidden');
-        }
-
-        function closeAccountApprovedPopover() {
-            const modal = document.getElementById('accountApprovedPopoverModal');
-            if (modal) modal.classList.add('hidden');
-        }
 
         function updateClock() {
             const now = new Date();
@@ -856,7 +780,6 @@
 
                 filterUsers();
                 showToast('Account Approved & Activated in Database', `Full system access enabled for ${officerName}.`);
-                showAccountApprovedPopover(officerName);
             })
             .catch(err => {
                 console.error(err);
@@ -934,7 +857,7 @@
             });
 
             if (count > 0) {
-                showAccountApprovedPopover(`All ${count} Pending Officers`);
+                showToast('Batch Accounts Approved', `All ${count} Pending Officer accounts have been approved.`);
             } else {
                 showToast('No Pending Accounts', 'There are no pending officer accounts awaiting approval.');
             }
@@ -971,8 +894,7 @@
         async function pollUsersTable() {
             try {
                 const modal = document.getElementById('inspectUserModal');
-                const popoverModal = document.getElementById('accountApprovedPopoverModal');
-                if ((modal && !modal.classList.contains('hidden')) || (popoverModal && !popoverModal.classList.contains('hidden'))) {
+                if (modal && !modal.classList.contains('hidden')) {
                     return;
                 }
 

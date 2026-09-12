@@ -62,7 +62,8 @@ class AuthController extends Controller
             }
 
             if ($user->is_head) {
-                return redirect()->intended('/Crime_Scene_Support/head')->with('status', 'Login Successful! Welcome to Unit Command Portal.');
+                $unitTitle = $user->unit ?? 'Unit';
+                return redirect()->intended('/Crime_Scene_Support/head')->with('status', "Login Successful! Welcome to {$unitTitle} Command Portal.");
             }
 
             if ($user->is_staff) {

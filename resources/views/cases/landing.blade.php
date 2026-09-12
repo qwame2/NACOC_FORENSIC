@@ -111,11 +111,19 @@
                 <!-- HERO SECTION BANNER -->
                 <div class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-slate-100 shadow-sm text-slate-900 border border-slate-200">
                     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                        @php
+                            $reqUnitLanding = request()->query('unit') ?? request()->query('from');
+                            $isLabLanding = $reqUnitLanding === 'Lab Analysis' || $reqUnitLanding === 'lab';
+                        @endphp
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
-                                <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">FIELD COMMAND</span>
+                                <span class="px-2.5 py-0.5 {{ $isLabLanding ? 'bg-purple-600' : 'bg-emerald-600' }} text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">
+                                    {{ $isLabLanding ? 'LAB ANALYSIS DIRECTORATE' : 'FIELD COMMAND' }}
+                                </span>
                             </div>
-                            <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Forensic Case Directory &amp; Docket Registry</h2>
+                            <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                                {{ $isLabLanding ? 'Lab Analysis Case Directory & Docket Registry' : 'Forensic Case Directory & Docket Registry' }}
+                            </h2>
                             <p class="text-xs sm:text-sm font-semibold text-slate-700 max-w-3xl leading-relaxed">
                                 Centralized law enforcement repository for logging, searching, and managing narcotic seizures, suspect records, and physical forensic exhibits with full chain-of-custody compliance.
                             </p>
@@ -124,11 +132,11 @@
                         <!-- CTA BUTTONS -->
                         <div class="flex items-center gap-3 shrink-0 pt-2 lg:pt-0">
                             <a 
-                                href="{{ url('/arrest-person') }}" 
-                                class="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/30 flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none"
+                                href="{{ $isLabLanding ? url('/Lab_Analysis/examination') : url('/arrest-person') }}" 
+                                class="px-5 py-3 {{ $isLabLanding ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30' }} text-white text-xs font-extrabold rounded-xl shadow-md flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none"
                             >
                                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                <span>Add New Case File</span>
+                                <span>{{ $isLabLanding ? 'Add Lab Examination Case' : 'Add New Case File' }}</span>
                             </a>
                         </div>
                     </div>
@@ -267,6 +275,18 @@
                                             default => 'bg-slate-200 text-slate-700 border-slate-300'
                                         };
 
+                                        $dDataLanding = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+                                        $uProgLanding = $dDataLanding['unit_progress'] ?? [];
+                                        $compCountLanding = 0;
+                                        foreach(['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'] as $ukey) {
+                                            if (isset($uProgLanding[$ukey]['status']) && strtoupper($uProgLanding[$ukey]['status']) === 'COMPLETED') {
+                                                $compCountLanding++;
+                                            }
+                                        }
+                                        if ($compCountLanding === 0 && $case->status === 'Under Multi-Unit Processing') {
+                                            $compCountLanding = 1;
+                                        }
+
                                         $statusTab = match($case->status) {
                                             'Approved', 'Court Ready', 'Certified', 'Completed', 'Authorized' => 'Court Ready',
                                             'Lab Testing', 'Lab Analysis', 'Under Review' => 'Lab Analysis',
@@ -278,6 +298,11 @@
                                                 'bg' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
                                                 'dot' => 'bg-emerald-500',
                                                 'label' => $case->status
+                                            ],
+                                            'Under Multi-Unit Processing' => [
+                                                'bg' => 'bg-purple-100 text-purple-800 border-purple-200',
+                                                'dot' => 'bg-purple-600',
+                                                'label' => "Multi-Unit ({$compCountLanding}/4)"
                                             ],
                                             'Lab Testing', 'Lab Analysis', 'Under Review', 'Awaiting Sign-off' => [
                                                 'bg' => 'bg-amber-100 text-amber-800 border-amber-200',
@@ -313,21 +338,28 @@
                                             <div class="font-semibold text-slate-800">{{ $case->title }}</div>
                                             <div class="text-[10px] text-blue-600 font-mono-code font-semibold">{{ $case->unit_name ?? 'Forensic Directorate' }}</div>
                                         </td>
-                                        <td class="py-4 px-4">
-                                            <div class="flex items-center space-x-3">
-                                                <div class="w-9 h-9 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden shadow-2xs">
-                                                    @if(!empty($frontPic))
-                                                        <img src="{{ $frontPic }}" alt="{{ $suspectDisplayName }}" class="w-full h-full object-contain object-center">
-                                                    @else
-                                                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                                    @endif
-                                                </div>
-                                                <div>
-                                                    <div class="font-bold text-slate-900">{{ $suspectDisplayName }}</div>
-                                                    <div class="text-[10px] text-slate-500 font-mono-code">ALIAS: {{ $case->suspect_alias ?? 'N/A' }}</div>
-                                                </div>
-                                            </div>
-                                        </td>
+                                         <td class="py-4 px-4">
+                                             <div class="flex items-center space-x-3">
+                                                 <div class="suspect-avatar-trigger cursor-pointer shrink-0" 
+                                                      data-name="{{ $suspectDisplayName }}" 
+                                                      data-alias="{{ $case->suspect_alias ?? 'N/A' }}" 
+                                                      data-pic="{{ $frontPic }}" 
+                                                      data-ref="{{ $case->case_number }}" 
+                                                      data-priority="{{ strtoupper($case->priority) }}">
+                                                     <div class="w-10 h-10 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 transition-all duration-200">
+                                                         @if(!empty($frontPic))
+                                                             <img src="{{ $frontPic }}" alt="{{ $suspectDisplayName }}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">
+                                                         @else
+                                                             <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                         @endif
+                                                     </div>
+                                                 </div>
+                                                 <div>
+                                                     <div class="font-bold text-slate-900">{{ $suspectDisplayName }}</div>
+                                                     <div class="text-[10px] text-slate-500 font-mono-code">ALIAS: {{ $case->suspect_alias ?? 'N/A' }}</div>
+                                                 </div>
+                                             </div>
+                                         </td>
                                         <td class="py-4 px-4">
                                             <div class="font-medium text-slate-800 flex items-center gap-1">
                                                 <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
@@ -511,15 +543,18 @@
                         }
 
                         const suspectDisplayName = c.suspect_name || c.commanding_officer || 'Unassigned Target';
+                        const suspectAlias = c.suspect_alias || (c.docket_data ? c.docket_data.suspect_alias : null) || 'N/A';
+                        const priorityText = (c.priority || 'HIGH').toUpperCase();
                         let frontPic = c.mugshot_front || (c.docket_data ? c.docket_data.mugshot_front : null);
-                        let avatarHtml = '';
+                        let avatarImgHtml = '';
+
                         if (frontPic) {
                             if (!frontPic.startsWith('data:') && !frontPic.startsWith('http://') && !frontPic.startsWith('https://')) {
                                 if (!frontPic.startsWith('/')) frontPic = '/' + frontPic;
                             }
-                            avatarHtml = `<img src="${frontPic}" alt="${suspectDisplayName.replace(/"/g, '&quot;')}" class="w-full h-full object-contain object-center">`;
+                            avatarImgHtml = `<img src="${frontPic}" alt="${suspectDisplayName.replace(/"/g, '&quot;')}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">`;
                         } else {
-                            avatarHtml = `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
+                            avatarImgHtml = `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
                         }
                         const createdDate = c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
                         const createdTime = c.created_at ? c.created_at.slice(11, 19) + ' UTC' : '12:00:00 UTC';
@@ -536,7 +571,7 @@
                             <td class="py-4 px-4 whitespace-nowrap">
                                 <div class="font-bold font-mono-code text-blue-600 text-xs">${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-0.5">
-                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'HIGH').toUpperCase()}</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${priorityText}</span>
                                 </div>
                             </td>
                             <td class="py-4 px-4">
@@ -545,12 +580,19 @@
                             </td>
                             <td class="py-4 px-4">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-9 h-9 rounded-full bg-white border border-slate-300 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
-                                        ${avatarHtml}
+                                    <div class="suspect-avatar-trigger cursor-pointer shrink-0"
+                                         data-name="${suspectDisplayName.replace(/"/g, '&quot;')}"
+                                         data-alias="${suspectAlias.replace(/"/g, '&quot;')}"
+                                         data-pic="${frontPic || ''}"
+                                         data-ref="${c.case_number}"
+                                         data-priority="${priorityText}">
+                                        <div class="w-10 h-10 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 transition-all duration-200">
+                                            ${avatarImgHtml}
+                                        </div>
                                     </div>
                                     <div>
                                         <div class="font-bold text-slate-900">${suspectDisplayName}</div>
-                                        <div class="text-[10px] text-slate-500 font-mono-code">ALIAS: ${c.suspect_alias || (c.docket_data ? c.docket_data.suspect_alias : null) || 'N/A'}</div>
+                                        <div class="text-[10px] text-slate-500 font-mono-code">ALIAS: ${suspectAlias}</div>
                                     </div>
                                 </div>
                             </td>
@@ -595,6 +637,97 @@
             }
         }
         setInterval(pollMasterCasesTable, 3000);
+
+        // GLOBAL FLOATING SUSPECT PREVIEW HOVER HANDLER (FLOATS ABOVE ALL TABLES & CONTAINERS)
+        document.addEventListener('mouseover', function(e) {
+            const trigger = e.target.closest('.suspect-avatar-trigger');
+            const popover = document.getElementById('suspectHoverPreview');
+            if (!popover) return;
+
+            if (trigger) {
+                const name = trigger.getAttribute('data-name') || 'Unassigned Target';
+                const alias = trigger.getAttribute('data-alias') || 'N/A';
+                const pic = trigger.getAttribute('data-pic') || '';
+                const ref = trigger.getAttribute('data-ref') || '';
+                const priority = trigger.getAttribute('data-priority') || 'HIGH';
+
+                const nameEl = document.getElementById('suspectPreviewName');
+                const aliasEl = document.getElementById('suspectPreviewAlias');
+                const refEl = document.getElementById('suspectPreviewRef');
+                const priorityEl = document.getElementById('suspectPreviewPriority');
+                const imgEl = document.getElementById('suspectPreviewImg');
+                const fallbackEl = document.getElementById('suspectPreviewFallback');
+
+                if (nameEl) nameEl.textContent = name;
+                if (aliasEl) aliasEl.textContent = alias;
+                if (refEl) refEl.textContent = ref;
+                if (priorityEl) priorityEl.textContent = priority;
+
+                if (pic) {
+                    imgEl.src = pic;
+                    imgEl.classList.remove('hidden');
+                    fallbackEl.classList.add('hidden');
+                } else {
+                    imgEl.src = '';
+                    imgEl.classList.add('hidden');
+                    fallbackEl.classList.remove('hidden');
+                }
+
+                const rect = trigger.getBoundingClientRect();
+                const popoverWidth = 240;
+                const popoverHeight = 250;
+
+                let left = rect.right + 12;
+                let top = rect.top + (rect.height / 2) - (popoverHeight / 2);
+
+                if (top < 10) top = 10;
+                if (top + popoverHeight > window.innerHeight - 10) {
+                    top = window.innerHeight - popoverHeight - 10;
+                }
+
+                if (left + popoverWidth > window.innerWidth - 10) {
+                    left = rect.left - popoverWidth - 12;
+                }
+
+                popover.style.top = top + 'px';
+                popover.style.left = left + 'px';
+                popover.classList.remove('hidden');
+            }
+        });
+
+        document.addEventListener('mouseout', function(e) {
+            const trigger = e.target.closest('.suspect-avatar-trigger');
+            if (trigger) {
+                const popover = document.getElementById('suspectHoverPreview');
+                if (popover) {
+                    popover.classList.add('hidden');
+                }
+            }
+        });
     </script>
+
+    <!-- GLOBAL FLOATING SUSPECT PREVIEW OVERLAY (POSITION FIXED HIGH Z-INDEX) -->
+    <div id="suspectHoverPreview" class="fixed z-[99999] hidden pointer-events-none transition-opacity duration-150 ease-out">
+        <div class="w-60 bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl p-3 border border-slate-700/80 ring-1 ring-white/10">
+            <div class="relative w-full h-44 rounded-xl overflow-hidden bg-slate-800 border border-slate-700/80 mb-2.5 shadow-inner">
+                <img id="suspectPreviewImg" src="" alt="" class="w-full h-full object-cover object-center hidden">
+                <div id="suspectPreviewFallback" class="w-full h-full flex flex-col items-center justify-center text-slate-500 bg-slate-800/80">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    <span class="text-[9px] font-mono-code mt-1 text-slate-400">NO MUGSHOT AVAILABLE</span>
+                </div>
+                <div class="absolute top-1.5 right-1.5 bg-blue-600/90 text-white text-[8px] font-mono-code px-2 py-0.5 rounded-md uppercase font-bold tracking-wider shadow-xs">
+                    SUSPECT PREVIEW
+                </div>
+            </div>
+            <div class="px-0.5 space-y-1">
+                <div id="suspectPreviewName" class="font-bold text-white text-xs truncate leading-tight"></div>
+                <div class="text-[10px] text-slate-400 font-mono-code truncate">ALIAS: <span id="suspectPreviewAlias" class="text-blue-400 font-semibold"></span></div>
+                <div class="text-[9px] text-slate-400 font-mono-code truncate pt-1.5 border-t border-slate-800 mt-1 flex justify-between items-center">
+                    <span>REF: <span id="suspectPreviewRef" class="font-mono-code text-slate-300 font-bold"></span></span>
+                    <span id="suspectPreviewPriority" class="text-emerald-400 font-bold px-1.5 py-0.5 bg-emerald-950/60 rounded border border-emerald-800/50"></span>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

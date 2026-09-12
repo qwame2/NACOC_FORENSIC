@@ -1,6 +1,24 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
+    @php
+        $authUser = auth()->user();
+        $userUnit = $authUser->unit ?? session('user_unit') ?? request()->query('unit') ?? '';
+        $isLabAnalysis = isset($isLabAnalysis) ? $isLabAnalysis : (
+            str_contains(strtolower($userUnit), 'lab') 
+            || request()->query('unit') === 'Lab Analysis' 
+            || request()->query('unit') === 'lab' 
+            || session('user_unit') === 'Lab Analysis'
+            || request()->is('Lab_Analysis*')
+            || request()->query('from') === 'lab'
+        );
+        
+        $officerName = $authUser->fullname ?? session('user_name') ?? 'Supt. Eric Mensah';
+        $examRefAuto = 'EXAM-' . date('Y') . '-' . rand(1000, 9999) . '-LAB';
+        $caseRefAuto = 'NFC-' . date('Y') . '-' . rand(1000, 9999);
+        $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
+        $todayDate = date('Y-m-d');
+    @endphp
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -158,7 +176,7 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">
-                    <a href="{{ url('/cases') }}" class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5">
+                    <a href="{{ url('/cases') . ($isLabAnalysis ? '?unit=Lab+Analysis' : '') }}" class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5">
                         <span>&larr;</span>
                         <span>Back to Case Directory</span>
                     </a>
@@ -530,12 +548,13 @@
 
                                 <!-- AGE -->
                                 <div>
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Age (Years) <span class="text-red-600 font-bold">*</span>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Age (Years) <span class="text-red-600 font-bold">*</span></span>
+                                        <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Read-Only (Auto-Calc)</span>
                                     </label>
                                     <div class="relative flex items-center group">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black font-mono-code font-bold text-xs transition-colors">#</span>
-                                        <input type="number" id="newArrestedAge" value="" placeholder="Auto-calculated age..." min="0" max="120" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
+                                        <input type="number" id="newArrestedAge" value="" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                                     </div>
                                 </div>
                             </div>
@@ -895,8 +914,6 @@
                                     </div>
                                 </div>
                                 <!-- SPOUSE FIELDS CARD -->
-                                <div id="spouseFieldsCard" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                 <!-- SPOUSE FIELDS CARD -->
                                 <div id="spouseFieldsCard" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Spouse Full Legal Name</label>
@@ -2349,7 +2366,8 @@
                                     <input type="file" id="fileSeizurePhoto" accept="image/*" multiple class="hidden" onchange="previewSeizurePhotos(event)">
 
                                     <!-- DYNAMIC MULTIPLE PHOTOS GALLERY GRID -->
-                                    </div>
+                                    <div id="seizurePhotosGrid" class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2"></div>
+                                </div>
                                 </div>
                                 <!-- END SEIZURES LIST CONTAINER -->
 
@@ -2360,13 +2378,327 @@
                                         + Add Another Seizure Item
                                     </button>
                                 </div>
+                                </div>
+                            </div>
+                        <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
+                        <div class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">Sections 1–4 Docket Actions</h4>
+                                    <p class="text-[11px] text-slate-500 font-medium">Save case file or store as Draft to resume Sections 1 to 4 operations later.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                                <button 
+                                    type="button" 
+                                    onclick="handleDraftAndContinueLater()" 
+                                    class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                                >
+                                    Draft and Continue Later
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onclick="processNewArrested()" 
+                                    id="submitSection1To4DocketBtn" 
+                                    class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                                    </svg>
+                                    <span>Save Case</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5 & SECTION 6 -->
+                        <div id="labAnalysisExclusiveSections" class="{{ $isLabAnalysis ? '' : 'hidden' }} space-y-6">
+
+                            <!-- SECTION 5: EXAMINATION INFORMATION -->
+                            <div class="bg-white p-6 rounded-2xl border border-purple-200 shadow-sm space-y-5">
+                                <div class="pb-3 border-b border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-md shadow-purple-600/30">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-extrabold text-slate-900 text-base">Section 5: Examination Information</h3>
+                                            <p class="text-xs text-purple-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination &amp; Testing Log</p>
+                                        </div>
+                                    </div>
+                                <div class="flex items-center space-x-2">
+                                        <span class="px-2.5 py-1 bg-purple-100 text-purple-800 text-[10px] font-mono-code font-bold rounded-lg border border-purple-200 uppercase tracking-wider">
+                                            LAB ANALYSIS EXCLUSIVE
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 4 SEIZED COMMODITIES MANIFEST -->
+                                <div class="p-4 bg-purple-50/70 rounded-xl border border-purple-200/90 space-y-2.5 shadow-2xs">
+                                    <div class="flex items-center justify-between">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-2">
+                                            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                            <span>Select Seized Exhibit to Examine (Manifest Sync)</span>
+                                            <span class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200">
+                                            No exhibit saved yet
+                                        </span>
+                                    </div>
+                                    <div class="relative">
+                                        <select 
+                                            id="labExhibitSelect" 
+                                            name="lab_selected_exhibit_index" 
+                                            onchange="onLabExhibitSelected()" 
+                                            class="w-full px-3.5 py-3 bg-white border border-purple-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs cursor-pointer"
+                                        >
+                                            <option value="">No exhibit saved yet</option>
+                                        </select>
+                                    </div>
+                                    <p class="text-[11px] text-purple-900 font-semibold flex items-center space-x-1">
+                                        <svg class="w-3.5 h-3.5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Select an exhibit above to view its manifest details and process forensic examination separately.</span>
+                                    </p>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <!-- Analysis/Examination Reference — auto-generated -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Analysis / Examination Reference</span>
+                                            <span class="text-[9px] font-mono-code text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <input 
+                                                type="text" 
+                                                id="labExamReferenceInput" 
+                                                name="lab_exam_reference"
+                                                value="{{ $examRefAuto }}" 
+                                                readonly 
+                                                class="w-full px-3.5 py-3 bg-purple-50/70 border border-purple-200 rounded-xl text-purple-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs"
+                                            >
+                                        </div>
+                                    </div>
+
+                                    <!-- Case Reference — auto-linked -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Case Reference</span>
+                                            <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <input 
+                                                type="text" 
+                                                id="labCaseReferenceInput" 
+                                                name="lab_case_reference"
+                                                value="{{ $caseRefAuto }}" 
+                                                readonly 
+                                                class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs"
+                                            >
+                                        </div>
+                                    </div>
+
+                                    <!-- Exhibit Number — auto-linked -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Exhibit Number</span>
+                                            <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <input 
+                                                type="text" 
+                                                id="labExhibitNumberInput" 
+                                                name="lab_exhibit_number"
+                                                value="{{ $exhibitRefAuto }}" 
+                                                readonly 
+                                                class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <!-- Exhibit Description -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Exhibit Description</span>
+                                            <span class="text-[9px] font-mono-code text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched from Manifest</span>
+                                        </label>
+                                        <textarea 
+                                            id="labExhibitDescriptionInput" 
+                                            name="lab_exhibit_description"
+                                            rows="3" 
+                                            placeholder="No exhibit saved yet"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400"
+                                        >No exhibit saved yet</textarea>
+                                    </div>
+
+                                    <!-- Laboratory Unit & Analyst / Examiner -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                                Laboratory Unit <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <select 
+                                                id="labUnitSelect" 
+                                                name="lab_unit"
+                                                class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs cursor-pointer"
+                                            >
+                                                <option value="Chemistry & Narcotics Unit" selected>Chemistry &amp; Narcotics Unit</option>
+                                                <option value="Forensic Toxicology Unit">Forensic Toxicology Unit</option>
+                                                <option value="Trace Evidence & Physical Analysis">Trace Evidence &amp; Physical Analysis</option>
+                                                <option value="Digital & Cyber Forensics Lab">Digital &amp; Cyber Forensics Lab</option>
+                                                <option value="DNA & Forensic Biology Unit">DNA &amp; Forensic Biology Unit</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                                Analyst / Examiner <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                id="labAnalystInput" 
+                                                name="lab_analyst"
+                                                value="{{ $officerName }}" 
+                                                placeholder="e.g. Supt. Eric Mensah" 
+                                                class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
+                                    <!-- Date Received -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            Date Received <span class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            id="labDateReceivedInput" 
+                                            name="lab_date_received"
+                                            value="{{ $todayDate }}" 
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                        >
+                                    </div>
+
+                                    <!-- Date Examination Started -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            Date Examination Started <span class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            id="labDateStartedInput" 
+                                            name="lab_date_started"
+                                            value="{{ $todayDate }}" 
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                        >
+                                    </div>
+
+                                    <!-- Date Examination Completed -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            Date Examination Completed <span class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            id="labDateCompletedInput" 
+                                            name="lab_date_completed"
+                                            value="{{ $todayDate }}" 
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                        >
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="pt-4 flex justify-end space-x-3 border-t border-slate-100">
-                                <button type="reset" class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">Reset Form</button>
-                                <button type="button" onclick="processNewArrested()" id="submitArrestDocketBtn" class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                    <span>Submit Case for Approval</span>
+                            <!-- SECTION 6: PRESUMPTIVE TEST -->
+                            <div class="bg-white p-6 rounded-2xl border border-indigo-200 shadow-sm space-y-4">
+                                <div class="pb-3 border-b border-indigo-100 flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-600/30">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-extrabold text-slate-900 text-base">Presumptive Test</h3>
+                                            <p class="text-xs text-indigo-700 font-semibold">Initial chemical field screening &amp; colorimetric reaction validation</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-[10px] font-mono-code font-bold rounded-lg border border-indigo-200 uppercase tracking-wider">
+                                        SCREENING RESULT
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
+                                        Presumptive Test Reaction Result <span class="text-red-600 font-bold">*</span>
+                                    </label>
+
+                                    <div class="flex items-center space-x-6">
+                                        <!-- YES CHECKBOX -->
+                                        <label class="relative flex items-center p-3.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all cursor-pointer select-none space-x-3 group">
+                                            <input 
+                                                type="checkbox" 
+                                                id="presumptiveTestYes" 
+                                                name="presumptive_test_yes" 
+                                                value="YES"
+                                                checked
+                                                onchange="togglePresumptiveTest('YES')"
+                                                class="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                            >
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                                                <span class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
+                                                <span class="text-[11px] text-emerald-700 font-medium">(Positive Reaction / Color Change Observed)</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- NO CHECKBOX -->
+                                        <label class="relative flex items-center p-3.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-3 group">
+                                            <input 
+                                                type="checkbox" 
+                                                id="presumptiveTestNo" 
+                                                name="presumptive_test_no" 
+                                                value="NO"
+                                                onchange="togglePresumptiveTest('NO')"
+                                                class="w-5 h-5 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
+                                            >
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                                <span class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
+                                                <span class="text-[11px] text-slate-600 font-medium">(Negative Reaction / No Reaction)</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
+                        <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">Finalize &amp; Save Docket File</h4>
+                                    <p class="text-[11px] text-slate-500 font-medium">Save this case docket to enable inter-unit forensic workflow and real-time HOF tracking.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                                <button type="button" onclick="handleDraftAndContinueLater()" class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">Draft and Continue Later</button>
+                                <button type="button" onclick="processNewArrested()" id="submitArrestDocketBtn" class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+                                    <span>Save Case</span>
                                 </button>
                             </div>
                         </div>
@@ -2378,6 +2710,20 @@
     </div>
 
     <script>
+        function togglePresumptiveTest(choice) {
+            const yesBox = document.getElementById('presumptiveTestYes');
+            const noBox = document.getElementById('presumptiveTestNo');
+            if (choice === 'YES') {
+                if (yesBox && yesBox.checked) {
+                    if (noBox) noBox.checked = false;
+                }
+            } else if (choice === 'NO') {
+                if (noBox && noBox.checked) {
+                    if (yesBox) yesBox.checked = false;
+                }
+            }
+        }
+
         let mugshotCount = 1;
         let suspectCount = 1;
 
@@ -2556,8 +2902,11 @@
                             <input type="date" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600">
                         </div>
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Age</label>
-                            <input type="number" placeholder="Age" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                <span>Age</span>
+                                <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1 py-0.5 rounded font-bold uppercase">Read-Only</span>
+                            </label>
+                            <input type="number" placeholder="Auto-calc age" readonly class="w-full px-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none">
                         </div>
                     </div>
                 </div>
@@ -3080,7 +3429,7 @@
                     // Legacy JSON docket data
                     docket_data: docketPayload,
                     priority: 'HIGH',
-                    status: 'Awaiting Sign-off',
+                    status: 'Under Multi-Unit Processing',
                     location: `${raidLocation} (${address})`,
                     description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
                     commanding_officer: 'Cmdr. Crime Scene Support',
@@ -3168,10 +3517,23 @@
                 selectedCaseTypeLabel: document.getElementById('selectedCaseTypeLabel')?.innerText
             };
 
+            draft['_seizedExhibitDataUrls'] = seizedExhibitDataUrls;
+
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
             } catch(e) {
                 console.warn('Could not save docket draft:', e);
+            }
+        }
+
+        function handleDraftAndContinueLater() {
+            saveDocketFormDraft();
+            const notice = document.getElementById('docketDraftNotice');
+            if (notice) notice.classList.remove('hidden');
+            if (typeof showToast === 'function') {
+                showToast('✔ Case docket saved as Draft. You can resume and continue later.');
+            } else {
+                alert('Case docket saved as Draft. You can resume and continue later.');
             }
         }
 
@@ -3183,8 +3545,13 @@
                 const draft = JSON.parse(raw);
                 let restoredCount = 0;
 
+                if (Array.isArray(draft._seizedExhibitDataUrls) && draft._seizedExhibitDataUrls.length > 0) {
+                    seizedExhibitDataUrls = draft._seizedExhibitDataUrls;
+                    renderSeizurePhotosGrid();
+                }
+
                 Object.keys(draft).forEach(id => {
-                    if (id === '_custom_labels') return;
+                    if (id === '_custom_labels' || id === '_seizedExhibitDataUrls') return;
                     const el = document.getElementById(id);
                     if (!el) return;
 
@@ -3486,6 +3853,9 @@
                 }
             }
             saveDocketFormDraft();
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function toggleMaritalDropdown(e) {
@@ -3606,6 +3976,9 @@
 
             container.appendChild(clone);
             updateSeizureBlockNumbers();
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function removeSeizureBlock(btn) {
@@ -3614,6 +3987,9 @@
             if (block && container && container.querySelectorAll('.seizure-block').length > 1) {
                 block.remove();
                 updateSeizureBlockNumbers();
+                if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                    syncSection4ExhibitsToLabSection();
+                }
             }
         }
 
@@ -3654,6 +4030,9 @@
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         // Generic Seizure Block Panel Opener Helper
@@ -3736,6 +4115,9 @@
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function filterPackagingList(el) {
@@ -3801,6 +4183,9 @@
             if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
             if (panel)   panel.classList.add('hidden');
             updateCommodityField(val, root);
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function filterExhibitList(el) {
@@ -3920,6 +4305,9 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function selectWeaponType(val, e) {
@@ -3933,6 +4321,9 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function selectCurrencyType(val, e) {
@@ -3946,6 +4337,9 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function selectAmmoType(val, e) {
@@ -3959,6 +4353,9 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function selectDeviceType(val, e) {
@@ -3972,6 +4369,9 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         // Universal panel close listener
@@ -4452,12 +4852,22 @@
                 dropzone.addEventListener('drop', (e) => {
                     const dt = e.dataTransfer;
                     const files = Array.from(dt.files || []);
-                    files.forEach(file => {
-                        if (file.type.startsWith('image/')) {
-                            seizedExhibitFiles.push(file);
-                        }
+                    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                    if (imageFiles.length === 0) return;
+
+                    let loadedCount = 0;
+                    imageFiles.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = function(evt) {
+                            seizedExhibitDataUrls.push(evt.target.result);
+                            loadedCount++;
+                            if (loadedCount === imageFiles.length) {
+                                renderSeizurePhotosGrid();
+                                saveDocketFormDraft();
+                            }
+                        };
+                        reader.readAsDataURL(file);
                     });
-                    renderSeizurePhotosGrid();
                 }, false);
             }
         });
@@ -4599,6 +5009,205 @@
             return list.length > 0 ? list.join('; ') : null;
         }
 
+        // SECTION 5: MANIFEST SYNC & EXHIBIT SELECTION LOGIC FOR LAB ANALYSIS
+        let labExhibitUserEdits = {};
+
+        function syncSection4ExhibitsToLabSection() {
+            const selectEl = document.getElementById('labExhibitSelect');
+            const badgeEl = document.getElementById('labExhibitCountBadge');
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            if (!selectEl) return;
+
+            const chk = document.getElementById('hasSeizuresCheckbox');
+            const container = document.getElementById('seizuresDetailsContainer');
+            const hasSeizures = chk && chk.checked;
+            const isContainerVisible = container && !container.classList.contains('hidden');
+
+            const currentVal = selectEl.value;
+            selectEl.innerHTML = '';
+
+            if (!hasSeizures || !isContainerVisible) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.innerText = 'No exhibit saved yet';
+                selectEl.appendChild(opt);
+                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                if (descInput) {
+                    descInput.value = 'No exhibit saved yet';
+                }
+                onLabExhibitSelected();
+                return;
+            }
+
+            const blocks = document.querySelectorAll('.seizure-block');
+
+            if (blocks.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.innerText = 'No exhibit saved yet';
+                selectEl.appendChild(opt);
+                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                if (descInput) {
+                    descInput.value = 'No exhibit saved yet';
+                }
+                onLabExhibitSelected();
+                return;
+            }
+
+            let validExhibitsCount = 0;
+
+            blocks.forEach((block, idx) => {
+                const itemNum = idx + 1;
+                
+                const cat = block.querySelector('#newSeizureCategory')?.value || 
+                            block.querySelector('#exhibitSearchInput')?.value || 
+                            '';
+
+                if (!cat || cat.trim() === '') {
+                    return; // Skip blocks where Exhibit (Commodity Category) is empty
+                }
+
+                let name = '';
+                if (cat === 'Drugs') {
+                    name = block.querySelector('#newSeizureNameDrug')?.value || block.querySelector('#drugSearchInput')?.value || '';
+                } else if (cat === 'Weapons') {
+                    name = block.querySelector('#newSeizureNameWeapon')?.value || block.querySelector('#weaponSearchInput')?.value || '';
+                } else if (cat === 'Money') {
+                    name = block.querySelector('#newSeizureNameCurrency')?.value || block.querySelector('#currencySearchInput')?.value || '';
+                } else if (cat === 'Ammunition') {
+                    name = block.querySelector('#newSeizureNameAmmo')?.value || block.querySelector('#ammoSearchInput')?.value || '';
+                } else if (cat === 'Electronic Devices') {
+                    name = block.querySelector('#newSeizureNameDevice')?.value || block.querySelector('#deviceSearchInput')?.value || '';
+                } else {
+                    name = block.querySelector('#newSeizureName')?.value || '';
+                }
+
+                const qty = block.querySelector('#newSeizureQuantity')?.value || '';
+                const pkg = block.querySelector('#newSeizurePackaging')?.value || block.querySelector('#pkgSearchInput')?.value || '';
+                const weight = block.querySelector('#newSeizureWeight')?.value || '';
+                const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value || '';
+                const reason = block.querySelector('#newSeizureReason')?.value || '';
+
+                let displayName = name;
+                if (!displayName || displayName.trim() === '') {
+                    displayName = (cat && cat.trim() !== '') ? cat : `Seizure Item #${itemNum}`;
+                }
+
+                let optionText = `Exhibit #${itemNum}: ${displayName}`;
+                if (cat) optionText += ` [${cat}]`;
+                if (qty || weight) optionText += ` — ${qty ? qty + ' ' + (pkg || 'qty') : ''}${weight ? ' ' + weight + ' ' + (unit || '') : ''}`;
+
+                const opt = document.createElement('option');
+                opt.value = itemNum.toString();
+                opt.innerText = optionText;
+                opt.setAttribute('data-name', displayName);
+                opt.setAttribute('data-cat', cat);
+                opt.setAttribute('data-qty', qty);
+                opt.setAttribute('data-pkg', pkg);
+                opt.setAttribute('data-weight', weight);
+                opt.setAttribute('data-unit', unit);
+                opt.setAttribute('data-reason', reason);
+                selectEl.appendChild(opt);
+                validExhibitsCount++;
+            });
+
+            if (validExhibitsCount === 0) {
+                selectEl.innerHTML = '';
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.innerText = 'No exhibit saved yet';
+                selectEl.appendChild(opt);
+                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                if (descInput) {
+                    descInput.value = 'No exhibit saved yet';
+                }
+                onLabExhibitSelected();
+                return;
+            }
+
+            if (badgeEl) {
+                badgeEl.innerText = `${validExhibitsCount} Exhibit${validExhibitsCount > 1 ? 's' : ''} in Manifest`;
+            }
+
+            if (currentVal && selectEl.querySelector(`option[value="${currentVal}"]`)) {
+                selectEl.value = currentVal;
+            } else {
+                selectEl.value = selectEl.options[0] ? selectEl.options[0].value : '';
+            }
+
+            onLabExhibitSelected();
+        }
+
+        function onLabExhibitSelected() {
+            const selectEl = document.getElementById('labExhibitSelect');
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            const exhNumInput = document.getElementById('labExhibitNumberInput');
+            const examRefInput = document.getElementById('labExamReferenceInput');
+
+            if (!selectEl) return;
+            const selectedOption = selectEl.options[selectEl.selectedIndex];
+            
+            if (!selectedOption || !selectEl.value || selectEl.value === '' || selectedOption.text === 'No exhibit saved yet') {
+                if (descInput) {
+                    descInput.value = 'No exhibit saved yet';
+                }
+                return;
+            }
+
+            const idx = selectEl.value || '1';
+            const paddedIdx = idx.padStart(3, '0');
+
+            const currentYear = new Date().getFullYear();
+            if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
+            if (examRefInput) examRefInput.value = `EXAM-${currentYear}-${paddedIdx}-LAB`;
+
+            const name = selectedOption.getAttribute('data-name') || '';
+            const cat = selectedOption.getAttribute('data-cat') || '';
+            const qty = selectedOption.getAttribute('data-qty') || '';
+            const pkg = selectedOption.getAttribute('data-pkg') || '';
+            const weight = selectedOption.getAttribute('data-weight') || '';
+            const unit = selectedOption.getAttribute('data-unit') || '';
+            const reason = selectedOption.getAttribute('data-reason') || '';
+
+            let formattedDesc = `Exhibit #${idx}: ${name}`;
+            if (cat) formattedDesc += ` | Category: ${cat}`;
+            if (qty || pkg) formattedDesc += ` | Quantity/Packaging: ${qty} ${pkg}`.trim();
+            if (weight || unit) formattedDesc += ` | Net Weight/Metrics: ${weight} ${unit}`.trim();
+            if (reason) formattedDesc += ` | Seizure Facts: ${reason}`;
+
+            if (descInput) {
+                if (!labExhibitUserEdits[idx]) {
+                    descInput.value = formattedDesc;
+                } else {
+                    descInput.value = labExhibitUserEdits[idx];
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            if (descInput) {
+                descInput.addEventListener('input', function() {
+                    const selectEl = document.getElementById('labExhibitSelect');
+                    if (selectEl && selectEl.value) {
+                        labExhibitUserEdits[selectEl.value] = this.value;
+                    }
+                });
+            }
+
+            // Real-time capturing listeners for all Section 4 input events
+            ['input', 'keyup', 'change', 'blur', 'paste'].forEach(function(eventType) {
+                document.addEventListener(eventType, function(e) {
+                    if (e.target && e.target.closest && (e.target.closest('#seizuresDetailsContainer') || e.target.closest('#seizuresListContainer'))) {
+                        if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                            syncSection4ExhibitsToLabSection();
+                        }
+                    }
+                }, true);
+            });
+
+            syncSection4ExhibitsToLabSection();
+        });
     </script>
 
     <!-- EXECUTIVE SUCCESS POPOVER MESSAGE CONTAINER -->
@@ -4612,18 +5221,18 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between mb-1">
-                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
-                            STATUS: SENT FOR APPROVAL
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider">
+                            STATUS: MULTI-UNIT PROCESSING (1/4 COMPLETED)
                         </span>
                         <button onclick="closeSuccessPopover()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
                     <h3 class="text-base font-extrabold text-slate-900 leading-snug">
-                        Case Docket Sent for Approval!
+                        Crime Scene Data Saved Successfully!
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">CSS-2026-4342</span> has been successfully sent for approval to the Head of Forensic Directorate.
+                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">CSS-2026-4342</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
                     </p>
                 </div>
             </div>

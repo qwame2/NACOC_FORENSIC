@@ -84,6 +84,7 @@ Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
 Route::post('/cases/batch-approve', [CaseController::class, 'batchApprove']);
 Route::post('/cases/{id}/approve', [CaseController::class, 'approve']);
 Route::post('/cases/{id}/decline', [CaseController::class, 'decline']);
+Route::post('/cases/{id}/update-unit-progress', [CaseController::class, 'updateUnitProgress']);
 
 Route::get('/Forensic_Head/approvals', function (\Illuminate\Http\Request $request) {
     $users = User::orderBy('created_at', 'desc')->get();
@@ -182,6 +183,14 @@ Route::get('/crime-scene-support', function () {
 Route::get('/cases/landing', function () {
     $cases = ForensicCase::orderBy('created_at', 'desc')->get();
     return view('cases.landing', compact('cases'));
+});
+
+// LAB ANALYSIS UNIT DEDICATED ROUTES
+Route::get('/Lab_Analysis/examination', function () {
+    return view('Lab_Analysis.examination');
+});
+Route::get('/lab-analysis/add-case', function () {
+    return view('Lab_Analysis.examination');
 });
 
 Route::get('/Crime_Scene_Support/cases', function () {

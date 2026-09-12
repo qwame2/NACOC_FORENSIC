@@ -248,13 +248,42 @@ class CaseController extends Controller
             'mugshot_right' => $validated['mugshot_right'] ?? null,
             'docket_data' => $validated['docket_data'] ?? null,
             'priority' => $validated['priority'] ?? 'HIGH',
-            'status' => $validated['status'] ?? 'Awaiting Sign-off',
+            'status' => $validated['status'] ?? 'Under Multi-Unit Processing',
             'location' => $validated['location'] ?? ($validated['raid_location'] ?? 'NACOC Forensic Directorate Vault'),
             'description' => $validated['description'] ?? ($validated['offense_description'] ?? 'Directorate Authorized Forensic Case File'),
             'exhibits_summary' => $validated['exhibits_summary'] ?? ($validated['seizure_name'] ? implode(' ', array_filter([$validated['seizure_quantity'] ? "Qty: {$validated['seizure_quantity']}" : null, $validated['seizure_weight'] ? "Wt: {$validated['seizure_weight']} " . ($validated['seizure_unit'] ?? '') : $validated['seizure_unit'], $validated['seizure_name']])) : 'Logged Exhibits & Dossier'),
             'hash_log' => 'HASH-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-VERIFIED',
             'incident_date' => $validated['arrest_date'] ?? now(),
         ]);
+
+        // Initialize unit_progress in docket_data for the 4 specialized units
+        $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+        if (!isset($docketData['unit_progress'])) {
+            $docketData['unit_progress'] = [
+                'Crime Scene Support' => [
+                    'status' => 'COMPLETED',
+                    'officer' => $case->submitting_officer ?: 'Field Officer',
+                    'updated_at' => now()->toDateTimeString()
+                ],
+                'Evidence Management' => [
+                    'status' => 'PENDING',
+                    'officer' => null,
+                    'updated_at' => null
+                ],
+                'Lab Analysis' => [
+                    'status' => 'PENDING',
+                    'officer' => null,
+                    'updated_at' => null
+                ],
+                'Digital & Physical Forensics' => [
+                    'status' => 'PENDING',
+                    'officer' => null,
+                    'updated_at' => null
+                ],
+            ];
+            $case->docket_data = $docketData;
+            $case->save();
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -265,6 +294,97 @@ class CaseController extends Controller
         }
 
         return back()->with('status', "Case {$case->case_number} created and saved to database successfully.");
+    }
+
+    /**
+     * Update unit findings and unit completion status for a case across the 4 specialized units.
+     */
+    public function updateUnitProgress($id, Request $request)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json(['success' => false, 'message' => 'Case not found.'], 404);
+        }
+
+        $user = Auth::user();
+        $unitName = $request->input('unit_name') ?? ($user ? $user->unit : 'Crime Scene Support');
+        $unitNotes = $request->input('unit_notes') ?? $request->input('notes');
+        $unitStatus = strtoupper($request->input('unit_status', 'COMPLETED'));
+        if (!in_array($unitStatus, ['COMPLETED', 'IN_PROGRESS', 'PENDING'])) {
+            $unitStatus = $request->boolean('mark_completed', true) ? 'COMPLETED' : 'IN_PROGRESS';
+        }
+        $officer = $request->input('officer') ?? ($user ? $user->fullname : 'Unit Officer');
+
+        // Normalize unit name
+        if (str_contains(strtolower($unitName), 'lab')) {
+            $unitNameKey = 'Lab Analysis';
+        } elseif (str_contains(strtolower($unitName), 'evidence')) {
+            $unitNameKey = 'Evidence Management';
+        } elseif (str_contains(strtolower($unitName), 'digital') || str_contains(strtolower($unitName), 'cyber')) {
+            $unitNameKey = 'Digital & Physical Forensics';
+        } else {
+            $unitNameKey = 'Crime Scene Support';
+        }
+
+        $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+        
+        if (!isset($docketData['unit_progress'])) {
+            $docketData['unit_progress'] = [
+                'Crime Scene Support' => ['status' => 'COMPLETED', 'officer' => 'Initial Field Officer', 'updated_at' => $case->created_at ? $case->created_at->toDateTimeString() : now()->toDateTimeString()],
+                'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+                'Lab Analysis' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+                'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+            ];
+        }
+
+        $docketData['unit_progress'][$unitNameKey] = [
+            'status' => $unitStatus,
+            'officer' => $officer,
+            'notes' => $unitNotes,
+            'updated_at' => now()->toDateTimeString(),
+        ];
+
+        if (!empty($unitNotes)) {
+            if (!isset($docketData['unit_notes'])) {
+                $docketData['unit_notes'] = [];
+            }
+            $docketData['unit_notes'][$unitNameKey] = [
+                'notes' => $unitNotes,
+                'officer' => $officer,
+                'updated_at' => now()->toDateTimeString(),
+            ];
+        }
+
+        // Check if all 4 units have completed processing
+        $units = ['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'];
+        $completedCount = 0;
+        foreach ($units as $u) {
+            if (isset($docketData['unit_progress'][$u]) && strtoupper($docketData['unit_progress'][$u]['status'] ?? '') === 'COMPLETED') {
+                $completedCount++;
+            }
+        }
+
+        if ($completedCount >= 4) {
+            $case->status = 'Awaiting Sign-off';
+            $msg = "All 4 specialized units have completed processing! Case {$case->case_number} has been forwarded to Head of Forensic Directorate for final sign-off.";
+        } else {
+            $case->status = 'Under Multi-Unit Processing';
+            $msg = "{$unitNameKey} progress updated for Case {$case->case_number}. Currently {$completedCount}/4 units completed.";
+        }
+
+        $case->docket_data = $docketData;
+        $case->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $msg,
+            'completed_count' => $completedCount,
+            'total_units' => 4,
+            'unit_name' => $unitNameKey,
+            'unit_progress' => $docketData['unit_progress'],
+            'status' => $case->status,
+            'case' => $case,
+        ]);
     }
 
     /**
