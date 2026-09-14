@@ -88,6 +88,21 @@
                 margin: 0 !important;
                 padding: 0 !important;
                 border-radius: 0 !important;
+                overflow: visible !important;
+            }
+            .pdf-watermark-container {
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 480px !important;
+                height: 480px !important;
+                opacity: 0.08 !important;
+                z-index: 0 !important;
+                pointer-events: none !important;
+                user-select: none !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
             @page {
                 size: A4 portrait;
@@ -100,6 +115,21 @@
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
+        }
+        .pdf-watermark-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 520px;
+            height: 520px;
+            pointer-events: none;
+            user-select: none;
+            z-index: 0;
+            opacity: 0.07;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -120,10 +150,18 @@
     </div>
 
     <!-- MAIN A4 PRINT CONTAINER -->
-    <div class="print-container w-full max-w-4xl bg-white rounded-3xl p-8 sm:p-10 border border-slate-300 shadow-2xl space-y-6 text-slate-900 relative">
+    <div class="print-container w-full max-w-4xl bg-white rounded-3xl p-8 sm:p-10 border border-slate-300 shadow-2xl space-y-6 text-slate-900 relative overflow-hidden">
+
+        <!-- OFFICIAL NACOC WATERMARK LOGO BACKGROUND -->
+        <div class="pdf-watermark-container pointer-events-none select-none" aria-hidden="true">
+            <img src="{{ asset('nacoc.jfif') }}" 
+                 onerror="this.onerror=null; this.src='{{ asset('NACOC LOGO.jfif') }}';" 
+                 class="w-full h-full object-contain" 
+                 alt="NACOC Official Watermark Logo">
+        </div>
 
         <!-- OFFICIAL GHANA EMBLEM & LETTERHEAD (TOP CENTER) -->
-        <div class="text-center space-y-2 border-b-2 border-slate-900 pb-4">
+        <div class="text-center space-y-2 border-b-2 border-slate-900 pb-4 relative z-10">
             
             <!-- TOP MIDDLE FORENSIC / NACOC CREST -->
             <div class="flex justify-center mb-2">
@@ -151,7 +189,7 @@
         </div>
 
         <!-- CASE TITLE & LEGAL REFERENCE BANNER -->
-        <div class="p-4 bg-slate-100 rounded-2xl border border-slate-300 flex flex-col sm:flex-row items-center justify-between gap-4 avoid-break">
+        <div class="p-4 bg-slate-100/95 rounded-2xl border border-slate-300 flex flex-col sm:flex-row items-center justify-between gap-4 avoid-break relative z-10">
             <div>
                 <div class="text-[10px] font-mono-code font-bold text-blue-900 uppercase tracking-widest">OFFICIAL CASE FILE • CONFIDENTIAL</div>
                 <h1 class="text-xl font-black text-slate-900 uppercase mt-0.5 tracking-tight">
@@ -177,7 +215,7 @@
         </div>
 
         <!-- MUGSHOT PHOTOS (3-ANGLE BIOMETRIC CAPTURE) -->
-        <div class="space-y-3 avoid-break">
+        <div class="space-y-3 avoid-break relative z-10">
             <div class="text-xs font-extrabold text-slate-900 uppercase font-mono-code border-b border-slate-300 pb-1 flex items-center justify-between">
                 <div>
                     <span>SUSPECT BIOMETRIC MUGSHOT RECORD</span>
@@ -243,7 +281,7 @@
         </div>
 
         <!-- SUSPECT PERSONAL BIO DATA & IDENTITY -->
-        <div class="space-y-3 avoid-break">
+        <div class="space-y-3 avoid-break relative z-10">
             <div class="text-xs font-extrabold text-slate-900 uppercase font-mono-code border-b border-slate-300 pb-1">
                 <span>SUSPECT BOOKING &amp; PERSONAL IDENTITY</span>
             </div>
@@ -293,7 +331,7 @@
         </div>
 
         <!-- OFFENCE CHARGES & CUSTODY DETAILS -->
-        <div class="space-y-3 avoid-break">
+        <div class="space-y-3 avoid-break relative z-10">
             <div class="text-xs font-extrabold text-slate-900 uppercase font-mono-code border-b border-slate-300 pb-1">
                 <span>OFFENCE CHARGES &amp; ARREST DETAILS</span>
             </div>
@@ -324,7 +362,7 @@
         </div>
 
         <!-- SEIZURES (COMMODITIES & VAULT INVENTORY) -->
-        <div class="space-y-3 avoid-break">
+        <div class="space-y-3 avoid-break relative z-10">
             <div class="text-xs font-extrabold text-slate-900 uppercase font-mono-code border-b border-slate-300 pb-1">
                 <span>CONFISCATED COMMODITIES &amp; VAULT INVENTORY</span>
             </div>
@@ -401,7 +439,7 @@
 
         <!-- EVIDENCE PHOTO GALLERY (IF AVAILABLE) -->
         @if(!empty($evidencePhotos) && count($evidencePhotos) > 0)
-        <div class="space-y-3 avoid-break">
+        <div class="space-y-3 avoid-break relative z-10">
             <div class="text-xs font-extrabold text-slate-900 uppercase font-mono-code border-b border-slate-300 pb-1 flex items-center justify-between">
                 <div>
                     <span>SEIZURE &amp; EXHIBIT EVIDENCE GALLERY</span>
@@ -425,7 +463,7 @@
         @endif
 
         <!-- EXECUTIVE CERTIFICATION & OFFICIAL SIGN-OFF -->
-        <div class="pt-4 border-t-2 border-slate-900 space-y-4 avoid-break">
+        <div class="pt-4 border-t-2 border-slate-900 space-y-4 avoid-break relative z-10">
             <div class="text-xs font-extrabold text-slate-900 uppercase font-mono-code">
                 <span>EXECUTIVE AUTHORIZATION &amp; CERTIFICATE OF ACCURACY</span>
             </div>
@@ -449,7 +487,7 @@
         </div>
 
         <!-- FOOTER SECURITY BAR -->
-        <div class="pt-2 text-center border-t border-slate-300 text-[9px] font-mono-code text-slate-500 flex items-center justify-between">
+        <div class="pt-2 text-center border-t border-slate-300 text-[9px] font-mono-code text-slate-500 flex items-center justify-between relative z-10">
             <div>NACOC FORENSIC DEPARTMENT • CONFIDENTIAL LAW ENFORCEMENT RECORD</div>
             <div>PAGE 1 OF 1 • A4 OFFICIAL FORMAT</div>
         </div>

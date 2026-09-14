@@ -126,6 +126,8 @@ class ForensicCase extends Model
         'location',
         'description',
         'exhibits_summary',
+        'presumptive_test_result',
+        'confirmatory_test_result',
         'hash_log',
         'incident_date',
     ];

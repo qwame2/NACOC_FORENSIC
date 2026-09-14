@@ -25,21 +25,40 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'fullname' => fake()->name(),
+            'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'service_id' => 'SD-' . fake()->unique()->numberBetween(100, 999),
+            'phone_number' => '02' . fake()->numberBetween(10000000, 99999999),
+            'is_staff' => true,
+            'is_head' => false,
+            'is_approved' => true,
+            'unit' => 'Crime Scene Support',
+            'password' => static::$password ??= Hash::make('password123'),
             'remember_token' => Str::random(10),
         ];
     }
 
     /**
-     * Indicate that the model's email address should be unverified.
+     * State for unapproved user account.
      */
-    public function unverified(): static
+    public function unapproved(): static
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'is_approved' => false,
+        ]);
+    }
+
+    /**
+     * State for Unit / Directorate Head account.
+     */
+    public function head(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_head' => true,
+            'is_staff' => false,
+            'is_approved' => true,
+            'unit' => 'Forensic Directorate',
         ]);
     }
 }

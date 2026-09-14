@@ -265,122 +265,23 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        let activeApprovedUserId = null;
-
-        function showLoginApprovedPopover(officerName) {
-            const modal = document.getElementById('loginAccountApprovedPopoverModal');
-            if (officerName) {
-                const nameSpan = document.getElementById('popoverOfficerName');
-                if (nameSpan) {
-                    nameSpan.innerText = 'for ' + officerName;
-                    nameSpan.classList.remove('hidden');
-                }
-            }
-            if (modal) modal.classList.remove('hidden');
-        }
-
         function closeLoginApprovedPopover() {
             const modal = document.getElementById('loginAccountApprovedPopoverModal');
             if (modal) modal.classList.add('hidden');
-            if (activeApprovedUserId) {
-                sessionStorage.setItem('nacoc_account_approved_dismissed_' + activeApprovedUserId, 'true');
-            }
-            sessionStorage.setItem('nacoc_account_approved_dismissed', 'true');
             localStorage.removeItem('nacoc_pending_login_id');
         }
 
-        async function checkApprovalForUser(loginId) {
-            if (!loginId || typeof loginId !== 'string') return;
-            loginId = loginId.trim();
-            if (loginId.length < 2) return;
-
-            try {
-                const res = await fetch('/api/check-user-approval?login_id=' + encodeURIComponent(loginId));
-                if (!res.ok) return;
-                const data = await res.json();
-
-                if (data.exists && data.is_approved) {
-                    activeApprovedUserId = data.service_id || data.username || loginId;
-                    const isDismissedForUser = sessionStorage.getItem('nacoc_account_approved_dismissed_' + activeApprovedUserId) === 'true';
-
-                    if (!isDismissedForUser) {
-                        showLoginApprovedPopover(data.fullname);
-                        localStorage.removeItem('nacoc_pending_login_id');
-                    }
-                }
-            } catch (e) {
-                console.warn('Approval check error:', e);
-            }
-        }
-
-        function initApprovalChecking() {
-            const sessionPending = @json(session('pending_login_id'));
-            const oldLogin = @json(old('login_id'));
-
-            if (sessionPending) {
-                localStorage.setItem('nacoc_pending_login_id', sessionPending);
-                sessionStorage.removeItem('nacoc_account_approved_dismissed');
-            } else if (oldLogin) {
-                localStorage.setItem('nacoc_pending_login_id', oldLogin);
-            }
-
-            const pendingId = localStorage.getItem('nacoc_pending_login_id');
-            const inputId = document.getElementById('serviceId')?.value?.trim();
-            const targetId = pendingId || inputId;
-
-            if (targetId) {
-                checkApprovalForUser(targetId);
-            }
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
+            // Force hide popover and clear stale pending login entries on login page load
             const modal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (modal) modal.classList.add('hidden');
+            localStorage.removeItem('nacoc_pending_login_id');
 
-            const hasQueryParam = urlParams.has('account_approved') || urlParams.has('approved');
-            const isSessionFlash = @json(session('account_approved') || session('account_just_approved') || session('approved') ? true : false);
-
-            if (hasQueryParam) {
-                sessionStorage.removeItem('nacoc_account_approved_dismissed');
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('account_approved') || urlParams.has('approved')) {
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
             }
-
-            // Perform immediate check
-            initApprovalChecking();
-
-            if ((hasQueryParam || isSessionFlash) && sessionStorage.getItem('nacoc_account_approved_dismissed') !== 'true') {
-                if (modal) {
-                    modal.classList.remove('hidden');
-                }
-                sessionStorage.setItem('nacoc_account_approved_dismissed', 'true');
-
-                if (hasQueryParam) {
-                    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-                    window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-                }
-            }
-
-            // Real-time input check on Service ID / Username field
-            const serviceIdInput = document.getElementById('serviceId');
-            if (serviceIdInput) {
-                let debounceTimer;
-                serviceIdInput.addEventListener('input', function() {
-                    clearTimeout(debounceTimer);
-                    debounceTimer = setTimeout(() => {
-                        const val = this.value.trim();
-                        if (val.length >= 3) {
-                            checkApprovalForUser(val);
-                        }
-                    }, 500);
-                });
-            }
-
-            // 3-second silent background polling for pending user approval
-            setInterval(() => {
-                const pendingId = localStorage.getItem('nacoc_pending_login_id');
-                if (pendingId) {
-                    checkApprovalForUser(pendingId);
-                }
-            }, 3000);
         });
 
         // Live UTC Clock

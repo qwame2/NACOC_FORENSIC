@@ -13,7 +13,9 @@
             || request()->query('from') === 'lab'
         );
         
-        $officerName = $authUser->fullname ?? session('user_name') ?? 'Supt. Eric Mensah';
+        $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
+        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
+        $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName);
         $examRefAuto = 'EXAM-' . date('Y') . '-' . rand(1000, 9999) . '-LAB';
         $caseRefAuto = 'NFC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
@@ -865,8 +867,8 @@
                                         Marital / Relationship Status <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <button type="button" id="maritalDropdownTrigger" onclick="toggleMaritalDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
-                                        <span id="selectedMaritalLabel" class="font-medium text-slate-400 text-xs">Select Marital Status...</span>
-                                        <input type="hidden" id="newArrestedMarital" value="">
+                                        <span id="selectedMaritalLabel" class="font-bold text-slate-900 text-xs">Single</span>
+                                        <input type="hidden" id="newArrestedMarital" name="marital_status" value="Single">
                                         <svg id="maritalChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </button>
 
@@ -2539,38 +2541,20 @@
                                         >No exhibit saved yet</textarea>
                                     </div>
 
-                                    <!-- Laboratory Unit & Analyst / Examiner -->
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                                Laboratory Unit <span class="text-red-600 font-bold">*</span>
-                                            </label>
-                                            <select 
-                                                id="labUnitSelect" 
-                                                name="lab_unit"
-                                                class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs cursor-pointer"
-                                            >
-                                                <option value="Chemistry & Narcotics Unit" selected>Chemistry &amp; Narcotics Unit</option>
-                                                <option value="Forensic Toxicology Unit">Forensic Toxicology Unit</option>
-                                                <option value="Trace Evidence & Physical Analysis">Trace Evidence &amp; Physical Analysis</option>
-                                                <option value="Digital & Cyber Forensics Lab">Digital &amp; Cyber Forensics Lab</option>
-                                                <option value="DNA & Forensic Biology Unit">DNA &amp; Forensic Biology Unit</option>
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                                Analyst / Examiner <span class="text-red-600 font-bold">*</span>
-                                            </label>
-                                            <input 
-                                                type="text" 
-                                                id="labAnalystInput" 
-                                                name="lab_analyst"
-                                                value="{{ $officerName }}" 
-                                                placeholder="e.g. Supt. Eric Mensah" 
-                                                class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
-                                            >
-                                        </div>
+                                    <!-- Analyst / Examiner -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Analyst / Examiner</span>
+                                            <span class="text-[9px] font-mono-code text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold uppercase">Account Holder</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            id="labAnalystInput" 
+                                            name="lab_analyst"
+                                            value="{{ auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName) }}" 
+                                            readonly 
+                                            class="w-full px-3.5 py-3 bg-purple-50/70 border border-purple-200 rounded-xl text-purple-900 font-extrabold outline-none shadow-2xs text-xs cursor-not-allowed"
+                                        >
                                     </div>
                                 </div>
 
@@ -2643,9 +2627,9 @@
                                         Presumptive Test Reaction Result <span class="text-red-600 font-bold">*</span>
                                     </label>
 
-                                    <div class="flex items-center space-x-6">
+                                    <div class="flex items-center space-x-3">
                                         <!-- YES CHECKBOX -->
-                                        <label class="relative flex items-center p-3.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all cursor-pointer select-none space-x-3 group">
+                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all cursor-pointer select-none space-x-2 group">
                                             <input 
                                                 type="checkbox" 
                                                 id="presumptiveTestYes" 
@@ -2653,31 +2637,245 @@
                                                 value="YES"
                                                 checked
                                                 onchange="togglePresumptiveTest('YES')"
-                                                class="w-5 h-5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
                                             >
-                                            <div class="flex items-center space-x-2">
-                                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                                                 <span class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
-                                                <span class="text-[11px] text-emerald-700 font-medium">(Positive Reaction / Color Change Observed)</span>
                                             </div>
                                         </label>
 
                                         <!-- NO CHECKBOX -->
-                                        <label class="relative flex items-center p-3.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-3 group">
+                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
                                             <input 
                                                 type="checkbox" 
                                                 id="presumptiveTestNo" 
                                                 name="presumptive_test_no" 
                                                 value="NO"
                                                 onchange="togglePresumptiveTest('NO')"
-                                                class="w-5 h-5 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
+                                                class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
                                             >
-                                            <div class="flex items-center space-x-2">
-                                                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
                                                 <span class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
-                                                <span class="text-[11px] text-slate-600 font-medium">(Negative Reaction / No Reaction)</span>
                                             </div>
                                         </label>
+                                    </div>
+
+                                    <!-- DROPDOWN / MULTI-ROW INPUT BOXES FOR PRESUMPTIVE TEST REACTION DETAILS -->
+                                    <div id="presumptiveReactionDetailsContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300">
+                                        <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                            <div class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
+                                                <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                                                </svg>
+                                                <span>Presumptive Test Reaction Result Details &amp; Field Spec</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                                MULTIPLE SPECIMEN SUPPORT
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- DYNAMIC TEST ROWS CONTAINER -->
+                                        <div id="presumptiveTestRowsContainer" class="space-y-3">
+                                            <div class="presumptive-test-row p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
+                                                <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                                                    <span class="test-row-title">Test Result #1</span>
+                                                    <button type="button" onclick="removePresumptiveTestRow(this)" class="remove-test-row-btn hidden px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
+                                                        &times; Remove
+                                                    </button>
+                                                </div>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Presence of <span class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <input 
+                                                            type="text" 
+                                                            class="presumptive-presence-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs" 
+                                                            onchange="updatePresumptiveReactionText()" 
+                                                            oninput="updatePresumptiveReactionText()" 
+                                                            placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine"
+                                                        >
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Percentage (%) <span class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <input 
+                                                            type="text" 
+                                                            class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" 
+                                                            onchange="updatePresumptiveReactionText()" 
+                                                            oninput="updatePresumptiveReactionText()" 
+                                                            placeholder="e.g. 85.5% or 80-90%"
+                                                        >
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- ADD MORE TEST RESULT BUTTON -->
+                                        <div class="pt-1 flex items-center justify-between">
+                                            <button 
+                                                type="button" 
+                                                onclick="addPresumptiveTestRow()" 
+                                                class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border-none space-x-1.5"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                <span>+ Add More Test Result</span>
+                                            </button>
+                                            <span class="text-[10px] text-slate-500 font-medium italic">Click to log additional chemical/substance reaction test results</span>
+                                        </div>
+
+                                        <!-- Hidden Presumptive Reaction Result for Form Submission -->
+                                        <input 
+                                            type="hidden" 
+                                            id="presumptiveReactionResultInput" 
+                                            name="presumptive_reaction_result_input" 
+                                            value="YES (Positive Colorimetric Reaction)"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CONFIRMATORY TEST SECTION (UNDERNEATH PRESUMPTIVE TEST SECTION) -->
+                            <div class="bg-white p-6 rounded-2xl border border-purple-200 shadow-sm space-y-4">
+                                <div class="pb-3 border-b border-purple-100 flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-md shadow-purple-600/30">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-extrabold text-slate-900 text-base">Confirmatory Test</h3>
+                                            <p class="text-xs text-purple-700 font-semibold">Instrumental &amp; Spectrometry Laboratory Confirmation (GC-MS / FTIR)</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-1 bg-purple-100 text-purple-800 text-[10px] font-mono-code font-bold rounded-lg border border-purple-200 uppercase tracking-wider">
+                                        LAB VERIFICATION
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
+                                        Confirmatory Test Conducted <span class="text-red-600 font-bold">*</span>
+                                    </label>
+
+                                    <div class="flex items-center space-x-3">
+                                        <!-- YES CHECKBOX -->
+                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                            <input 
+                                                type="checkbox" 
+                                                id="confirmatoryTestYes" 
+                                                name="confirmatory_test_yes" 
+                                                value="YES"
+                                                onchange="toggleConfirmatoryTest('YES')"
+                                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
+                                            >
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                                <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- NO CHECKBOX -->
+                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                            <input 
+                                                type="checkbox" 
+                                                id="confirmatoryTestNo" 
+                                                name="confirmatory_test_no" 
+                                                value="NO"
+                                                checked
+                                                onchange="toggleConfirmatoryTest('NO')"
+                                                class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
+                                            >
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                                <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- Hidden Confirmatory Test Result Input -->
+                                    <input 
+                                        type="hidden" 
+                                        id="confirmatoryTestResultInput" 
+                                        name="confirmatory_test_result" 
+                                        value="NO"
+                                    >
+
+                                    <!-- SAMPLE WEIGHT GROUP INPUT CONTAINER (DYNAMICALLY SHOWN WHEN CONFIRMATORY TEST IS YES) -->
+                                    <div id="sampleWeightContainer" class="mt-4 p-4 bg-purple-50/70 rounded-xl border border-purple-200 space-y-4 transition-all duration-300 hidden">
+                                        <div class="flex items-center justify-between border-b border-purple-200/80 pb-2">
+                                            <div class="flex items-center space-x-2 text-purple-900 font-extrabold text-xs uppercase tracking-wider">
+                                                <svg class="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                                </svg>
+                                                <span>SAMPLE WEIGHT</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200 uppercase">
+                                                CONFIRMATORY METROLOGY &amp; MASS
+                                            </span>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <!-- DESCRIPTION -->
+                                            <div class="md:col-span-2">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Description <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    id="sampleWeightDescription" 
+                                                    name="sample_weight_description" 
+                                                    placeholder="e.g. Compressed tan-brown vegetal matter, sealed in plastic wrap"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
+                                                >
+                                            </div>
+
+                                            <!-- NUMBER OF UNIT / GROSS WEIGHT -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Number of Unit / Gross Weight <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    id="sampleWeightGross" 
+                                                    name="sample_weight_gross" 
+                                                    placeholder="e.g. 12 slabs / 14.85 kg gross weight"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                >
+                                            </div>
+
+                                            <!-- SAMPLE TAKEN -->
+                                            <div>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Sample Taken <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    id="sampleWeightTaken" 
+                                                    name="sample_weight_taken" 
+                                                    placeholder="e.g. 25.0 grams for lab spectrometry"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                >
+                                            </div>
+
+                                            <!-- RESERVED SAMPLES -->
+                                            <div class="md:col-span-2">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Reserved Samples <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <input 
+                                                    type="text" 
+                                                    id="sampleWeightReserved" 
+                                                    name="sample_weight_reserved" 
+                                                    placeholder="e.g. 14.825 kg reserved in Evidence Management Vault"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                >
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -2710,17 +2908,168 @@
     </div>
 
     <script>
-        function togglePresumptiveTest(choice) {
-            const yesBox = document.getElementById('presumptiveTestYes');
-            const noBox = document.getElementById('presumptiveTestNo');
+        function toggleConfirmatoryTest(choice) {
+            const yesBox = document.getElementById('confirmatoryTestYes');
+            const noBox = document.getElementById('confirmatoryTestNo');
+            const inputEl = document.getElementById('confirmatoryTestResultInput');
+            const sampleWeightContainer = document.getElementById('sampleWeightContainer');
             if (choice === 'YES') {
                 if (yesBox && yesBox.checked) {
                     if (noBox) noBox.checked = false;
+                    if (inputEl) inputEl.value = 'YES';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
+                } else {
+                    if (noBox) noBox.checked = true;
+                    if (inputEl) inputEl.value = 'NO';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.add('hidden');
                 }
             } else if (choice === 'NO') {
                 if (noBox && noBox.checked) {
                     if (yesBox) yesBox.checked = false;
+                    if (inputEl) inputEl.value = 'NO';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.add('hidden');
+                } else {
+                    if (yesBox) yesBox.checked = true;
+                    if (inputEl) inputEl.value = 'YES';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
                 }
+            }
+        }
+
+        function togglePresumptiveTest(choice) {
+            const yesBox = document.getElementById('presumptiveTestYes');
+            const noBox = document.getElementById('presumptiveTestNo');
+            const container = document.getElementById('presumptiveReactionDetailsContainer');
+            if (choice === 'YES') {
+                if (yesBox && yesBox.checked) {
+                    if (noBox) noBox.checked = false;
+                    if (container) container.classList.remove('hidden');
+                } else {
+                    if (container) container.classList.add('hidden');
+                }
+            } else if (choice === 'NO') {
+                if (noBox && noBox.checked) {
+                    if (yesBox) yesBox.checked = false;
+                    if (container) container.classList.add('hidden');
+                } else if (yesBox && yesBox.checked) {
+                    if (container) container.classList.remove('hidden');
+                }
+            }
+        }
+
+        function addPresumptiveTestRow() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            if (!container) return;
+
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            const newIdx = rows.length + 1;
+
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'presumptive-test-row p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5';
+            rowDiv.innerHTML = `
+                <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                    <span class="test-row-title">Test Result #${newIdx}</span>
+                    <button type="button" onclick="removePresumptiveTestRow(this)" class="remove-test-row-btn px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
+                        &times; Remove
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                            Presence of <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            class="presumptive-presence-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs" 
+                            onchange="updatePresumptiveReactionText()" 
+                            oninput="updatePresumptiveReactionText()" 
+                            placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                            Percentage (%) <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" 
+                            onchange="updatePresumptiveReactionText()" 
+                            oninput="updatePresumptiveReactionText()" 
+                            placeholder="e.g. 85.5% or 80-90%"
+                        >
+                    </div>
+                </div>
+            `;
+            container.appendChild(rowDiv);
+            updatePresumptiveRemoveButtons();
+            updatePresumptiveReactionText();
+        }
+
+        function removePresumptiveTestRow(btn) {
+            const row = btn.closest('.presumptive-test-row');
+            if (row) {
+                row.remove();
+                reindexPresumptiveTestRows();
+                updatePresumptiveRemoveButtons();
+                updatePresumptiveReactionText();
+            }
+        }
+
+        function reindexPresumptiveTestRows() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            rows.forEach((row, idx) => {
+                const titleSpan = row.querySelector('.test-row-title');
+                if (titleSpan) titleSpan.innerText = `Test Result #${idx + 1}`;
+            });
+        }
+
+        function updatePresumptiveRemoveButtons() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            rows.forEach(row => {
+                const btn = row.querySelector('.remove-test-row-btn');
+                if (btn) {
+                    if (rows.length > 1) {
+                        btn.classList.remove('hidden');
+                    } else {
+                        btn.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        function updatePresumptiveReactionText() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            const inputEl = document.getElementById('presumptiveReactionResultInput');
+            if (!container || !inputEl) return;
+
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            let results = [];
+
+            rows.forEach((row, idx) => {
+                const presence = row.querySelector('.presumptive-presence-input')?.value?.trim() || '';
+                const percentage = row.querySelector('.presumptive-percentage-input')?.value?.trim() || '';
+                
+                let parts = [];
+                if (presence) parts.push(`Presence of: ${presence}`);
+                if (percentage) parts.push(`Purity/Percentage: ${percentage}`);
+
+                if (parts.length > 0) {
+                    if (rows.length > 1) {
+                        results.push(`[${idx + 1}] ${parts.join(' - ')}`);
+                    } else {
+                        results.push(parts.join(' - '));
+                    }
+                }
+            });
+
+            if (results.length > 0) {
+                inputEl.value = `YES (${results.join('; ')})`;
+            } else {
+                inputEl.value = `YES (Positive Colorimetric Reaction)`;
             }
         }
 
@@ -3076,7 +3425,10 @@
             const pob = document.getElementById('newArrestedPOB')?.value || '';
             const phone = document.getElementById('newArrestedPhone')?.value || '';
             const address = document.getElementById('newArrestedAddress')?.value || '';
-            const marital = document.getElementById('newArrestedMarital')?.value || 'Unspecified';
+            const maritalVal = document.getElementById('newArrestedMarital')?.value;
+            const maritalLabel = document.getElementById('selectedMaritalLabel')?.innerText;
+            let marital = (maritalVal && maritalVal.trim() !== '') ? maritalVal : ((maritalLabel && maritalLabel !== 'Select Marital Status...') ? maritalLabel : 'Single');
+            if (marital === 'Unspecified') { marital = 'Single'; }
             const hasChildren = document.getElementById('hasChildrenCheckbox')?.checked;
             const childrenVal = hasChildren ? (document.getElementById('newArrestedChildren')?.value || '1') : '0';
             const childrenText = hasChildren ? `${childrenVal} Kids` : 'No Children';
@@ -3275,6 +3627,16 @@
             const vehMods = primarySeizure.veh?.mods || '';
             const vehFeatures = primarySeizure.veh?.features || '';
 
+            let presumptiveVal = 'YES (Positive Colorimetric Reaction)';
+            const yesBox = document.getElementById('presumptiveTestYes');
+            const noBox = document.getElementById('presumptiveTestNo');
+            if (noBox && noBox.checked) {
+                presumptiveVal = 'NO (Negative Reaction)';
+            } else if (yesBox && yesBox.checked) {
+                const customResult = document.getElementById('presumptiveReactionResultInput')?.value;
+                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES (Positive Colorimetric Reaction)';
+            }
+
             const docketPayload = {
                 raid_ref: ref,
                 full_name: name,
@@ -3300,7 +3662,10 @@
                 seizures: seizuresList,
                 evidence_photos: seizedExhibitDataUrls,
                 vehicle: primarySeizure.veh || {},
-                weapon: primarySeizure.wpn || {}
+                weapon: primarySeizure.wpn || {},
+                lab_examination: {
+                    presumptive_result: presumptiveVal
+                }
             };
 
             // AJAX call to store case in database for Head of Forensic Directorate review & approval
@@ -3426,7 +3791,8 @@
                     mugshot_left: mugshotLeft && mugshotLeft.startsWith('data:') ? mugshotLeft : null,
                     mugshot_right: mugshotRight && mugshotRight.startsWith('data:') ? mugshotRight : null,
 
-                    // Legacy JSON docket data
+                    // Presumptive Result & Legacy JSON docket data
+                    presumptive_result: presumptiveVal,
                     docket_data: docketPayload,
                     priority: 'HIGH',
                     status: 'Under Multi-Unit Processing',
@@ -3620,6 +3986,10 @@
                         const mLabel = document.getElementById('selectedMaritalLabel');
                         mLabel.innerText = l.selectedMaritalLabel;
                         mLabel.className = "font-bold text-slate-900 text-xs";
+                        const mInput = document.getElementById('newArrestedMarital');
+                        if (mInput) {
+                            mInput.value = l.selectedMaritalLabel;
+                        }
                     }
                     if (l.selectedCaseTypeLabel && document.getElementById('selectedCaseTypeLabel')) {
                         document.getElementById('selectedCaseTypeLabel').innerText = l.selectedCaseTypeLabel;
@@ -3630,8 +4000,8 @@
                 toggleSeizuresContainer();
                 handleCaseEntryTypeChange();
 
-                const maritalVal = document.getElementById('newArrestedMarital')?.value;
-                if (maritalVal) handleMaritalChange(maritalVal);
+                const maritalVal = document.getElementById('newArrestedMarital')?.value || 'Single';
+                handleMaritalChange(maritalVal);
 
                 const seizureCat = document.getElementById('newSeizureCategory')?.value;
                 if (seizureCat) updateCommodityField(seizureCat);
@@ -3661,7 +4031,14 @@
             if (notice) notice.classList.add('hidden');
             const form = document.querySelector('form');
             if (form) form.reset();
-            handleMaritalChange('');
+            const mInput = document.getElementById('newArrestedMarital');
+            if (mInput) mInput.value = 'Single';
+            const mLabel = document.getElementById('selectedMaritalLabel');
+            if (mLabel) {
+                mLabel.innerText = 'Single';
+                mLabel.className = "font-bold text-slate-900 text-xs";
+            }
+            handleMaritalChange('Single');
             toggleChildrenInput();
             toggleSeizuresContainer();
         }

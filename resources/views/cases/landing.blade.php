@@ -113,7 +113,13 @@
                     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         @php
                             $reqUnitLanding = request()->query('unit') ?? request()->query('from');
-                            $isLabLanding = $reqUnitLanding === 'Lab Analysis' || $reqUnitLanding === 'lab';
+                            $userUnitLanding = auth()->user()->unit ?? session('user_unit') ?? '';
+                            $prevUrlLanding = url()->previous() ?? '';
+                            $isLabLanding = $reqUnitLanding === 'Lab Analysis' 
+                                            || $reqUnitLanding === 'lab' 
+                                            || str_contains(strtolower($reqUnitLanding ?? ''), 'lab') 
+                                            || str_contains(strtolower($userUnitLanding), 'lab') 
+                                            || str_contains(strtolower($prevUrlLanding), 'lab');
                         @endphp
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
@@ -299,20 +305,15 @@
                                                 'dot' => 'bg-emerald-500',
                                                 'label' => $case->status
                                             ],
-                                            'Under Multi-Unit Processing' => [
-                                                'bg' => 'bg-purple-100 text-purple-800 border-purple-200',
-                                                'dot' => 'bg-purple-600',
-                                                'label' => "Multi-Unit ({$compCountLanding}/4)"
-                                            ],
                                             'Lab Testing', 'Lab Analysis', 'Under Review', 'Awaiting Sign-off' => [
                                                 'bg' => 'bg-amber-100 text-amber-800 border-amber-200',
                                                 'dot' => 'bg-amber-500',
                                                 'label' => $case->status
                                             ],
                                             default => [
-                                                'bg' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                                                'dot' => 'bg-emerald-600',
-                                                'label' => $case->status
+                                                'bg' => 'bg-purple-100 text-purple-800 border-purple-200',
+                                                'dot' => 'bg-purple-600',
+                                                'label' => "Multi-Unit ({$compCountLanding}/4)"
                                             ]
                                         };
 
@@ -321,6 +322,12 @@
                                         $initials = strtoupper(substr($nameParts[0] ?? 'N', 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
                                         $frontPic = $case->mugshot_front ?? (is_array($case->docket_data) ? ($case->docket_data['mugshot_front'] ?? null) : null);
+                                        if (!$frontPic && !empty($case->evidence_photos)) {
+                                            $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
+                                            if (!empty($evArr[0])) {
+                                                $frontPic = $evArr[0];
+                                            }
+                                        }
                                         if ($frontPic && !str_starts_with($frontPic, 'data:') && !str_starts_with($frontPic, 'http://') && !str_starts_with($frontPic, 'https://')) {
                                             $frontPic = asset($frontPic);
                                         }
@@ -377,7 +384,7 @@
                                             </span>
                                         </td>
                                         <td class="py-4 px-4 text-right whitespace-nowrap">
-                                            <a href="/cases/{{ $case->case_number }}/review" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
+                                            <a href="/cases/{{ $case->case_number }}/review{{ $isLabLanding ? '?from=Lab+Analysis' : '' }}" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
                                                 View Docket
                                             </a>
                                         </td>
@@ -483,8 +490,10 @@
             filterCases();
         }
 
+        const isLabLanding = {{ $isLabLanding ? 'true' : 'false' }};
+
         function viewDocket(ref) {
-            window.location.href = '/cases/' + encodeURIComponent(ref) + '/review';
+            window.location.href = '/cases/' + encodeURIComponent(ref) + '/review' + (isLabLanding ? '?from=Lab+Analysis' : '');
         }
 
         function closeDocketModal() {
@@ -539,13 +548,39 @@
                         } else if (isLab) {
                             statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>${status}</span>`;
                         } else {
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5"></span>${status}</span>`;
+                            let uProg = {};
+                            if (c.docket_data) {
+                                let dData = (typeof c.docket_data === 'string') ? (JSON.parse(c.docket_data || '{}') || {}) : c.docket_data;
+                                uProg = dData.unit_progress || {};
+                            }
+                            let compCount = 0;
+                            ['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'].forEach(ukey => {
+                                if (uProg[ukey] && uProg[ukey].status && String(uProg[ukey].status).toUpperCase() === 'COMPLETED') {
+                                    compCount++;
+                                }
+                            });
+                            if (compCount === 0) compCount = 1;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200"><span class="w-1.5 h-1.5 rounded-full bg-purple-600 mr-1.5"></span>Multi-Unit (${compCount}/4)</span>`;
                         }
 
-                        const suspectDisplayName = c.suspect_name || c.commanding_officer || 'Unassigned Target';
+                        const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data.full_name : 'Unnamed Suspect');
                         const suspectAlias = c.suspect_alias || (c.docket_data ? c.docket_data.suspect_alias : null) || 'N/A';
-                        const priorityText = (c.priority || 'HIGH').toUpperCase();
-                        let frontPic = c.mugshot_front || (c.docket_data ? c.docket_data.mugshot_front : null);
+
+                        let frontPic = c.mugshot_front || (c.docket_data?.mugshot_front || c.docket_data?.mugshots?.front || null);
+                        if (!frontPic) {
+                            let evPhotos = c.evidence_photos || (c.docket_data ? c.docket_data.evidence_photos : null);
+                            if (evPhotos) {
+                                let evArr = [];
+                                if (Array.isArray(evPhotos)) evArr = evPhotos;
+                                else if (typeof evPhotos === 'string') {
+                                    try { evArr = JSON.parse(evPhotos); } catch(e) { evArr = [evPhotos]; }
+                                }
+                                if (evArr && evArr.length > 0 && evArr[0]) {
+                                    frontPic = evArr[0];
+                                }
+                            }
+                        }
+
                         let avatarImgHtml = '';
 
                         if (frontPic) {
@@ -569,23 +604,23 @@
 
                         html += `<tr class="table-row-hover transition-colors case-row" data-status="${statusTab}" style="${isVisible ? '' : 'display:none;'}">
                             <td class="py-4 px-4 whitespace-nowrap">
-                                <div class="font-bold font-mono-code text-blue-600 text-xs">${c.case_number}</div>
+                                <div class="font-bold font-mono-code text-blue-600 text-xs">#${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-0.5">
-                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${priorityText}</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'NORMAL').toUpperCase()}</span>
                                 </div>
                             </td>
                             <td class="py-4 px-4">
                                 <div class="font-semibold text-slate-800">${c.title || 'Untitled Case'}</div>
-                                <div class="text-[10px] text-blue-600 font-mono-code font-semibold">${c.unit_name || 'Crime Scene Support'}</div>
+                                <div class="text-[10px] text-blue-600 font-mono-code font-semibold">${c.unit_name || 'Forensic Directorate'}</div>
                             </td>
                             <td class="py-4 px-4">
                                 <div class="flex items-center space-x-3">
                                     <div class="suspect-avatar-trigger cursor-pointer shrink-0"
                                          data-name="${suspectDisplayName.replace(/"/g, '&quot;')}"
                                          data-alias="${suspectAlias.replace(/"/g, '&quot;')}"
-                                         data-pic="${frontPic || ''}"
+                                         data-pic="${frontPic ? frontPic.replace(/"/g, '&quot;') : ''}"
                                          data-ref="${c.case_number}"
-                                         data-priority="${priorityText}">
+                                         data-priority="${(c.priority || 'NORMAL').toUpperCase()}">
                                         <div class="w-10 h-10 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 transition-all duration-200">
                                             ${avatarImgHtml}
                                         </div>
@@ -608,7 +643,7 @@
                             </td>
                             <td class="py-4 px-4 text-center whitespace-nowrap">${statusBadgeHtml}</td>
                             <td class="py-4 px-4 text-right whitespace-nowrap">
-                                <a href="/cases/${c.case_number}/review" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
+                                <a href="/cases/${c.case_number}/review${isLabLanding ? '?from=Lab+Analysis' : ''}" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
                                     View Docket
                                 </a>
                             </td>

@@ -124,8 +124,14 @@ class CaseController extends Controller
             'priority' => ['nullable', 'string', 'max:50'],
             'status' => ['nullable', 'string', 'max:50'],
             'location' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
             'exhibits_summary' => ['nullable', 'string'],
+            'presumptive_test_result' => ['nullable', 'string'],
+            'presumptive_reaction_result_input' => ['nullable', 'string'],
+            'confirmatory_test_result' => ['nullable', 'string'],
+            'sample_weight_description' => ['nullable', 'string'],
+            'sample_weight_gross' => ['nullable', 'string'],
+            'sample_weight_taken' => ['nullable', 'string'],
+            'sample_weight_reserved' => ['nullable', 'string'],
         ])->validate();
 
         $user = Auth::user();
@@ -167,7 +173,7 @@ class CaseController extends Controller
             'pob' => $validated['pob'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'address' => $validated['address'] ?? null,
-            'marital_status' => $validated['marital_status'] ?? null,
+            'marital_status' => (!empty($validated['marital_status']) && $validated['marital_status'] !== 'Unspecified') ? $validated['marital_status'] : 'Single',
             'has_children' => !empty($validated['has_children']),
             'children_count' => isset($validated['children_count']) && $validated['children_count'] !== '' ? (int)$validated['children_count'] : null,
             'spouse_info' => $validated['spouse_info'] ?? null,
@@ -252,6 +258,8 @@ class CaseController extends Controller
             'location' => $validated['location'] ?? ($validated['raid_location'] ?? 'NACOC Forensic Directorate Vault'),
             'description' => $validated['description'] ?? ($validated['offense_description'] ?? 'Directorate Authorized Forensic Case File'),
             'exhibits_summary' => $validated['exhibits_summary'] ?? ($validated['seizure_name'] ? implode(' ', array_filter([$validated['seizure_quantity'] ? "Qty: {$validated['seizure_quantity']}" : null, $validated['seizure_weight'] ? "Wt: {$validated['seizure_weight']} " . ($validated['seizure_unit'] ?? '') : $validated['seizure_unit'], $validated['seizure_name']])) : 'Logged Exhibits & Dossier'),
+            'presumptive_test_result' => $validated['presumptive_test_result'] ?? ($validated['presumptive_reaction_result_input'] ?? null),
+            'confirmatory_test_result' => $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? 'NO'),
             'hash_log' => 'HASH-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-VERIFIED',
             'incident_date' => $validated['arrest_date'] ?? now(),
         ]);
@@ -343,6 +351,39 @@ class CaseController extends Controller
             'notes' => $unitNotes,
             'updated_at' => now()->toDateTimeString(),
         ];
+
+        if ($unitNameKey === 'Lab Analysis' || $request->has('lab_unit') || $request->has('presumptive_result')) {
+            if (!isset($docketData['lab_examination'])) {
+                $docketData['lab_examination'] = [];
+            }
+            $docketData['lab_examination']['exam_reference'] = $request->input('lab_exam_reference') ?? ($docketData['lab_examination']['exam_reference'] ?? ('EXAM-' . date('Y') . '-' . rand(1000, 9999) . '-LAB'));
+            $docketData['lab_examination']['exhibit_number'] = $request->input('lab_exhibit_number') ?? ($docketData['lab_examination']['exhibit_number'] ?? ('EXH-' . date('Y') . '-001-NFC'));
+            $docketData['lab_examination']['lab_unit'] = $request->input('lab_unit') ?? ($docketData['lab_examination']['lab_unit'] ?? 'Chemistry & Narcotics Unit');
+            $docketData['lab_examination']['analyst'] = $officer;
+            $docketData['lab_examination']['date_received'] = $request->input('lab_date_received') ?? ($docketData['lab_examination']['date_received'] ?? date('Y-m-d'));
+            $docketData['lab_examination']['date_started'] = $request->input('lab_date_started') ?? ($docketData['lab_examination']['date_started'] ?? date('Y-m-d'));
+            $presumptiveVal = $request->input('presumptive_result') ?? $request->input('presumptive_reaction_result_input') ?? $request->input('presumptive_test_result');
+            $docketData['lab_examination']['presumptive_result'] = $presumptiveVal ?? ($docketData['lab_examination']['presumptive_result'] ?? 'YES (Positive Reaction)');
+            
+            $confirmatoryVal = $request->input('confirmatory_test_result') ?? $request->input('confirmatory_result') ?? 'NO';
+            $docketData['lab_examination']['confirmatory_result'] = $confirmatoryVal;
+
+            $docketData['lab_examination']['sample_weight'] = [
+                'description' => $request->input('sample_weight_description') ?? ($docketData['lab_examination']['sample_weight']['description'] ?? ''),
+                'gross_weight' => $request->input('sample_weight_gross') ?? ($docketData['lab_examination']['sample_weight']['gross_weight'] ?? ''),
+                'sample_taken' => $request->input('sample_weight_taken') ?? ($docketData['lab_examination']['sample_weight']['sample_taken'] ?? ''),
+                'reserved_samples' => $request->input('sample_weight_reserved') ?? ($docketData['lab_examination']['sample_weight']['reserved_samples'] ?? ''),
+            ];
+
+            $docketData['lab_examination']['findings'] = $unitNotes ?? ($docketData['lab_examination']['findings'] ?? '');
+
+            if (!empty($presumptiveVal)) {
+                $case->presumptive_test_result = $presumptiveVal;
+            }
+            if (!empty($confirmatoryVal)) {
+                $case->confirmatory_test_result = $confirmatoryVal;
+            }
+        }
 
         if (!empty($unitNotes)) {
             if (!isset($docketData['unit_notes'])) {
