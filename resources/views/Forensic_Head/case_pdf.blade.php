@@ -330,9 +330,9 @@
                 $sHeight= $sItem['height'] ?? ($sNum == 1 ? ($case->height ?? ($docketData['height'] ?? null)) : null);
                 $sEye   = $sItem['eye_color'] ?? ($sNum == 1 ? ($case->eye_color ?? ($docketData['eye_color'] ?? null)) : null);
                 $sNat   = $sItem['nationality'] ?? ($sNum == 1 ? ($case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')) : 'Ghanaian');
-                $sPOB   = $sItem['pob'] ?? ($sNum == 1 ? ($case->pob ?? ($docketData['pob'] ?? 'N/A')) : 'N/A');
-                $sPhone = $sItem['phone'] ?? ($sNum == 1 ? ($case->phone ?? ($docketData['phone'] ?? 'N/A')) : 'N/A');
-                $sAddr  = $sItem['address'] ?? ($sNum == 1 ? ($case->address ?? ($docketData['address'] ?? 'N/A')) : 'N/A');
+                $sPOB   = $sItem['place_of_birth'] ?? ($sItem['hometown'] ?? ($sItem['pob'] ?? ($sNum == 1 ? ($case->pob ?? ($docketData['pob'] ?? 'N/A')) : 'N/A')));
+                $sPhone = $sItem['phone_number'] ?? ($sItem['contact_phone'] ?? ($sItem['phone'] ?? ($sNum == 1 ? ($case->phone ?? ($docketData['phone'] ?? 'N/A')) : 'N/A')));
+                $sAddr  = $sItem['residential_address'] ?? ($sItem['address'] ?? ($sNum == 1 ? ($case->address ?? ($docketData['address'] ?? 'N/A')) : 'N/A'));
                 $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? ($case->marital_status ?? 'Single') : 'Single');
                 $sSpouseN = $sItem['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
                 $sSpouseP = $sItem['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null);
@@ -350,13 +350,20 @@
                 $sFront = $sItem['mugshot_front'] ?? ($sNum == 1 ? $case->mugshot_front : null);
                 $sLeft  = $sItem['mugshot_left']  ?? ($sNum == 1 ? $case->mugshot_left : null);
                 $sRight = $sItem['mugshot_right'] ?? ($sNum == 1 ? $case->mugshot_right : null);
+
+                $isAssociate = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect');
+                $sRoleLabel = $sItem['association_role'] ?? ($sItem['role'] ?? ($isAssociate ? 'ASSOCIATE' : 'PRIMARY SUSPECT'));
             @endphp
 
             <!-- MUGSHOT PHOTOS (3-ANGLE BIOMETRIC CAPTURE FOR SUSPECT #{{ $sNum }}) -->
             <div class="space-y-2 avoid-break relative z-10">
                 <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
                     <span>SUSPECT #{{ $sNum }} BIOMETRIC MUGSHOT RECORD ({{ strtoupper($sName) }})</span>
-                    <span class="text-[10px] text-slate-700 font-bold">BOOKING FACILITY CAPTURE</span>
+                    @if($isAssociate)
+                        <span class="text-[10px] text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 font-black">ASSOCIATE</span>
+                    @else
+                        <span class="text-[10px] text-slate-700 font-bold">BOOKING FACILITY CAPTURE</span>
+                    @endif
                 </div>
                 <div class="grid grid-cols-3 gap-4 pt-1">
                     <div class="p-2 bg-slate-50 border border-slate-300 rounded-xl text-center space-y-1.5 shadow-xs">
@@ -412,17 +419,25 @@
 
             <!-- SECTION: SUSPECT BOOKING & PERSONAL IDENTITY FOR SUSPECT #{{ $sNum }} -->
             <div class="space-y-2 avoid-break relative z-10">
-                <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1">
+                <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
                     <span>SUSPECT #{{ $sNum }} BOOKING &amp; PERSONAL IDENTITY ({{ strtoupper($sName) }})</span>
+                    @if($isAssociate)
+                        <span class="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">ASSOCIATE</span>
+                    @endif
                 </div>
                 <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
                     <tbody>
                         <tr>
+                            <td class="pdf-label-cell w-1/5">Suspect Role / Type:</td>
+                            <td class="pdf-value-cell font-black {{ $isAssociate ? 'text-amber-900 bg-amber-50' : 'text-slate-950' }} w-3/10">
+                                {{ strtoupper($sRoleLabel) }}
+                            </td>
                             <td class="pdf-label-cell w-1/5">Full Name:</td>
                             <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $sName }}</td>
-                            <td class="pdf-label-cell w-1/5">Alias / Street Name:</td>
-                            <td class="pdf-value-cell font-black text-slate-900 w-3/10">{{ $sAlias }}</td>
                         </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Alias / Street Name:</td>
+                            <td class="pdf-value-cell font-black text-slate-900">{{ $sAlias }}</td>
                         <tr>
                             <td class="pdf-label-cell">Ghana Card / ID #:</td>
                             <td class="pdf-value-cell font-mono-code font-black text-blue-900">{{ $sCard }}</td>

@@ -331,6 +331,42 @@
                                         if ($frontPic && !str_starts_with($frontPic, 'data:') && !str_starts_with($frontPic, 'http://') && !str_starts_with($frontPic, 'https://')) {
                                             $frontPic = asset($frontPic);
                                         }
+
+                                        $suspectsArray = !empty($dDataLanding['suspects']) && is_array($dDataLanding['suspects'])
+                                            ? array_values(array_filter($dDataLanding['suspects'], fn($s) => !empty($s['suspect_name'])))
+                                            : [];
+
+                                        if (empty($suspectsArray)) {
+                                            $suspectsArray = [[
+                                                'suspect_name'  => $suspectDisplayName,
+                                                'suspect_alias' => $case->suspect_alias ?? 'N/A',
+                                                'mugshot_front' => $frontPic,
+                                                'is_associate'  => false,
+                                            ]];
+                                        }
+
+                                        $suspectPics = [];
+                                        foreach ($suspectsArray as $sIdx => $sItem) {
+                                            $p = $sItem['mugshot_front'] ?? ($sIdx === 0 ? $frontPic : null);
+                                            if (!$p && $sIdx === 0 && !empty($case->evidence_photos)) {
+                                                $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
+                                                if (!empty($evArr[0])) {
+                                                    $p = $evArr[0];
+                                                }
+                                            }
+                                            if ($p && !str_starts_with($p, 'data:') && !str_starts_with($p, 'http://') && !str_starts_with($p, 'https://')) {
+                                                $p = asset($p);
+                                            }
+                                            $suspectPics[] = [
+                                                'name'         => $sItem['suspect_name'] ?? ('Suspect #' . ($sIdx + 1)),
+                                                'alias'        => $sItem['suspect_alias'] ?? 'N/A',
+                                                'pic'          => $p,
+                                                'is_associate' => !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect'),
+                                            ];
+                                        }
+
+                                        $allAliases = array_values(array_filter(array_map(fn($sp) => !empty($sp['alias']) && $sp['alias'] !== 'N/A' ? $sp['alias'] : null, $suspectPics)));
+                                        $aliasDisplay = !empty($allAliases) ? implode(', ', $allAliases) : ($case->suspect_alias ?? 'N/A');
                                     @endphp
                                     <tr class="table-row-hover transition-colors case-row" data-status="{{ $statusTab }}">
                                         <td class="py-4 px-4 whitespace-nowrap">
@@ -347,23 +383,31 @@
                                         </td>
                                          <td class="py-4 px-4">
                                              <div class="flex items-center space-x-3">
-                                                 <div class="suspect-avatar-trigger cursor-pointer shrink-0" 
-                                                      data-name="{{ $suspectDisplayName }}" 
-                                                      data-alias="{{ $case->suspect_alias ?? 'N/A' }}" 
-                                                      data-pic="{{ $frontPic }}" 
-                                                      data-ref="{{ $case->case_number }}" 
-                                                      data-priority="{{ strtoupper($case->priority) }}">
-                                                     <div class="w-10 h-10 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 transition-all duration-200">
-                                                         @if(!empty($frontPic))
-                                                             <img src="{{ $frontPic }}" alt="{{ $suspectDisplayName }}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">
-                                                         @else
-                                                             <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                                         @endif
-                                                     </div>
+                                                 <div class="flex items-center {{ count($suspectPics) > 1 ? '-space-x-3 hover:space-x-1 transition-all duration-300' : '' }} shrink-0">
+                                                     @foreach($suspectPics as $sp)
+                                                         <div class="suspect-avatar-trigger cursor-pointer shrink-0 relative group" 
+                                                              data-name="{{ $sp['name'] }}" 
+                                                              data-alias="{{ $sp['alias'] }}" 
+                                                              data-pic="{{ $sp['pic'] ?? '' }}" 
+                                                              data-ref="{{ $case->case_number }}" 
+                                                              data-priority="{{ strtoupper($case->priority) }}"
+                                                              title="{{ $sp['name'] }} {{ $sp['alias'] !== 'N/A' ? "({$sp['alias']})" : '' }}">
+                                                             <div class="w-10 h-10 rounded-full bg-white border-2 border-white ring-1 ring-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 hover:z-30 transition-all duration-200">
+                                                                 @if(!empty($sp['pic']))
+                                                                     <img src="{{ $sp['pic'] }}" alt="{{ $sp['name'] }}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">
+                                                                 @else
+                                                                     <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                                 @endif
+                                                             </div>
+                                                             @if($sp['is_associate'])
+                                                                 <span class="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-2xs" title="Associate Suspect">A</span>
+                                                             @endif
+                                                         </div>
+                                                     @endforeach
                                                  </div>
                                                  <div>
-                                                     <div class="font-bold text-slate-900">{{ $suspectDisplayName }}</div>
-                                                     <div class="text-[10px] text-slate-500 font-mono-code">ALIAS: {{ $case->suspect_alias ?? 'N/A' }}</div>
+                                                     <div class="font-bold text-slate-900 leading-snug">{{ $suspectDisplayName }}</div>
+                                                     <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">ALIAS: {{ $aliasDisplay }}</div>
                                                  </div>
                                              </div>
                                          </td>
@@ -396,7 +440,7 @@
                                                     <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                                 </button>
 
-                                                <div id="actionMenu-{{ $case->case_number }}" class="case-action-menu hidden absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 text-left font-sans">
+                                                <div id="actionMenu-{{ $case->case_number }}" class="case-action-menu hidden fixed z-[99999] w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 space-y-1 text-left font-sans">
                                                     <!-- 1. ASSOCIATE DATA -->
                                                     <a href="/cases/{{ $case->case_number }}/associate" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                                         <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -736,16 +780,65 @@
                             }
                         }
 
-                        let avatarImgHtml = '';
-
-                        if (frontPic) {
-                            if (!frontPic.startsWith('data:') && !frontPic.startsWith('http://') && !frontPic.startsWith('https://')) {
-                                if (!frontPic.startsWith('/')) frontPic = '/' + frontPic;
-                            }
-                            avatarImgHtml = `<img src="${frontPic}" alt="${suspectDisplayName.replace(/"/g, '&quot;')}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">`;
-                        } else {
-                            avatarImgHtml = `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
+                        let suspectsList = [];
+                        let dData = c.docket_data;
+                        if (typeof dData === 'string') {
+                            try { dData = JSON.parse(dData); } catch(e) { dData = {}; }
                         }
+                        if (dData && Array.isArray(dData.suspects) && dData.suspects.length > 0) {
+                            suspectsList = dData.suspects.filter(s => s && s.suspect_name);
+                        }
+                        if (suspectsList.length === 0) {
+                            suspectsList = [{
+                                suspect_name: suspectDisplayName,
+                                suspect_alias: suspectAlias,
+                                mugshot_front: frontPic,
+                                is_associate: false
+                            }];
+                        }
+
+                        let avatarsGroupHtml = '';
+                        let aliasArray = [];
+
+                        suspectsList.forEach((sItem, sIdx) => {
+                            const sName = sItem.suspect_name || `Suspect #${sIdx + 1}`;
+                            const sAlias = sItem.suspect_alias || 'N/A';
+                            if (sAlias !== 'N/A' && !aliasArray.includes(sAlias)) {
+                                aliasArray.push(sAlias);
+                            }
+                            let sPic = sItem.mugshot_front || (sIdx === 0 ? frontPic : null);
+                            if (sPic && !sPic.startsWith('data:') && !sPic.startsWith('http://') && !sPic.startsWith('https://')) {
+                                if (!sPic.startsWith('/')) sPic = '/' + sPic;
+                            }
+                            const isAssoc = sItem.is_associate || (sItem.association_role && sItem.association_role.toLowerCase() !== 'primary suspect');
+
+                            let imgTag = sPic
+                                ? `<img src="${sPic}" alt="${sName.replace(/"/g, '&quot;')}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">`
+                                : `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
+
+                            let assocBadge = isAssoc
+                                ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-2xs" title="Associate Suspect">A</span>`
+                                : '';
+
+                            avatarsGroupHtml += `
+                                <div class="suspect-avatar-trigger cursor-pointer shrink-0 relative group" 
+                                     data-name="${sName.replace(/"/g, '&quot;')}" 
+                                     data-alias="${sAlias.replace(/"/g, '&quot;')}" 
+                                     data-pic="${sPic ? sPic.replace(/"/g, '&quot;') : ''}" 
+                                     data-ref="${c.case_number}" 
+                                     data-priority="${(c.priority || 'NORMAL').toUpperCase()}"
+                                     title="${sName.replace(/"/g, '&quot;')} ${sAlias !== 'N/A' ? '(' + sAlias.replace(/"/g, '&quot;') + ')' : ''}">
+                                    <div class="w-10 h-10 rounded-full bg-white border-2 border-white ring-1 ring-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 hover:z-30 transition-all duration-200">
+                                        ${imgTag}
+                                    </div>
+                                    ${assocBadge}
+                                </div>
+                            `;
+                        });
+
+                        const aliasStr = aliasArray.length > 0 ? aliasArray.join(', ') : suspectAlias;
+                        const stackClass = suspectsList.length > 1 ? '-space-x-3 hover:space-x-1 transition-all duration-300' : '';
+
                         const createdDate = c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
                         const createdTime = c.created_at ? c.created_at.slice(11, 19) + ' UTC' : '12:00:00 UTC';
 
@@ -770,19 +863,12 @@
                             </td>
                             <td class="py-4 px-4">
                                 <div class="flex items-center space-x-3">
-                                    <div class="suspect-avatar-trigger cursor-pointer shrink-0"
-                                         data-name="${suspectDisplayName.replace(/"/g, '&quot;')}"
-                                         data-alias="${suspectAlias.replace(/"/g, '&quot;')}"
-                                         data-pic="${frontPic ? frontPic.replace(/"/g, '&quot;') : ''}"
-                                         data-ref="${c.case_number}"
-                                         data-priority="${(c.priority || 'NORMAL').toUpperCase()}">
-                                        <div class="w-10 h-10 rounded-full bg-white border border-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 transition-all duration-200">
-                                            ${avatarImgHtml}
-                                        </div>
+                                    <div class="flex items-center ${stackClass} shrink-0">
+                                        ${avatarsGroupHtml}
                                     </div>
                                     <div>
-                                        <div class="font-bold text-slate-900">${suspectDisplayName}</div>
-                                        <div class="text-[10px] text-slate-500 font-mono-code">ALIAS: ${suspectAlias}</div>
+                                        <div class="font-bold text-slate-900 leading-snug">${suspectDisplayName}</div>
+                                        <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">ALIAS: ${aliasStr}</div>
                                     </div>
                                 </div>
                             </td>
@@ -810,7 +896,7 @@
                                         <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </button>
 
-                                    <div id="actionMenu-${c.case_number}" class="case-action-menu hidden absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 text-left font-sans">
+                                    <div id="actionMenu-${c.case_number}" class="case-action-menu hidden fixed z-[99999] w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 space-y-1 text-left font-sans">
                                         <a href="/cases/${c.case_number}/associate" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                             <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
@@ -973,30 +1059,61 @@
                 event.stopPropagation();
                 event.preventDefault();
             }
+            const btn = event ? (event.currentTarget || (event.target ? event.target.closest('button') : null)) : null;
             const targetMenu = document.getElementById('actionMenu-' + caseRef);
             if (!targetMenu) return;
 
             const isHidden = targetMenu.classList.contains('hidden');
+            
+            // Close all open action menus first
             document.querySelectorAll('.case-action-menu').forEach(menu => {
                 menu.classList.add('hidden');
-                if (menu.closest('tr')) menu.closest('tr').classList.remove('z-50', 'relative');
             });
 
             if (isHidden) {
                 targetMenu.classList.remove('hidden');
-                if (targetMenu.closest('tr')) targetMenu.closest('tr').classList.add('z-50', 'relative');
+                
+                const buttonEl = btn || document.querySelector(`button[onclick*="'${caseRef}'"]`);
+                if (buttonEl) {
+                    const rect = buttonEl.getBoundingClientRect();
+                    const menuWidth = 208; // 13rem = 208px
+                    const menuHeight = targetMenu.offsetHeight || 160;
+                    
+                    let top = rect.bottom + 6;
+                    let left = rect.right - menuWidth;
+
+                    // Flip above button if it would overflow bottom of viewport
+                    if (top + menuHeight > window.innerHeight - 10 && rect.top > menuHeight + 10) {
+                        top = rect.top - menuHeight - 6;
+                    }
+
+                    // Keep within horizontal boundaries
+                    if (left < 10) left = 10;
+                    if (left + menuWidth > window.innerWidth - 10) {
+                        left = window.innerWidth - menuWidth - 10;
+                    }
+
+                    targetMenu.style.position = 'fixed';
+                    targetMenu.style.top = top + 'px';
+                    targetMenu.style.left = left + 'px';
+                    targetMenu.style.zIndex = '99999';
+                }
             }
         }
 
         document.addEventListener('click', function(e) {
-            if (!e.target.closest('.case-action-dropdown-wrapper')) {
+            if (!e.target.closest('.case-action-dropdown-wrapper') && !e.target.closest('.case-action-menu')) {
                 document.querySelectorAll('.case-action-menu').forEach(menu => {
                     menu.classList.add('hidden');
-                    if (menu.closest('tr')) menu.closest('tr').classList.remove('z-50', 'relative');
                 });
             }
         });
+
+        window.addEventListener('scroll', function() {
+            document.querySelectorAll('.case-action-menu').forEach(menu => {
+                menu.classList.add('hidden');
+            });
+        }, true);
     </script>
-</body>
 </body>
 </html>

@@ -13,6 +13,13 @@
             || request()->query('from') === 'lab'
         );
         $officerName = auth()->user()->fullname ?? session('user_name') ?? 'Handling Officer';
+        $todayDate = date('Y-m-d');
+        $caseNumClean = preg_replace('/[^A-Za-z0-9]/', '', $case->case_number ?? 'CASE-001');
+        $examRefAuto = 'EXAM-LAB-' . date('Ymd') . '-' . rand(100, 999);
+        $caseRefAuto = $case->case_number ?? ('CR-' . date('Y') . '/0098');
+        $exhibitRefAuto = 'EXH-' . $caseNumClean . '-01';
+        $labNumberAuto = 'LAB/' . date('Y') . '/' . rand(1000, 9999);
+
         $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
         $existingSuspects = (isset($dData['suspects']) && is_array($dData['suspects']) && count($dData['suspects']) > 0)
             ? $dData['suspects']
@@ -300,9 +307,9 @@
                                         $sHeight     = $s['height'] ?? ($sNum == 1 ? ($case->height ?? null) : null);
                                         $sEye        = $s['eye_color'] ?? ($sNum == 1 ? ($case->eye_color ?? null) : null);
                                         $sNat        = $s['nationality'] ?? ($sNum == 1 ? ($case->nationality ?? 'Ghanaian') : 'Ghanaian');
-                                        $sPOB        = $s['pob'] ?? ($sNum == 1 ? ($case->pob ?? null) : null);
-                                        $sPhone      = $s['phone'] ?? ($sNum == 1 ? ($case->phone ?? null) : null);
-                                        $sAddr       = $s['address'] ?? ($sNum == 1 ? ($case->address ?? null) : null);
+                                        $sPOB        = $s['place_of_birth'] ?? ($s['hometown'] ?? ($s['pob'] ?? ($sNum == 1 ? ($case->pob ?? null) : null)));
+                                        $sPhone      = $s['phone_number'] ?? ($s['contact_phone'] ?? ($s['phone'] ?? ($sNum == 1 ? ($case->phone ?? null) : null)));
+                                        $sAddr       = $s['residential_address'] ?? ($s['address'] ?? ($sNum == 1 ? ($case->address ?? null) : null));
                                         $sMarital    = $s['marital_status'] ?? ($sNum == 1 ? ($case->marital_status ?? 'Single') : 'Single');
                                         $sSpouseN    = $s['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
                                         $sSpouseP    = $s['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null);
@@ -525,6 +532,7 @@
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
                                         <tr>
+                                            <th class="py-2.5 px-4 font-bold">Photo</th>
                                             <th class="py-2.5 px-4 font-bold">Category</th>
                                             <th class="py-2.5 px-4 font-bold">Exhibit Name / Description</th>
                                             <th class="py-2.5 px-4 font-bold">Quantity</th>
@@ -534,7 +542,20 @@
                                     </thead>
                                     <tbody class="divide-y divide-slate-100 text-slate-800">
                                         @forelse($existingSeizures as $ex)
+                                            @php
+                                                $exPic = $ex['photo'] ?? ($ex['exhibit_photo'] ?? null);
+                                                if ($exPic && !str_starts_with($exPic, 'data:') && !str_starts_with($exPic, 'http')) {
+                                                    $exPic = asset($exPic);
+                                                }
+                                            @endphp
                                             <tr>
+                                                <td class="py-2 px-4">
+                                                    @if($exPic)
+                                                        <img src="{{ $exPic }}" onclick="openMugshotModal(this.src, '{{ $ex['seizure_name'] ?? 'Exhibit Photo' }}')" class="w-10 h-10 object-contain rounded-lg border border-slate-200 cursor-pointer hover:opacity-80 transition-opacity bg-slate-50" alt="Exhibit Photo">
+                                                    @else
+                                                        <span class="text-[10px] font-mono-code text-slate-400">No Photo</span>
+                                                    @endif
+                                                </td>
                                                 <td class="py-3 px-4 font-bold font-mono-code text-blue-600">{{ $ex['category'] ?? 'General Exhibit' }}</td>
                                                 <td class="py-3 px-4 font-extrabold text-slate-900">{{ $ex['seizure_name'] ?? $ex['name'] ?? 'N/A' }}</td>
                                                 <td class="py-3 px-4 font-mono-code">{{ $ex['seizure_quantity'] ?? $ex['quantity'] ?? 'N/A' }}</td>
@@ -543,7 +564,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="5" class="py-4 text-center text-slate-400 font-mono-code">No saved exhibits logged.</td>
+                                                <td colspan="6" class="py-4 text-center text-slate-400 font-mono-code">No saved exhibits logged.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -604,6 +625,283 @@
                         </div>
 
                     </div>
+
+                    <!-- SECTION 4: FORENSIC EXAMINATION & LABORATORY ANALYSIS (LAB ANALYSIS EXCLUSIVE) -->
+                    @if($isLabAnalysis)
+                    <div class="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-6 relative">
+                        
+                        <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-black text-slate-900 text-base">Section 4: Forensic Examination &amp; Laboratory Analysis</h3>
+                                    <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination, Screening &amp; Confirmatory Testing Log</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                    LAB ANALYSIS EXCLUSIVE
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- SUB-SECTION 4A: EXAMINATION INFORMATION -->
+                        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
+                            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">4A</span>
+                                    <span>Examination Information</span>
+                                </h4>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <!-- Analysis/Examination Reference -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Analysis / Examination Reference</span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                    </label>
+                                    <input type="text" id="labExamReferenceInput" name="lab_exam_reference" value="{{ $examRefAuto }}" readonly class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                </div>
+
+                                <!-- Case Reference -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Case Reference</span>
+                                        <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                                    </label>
+                                    <input type="text" id="labCaseReferenceInput" name="lab_case_reference" value="{{ $caseRefAuto }}" readonly class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                </div>
+
+                                <!-- Exhibit Number -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Exhibit Number</span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                                    </label>
+                                    <input type="text" id="labExhibitNumberInput" name="lab_exhibit_number" value="{{ $exhibitRefAuto }}" readonly class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <!-- Exhibit Description -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        <span>Exhibit Description</span>
+                                    </label>
+                                    <textarea id="labExhibitDescriptionInput" name="lab_exhibit_description" rows="3" placeholder="Enter exhibit description for forensic examination..." class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400"></textarea>
+                                </div>
+
+                                <!-- Laboratory Number -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Laboratory Number</span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                    </label>
+                                    <input type="text" id="labNumberInput" name="laboratory_number" value="{{ $labNumberAuto }}" readonly class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                </div>
+
+                                <!-- Analyst / Examiner -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                        <span>Analyst / Examiner</span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner Name</span>
+                                    </label>
+                                    <input type="text" id="labAnalystInput" name="lab_analyst" value="{{ auth()->user()->fullname ?? session('user_name') ?? 'Lab Examiner' }}" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs" placeholder="e.g. John Adu">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
+                                <!-- Date Received -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Date Received <span class="text-red-600 font-bold">*</span></label>
+                                    <input type="date" id="labDateReceivedInput" name="lab_date_received" value="{{ $todayDate }}" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                </div>
+
+                                <!-- Date Examination Started -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Date Examination Started <span class="text-red-600 font-bold">*</span></label>
+                                    <input type="date" id="labDateStartedInput" name="lab_date_started" value="{{ $todayDate }}" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                </div>
+
+                                <!-- Date Examination Completed -->
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Date Examination Completed <span class="text-red-600 font-bold">*</span></label>
+                                    <input type="date" id="labDateCompletedInput" name="lab_date_completed" value="{{ $todayDate }}" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUB-SECTION 4B: PRESUMPTIVE TEST -->
+                        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">4B</span>
+                                    <span>Presumptive Test</span>
+                                </h4>
+                                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                    SCREENING RESULT
+                                </span>
+                            </div>
+
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
+                                    Presumptive Test Reaction Result <span class="text-red-600 font-bold">*</span>
+                                </label>
+
+                                <div class="flex items-center space-x-3">
+                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                        <input type="checkbox" id="presumptiveTestYes" name="presumptive_test_yes" value="YES" checked onchange="togglePresumptiveTest('YES')" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                            <span class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
+                                        </div>
+                                    </label>
+
+                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                        <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO" onchange="togglePresumptiveTest('NO')" class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                            <span class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <div id="presumptiveReactionDetailsContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300">
+                                    <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                        <div class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
+                                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                                            </svg>
+                                            <span>Presumptive Test Reaction Result Details &amp; Field Spec</span>
+                                        </div>
+                                        <span class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                            MULTIPLE SPECIMEN SUPPORT
+                                        </span>
+                                    </div>
+                                    
+                                    <div id="presumptiveTestRowsContainer" class="space-y-3">
+                                        <div class="presumptive-test-row p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
+                                            <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                                                <span class="test-row-title">Test Result #1</span>
+                                                <button type="button" onclick="removePresumptiveTestRow(this)" class="remove-test-row-btn hidden px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
+                                                    &times; Remove
+                                                </button>
+                                            </div>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Presence of <span class="text-red-600 font-bold">*</span>
+                                                    </label>
+                                                    <input type="text" class="presumptive-presence-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs" onchange="updatePresumptiveReactionText()" oninput="updatePresumptiveReactionText()" placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine">
+                                                </div>
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Percentage (%) <span class="text-red-600 font-bold">*</span>
+                                                    </label>
+                                                    <input type="text" class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" onchange="updatePresumptiveReactionText()" oninput="updatePresumptiveReactionText()" placeholder="e.g. 85.5% or 80-90%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-1 flex items-center justify-between">
+                                        <button type="button" onclick="addPresumptiveTestRow()" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border-none space-x-1.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                            <span>+ Add More Test Result</span>
+                                        </button>
+                                        <span class="text-[10px] text-slate-500 font-medium italic">Click to log additional chemical/substance reaction test results</span>
+                                    </div>
+
+                                    <input type="hidden" id="presumptiveReactionResultInput" name="presumptive_reaction_result_input" value="YES (Positive Colorimetric Reaction)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUB-SECTION 4C: CONFIRMATORY TEST & ANALYTICAL FINDINGS -->
+                        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">4C</span>
+                                    <span>Confirmatory Test &amp; Analytical Findings</span>
+                                </h4>
+                                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                    LAB VERIFICATION
+                                </span>
+                            </div>
+
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
+                                    Confirmatory Test Conducted <span class="text-red-600 font-bold">*</span>
+                                </label>
+
+                                <div class="flex items-center space-x-3">
+                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                        <input type="checkbox" id="confirmatoryTestYes" name="confirmatory_test_yes" value="YES" onchange="toggleConfirmatoryTest('YES')" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                            <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                                        </div>
+                                    </label>
+
+                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                        <input type="checkbox" id="confirmatoryTestNo" name="confirmatory_test_no" value="NO" checked onchange="toggleConfirmatoryTest('NO')" class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                            <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <input type="hidden" id="confirmatoryTestResultInput" name="confirmatory_test_result" value="NO">
+
+                                <div id="sampleWeightContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
+                                    <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                        <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                            </svg>
+                                            <span>CONFIRMATORY ANALYSIS &amp; FINDINGS</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="md:col-span-2">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Substance Identification <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <input type="text" id="confirmatorySubstanceIdentification" name="confirmatory_substance_identification" placeholder="e.g. Cocaine Hydrochloride" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans">
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Test Methods <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <input type="text" id="confirmatoryTestMethods" name="confirmatory_test_methods" placeholder="e.g. GC-MS, FTIR Spectrometry" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Analytical Findings Summary
+                                            </label>
+                                            <input type="text" id="analyticalFindingsSummary" name="analytical_findings_summary" placeholder="e.g. High purity illicit narcotic confirmed" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans">
+                                        </div>
+
+                                        <div class="md:col-span-2">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Specifications / Notes
+                                            </label>
+                                            <textarea id="confirmatorySpecifications" name="confirmatory_specifications" rows="2" placeholder="e.g. Verified against NIST library database." class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    @endif
 
                     <!-- FOOTER SUBMIT BAR -->
                     <div class="sticky bottom-4 bg-white p-5 rounded-2xl border border-slate-300 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 z-30">
@@ -719,55 +1017,209 @@
                 </div>
 
                 <!-- 1. MUGSHOT UPLOADS (FRONT 0°, LEFT 90°, RIGHT 90°) -->
-                <div class="space-y-2">
-                    <label class="block text-slate-800 font-extrabold text-xs uppercase tracking-wider font-mono-code flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        Suspect Mugshots &amp; Facial Biometrics (Front 0&deg; / Left 90&deg; / Right 90&deg;)
-                    </label>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-3.5 rounded-xl border border-slate-200">
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-slate-800 font-extrabold text-xs uppercase tracking-wider font-mono-code flex items-center gap-2">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span>Associate Person Mugshots &amp; Facial Biometrics (Front 0&deg; / Left 90&deg; / Right 90&deg;)</span>
+                        </label>
+                        <span class="text-[10px] font-mono-code text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            Click frame or drop image to upload
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-4 rounded-2xl border border-slate-200">
                         <!-- FRONT MUGSHOT -->
                         <div class="space-y-2 text-center">
-                            <span class="text-[10px] font-mono-code font-extrabold text-slate-900 text-black block uppercase">Front Mugshot (0&deg;)</span>
-                            <div class="h-32 w-full bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden relative group">
-                                <img id="previewFront_${personCounter}" src="" alt="Front Mugshot Preview" class="h-full w-full object-cover hidden">
-                                <div id="placeholderFront_${personCounter}" class="flex flex-col items-center justify-center text-slate-400 p-2">
-                                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                    <span class="text-[9px] font-mono-code mt-1 text-slate-500 font-bold">Upload Front Mugshot</span>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-mono-code font-extrabold text-slate-900 block uppercase">Front Mugshot (0&deg;)</span>
+                                <span id="badgeFront_${personCounter}" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
+                            </div>
+                            
+                            <!-- INTERACTIVE DROPZONE FRAME (FULL PREVIEW, NO CROPPING) -->
+                            <div 
+                                id="dropzoneFront_${personCounter}"
+                                onclick="document.getElementById('fileInputFront_${personCounter}').click()"
+                                ondragover="handleMugshotDragOver(event, this)"
+                                ondragleave="handleMugshotDragLeave(event, this)"
+                                ondrop="handleMugshotDrop(event, 'fileInputFront_${personCounter}', 'previewFront_${personCounter}', 'placeholderFront_${personCounter}', 'hiddenFront_${personCounter}', 'actionsFront_${personCounter}', 'badgeFront_${personCounter}')"
+                                class="h-48 w-full bg-slate-50 hover:bg-blue-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                            >
+                                <!-- UNCROPPED FULL DISPLAY IMAGE -->
+                                <img id="previewFront_${personCounter}" src="" alt="Front Mugshot Preview" class="h-full w-full object-contain p-1 hidden transition-all duration-200">
+                                
+                                <!-- PLACEHOLDER PROMPT -->
+                                <div id="placeholderFront_${personCounter}" class="flex flex-col items-center justify-center text-slate-400 p-3 space-y-2 pointer-events-none">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Image</span>
+                                    <span class="text-[9px] font-mono-code text-slate-400">Supports JPG, PNG, WEBP</span>
+                                </div>
+
+                                <!-- OVERLAY ACTION BUTTONS (WHEN IMAGE LOADED) -->
+                                <div id="actionsFront_${personCounter}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="openMugshotModal(document.getElementById('previewFront_${personCounter}').src, 'Front Mugshot (0&deg;) - Co-Suspect #${personCounter}')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <span>View Full</span>
+                                    </button>
+                                    <button type="button" onclick="clearMugshotPhoto('fileInputFront_${personCounter}', 'urlInputFront_${personCounter}', 'previewFront_${personCounter}', 'placeholderFront_${personCounter}', 'hiddenFront_${personCounter}', 'actionsFront_${personCounter}', 'badgeFront_${personCounter}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        <span>Clear</span>
+                                    </button>
                                 </div>
                             </div>
-                            <input type="file" accept="image/*" onchange="previewMugshotFile(this, 'previewFront_${personCounter}', 'placeholderFront_${personCounter}', 'hiddenFront_${personCounter}')" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-                            <input type="text" placeholder="Or paste image URL" oninput="previewMugshotUrl(this.value, 'previewFront_${personCounter}', 'placeholderFront_${personCounter}', 'hiddenFront_${personCounter}')" class="w-full px-2.5 py-1 text-[10px] bg-slate-50 border border-slate-200 rounded-lg font-mono-code text-slate-700">
-                            <input type="hidden" name="associated_persons[${personCounter}][mugshot_front]" id="hiddenFront_${personCounter}">
+
+                            <!-- FILE & URL IMPORT INPUTS -->
+                            <div class="space-y-1.5 pt-1">
+                                <input 
+                                    type="file" 
+                                    id="fileInputFront_${personCounter}" 
+                                    accept="image/*" 
+                                    onchange="previewMugshotFile(this, 'previewFront_${personCounter}', 'placeholderFront_${personCounter}', 'hiddenFront_${personCounter}', 'actionsFront_${personCounter}', 'badgeFront_${personCounter}')" 
+                                    class="hidden"
+                                >
+                                <div class="flex items-center space-x-1.5">
+                                    <button type="button" onclick="document.getElementById('fileInputFront_${personCounter}').click()" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-extrabold rounded-xl border border-blue-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                        <span>Choose File</span>
+                                    </button>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    id="urlInputFront_${personCounter}"
+                                    placeholder="Or paste image URL..." 
+                                    oninput="previewMugshotUrl(this.value, 'previewFront_${personCounter}', 'placeholderFront_${personCounter}', 'hiddenFront_${personCounter}', 'actionsFront_${personCounter}', 'badgeFront_${personCounter}')" 
+                                    class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                >
+                                <input type="hidden" name="associated_persons[${personCounter}][mugshot_front]" id="hiddenFront_${personCounter}">
+                            </div>
                         </div>
 
                         <!-- LEFT MUGSHOT -->
                         <div class="space-y-2 text-center">
-                            <span class="text-[10px] font-mono-code font-extrabold text-slate-900 text-black block uppercase">Left Profile (90&deg;)</span>
-                            <div class="h-32 w-full bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden relative group">
-                                <img id="previewLeft_${personCounter}" src="" alt="Left Profile Preview" class="h-full w-full object-cover hidden">
-                                <div id="placeholderLeft_${personCounter}" class="flex flex-col items-center justify-center text-slate-400 p-2">
-                                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                    <span class="text-[9px] font-mono-code mt-1 text-slate-500 font-bold">Upload Left Profile</span>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-mono-code font-extrabold text-slate-900 block uppercase">Left Profile (90&deg;)</span>
+                                <span id="badgeLeft_${personCounter}" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
+                            </div>
+                            
+                            <!-- INTERACTIVE DROPZONE FRAME (FULL PREVIEW, NO CROPPING) -->
+                            <div 
+                                id="dropzoneLeft_${personCounter}"
+                                onclick="document.getElementById('fileInputLeft_${personCounter}').click()"
+                                ondragover="handleMugshotDragOver(event, this)"
+                                ondragleave="handleMugshotDragLeave(event, this)"
+                                ondrop="handleMugshotDrop(event, 'fileInputLeft_${personCounter}', 'previewLeft_${personCounter}', 'placeholderLeft_${personCounter}', 'hiddenLeft_${personCounter}', 'actionsLeft_${personCounter}', 'badgeLeft_${personCounter}')"
+                                class="h-48 w-full bg-slate-50 hover:bg-blue-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                            >
+                                <img id="previewLeft_${personCounter}" src="" alt="Left Profile Preview" class="h-full w-full object-contain p-1 hidden transition-all duration-200">
+                                
+                                <div id="placeholderLeft_${personCounter}" class="flex flex-col items-center justify-center text-slate-400 p-3 space-y-2 pointer-events-none">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Image</span>
+                                    <span class="text-[9px] font-mono-code text-slate-400">Supports JPG, PNG, WEBP</span>
+                                </div>
+
+                                <div id="actionsLeft_${personCounter}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="openMugshotModal(document.getElementById('previewLeft_${personCounter}').src, 'Left Profile (90&deg;) - Co-Suspect #${personCounter}')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <span>View Full</span>
+                                    </button>
+                                    <button type="button" onclick="clearMugshotPhoto('fileInputLeft_${personCounter}', 'urlInputLeft_${personCounter}', 'previewLeft_${personCounter}', 'placeholderLeft_${personCounter}', 'hiddenLeft_${personCounter}', 'actionsLeft_${personCounter}', 'badgeLeft_${personCounter}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        <span>Clear</span>
+                                    </button>
                                 </div>
                             </div>
-                            <input type="file" accept="image/*" onchange="previewMugshotFile(this, 'previewLeft_${personCounter}', 'placeholderLeft_${personCounter}', 'hiddenLeft_${personCounter}')" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-                            <input type="text" placeholder="Or paste image URL" oninput="previewMugshotUrl(this.value, 'previewLeft_${personCounter}', 'placeholderLeft_${personCounter}', 'hiddenLeft_${personCounter}')" class="w-full px-2.5 py-1 text-[10px] bg-slate-50 border border-slate-200 rounded-lg font-mono-code text-slate-700">
-                            <input type="hidden" name="associated_persons[${personCounter}][mugshot_left]" id="hiddenLeft_${personCounter}">
+
+                            <div class="space-y-1.5 pt-1">
+                                <input 
+                                    type="file" 
+                                    id="fileInputLeft_${personCounter}" 
+                                    accept="image/*" 
+                                    onchange="previewMugshotFile(this, 'previewLeft_${personCounter}', 'placeholderLeft_${personCounter}', 'hiddenLeft_${personCounter}', 'actionsLeft_${personCounter}', 'badgeLeft_${personCounter}')" 
+                                    class="hidden"
+                                >
+                                <div class="flex items-center space-x-1.5">
+                                    <button type="button" onclick="document.getElementById('fileInputLeft_${personCounter}').click()" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-extrabold rounded-xl border border-blue-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                        <span>Choose File</span>
+                                    </button>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    id="urlInputLeft_${personCounter}"
+                                    placeholder="Or paste image URL..." 
+                                    oninput="previewMugshotUrl(this.value, 'previewLeft_${personCounter}', 'placeholderLeft_${personCounter}', 'hiddenLeft_${personCounter}', 'actionsLeft_${personCounter}', 'badgeLeft_${personCounter}')" 
+                                    class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                >
+                                <input type="hidden" name="associated_persons[${personCounter}][mugshot_left]" id="hiddenLeft_${personCounter}">
+                            </div>
                         </div>
 
                         <!-- RIGHT MUGSHOT -->
                         <div class="space-y-2 text-center">
-                            <span class="text-[10px] font-mono-code font-extrabold text-slate-900 text-black block uppercase">Right Profile (90&deg;)</span>
-                            <div class="h-32 w-full bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden relative group">
-                                <img id="previewRight_${personCounter}" src="" alt="Right Profile Preview" class="h-full w-full object-cover hidden">
-                                <div id="placeholderRight_${personCounter}" class="flex flex-col items-center justify-center text-slate-400 p-2">
-                                    <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                    <span class="text-[9px] font-mono-code mt-1 text-slate-500 font-bold">Upload Right Profile</span>
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-mono-code font-extrabold text-slate-900 block uppercase">Right Profile (90&deg;)</span>
+                                <span id="badgeRight_${personCounter}" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
+                            </div>
+                            
+                            <!-- INTERACTIVE DROPZONE FRAME (FULL PREVIEW, NO CROPPING) -->
+                            <div 
+                                id="dropzoneRight_${personCounter}"
+                                onclick="document.getElementById('fileInputRight_${personCounter}').click()"
+                                ondragover="handleMugshotDragOver(event, this)"
+                                ondragleave="handleMugshotDragLeave(event, this)"
+                                ondrop="handleMugshotDrop(event, 'fileInputRight_${personCounter}', 'previewRight_${personCounter}', 'placeholderRight_${personCounter}', 'hiddenRight_${personCounter}', 'actionsRight_${personCounter}', 'badgeRight_${personCounter}')"
+                                class="h-48 w-full bg-slate-50 hover:bg-blue-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-blue-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                            >
+                                <img id="previewRight_${personCounter}" src="" alt="Right Profile Preview" class="h-full w-full object-contain p-1 hidden transition-all duration-200">
+                                
+                                <div id="placeholderRight_${personCounter}" class="flex flex-col items-center justify-center text-slate-400 p-3 space-y-2 pointer-events-none">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Image</span>
+                                    <span class="text-[9px] font-mono-code text-slate-400">Supports JPG, PNG, WEBP</span>
+                                </div>
+
+                                <div id="actionsRight_${personCounter}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                    <button type="button" onclick="openMugshotModal(document.getElementById('previewRight_${personCounter}').src, 'Right Profile (90&deg;) - Co-Suspect #${personCounter}')" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <span>View Full</span>
+                                    </button>
+                                    <button type="button" onclick="clearMugshotPhoto('fileInputRight_${personCounter}', 'urlInputRight_${personCounter}', 'previewRight_${personCounter}', 'placeholderRight_${personCounter}', 'hiddenRight_${personCounter}', 'actionsRight_${personCounter}', 'badgeRight_${personCounter}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                        <span>Clear</span>
+                                    </button>
                                 </div>
                             </div>
-                            <input type="file" accept="image/*" onchange="previewMugshotFile(this, 'previewRight_${personCounter}', 'placeholderRight_${personCounter}', 'hiddenRight_${personCounter}')" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-                            <input type="text" placeholder="Or paste image URL" oninput="previewMugshotUrl(this.value, 'previewRight_${personCounter}', 'placeholderRight_${personCounter}', 'hiddenRight_${personCounter}')" class="w-full px-2.5 py-1 text-[10px] bg-slate-50 border border-slate-200 rounded-lg font-mono-code text-slate-700">
-                            <input type="hidden" name="associated_persons[${personCounter}][mugshot_right]" id="hiddenRight_${personCounter}">
+
+                            <div class="space-y-1.5 pt-1">
+                                <input 
+                                    type="file" 
+                                    id="fileInputRight_${personCounter}" 
+                                    accept="image/*" 
+                                    onchange="previewMugshotFile(this, 'previewRight_${personCounter}', 'placeholderRight_${personCounter}', 'hiddenRight_${personCounter}', 'actionsRight_${personCounter}', 'badgeRight_${personCounter}')" 
+                                    class="hidden"
+                                >
+                                <div class="flex items-center space-x-1.5">
+                                    <button type="button" onclick="document.getElementById('fileInputRight_${personCounter}').click()" class="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-extrabold rounded-xl border border-blue-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                        <span>Choose File</span>
+                                    </button>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    id="urlInputRight_${personCounter}"
+                                    placeholder="Or paste image URL..." 
+                                    oninput="previewMugshotUrl(this.value, 'previewRight_${personCounter}', 'placeholderRight_${personCounter}', 'hiddenRight_${personCounter}', 'actionsRight_${personCounter}', 'badgeRight_${personCounter}')" 
+                                    class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                                >
+                                <input type="hidden" name="associated_persons[${personCounter}][mugshot_right]" id="hiddenRight_${personCounter}">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -876,6 +1328,69 @@
                         <input type="text" name="associated_persons[${personCounter}][holding_facility]" value="NACOC Holding Cell A-02" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-extrabold text-emerald-700">
                     </div>
                 </div>
+
+                <!-- 3. FAMILY & RELATIONSHIP RECORDS -->
+                <div class="space-y-3 pt-3 border-t border-slate-200/80">
+                    <div class="flex items-center space-x-2 text-slate-800">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span>
+                        <h5 class="font-extrabold text-xs text-slate-900 uppercase font-mono-code tracking-wider">Family &amp; Relationship Records</h5>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Marital / Relationship Status</label>
+                            <select name="associated_persons[${personCounter}][marital_status]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800">
+                                <option value="Single" selected>Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Divorced">Divorced</option>
+                                <option value="Widowed">Widowed</option>
+                                <option value="Separated">Separated</option>
+                                <option value="Cohabiting / Partner">Cohabiting / Partner</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Spouse / Partner Name</label>
+                            <input type="text" name="associated_persons[${personCounter}][spouse_name]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900" placeholder="e.g. Abena Mensah">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Spouse / Partner Contact Phone</label>
+                            <input type="text" name="associated_persons[${personCounter}][spouse_phone]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900" placeholder="e.g. +233 20 987 6543">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Spouse / Partner Details &amp; Notes</label>
+                            <input type="text" name="associated_persons[${personCounter}][spouse_info]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800" placeholder="e.g. Trader at Makola Market / Co-residence">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Children &amp; Dependents</label>
+                            <input type="text" name="associated_persons[${personCounter}][dependents]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-800" placeholder="e.g. 2 Children (Ages 4 &amp; 7)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. OFFENCE CHARGES & ARREST DETAILS -->
+                <div class="space-y-3 pt-3 border-t border-slate-200/80">
+                    <div class="flex items-center space-x-2 text-slate-800">
+                        <span class="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
+                        <h5 class="font-extrabold text-xs text-slate-900 uppercase font-mono-code tracking-wider">Offence Charges &amp; Arrest Details</h5>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Raid Scene / Place of Arrest</label>
+                            <input type="text" name="associated_persons[${personCounter}][raid_location]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kotoka International Airport Cargo Bay">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date of Arrest</label>
+                            <input type="date" name="associated_persons[${personCounter}][date_of_arrest]" value="${new Date().toISOString().split('T')[0]}" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Time of Arrest</label>
+                            <input type="time" name="associated_persons[${personCounter}][time_of_arrest]" value="14:30" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Alleged Offense / Charges Description</label>
+                            <textarea name="associated_persons[${personCounter}][offense]" rows="2" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400" placeholder="e.g. Conspiracy to import narcotic drugs, unlawful possession of controlled substance..."></textarea>
+                        </div>
+                    </div>
+                </div>
             `;
             container.appendChild(card);
 
@@ -967,47 +1482,115 @@
             }
         }
 
-        function previewMugshotFile(fileInput, previewImgId, placeholderId, hiddenInputId) {
+        function handleMugshotDragOver(e, dropzoneEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dropzoneEl) dropzoneEl.classList.add('border-blue-600', 'bg-blue-100/50');
+        }
+
+        function handleMugshotDragLeave(e, dropzoneEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dropzoneEl) dropzoneEl.classList.remove('border-blue-600', 'bg-blue-100/50');
+        }
+
+        function handleMugshotDrop(e, fileInputId, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropzoneEl = e.currentTarget;
+            if (dropzoneEl) dropzoneEl.classList.remove('border-blue-600', 'bg-blue-100/50');
+
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const fileInput = document.getElementById(fileInputId);
+                if (fileInput) {
+                    fileInput.files = e.dataTransfer.files;
+                    previewMugshotFile(fileInput, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId);
+                }
+            }
+        }
+
+        function previewMugshotFile(fileInput, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId) {
             if (fileInput.files && fileInput.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const dataUrl = e.target.result;
-                    const previewEl = document.getElementById(previewImgId);
-                    const placeholderEl = document.getElementById(placeholderId);
-                    const hiddenEl = document.getElementById(hiddenInputId);
-                    if (previewEl) {
-                        previewEl.src = dataUrl;
-                        previewEl.classList.remove('hidden');
-                    }
-                    if (placeholderEl) {
-                        placeholderEl.classList.add('hidden');
-                    }
-                    if (hiddenEl) {
-                        hiddenEl.value = dataUrl;
-                    }
+                    applyMugshotPreview(dataUrl, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId);
                 };
                 reader.readAsDataURL(fileInput.files[0]);
             }
         }
 
-        function previewMugshotUrl(urlStr, previewImgId, placeholderId, hiddenInputId) {
+        function previewMugshotUrl(urlStr, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId) {
+            const val = (urlStr || '').trim();
+            if (val) {
+                applyMugshotPreview(val, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId);
+            } else {
+                clearMugshotState(previewImgId, placeholderId, hiddenInputId, actionsId, badgeId);
+            }
+        }
+
+        function applyMugshotPreview(srcUrl, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId) {
             const previewEl = document.getElementById(previewImgId);
             const placeholderEl = document.getElementById(placeholderId);
             const hiddenEl = document.getElementById(hiddenInputId);
-            const val = (urlStr || '').trim();
+            const actionsEl = document.getElementById(actionsId);
+            const badgeEl = document.getElementById(badgeId);
 
-            if (hiddenEl) hiddenEl.value = val;
-
-            if (val) {
-                if (previewEl) {
-                    previewEl.src = val;
-                    previewEl.classList.remove('hidden');
-                }
-                if (placeholderEl) placeholderEl.classList.add('hidden');
-            } else {
-                if (previewEl) previewEl.classList.add('hidden');
-                if (placeholderEl) placeholderEl.classList.remove('hidden');
+            if (previewEl) {
+                previewEl.src = srcUrl;
+                previewEl.classList.remove('hidden');
             }
+            if (placeholderEl) placeholderEl.classList.add('hidden');
+            if (actionsEl) actionsEl.classList.remove('hidden');
+            if (hiddenEl) hiddenEl.value = srcUrl;
+            if (badgeEl) {
+                badgeEl.innerText = 'Uploaded';
+                badgeEl.className = 'text-[9px] font-mono-code font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase';
+            }
+        }
+
+        function clearMugshotPhoto(fileInputId, urlInputId, previewImgId, placeholderId, hiddenInputId, actionsId, badgeId) {
+            const fileInput = document.getElementById(fileInputId);
+            const urlInput = document.getElementById(urlInputId);
+            if (fileInput) fileInput.value = '';
+            if (urlInput) urlInput.value = '';
+            clearMugshotState(previewImgId, placeholderId, hiddenInputId, actionsId, badgeId);
+        }
+
+        function clearMugshotState(previewImgId, placeholderId, hiddenInputId, actionsId, badgeId) {
+            const previewEl = document.getElementById(previewImgId);
+            const placeholderEl = document.getElementById(placeholderId);
+            const hiddenEl = document.getElementById(hiddenInputId);
+            const actionsEl = document.getElementById(actionsId);
+            const badgeEl = document.getElementById(badgeId);
+
+            if (previewEl) {
+                previewEl.src = '';
+                previewEl.classList.add('hidden');
+            }
+            if (placeholderEl) placeholderEl.classList.remove('hidden');
+            if (actionsEl) actionsEl.classList.add('hidden');
+            if (hiddenEl) hiddenEl.value = '';
+            if (badgeEl) {
+                badgeEl.innerText = 'Not Uploaded';
+                badgeEl.className = 'text-[9px] font-mono-code font-bold text-slate-400 uppercase';
+            }
+        }
+
+        function openMugshotModal(imgSrc, titleText) {
+            const modal = document.getElementById('mugshotLightboxModal');
+            const modalImg = document.getElementById('mugshotModalImage');
+            const modalTitle = document.getElementById('mugshotModalTitle');
+            if (modal && modalImg) {
+                modalImg.src = imgSrc;
+                if (modalTitle) modalTitle.innerText = titleText || 'Facial Biometric High-Res View';
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeMugshotModal() {
+            const modal = document.getElementById('mugshotLightboxModal');
+            if (modal) modal.classList.add('hidden');
         }
 
         let seizureCounter = 0;
@@ -1048,30 +1631,89 @@
             const display = root.querySelector('#exhibitSearchInput');
             const panel   = root.querySelector('#exhibitListPanel');
             if (input)   input.value = val;
-            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
             updateCommodityField(val, root);
+
+            // Focus corresponding commodity input so user can immediately type new data
+            setTimeout(() => {
+                let targetInput = null;
+                if (val === 'Drugs') targetInput = root.querySelector('#drugSearchInput');
+                else if (val === 'Weapons') targetInput = root.querySelector('#weaponSearchInput');
+                else if (val === 'Money') targetInput = root.querySelector('#currencySearchInput');
+                else if (val === 'Ammunition') targetInput = root.querySelector('#ammoSearchInput');
+                else if (val === 'Electronic Devices') targetInput = root.querySelector('#deviceSearchInput');
+                else targetInput = root.querySelector('#newSeizureName');
+
+                if (targetInput) {
+                    targetInput.removeAttribute('readonly');
+                    targetInput.focus();
+                }
+            }, 50);
         }
 
         function filterExhibitList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#exhibitSearchInput')?.value || '').toLowerCase();
-            filterExhibitListByQuery(q, root);
+            const rawVal = root.querySelector('#exhibitSearchInput')?.value || '';
+            const categoryInput = root.querySelector('#newSeizureCategory');
+            if (categoryInput) categoryInput.value = rawVal;
+            filterExhibitListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterExhibitListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#exhibitSearchInner')?.value || '').toLowerCase();
-            filterExhibitListByQuery(q, root);
+            const rawVal = root.querySelector('#exhibitSearchInner')?.value || '';
+            const categoryInput = root.querySelector('#newSeizureCategory');
+            if (categoryInput) categoryInput.value = rawVal;
+            filterExhibitListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterExhibitListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const items = root.querySelectorAll('.exhibit-item');
+            const list = root.querySelector('#exhibitList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#exhibitCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'exhibitCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectExhibitCategory('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Category: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.exhibit-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
+        }
+
+        function handleCommoditySearchKeydown(e, el, type) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                const val = (el.value || '').trim();
+                if (val) {
+                    if (type === 'drug') selectDrugType(val, e);
+                    else if (type === 'weapon') selectWeaponType(val, e);
+                    else if (type === 'currency') selectCurrencyType(val, e);
+                    else if (type === 'ammo') selectAmmoType(val, e);
+                    else if (type === 'device') selectDeviceType(val, e);
+                }
+            }
         }
 
         function updateCommodityField(category, rootEl) {
@@ -1086,6 +1728,7 @@
             const vehicleWrapper  = root.querySelector('#vehicleFieldsWrapper');
             const textInput       = root.querySelector('#newSeizureName');
             const drugSearch      = root.querySelector('#drugSearchInput');
+            const weaponSearch    = root.querySelector('#weaponSearchInput');
             const currencySearch  = root.querySelector('#currencySearchInput');
             const ammoSearch      = root.querySelector('#ammoSearchInput');
             const deviceSearch    = root.querySelector('#deviceSearchInput');
@@ -1100,28 +1743,33 @@
             if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
             if (vehicleWrapper)      vehicleWrapper.classList.add('hidden');
 
+            [textInput, drugSearch, weaponSearch, currencySearch, ammoSearch, deviceSearch].forEach(input => {
+                if (input) {
+                    input.removeAttribute('readonly');
+                }
+            });
+
             if (category === 'Drugs') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (drugWrapper) drugWrapper.classList.remove('hidden');
-                if (drugSearch)  { drugSearch.placeholder = 'Select drug type...'; }
+                if (drugSearch)  { drugSearch.placeholder = 'Select or type custom drug name...'; }
             } else if (category === 'Weapons') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (weaponWrapper) weaponWrapper.classList.remove('hidden');
-                const weaponSearch = root.querySelector('#weaponSearchInput');
-                if (weaponSearch) { weaponSearch.placeholder = 'Select weapon type...'; }
+                if (weaponSearch) { weaponSearch.placeholder = 'Select or type custom weapon type...'; }
             } else if (category === 'Money') {
                 if (quantityLabel) quantityLabel.innerText = 'Amount';
                 if (currencyWrapper) currencyWrapper.classList.remove('hidden');
-                if (currencySearch)  { currencySearch.placeholder = 'Select currency...'; }
+                if (currencySearch)  { currencySearch.placeholder = 'Select or type custom currency...'; }
             } else if (category === 'Ammunition') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';
                 if (ammoWrapper) ammoWrapper.classList.remove('hidden');
-                if (ammoSearch)  { ammoSearch.placeholder = 'Select ammunition type...'; }
+                if (ammoSearch)  { ammoSearch.placeholder = 'Select or type custom ammunition type...'; }
             } else if (category === 'Electronic Devices') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
                 if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
-                if (deviceSearch)  { deviceSearch.placeholder = 'Select electronic device type...'; }
+                if (deviceSearch)  { deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
             } else {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (textWrapper) textWrapper.classList.remove('hidden');
@@ -1231,7 +1879,7 @@
             const display = root.querySelector('#currencySearchInput');
             const panel   = root.querySelector('#currencyListPanel');
             if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
+            if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
@@ -1239,18 +1887,49 @@
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#currencySearchInput')?.value || '').toLowerCase();
-            filterCurrencyListByQuery(q, root);
+            const rawVal = root.querySelector('#currencySearchInput')?.value || '';
+            syncCurrencyCustomInput(rawVal, root);
+            filterCurrencyListByQuery(rawVal.toLowerCase(), root);
         }
         function filterCurrencyListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#currencySearchInner')?.value || '').toLowerCase();
-            filterCurrencyListByQuery(q, root);
+            const rawVal = root.querySelector('#currencySearchInner')?.value || '';
+            syncCurrencyCustomInput(rawVal, root);
+            filterCurrencyListByQuery(rawVal.toLowerCase(), root);
+        }
+        function syncCurrencyCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureNameCurrency');
+            if (hidden) hidden.value = val;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
         }
         function filterCurrencyListByQuery(q, rootEl) {
             const root = rootEl || document;
             const list = root.querySelector('#currencyList');
             if (!list) return;
+
+            let customLi = list.querySelector('#currencyCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'currencyCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectCurrencyType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
             const items = list.querySelectorAll('.currency-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
@@ -1478,7 +2157,7 @@
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
-                            <input type="text" id="exhibitSearchInput" placeholder="Select exhibit category..." autocomplete="off" readonly onclick="openExhibitListPanel(this)" oninput="filterExhibitList(this)" onfocus="openExhibitListPanel(this)" class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer shadow-xs">
+                            <input type="text" id="exhibitSearchInput" placeholder="Select or type exhibit category..." autocomplete="off" onclick="openExhibitListPanel(this)" oninput="filterExhibitList(this)" onfocus="openExhibitListPanel(this)" class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text shadow-xs">
                             <input type="hidden" id="newSeizureCategory" name="associated_exhibits[${seizureCounter}][category]" value="">
                         </div>
                         <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-300 z-[9999] overflow-hidden" style="z-index: 9999; max-height: 280px; overflow-y: auto;">
@@ -1549,7 +2228,7 @@
 
                         <!-- DRUG SELECT DROPDOWN -->
                         <div id="drugSelectWrapper" class="hidden relative z-30">
-                            <input type="text" id="drugSearchInput" placeholder="Select drug type..." autocomplete="off" onclick="openDrugListPanel(this)" oninput="filterDrugList(this)" onfocus="openDrugListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
+                            <input type="text" id="drugSearchInput" placeholder="Select or type custom drug name..." autocomplete="off" onclick="openDrugListPanel(this)" oninput="filterDrugList(this)" onchange="filterDrugList(this)" onblur="filterDrugList(this)" onkeydown="handleCommoditySearchKeydown(event, this, 'drug')" onfocus="openDrugListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
                             <input type="hidden" id="newSeizureNameDrug" value="">
                             <div id="drugListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
@@ -1778,9 +2457,9 @@
                             </div>
                         </div>
 
-                        <!-- WEIGHT / MEASUREMENT -->
+                        <!-- WEIGHT -->
                         <div>
-                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Weight / Measurement</label>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Weight</label>
                             <input type="text" name="associated_exhibits[${seizureCounter}][seizure_weight]" placeholder="e.g. 25.5" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs font-mono-code focus:border-emerald-600">
                         </div>
 
@@ -1806,10 +2485,190 @@
 
                     </div>
                 </div>
+
+                <!-- EXHIBIT VISUAL EVIDENCE MULTI-PHOTO UPLOAD SECTION -->
+                <div class="col-span-full bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div class="flex items-center space-x-2 text-slate-800">
+                            <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold shadow-xs">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            </div>
+                            <div>
+                                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-900 block">Seizure / Exhibit Visual Evidence Gallery</span>
+                                <span class="text-[10px] text-slate-500">Upload multiple photos (angles, packaging, contents, serial numbers) for this exhibit</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-[9px] font-mono-code font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300 uppercase">MULTI-PHOTO RECORD</span>
+                        </div>
+                        <span id="photoCountExhibit_${seizureCounter}" class="text-[10px] font-mono-code font-extrabold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                            0 Photos Uploaded
+                        </span>
+                    </div>
+
+                    <!-- HIDDEN MULTI-FILE INPUT -->
+                    <input 
+                        type="file" 
+                        id="fileInputExhibit_${seizureCounter}" 
+                        accept="image/*" 
+                        multiple
+                        onchange="handleExhibitMultipleFiles(this, ${seizureCounter})" 
+                        class="hidden"
+                    >
+
+                    <!-- INTERACTIVE MULTI-FILE DROPZONE FRAME -->
+                    <div 
+                        id="dropzoneExhibit_${seizureCounter}"
+                        onclick="document.getElementById('fileInputExhibit_${seizureCounter}').click()"
+                        ondragover="handleExhibitDragOver(event, this)"
+                        ondragleave="handleExhibitDragLeave(event, this)"
+                        ondrop="handleExhibitMultipleDrop(event, ${seizureCounter})"
+                        class="h-36 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 transition-all duration-200 cursor-pointer shadow-2xs text-center group"
+                    >
+                        <div class="w-11 h-11 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs mb-2 group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        </div>
+                        <span class="text-xs font-extrabold text-slate-800">Click or Drag &amp; Drop Photos</span>
+                        <span class="text-[10px] font-mono-code text-slate-400 mt-0.5">Supports multiple JPG, PNG, WEBP files</span>
+                    </div>
+
+                    <!-- RESPONSIVE MULTI-PHOTO GALLERY CONTAINER -->
+                    <div class="space-y-1.5 pt-2 border-t border-slate-100">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Exhibit Photo Gallery Thumbnails</span>
+                            <button type="button" onclick="clearAllExhibitPhotos(${seizureCounter})" class="text-[10px] font-bold text-red-600 hover:text-red-700 hover:underline cursor-pointer border-none bg-transparent">
+                                Clear All Photos
+                            </button>
+                        </div>
+                        <div id="photoGalleryExhibit_${seizureCounter}" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 min-h-[60px] bg-slate-50/70 p-3 rounded-xl border border-slate-200">
+                            <div id="galleryEmptyNotice_${seizureCounter}" class="col-span-full py-4 text-center text-slate-400 text-xs font-mono-code">
+                                No exhibit photos added yet. Upload files above or drag &amp; drop images.
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
 
             container.appendChild(card);
             updateSeizureBlockNumbers();
+        }
+
+        function handleExhibitMultipleFiles(fileInput, seizureIdx) {
+            if (fileInput.files && fileInput.files.length > 0) {
+                Array.from(fileInput.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        appendExhibitPhotoToGallery(seizureIdx, e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                });
+                fileInput.value = '';
+            }
+        }
+
+        function handleExhibitMultipleDrop(e, seizureIdx) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            const dropzone = e.currentTarget;
+            if (dropzone) {
+                dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/80');
+            }
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                Array.from(e.dataTransfer.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        appendExhibitPhotoToGallery(seizureIdx, ev.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        function addExhibitPhotoFromUrl(seizureIdx) {
+            const input = document.getElementById(`urlInputExhibit_${seizureIdx}`);
+            if (input) {
+                const val = (input.value || '').trim();
+                if (val) {
+                    appendExhibitPhotoToGallery(seizureIdx, val);
+                    input.value = '';
+                }
+            }
+        }
+
+        function appendExhibitPhotoToGallery(seizureIdx, srcUrl) {
+            const gallery = document.getElementById(`photoGalleryExhibit_${seizureIdx}`);
+            const emptyNotice = document.getElementById(`galleryEmptyNotice_${seizureIdx}`);
+            if (!gallery) return;
+
+            if (emptyNotice) emptyNotice.remove();
+
+            const photoCard = document.createElement('div');
+            photoCard.className = 'exhibit-photo-item relative group h-28 bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs transition-all duration-200 hover:border-emerald-500';
+            
+            photoCard.innerHTML = `
+                <img src="${srcUrl}" class="w-full h-full object-contain p-1" alt="Exhibit Photo">
+                <input type="hidden" name="associated_exhibits[${seizureIdx}][photos][]" value="${srcUrl}">
+                <div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-1.5 transition-opacity duration-150 p-1" onclick="event.stopPropagation()">
+                    <button type="button" onclick="openMugshotModal('${srcUrl}', 'Exhibit Visual Evidence Photo')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded-lg shadow-xs cursor-pointer border-none">
+                        View
+                    </button>
+                    <button type="button" onclick="this.closest('.exhibit-photo-item').remove(); updateExhibitPhotoCount(${seizureIdx});" class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-[9px] font-bold rounded-lg shadow-xs cursor-pointer border-none">
+                        Remove
+                    </button>
+                </div>
+            `;
+
+            gallery.appendChild(photoCard);
+            updateExhibitPhotoCount(seizureIdx);
+        }
+
+        function updateExhibitPhotoCount(seizureIdx) {
+            const gallery = document.getElementById(`photoGalleryExhibit_${seizureIdx}`);
+            const badge = document.getElementById(`photoCountExhibit_${seizureIdx}`);
+            if (!gallery) return;
+
+            const count = gallery.querySelectorAll('.exhibit-photo-item').length;
+            if (badge) {
+                badge.innerText = `${count} Photo${count === 1 ? '' : 's'} Uploaded`;
+                if (count > 0) {
+                    badge.className = 'text-[10px] font-mono-code font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300';
+                } else {
+                    badge.className = 'text-[10px] font-mono-code font-extrabold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200';
+                    if (!gallery.querySelector('#galleryEmptyNotice_' + seizureIdx)) {
+                        gallery.innerHTML = `
+                            <div id="galleryEmptyNotice_${seizureIdx}" class="col-span-full py-4 text-center text-slate-400 text-xs font-mono-code">
+                                No exhibit photos added yet. Upload files above or drag &amp; drop images.
+                            </div>
+                        `;
+                    }
+                }
+            }
+        }
+
+        function clearAllExhibitPhotos(seizureIdx) {
+            const gallery = document.getElementById(`photoGalleryExhibit_${seizureIdx}`);
+            if (gallery) {
+                gallery.innerHTML = `
+                    <div id="galleryEmptyNotice_${seizureIdx}" class="col-span-full py-4 text-center text-slate-400 text-xs font-mono-code">
+                        No exhibit photos added yet. Upload files above or drag &amp; drop images.
+                    </div>
+                `;
+                updateExhibitPhotoCount(seizureIdx);
+            }
+        }
+
+        function handleExhibitDragOver(e, dropzone) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (dropzone) {
+                dropzone.classList.add('border-emerald-500', 'bg-emerald-50/80');
+            }
+        }
+
+        function handleExhibitDragLeave(e, dropzone) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            if (dropzone) {
+                dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/80');
+            }
         }
 
         function removeAssociateSeizureBlock(id) {
@@ -1833,11 +2692,194 @@
 
         const addAssociateExhibitRow = addAssociateSeizureBlock;
 
+        function togglePresumptiveTest(choice) {
+            const yesBox = document.getElementById('presumptiveTestYes');
+            const noBox = document.getElementById('presumptiveTestNo');
+            const container = document.getElementById('presumptiveReactionDetailsContainer');
+            if (choice === 'YES') {
+                if (yesBox && yesBox.checked) {
+                    if (noBox) noBox.checked = false;
+                    if (container) container.classList.remove('hidden');
+                } else {
+                    if (container) container.classList.add('hidden');
+                }
+            } else if (choice === 'NO') {
+                if (noBox && noBox.checked) {
+                    if (yesBox) yesBox.checked = false;
+                    if (container) container.classList.add('hidden');
+                } else if (yesBox && yesBox.checked) {
+                    if (container) container.classList.remove('hidden');
+                }
+            }
+        }
+
+        function toggleConfirmatoryTest(choice) {
+            const yesBox = document.getElementById('confirmatoryTestYes');
+            const noBox = document.getElementById('confirmatoryTestNo');
+            const inputEl = document.getElementById('confirmatoryTestResultInput');
+            const sampleWeightContainer = document.getElementById('sampleWeightContainer');
+            if (choice === 'YES') {
+                if (yesBox && yesBox.checked) {
+                    if (noBox) noBox.checked = false;
+                    if (inputEl) inputEl.value = 'YES';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
+                } else {
+                    if (noBox) noBox.checked = true;
+                    if (inputEl) inputEl.value = 'NO';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.add('hidden');
+                }
+            } else if (choice === 'NO') {
+                if (noBox && noBox.checked) {
+                    if (yesBox) yesBox.checked = false;
+                    if (inputEl) inputEl.value = 'NO';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.add('hidden');
+                } else {
+                    if (yesBox) yesBox.checked = true;
+                    if (inputEl) inputEl.value = 'YES';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
+                }
+            }
+        }
+
+        function addPresumptiveTestRow() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            if (!container) return;
+
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            const newIdx = rows.length + 1;
+
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'presumptive-test-row p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5';
+            rowDiv.innerHTML = `
+                <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                    <span class="test-row-title">Test Result #${newIdx}</span>
+                    <button type="button" onclick="removePresumptiveTestRow(this)" class="remove-test-row-btn px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
+                        &times; Remove
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                            Presence of <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            class="presumptive-presence-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs" 
+                            onchange="updatePresumptiveReactionText()" 
+                            oninput="updatePresumptiveReactionText()" 
+                            placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                            Percentage (%) <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" 
+                            onchange="updatePresumptiveReactionText()" 
+                            oninput="updatePresumptiveReactionText()" 
+                            placeholder="e.g. 85.5% or 80-90%"
+                        >
+                    </div>
+                </div>
+            `;
+            container.appendChild(rowDiv);
+            updatePresumptiveRemoveButtons();
+            updatePresumptiveReactionText();
+        }
+
+        function removePresumptiveTestRow(btn) {
+            const row = btn.closest('.presumptive-test-row');
+            if (row) {
+                row.remove();
+                reindexPresumptiveTestRows();
+                updatePresumptiveRemoveButtons();
+                updatePresumptiveReactionText();
+            }
+        }
+
+        function reindexPresumptiveTestRows() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            rows.forEach((row, idx) => {
+                const titleSpan = row.querySelector('.test-row-title');
+                if (titleSpan) titleSpan.innerText = `Test Result #${idx + 1}`;
+            });
+        }
+
+        function updatePresumptiveRemoveButtons() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            rows.forEach(row => {
+                const btn = row.querySelector('.remove-test-row-btn');
+                if (btn) {
+                    if (rows.length > 1) {
+                        btn.classList.remove('hidden');
+                    } else {
+                        btn.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        function updatePresumptiveReactionText() {
+            const container = document.getElementById('presumptiveTestRowsContainer');
+            const inputEl = document.getElementById('presumptiveReactionResultInput');
+            if (!container || !inputEl) return;
+
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            let results = [];
+
+            rows.forEach((row, idx) => {
+                const presence = row.querySelector('.presumptive-presence-input')?.value?.trim() || '';
+                const percentage = row.querySelector('.presumptive-percentage-input')?.value?.trim() || '';
+                
+                let parts = [];
+                if (presence) parts.push(`Presence of: ${presence}`);
+                if (percentage) parts.push(`Purity/Percentage: ${percentage}`);
+
+                if (parts.length > 0) {
+                    if (rows.length > 1) {
+                        results.push(`[${idx + 1}] ${parts.join(' - ')}`);
+                    } else {
+                        results.push(parts.join(' - '));
+                    }
+                }
+            });
+
+            if (results.length > 0) {
+                inputEl.value = `YES (${results.join('; ')})`;
+            } else {
+                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Add 1 default person card and 1 seizure block on page load
             addAssociatePersonCard();
             addAssociateSeizureBlock();
         });
     </script>
+
+    <!-- MUGSHOT LIGHTBOX MODAL -->
+    <div id="mugshotLightboxModal" class="fixed inset-0 z-[99999] bg-slate-900/80 backdrop-blur-md hidden flex items-center justify-center p-4" onclick="closeMugshotModal()">
+        <div class="relative max-w-4xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-200" onclick="event.stopPropagation()">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span id="mugshotModalTitle" class="font-extrabold text-sm uppercase tracking-wider font-mono-code">Facial Biometric High-Res View</span>
+                </div>
+                <button type="button" onclick="closeMugshotModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition-colors border-none bg-transparent cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-6 bg-slate-950 flex items-center justify-center min-h-[400px] max-h-[80vh] overflow-auto">
+                <img id="mugshotModalImage" src="" alt="Full High Res Mugshot" class="max-h-[70vh] max-w-full object-contain rounded-xl shadow-lg border border-slate-800">
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -225,7 +225,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                             <!-- CASE NAME INPUT -->
                             <div>
                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -245,25 +245,112 @@
                                 </div>
                             </div>
 
-                            <!-- OPERATION TYPE (SELECT2 DROPDOWN) -->
-                            <div>
+                            <!-- OPERATION TYPE CUSTOM DROPDOWN -->
+                            <div class="relative z-30">
                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                     <span>Operation Type</span>
                                     <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Optional</span>
                                 </label>
-                                <div class="relative w-full">
-                                    <select 
-                                        id="operationTypeSelect" 
-                                        name="operation_type"
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
-                                    >
-                                        <option value="">Select Operation Type...</option>
-                                        <option value="Cargo/Parcel">Cargo/Parcel</option>
-                                        <option value="Raid">Raid</option>
-                                        <option value="Search Warrant">Search Warrant</option>
-                                        <option value="Intel-led Ops">Intel-led Ops</option>
-                                        <option value="Transferred Case">Transferred Case</option>
-                                    </select>
+                                <button type="button" id="operationTypeDropdownTrigger" onclick="toggleOperationTypeDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-slate-300 outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                    <span id="selectedOpTypeLabel" class="font-bold text-slate-500 text-xs">Select Operation Type...</span>
+                                    <input type="hidden" id="operationTypeSelect" name="operation_type" value="">
+                                    <svg id="opTypeChevron" class="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+
+                                <div id="operationTypeDropdownMenu" class="hidden absolute left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                    <button type="button" onclick="selectOperationType('', 'Select Operation Type...', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer border-b border-slate-100 mb-1">
+                                        <div>
+                                            <div class="font-bold text-slate-500 group-hover:text-slate-800 transition-colors">Select Operation Type...</div>
+                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Clear operation selection</div>
+                                        </div>
+                                    </button>
+
+                                    <button type="button" onclick="selectOperationType('Cargo/Parcel', 'Cargo / Parcel', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-amber-800 transition-colors">Cargo / Parcel</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">Freight, courier &amp; airport cargo seizures</div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-mono-code font-bold rounded-lg border border-amber-200 uppercase">Cargo</span>
+                                    </button>
+
+                                    <button type="button" onclick="selectOperationType('Raid', 'Raid', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-red-700 transition-colors">Raid</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">Tactical strike &amp; field arrest ops</div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-red-50 text-red-700 text-[10px] font-mono-code font-bold rounded-lg border border-red-200 uppercase">Raid</span>
+                                    </button>
+
+                                    <button type="button" onclick="selectOperationType('Search Warrant', 'Search Warrant', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">Search Warrant</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">Court-ordered property search</div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-mono-code font-bold rounded-lg border border-blue-200 uppercase">Warrant</span>
+                                    </button>
+
+                                    <button type="button" onclick="selectOperationType('Intel-led Ops', 'Intel-led Ops', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors">Intel-led Ops</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">Intelligence &amp; surveillance operation</div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase">Intel</span>
+                                    </button>
+
+                                    <button type="button" onclick="selectOperationType('Transferred Case', 'Transferred Case', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-purple-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-purple-700 transition-colors">Transferred Case</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">External agency / police referral</div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-mono-code font-bold rounded-lg border border-purple-200 uppercase">Transfer</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- CASE PRIORITY DROPDOWN (HIGH / LOW) -->
+                            <div class="relative z-30">
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                    <span>Case Priority <span class="text-red-600 font-bold">*</span></span>
+                                    <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Urgency</span>
+                                </label>
+                                <button type="button" id="priorityDropdownTrigger" onclick="togglePriorityDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-slate-300 outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                    <div class="flex items-center space-x-2">
+                                        <span id="selectedPriorityBadge" class="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0 shadow-xs"></span>
+                                        <span id="selectedPriorityLabel" class="font-bold text-slate-500 text-xs">Select Case Priority...</span>
+                                    </div>
+                                    <input type="hidden" id="casePrioritySelect" name="priority" value="">
+                                    <svg id="priorityChevron" class="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+
+                                <div id="priorityDropdownMenu" class="hidden absolute left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                    <button type="button" onclick="selectPriority('', 'Select Case Priority...', 'bg-slate-300', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer border-b border-slate-100 mb-1">
+                                        <div>
+                                            <div class="font-bold text-slate-500 group-hover:text-slate-800 transition-colors">Select Case Priority...</div>
+                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Clear priority selection</div>
+                                        </div>
+                                    </button>
+
+                                    <button type="button" onclick="selectPriority('HIGH', 'High Priority', 'bg-red-600', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-red-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="w-2.5 h-2.5 rounded-full bg-red-600 shrink-0 shadow-xs"></span>
+                                            <div>
+                                                <div class="font-extrabold text-slate-900 group-hover:text-red-700 transition-colors">High Priority</div>
+                                                <div class="text-[10px] text-slate-500 font-normal mt-0.5">Urgent multi-unit processing &amp; priority HOF review</div>
+                                            </div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-mono-code font-bold rounded-lg border border-red-200 uppercase">High</span>
+                                    </button>
+
+                                    <button type="button" onclick="selectPriority('LOW', 'Low Priority', 'bg-slate-500', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-slate-100 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="w-2.5 h-2.5 rounded-full bg-slate-500 shrink-0 shadow-xs"></span>
+                                            <div>
+                                                <div class="font-extrabold text-slate-900 group-hover:text-slate-800 transition-colors">Low Priority</div>
+                                                <div class="text-[10px] text-slate-500 font-normal mt-0.5">Standard routine forensic investigation docket</div>
+                                            </div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-mono-code font-bold rounded-lg border border-slate-200 uppercase">Low</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -332,66 +419,167 @@
                         <!-- MUGSHOT ROWS CONTAINER -->
                         <div id="mugshotsContainer" class="space-y-6">
                             <div id="mugshotCard-1" class="space-y-3">
-                                <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #1 Mugshot Photos</div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #1 Mugshot Photos</div>
+                                        <span class="px-2 py-0.5 text-[9px] font-mono-code font-extrabold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase">PRIMARY SUSPECT</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                        Click frame or drop image to upload
+                                    </span>
+                                </div>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     <!-- ANGLE 1: FRONTAL VIEW -->
-                                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                    <div class="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-emerald-500 transition-colors shadow-2xs">
                                         <div class="flex items-center justify-between">
                                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-600 text-white uppercase">Angle 1</span>
-                                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Front View (0&deg;)</span>
+                                            <span class="text-[10px] font-bold text-slate-700 font-mono-code">Front View (0&deg;)</span>
+                                            <span id="badge-front" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
                                         </div>
-                                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front')">
-                                            <img id="preview-front" class="hidden w-full h-full object-contain object-center" alt="Front Mugshot">
-                                            <div id="placeholder-front" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                                <span class="text-[10px] font-bold">Upload Front Photo</span>
-                                                <span class="text-[9px] text-slate-400">Full Face Direct</span>
+                                        <div 
+                                            id="dropzone-front"
+                                            onclick="triggerMugshotUpload('front')"
+                                            ondragover="handleArrestMugshotDragOver(event, this)"
+                                            ondragleave="handleArrestMugshotDragLeave(event, this)"
+                                            ondrop="handleArrestMugshotDrop(event, 'front')"
+                                            class="h-48 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                                        >
+                                            <img id="preview-front" class="hidden w-full h-full object-contain p-1 transition-all duration-200" alt="Front Mugshot">
+                                            <div id="placeholder-front" class="flex flex-col items-center justify-center p-3 text-slate-400 space-y-2 pointer-events-none">
+                                                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
+                                                <span class="text-[9px] font-mono-code text-slate-400">Full Face Direct View (0&deg;)</span>
+                                            </div>
+                                            <div id="actions-front" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                                <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-front').src, 'Front View (0&deg;) - Suspect #1 Mugshot')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                    <span>View Full</span>
+                                                </button>
+                                                <button type="button" onclick="clearArrestMugshotPhoto('front')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                    <span>Clear</span>
+                                                </button>
                                             </div>
                                         </div>
-                                        <input type="file" id="file-front" accept="image/*" class="hidden" onchange="previewMugshot(event, 'front')">
-                                        <button type="button" onclick="triggerMugshotUpload('front')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                                            Choose Front Photo
-                                        </button>
+                                        <div class="space-y-1.5 pt-1">
+                                            <input type="file" id="file-front" accept="image/*" class="hidden" onchange="previewMugshot(event, 'front')">
+                                            <button type="button" onclick="triggerMugshotUpload('front')" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-xl border border-emerald-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                <span>Choose Front Photo</span>
+                                            </button>
+                                            <input 
+                                                type="text" 
+                                                id="url-front" 
+                                                placeholder="Or paste image URL..." 
+                                                oninput="previewMugshotUrlArrest(this.value, 'front')" 
+                                                class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                            >
+                                            <input type="hidden" name="mugshot_front" id="hidden-front">
+                                        </div>
                                     </div>
 
                                     <!-- ANGLE 2: LEFT PROFILE -->
-                                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                    <div class="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-emerald-500 transition-colors shadow-2xs">
                                         <div class="flex items-center justify-between">
                                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 2</span>
-                                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Left Profile (90&deg;)</span>
+                                            <span class="text-[10px] font-bold text-slate-700 font-mono-code">Left Profile (90&deg;)</span>
+                                            <span id="badge-left-profile" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
                                         </div>
-                                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile')">
-                                            <img id="preview-left-profile" class="hidden w-full h-full object-contain object-center" alt="Left Profile Mugshot">
-                                            <div id="placeholder-left-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                                                <span class="text-[10px] font-bold">Upload Left Profile</span>
-                                                <span class="text-[9px] text-slate-400">90&deg; Full Left Side</span>
+                                        <div 
+                                            id="dropzone-left-profile"
+                                            onclick="triggerMugshotUpload('left-profile')"
+                                            ondragover="handleArrestMugshotDragOver(event, this)"
+                                            ondragleave="handleArrestMugshotDragLeave(event, this)"
+                                            ondrop="handleArrestMugshotDrop(event, 'left-profile')"
+                                            class="h-48 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                                        >
+                                            <img id="preview-left-profile" class="hidden w-full h-full object-contain p-1 transition-all duration-200" alt="Left Profile Mugshot">
+                                            <div id="placeholder-left-profile" class="flex flex-col items-center justify-center p-3 text-slate-400 space-y-2 pointer-events-none">
+                                                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
+                                                <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Left Side Profile</span>
+                                            </div>
+                                            <div id="actions-left-profile" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                                <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-left-profile').src, 'Left Profile (90&deg;) - Suspect #1 Mugshot')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                    <span>View Full</span>
+                                                </button>
+                                                <button type="button" onclick="clearArrestMugshotPhoto('left-profile')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                    <span>Clear</span>
+                                                </button>
                                             </div>
                                         </div>
-                                        <input type="file" id="file-left-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'left-profile')">
-                                        <button type="button" onclick="triggerMugshotUpload('left-profile')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                                            Choose Left Profile
-                                        </button>
+                                        <div class="space-y-1.5 pt-1">
+                                            <input type="file" id="file-left-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'left-profile')">
+                                            <button type="button" onclick="triggerMugshotUpload('left-profile')" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-xl border border-emerald-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                <span>Choose Left Profile</span>
+                                            </button>
+                                            <input 
+                                                type="text" 
+                                                id="url-left-profile" 
+                                                placeholder="Or paste image URL..." 
+                                                oninput="previewMugshotUrlArrest(this.value, 'left-profile')" 
+                                                class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                            >
+                                            <input type="hidden" name="mugshot_left" id="hidden-left-profile">
+                                        </div>
                                     </div>
 
                                     <!-- ANGLE 3: RIGHT PROFILE -->
-                                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                    <div class="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-emerald-500 transition-colors shadow-2xs">
                                         <div class="flex items-center justify-between">
                                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 3</span>
-                                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Right Profile (90&deg;)</span>
+                                            <span class="text-[10px] font-bold text-slate-700 font-mono-code">Right Profile (90&deg;)</span>
+                                            <span id="badge-right-profile" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
                                         </div>
-                                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile')">
-                                            <img id="preview-right-profile" class="hidden w-full h-full object-contain object-center" alt="Right Profile Mugshot">
-                                            <div id="placeholder-right-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                                                <span class="text-[10px] font-bold">Upload Right Profile</span>
-                                                <span class="text-[9px] text-slate-400">90&deg; Full Right Side</span>
+                                        <div 
+                                            id="dropzone-right-profile"
+                                            onclick="triggerMugshotUpload('right-profile')"
+                                            ondragover="handleArrestMugshotDragOver(event, this)"
+                                            ondragleave="handleArrestMugshotDragLeave(event, this)"
+                                            ondrop="handleArrestMugshotDrop(event, 'right-profile')"
+                                            class="h-48 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                                        >
+                                            <img id="preview-right-profile" class="hidden w-full h-full object-contain p-1 transition-all duration-200" alt="Right Profile Mugshot">
+                                            <div id="placeholder-right-profile" class="flex flex-col items-center justify-center p-3 text-slate-400 space-y-2 pointer-events-none">
+                                                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
+                                                <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Right Side Profile</span>
+                                            </div>
+                                            <div id="actions-right-profile" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                                <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-right-profile').src, 'Right Profile (90&deg;) - Suspect #1 Mugshot')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                    <span>View Full</span>
+                                                </button>
+                                                <button type="button" onclick="clearArrestMugshotPhoto('right-profile')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                    <span>Clear</span>
+                                                </button>
                                             </div>
                                         </div>
-                                        <input type="file" id="file-right-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'right-profile')">
-                                        <button type="button" onclick="triggerMugshotUpload('right-profile')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                                            Choose Right Profile
-                                        </button>
+                                        <div class="space-y-1.5 pt-1">
+                                            <input type="file" id="file-right-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'right-profile')">
+                                            <button type="button" onclick="triggerMugshotUpload('right-profile')" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-xl border border-emerald-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                <span>Choose Right Profile</span>
+                                            </button>
+                                            <input 
+                                                type="text" 
+                                                id="url-right-profile" 
+                                                placeholder="Or paste image URL..." 
+                                                oninput="previewMugshotUrlArrest(this.value, 'right-profile')" 
+                                                class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                            >
+                                            <input type="hidden" name="mugshot_right" id="hidden-right-profile">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1062,10 +1250,9 @@
                                                 <input
                                                     type="text"
                                                     id="exhibitSearchInput"
-                                                    placeholder="Select exhibit category..."
+                                                    placeholder="Select or type exhibit category..."
                                                     autocomplete="off"
-                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-pointer"
-                                                    readonly
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
                                                     onclick="openExhibitListPanel(this)"
                                                     oninput="filterExhibitList(this)"
                                                     onfocus="openExhibitListPanel(this)"
@@ -1156,6 +1343,9 @@
                                                     class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
                                                     onclick="openDrugListPanel(this)"
                                                     oninput="filterDrugList(this)"
+                                                    onchange="filterDrugList(this)"
+                                                    onblur="filterDrugList(this)"
+                                                    onkeydown="handleCommoditySearchKeydown(event, this, 'drug')"
                                                     onfocus="openDrugListPanel(this)"
                                                 >
                                                 <input type="hidden" id="newSeizureNameDrug" name="newSeizureNameDrug" value="">
@@ -3155,67 +3345,169 @@
             card.className = 'space-y-3 pt-5 border-t border-slate-200';
             card.innerHTML = `
                 <div class="flex items-center justify-between">
-                    <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #${mugshotCount} Mugshot Photos</div>
+                    <div class="flex items-center space-x-2">
+                        <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #${mugshotCount} Mugshot Photos</div>
+                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center space-x-1 shadow-2xs">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                            <span>ASSOCIATE / CO-SUSPECT</span>
+                        </span>
+                    </div>
                     <button type="button" onclick="removeMugshotRow(${mugshotCount})" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-black text-[11px] font-bold rounded-lg transition-colors border border-slate-300 cursor-pointer">
                         &times; Remove Row
                     </button>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                    <!-- FRONT MUGSHOT -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-emerald-500 transition-colors shadow-2xs">
                         <div class="flex items-center justify-between">
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-600 text-white uppercase">Angle 1</span>
-                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Front View (0&deg;)</span>
+                            <span class="text-[10px] font-bold text-slate-700 font-mono-code">Front View (0&deg;)</span>
+                            <span id="badge-front-${mugshotCount}" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
                         </div>
-                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front-${mugshotCount}')">
-                            <img id="preview-front-${mugshotCount}" class="hidden w-full h-full object-contain object-center" alt="Front Mugshot">
-                            <div id="placeholder-front-${mugshotCount}" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                <span class="text-[10px] font-bold">Upload Front Photo</span>
-                                <span class="text-[9px] text-slate-400">Full Face Direct</span>
+                        <div 
+                            id="dropzone-front-${mugshotCount}"
+                            onclick="triggerMugshotUpload('front-${mugshotCount}')"
+                            ondragover="handleArrestMugshotDragOver(event, this)"
+                            ondragleave="handleArrestMugshotDragLeave(event, this)"
+                            ondrop="handleArrestMugshotDrop(event, 'front-${mugshotCount}')"
+                            class="h-48 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                        >
+                            <img id="preview-front-${mugshotCount}" class="hidden w-full h-full object-contain p-1 transition-all duration-200" alt="Front Mugshot">
+                            <div id="placeholder-front-${mugshotCount}" class="flex flex-col items-center justify-center p-3 text-slate-400 space-y-2 pointer-events-none">
+                                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </div>
+                                <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
+                                <span class="text-[9px] font-mono-code text-slate-400">Full Face Direct View (0&deg;)</span>
+                            </div>
+                            <div id="actions-front-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-front-${mugshotCount}').src, 'Front View (0&deg;) - Suspect #${mugshotCount}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <span>View Full</span>
+                                </button>
+                                <button type="button" onclick="clearArrestMugshotPhoto('front-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    <span>Clear</span>
+                                </button>
                             </div>
                         </div>
-                        <input type="file" id="file-front-${mugshotCount}" accept="image/*" class="hidden" onchange="previewMugshot(event, 'front-${mugshotCount}')">
-                        <button type="button" onclick="triggerMugshotUpload('front-${mugshotCount}')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                            Choose Front Photo
-                        </button>
+                        <div class="space-y-1.5 pt-1">
+                            <input type="file" id="file-front-${mugshotCount}" accept="image/*" class="hidden" onchange="previewMugshot(event, 'front-${mugshotCount}')">
+                            <button type="button" onclick="triggerMugshotUpload('front-${mugshotCount}')" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-xl border border-emerald-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                <span>Choose Front Photo</span>
+                            </button>
+                            <input 
+                                type="text" 
+                                id="url-front-${mugshotCount}" 
+                                placeholder="Or paste image URL..." 
+                                oninput="previewMugshotUrlArrest(this.value, 'front-${mugshotCount}')" 
+                                class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                            >
+                            <input type="hidden" name="mugshot_front_${mugshotCount}" id="hidden-front-${mugshotCount}">
+                        </div>
                     </div>
 
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                    <!-- LEFT MUGSHOT -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-emerald-500 transition-colors shadow-2xs">
                         <div class="flex items-center justify-between">
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 2</span>
-                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Left Profile (90&deg;)</span>
+                            <span class="text-[10px] font-bold text-slate-700 font-mono-code">Left Profile (90&deg;)</span>
+                            <span id="badge-left-profile-${mugshotCount}" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
                         </div>
-                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile-${mugshotCount}')">
-                            <img id="preview-left-profile-${mugshotCount}" class="hidden w-full h-full object-contain object-center" alt="Left Profile Mugshot">
-                            <div id="placeholder-left-profile-${mugshotCount}" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                                <span class="text-[10px] font-bold">Upload Left Profile</span>
-                                <span class="text-[9px] text-slate-400">90&deg; Full Left Side</span>
+                        <div 
+                            id="dropzone-left-profile-${mugshotCount}"
+                            onclick="triggerMugshotUpload('left-profile-${mugshotCount}')"
+                            ondragover="handleArrestMugshotDragOver(event, this)"
+                            ondragleave="handleArrestMugshotDragLeave(event, this)"
+                            ondrop="handleArrestMugshotDrop(event, 'left-profile-${mugshotCount}')"
+                            class="h-48 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                        >
+                            <img id="preview-left-profile-${mugshotCount}" class="hidden w-full h-full object-contain p-1 transition-all duration-200" alt="Left Profile Mugshot">
+                            <div id="placeholder-left-profile-${mugshotCount}" class="flex flex-col items-center justify-center p-3 text-slate-400 space-y-2 pointer-events-none">
+                                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </div>
+                                <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
+                                <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Left Side Profile</span>
+                            </div>
+                            <div id="actions-left-profile-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-left-profile-${mugshotCount}').src, 'Left Profile (90&deg;) - Suspect #${mugshotCount}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <span>View Full</span>
+                                </button>
+                                <button type="button" onclick="clearArrestMugshotPhoto('left-profile-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    <span>Clear</span>
+                                </button>
                             </div>
                         </div>
-                        <input type="file" id="file-left-profile-${mugshotCount}" accept="image/*" class="hidden" onchange="previewMugshot(event, 'left-profile-${mugshotCount}')">
-                        <button type="button" onclick="triggerMugshotUpload('left-profile-${mugshotCount}')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                            Choose Left Profile
-                        </button>
+                        <div class="space-y-1.5 pt-1">
+                            <input type="file" id="file-left-profile-${mugshotCount}" accept="image/*" class="hidden" onchange="previewMugshot(event, 'left-profile-${mugshotCount}')">
+                            <button type="button" onclick="triggerMugshotUpload('left-profile-${mugshotCount}')" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-xl border border-emerald-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                <span>Choose Left Profile</span>
+                            </button>
+                            <input 
+                                type="text" 
+                                id="url-left-profile-${mugshotCount}" 
+                                placeholder="Or paste image URL..." 
+                                oninput="previewMugshotUrlArrest(this.value, 'left-profile-${mugshotCount}')" 
+                                class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                            >
+                            <input type="hidden" name="mugshot_left_${mugshotCount}" id="hidden-left-profile-${mugshotCount}">
+                        </div>
                     </div>
 
-                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                    <!-- RIGHT MUGSHOT -->
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-emerald-500 transition-colors shadow-2xs">
                         <div class="flex items-center justify-between">
                             <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 3</span>
-                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Right Profile (90&deg;)</span>
+                            <span class="text-[10px] font-bold text-slate-700 font-mono-code">Right Profile (90&deg;)</span>
+                            <span id="badge-right-profile-${mugshotCount}" class="text-[9px] font-mono-code font-bold text-slate-400 uppercase">Not Uploaded</span>
                         </div>
-                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile-${mugshotCount}')">
-                            <img id="preview-right-profile-${mugshotCount}" class="hidden w-full h-full object-contain object-center" alt="Right Profile Mugshot">
-                            <div id="placeholder-right-profile-${mugshotCount}" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                                <span class="text-[10px] font-bold">Upload Right Profile</span>
-                                <span class="text-[9px] text-slate-400">90&deg; Full Right Side</span>
+                        <div 
+                            id="dropzone-right-profile-${mugshotCount}"
+                            onclick="triggerMugshotUpload('right-profile-${mugshotCount}')"
+                            ondragover="handleArrestMugshotDragOver(event, this)"
+                            ondragleave="handleArrestMugshotDragLeave(event, this)"
+                            ondrop="handleArrestMugshotDrop(event, 'right-profile-${mugshotCount}')"
+                            class="h-48 w-full bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center overflow-hidden relative group transition-all duration-200 cursor-pointer shadow-2xs"
+                        >
+                            <img id="preview-right-profile-${mugshotCount}" class="hidden w-full h-full object-contain p-1 transition-all duration-200" alt="Right Profile Mugshot">
+                            <div id="placeholder-right-profile-${mugshotCount}" class="flex flex-col items-center justify-center p-3 text-slate-400 space-y-2 pointer-events-none">
+                                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </div>
+                                <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
+                                <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Right Side Profile</span>
+                            </div>
+                            <div id="actions-right-profile-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-right-profile-${mugshotCount}').src, 'Right Profile (90&deg;) - Suspect #${mugshotCount}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <span>View Full</span>
+                                </button>
+                                <button type="button" onclick="clearArrestMugshotPhoto('right-profile-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    <span>Clear</span>
+                                </button>
                             </div>
                         </div>
-                        <input type="file" id="file-right-profile-${mugshotCount}" accept="image/*" class="hidden" onchange="previewMugshot(event, 'right-profile-${mugshotCount}')">
-                        <button type="button" onclick="triggerMugshotUpload('right-profile-${mugshotCount}')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                            Choose Right Profile
-                        </button>
+                        <div class="space-y-1.5 pt-1">
+                            <input type="file" id="file-right-profile-${mugshotCount}" accept="image/*" class="hidden" onchange="previewMugshot(event, 'right-profile-${mugshotCount}')">
+                            <button type="button" onclick="triggerMugshotUpload('right-profile-${mugshotCount}')" class="w-full py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-extrabold rounded-xl border border-emerald-200 transition-colors flex items-center justify-center space-x-1 cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                <span>Choose Right Profile</span>
+                            </button>
+                            <input 
+                                type="text" 
+                                id="url-right-profile-${mugshotCount}" 
+                                placeholder="Or paste image URL..." 
+                                oninput="previewMugshotUrlArrest(this.value, 'right-profile-${mugshotCount}')" 
+                                class="w-full px-2.5 py-1.5 text-[10px] bg-slate-50 border border-slate-200 rounded-xl font-mono-code text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                            >
+                            <input type="hidden" name="mugshot_right_${mugshotCount}" id="hidden-right-profile-${mugshotCount}">
+                        </div>
                     </div>
                 </div>
             `;
@@ -3311,6 +3603,7 @@
                     <span class="font-extrabold text-slate-900 text-sm font-mono-code uppercase flex items-center space-x-2">
                         <span class="suspect-number-badge w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">${suspectCount}</span>
                         <span class="suspect-header-title">Suspect #${suspectCount} Personal Booking Record</span>
+                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center gap-1 shadow-2xs"><span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>ASSOCIATE / CO-SUSPECT</span>
                     </span>
                     <button type="button" onclick="removeSuspectRow(this)" class="suspect-remove-btn px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors border-none cursor-pointer">
                         &times; Remove Suspect #${suspectCount}
@@ -3954,9 +4247,126 @@
             if (chevron) chevron.classList.toggle('rotate-180');
         }
 
+        function handleArrestMugshotDragOver(e, dropzoneEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dropzoneEl) dropzoneEl.classList.add('border-emerald-600', 'bg-emerald-100/50');
+        }
+
+        function handleArrestMugshotDragLeave(e, dropzoneEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dropzoneEl) dropzoneEl.classList.remove('border-emerald-600', 'bg-emerald-100/50');
+        }
+
+        function handleArrestMugshotDrop(e, angleKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dropzoneEl = e.currentTarget;
+            if (dropzoneEl) dropzoneEl.classList.remove('border-emerald-600', 'bg-emerald-100/50');
+
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                const fileInput = document.getElementById(`file-${angleKey}`);
+                if (fileInput) {
+                    fileInput.files = e.dataTransfer.files;
+                    previewMugshotFileArrest(fileInput, angleKey);
+                }
+            }
+        }
+
         function triggerMugshotUpload(angleKey) {
             const input = document.getElementById(`file-${angleKey}`);
             if (input) input.click();
+        }
+
+        function previewMugshot(event, angleKey) {
+            previewMugshotFileArrest(event.target, angleKey);
+        }
+
+        function previewMugshotFileArrest(fileInput, angleKey) {
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const dataUrl = e.target.result;
+                    applyArrestMugshotPreview(dataUrl, angleKey);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        }
+
+        function previewMugshotUrlArrest(urlStr, angleKey) {
+            const val = (urlStr || '').trim();
+            if (val) {
+                applyArrestMugshotPreview(val, angleKey);
+            } else {
+                clearArrestMugshotState(angleKey);
+            }
+        }
+
+        function applyArrestMugshotPreview(srcUrl, angleKey) {
+            const img = document.getElementById(`preview-${angleKey}`);
+            const placeholder = document.getElementById(`placeholder-${angleKey}`);
+            const actions = document.getElementById(`actions-${angleKey}`);
+            const badge = document.getElementById(`badge-${angleKey}`);
+            const hidden = document.getElementById(`hidden-${angleKey}`);
+
+            if (img) {
+                img.src = srcUrl;
+                img.classList.remove('hidden');
+            }
+            if (placeholder) placeholder.classList.add('hidden');
+            if (actions) actions.classList.remove('hidden');
+            if (hidden) hidden.value = srcUrl;
+            if (badge) {
+                badge.innerText = 'Uploaded';
+                badge.className = 'text-[9px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 uppercase';
+            }
+            if (typeof saveDocketFormDraft === 'function') saveDocketFormDraft();
+        }
+
+        function clearArrestMugshotPhoto(angleKey) {
+            const fileInput = document.getElementById(`file-${angleKey}`);
+            const urlInput = document.getElementById(`url-${angleKey}`);
+            if (fileInput) fileInput.value = '';
+            if (urlInput) urlInput.value = '';
+            clearArrestMugshotState(angleKey);
+        }
+
+        function clearArrestMugshotState(angleKey) {
+            const img = document.getElementById(`preview-${angleKey}`);
+            const placeholder = document.getElementById(`placeholder-${angleKey}`);
+            const actions = document.getElementById(`actions-${angleKey}`);
+            const badge = document.getElementById(`badge-${angleKey}`);
+            const hidden = document.getElementById(`hidden-${angleKey}`);
+
+            if (img) {
+                img.src = '';
+                img.classList.add('hidden');
+            }
+            if (placeholder) placeholder.classList.remove('hidden');
+            if (actions) actions.classList.add('hidden');
+            if (hidden) hidden.value = '';
+            if (badge) {
+                badge.innerText = 'Not Uploaded';
+                badge.className = 'text-[9px] font-mono-code font-bold text-slate-400 uppercase';
+            }
+            if (typeof saveDocketFormDraft === 'function') saveDocketFormDraft();
+        }
+
+        function openArrestMugshotModal(imgSrc, titleText) {
+            const modal = document.getElementById('arrestMugshotLightboxModal');
+            const modalImg = document.getElementById('arrestMugshotModalImage');
+            const modalTitle = document.getElementById('arrestMugshotModalTitle');
+            if (modal && modalImg) {
+                modalImg.src = imgSrc;
+                if (modalTitle) modalTitle.innerText = titleText || 'Facial Biometric High-Res View';
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeArrestMugshotModal() {
+            const modal = document.getElementById('arrestMugshotLightboxModal');
+            if (modal) modal.classList.add('hidden');
         }
 
         let seizedExhibitDataUrls = [];
@@ -4027,24 +4437,6 @@
             saveDocketFormDraft();
         }
 
-        function previewMugshot(event, angleKey) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = document.getElementById(`preview-${angleKey}`);
-                    const placeholder = document.getElementById(`placeholder-${angleKey}`);
-                    if (img) {
-                        img.src = e.target.result;
-                        img.classList.remove('hidden');
-                    }
-                    if (placeholder) {
-                        placeholder.classList.add('hidden');
-                    }
-                }
-                reader.readAsDataURL(file);
-            }
-        }
 
         function validateSuspectDocketForm() {
             const requiredFields = [
@@ -4502,7 +4894,7 @@
                     // Presumptive Result & Legacy JSON docket data
                     presumptive_result: presumptiveVal,
                     docket_data: docketPayload,
-                    priority: 'HIGH',
+                    priority: document.getElementById('casePrioritySelect')?.value || 'HIGH',
                     status: 'Under Multi-Unit Processing',
                     location: `${raidLocation} (${address})`,
                     description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
@@ -4788,6 +5180,8 @@
         function closeAllDropdowns(exceptMenuId = null) {
             const list = [
                 { menu: 'caseEntryTypeDropdownMenu', chevron: 'caseTypeChevron' },
+                { menu: 'operationTypeDropdownMenu', chevron: 'opTypeChevron' },
+                { menu: 'priorityDropdownMenu', chevron: 'priorityChevron' },
                 { menu: 'genderDropdownMenu', chevron: 'genderChevron' },
                 { menu: 'nationalityDropdownMenu', chevron: 'nationalityChevron' },
                 { menu: 'maritalDropdownMenu', chevron: 'maritalChevron' },
@@ -4845,6 +5239,82 @@
             closeAllDropdowns();
             handleCaseEntryTypeChange();
             saveDocketFormDraft();
+        }
+
+        function toggleOperationTypeDropdown(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('operationTypeDropdownMenu');
+            const chevron = document.getElementById('opTypeChevron');
+            if (!menu) return;
+            const isHidden = menu.classList.contains('hidden');
+            closeAllDropdowns('operationTypeDropdownMenu');
+            if (isHidden) {
+                menu.classList.remove('hidden');
+                if (chevron) chevron.classList.add('rotate-180');
+            }
+        }
+
+        function selectOperationType(val, label, e) {
+            if (e) e.stopPropagation();
+            const hiddenInput = document.getElementById('operationTypeSelect');
+            const labelEl = document.getElementById('selectedOpTypeLabel');
+            
+            if (hiddenInput) hiddenInput.value = val;
+            if (labelEl) {
+                labelEl.textContent = label;
+                if (!val) {
+                    labelEl.className = 'font-bold text-slate-500 text-xs';
+                } else {
+                    labelEl.className = 'font-extrabold text-slate-900 text-xs';
+                }
+            }
+            
+            closeAllDropdowns();
+            if (typeof saveDocketFormDraft === 'function') {
+                saveDocketFormDraft();
+            }
+        }
+
+        function togglePriorityDropdown(e) {
+            if (e) e.stopPropagation();
+            const menu = document.getElementById('priorityDropdownMenu');
+            const chevron = document.getElementById('priorityChevron');
+            if (!menu) return;
+            const isHidden = menu.classList.contains('hidden');
+            closeAllDropdowns('priorityDropdownMenu');
+            if (isHidden) {
+                menu.classList.remove('hidden');
+                if (chevron) chevron.classList.add('rotate-180');
+            }
+        }
+
+        function selectPriority(val, label, dotClass, e) {
+            if (e) e.stopPropagation();
+            const hiddenInput = document.getElementById('casePrioritySelect');
+            const labelEl = document.getElementById('selectedPriorityLabel');
+            const badgeEl = document.getElementById('selectedPriorityBadge');
+            
+            if (hiddenInput) hiddenInput.value = val;
+            if (labelEl) {
+                labelEl.textContent = label;
+                if (!val) {
+                    labelEl.className = 'font-bold text-slate-500 text-xs';
+                } else {
+                    labelEl.className = 'font-extrabold text-slate-900 text-xs';
+                }
+            }
+            if (badgeEl) {
+                if (!val) {
+                    badgeEl.className = 'w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0 shadow-xs';
+                } else {
+                    badgeEl.className = `w-2.5 h-2.5 rounded-full ${dotClass} shrink-0 shadow-xs`;
+                }
+            }
+            
+            closeAllDropdowns();
+            if (typeof saveDocketFormDraft === 'function') {
+                saveDocketFormDraft();
+            }
         }
 
         function toggleSidebarEventMenu(e) {
@@ -5468,9 +5938,26 @@
             const display = root.querySelector('#exhibitSearchInput');
             const panel   = root.querySelector('#exhibitListPanel');
             if (input)   input.value = val;
-            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
             updateCommodityField(val, root);
+
+            // Focus corresponding commodity input so user can immediately type new data
+            setTimeout(() => {
+                let targetInput = null;
+                if (val === 'Drugs') targetInput = root.querySelector('#drugSearchInput');
+                else if (val === 'Weapons') targetInput = root.querySelector('#weaponSearchInput');
+                else if (val === 'Money') targetInput = root.querySelector('#currencySearchInput');
+                else if (val === 'Ammunition') targetInput = root.querySelector('#ammoSearchInput');
+                else if (val === 'Electronic Devices') targetInput = root.querySelector('#deviceSearchInput');
+                else targetInput = root.querySelector('#newSeizureName');
+
+                if (targetInput) {
+                    targetInput.removeAttribute('readonly');
+                    targetInput.focus();
+                }
+            }, 50);
+
             if (typeof syncSection4ExhibitsToLabSection === 'function') {
                 syncSection4ExhibitsToLabSection();
             }
@@ -5478,23 +5965,66 @@
 
         function filterExhibitList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#exhibitSearchInput')?.value || '').toLowerCase();
-            filterExhibitListByQuery(q, root);
+            const rawVal = root.querySelector('#exhibitSearchInput')?.value || '';
+            const categoryInput = root.querySelector('#newSeizureCategory');
+            if (categoryInput) categoryInput.value = rawVal;
+            filterExhibitListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterExhibitListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#exhibitSearchInner')?.value || '').toLowerCase();
-            filterExhibitListByQuery(q, root);
+            const rawVal = root.querySelector('#exhibitSearchInner')?.value || '';
+            const categoryInput = root.querySelector('#newSeizureCategory');
+            if (categoryInput) categoryInput.value = rawVal;
+            filterExhibitListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterExhibitListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const items = root.querySelectorAll('.exhibit-item');
+            const list = root.querySelector('#exhibitList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#exhibitCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'exhibitCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectExhibitCategory('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Category: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.exhibit-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
+        }
+
+        function handleCommoditySearchKeydown(e, el, type) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                const val = (el.value || '').trim();
+                if (val) {
+                    if (type === 'drug') selectDrugType(val, e);
+                    else if (type === 'weapon') selectWeaponType(val, e);
+                    else if (type === 'currency') selectCurrencyType(val, e);
+                    else if (type === 'ammo') selectAmmoType(val, e);
+                    else if (type === 'device') selectDeviceType(val, e);
+                }
+            }
         }
 
         function updateCommodityField(category, rootEl) {
@@ -5515,6 +6045,7 @@
             const ammoHidden      = root.querySelector('#newSeizureNameAmmo');
             const deviceHidden    = root.querySelector('#newSeizureNameDevice');
             const drugSearch      = root.querySelector('#drugSearchInput');
+            const weaponSearch    = root.querySelector('#weaponSearchInput');
             const currencySearch  = root.querySelector('#currencySearchInput');
             const ammoSearch      = root.querySelector('#ammoSearchInput');
             const deviceSearch    = root.querySelector('#deviceSearchInput');
@@ -5530,41 +6061,36 @@
             if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
             if (vehicleWrapper)      vehicleWrapper.classList.add('hidden');
             if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
-            if (textInput)       { textInput.removeAttribute('required'); }
-            if (drugHidden)      { drugHidden.removeAttribute('required'); }
-            if (weaponHidden)    { weaponHidden.removeAttribute('required'); }
-            if (currencyHidden)  { currencyHidden.removeAttribute('required'); }
-            if (ammoHidden)      { ammoHidden.removeAttribute('required'); }
-            if (deviceHidden)    { deviceHidden.removeAttribute('required'); }
+
+            [textInput, drugHidden, weaponHidden, currencyHidden, ammoHidden, deviceHidden, drugSearch, weaponSearch, currencySearch, ammoSearch, deviceSearch].forEach(el => {
+                if (el) {
+                    el.removeAttribute('required');
+                    if (el.removeAttribute) el.removeAttribute('readonly');
+                }
+            });
 
             if (category === 'Drugs') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (drugWrapper) drugWrapper.classList.remove('hidden');
-                if (drugHidden)  drugHidden.setAttribute('required', 'required');
-                if (drugSearch)  { drugSearch.placeholder = 'Select drug type...'; }
+                if (drugSearch)  { drugSearch.setAttribute('required', 'required'); drugSearch.placeholder = 'Select or type custom drug name...'; }
             } else if (category === 'Weapons') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (weaponWrapper) weaponWrapper.classList.remove('hidden');
                 if (weaponFieldsWrapper) weaponFieldsWrapper.classList.remove('hidden');
-                if (weaponHidden)  weaponHidden.setAttribute('required', 'required');
-                const weaponSearch = root.querySelector('#weaponSearchInput');
-                if (weaponSearch) { weaponSearch.placeholder = 'Select weapon type...'; }
+                if (weaponSearch)  { weaponSearch.setAttribute('required', 'required'); weaponSearch.placeholder = 'Select or type custom weapon type...'; }
             } else if (category === 'Money') {
                 if (quantityLabel) quantityLabel.innerText = 'Amount';
                 if (currencyWrapper) currencyWrapper.classList.remove('hidden');
-                if (currencyHidden)  currencyHidden.setAttribute('required', 'required');
-                if (currencySearch)  { currencySearch.placeholder = 'Select currency...'; }
+                if (currencySearch)  { currencySearch.setAttribute('required', 'required'); currencySearch.placeholder = 'Select or type custom currency...'; }
             } else if (category === 'Ammunition') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';
                 if (ammoWrapper) ammoWrapper.classList.remove('hidden');
-                if (ammoHidden)  ammoHidden.setAttribute('required', 'required');
-                if (ammoSearch)  { ammoSearch.placeholder = 'Select or type custom ammunition type...'; }
+                if (ammoSearch)  { ammoSearch.setAttribute('required', 'required'); ammoSearch.placeholder = 'Select or type custom ammunition type...'; }
             } else if (category === 'Electronic Devices') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
                 if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
-                if (deviceHidden)  deviceHidden.setAttribute('required', 'required');
-                if (deviceSearch)  { deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
+                if (deviceSearch)  { deviceSearch.setAttribute('required', 'required'); deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
             } else {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (textWrapper) textWrapper.classList.remove('hidden');
@@ -5880,27 +6406,67 @@
             const display  = root.querySelector('#currencySearchInput');
             const panel    = root.querySelector('#currencyListPanel');
             if (hidden)  hidden.value  = val;
-            if (display) { display.value = val; display.setAttribute('readonly', 'readonly'); }
+            if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#currencySearchInput')?.value || '').toLowerCase();
-            filterCurrencyListByQuery(q, root);
+            const rawVal = root.querySelector('#currencySearchInput')?.value || '';
+            syncCurrencyCustomInput(rawVal, root);
+            filterCurrencyListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterCurrencyListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const q = (root.querySelector('#currencySearchInner')?.value || '').toLowerCase();
-            filterCurrencyListByQuery(q, root);
+            const rawVal = root.querySelector('#currencySearchInner')?.value || '';
+            syncCurrencyCustomInput(rawVal, root);
+            filterCurrencyListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function syncCurrencyCustomInput(val, rootEl) {
+            const root = rootEl || document;
+            const hidden = root.querySelector('#newSeizureNameCurrency');
+            if (hidden) hidden.value = val;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
         }
 
         function filterCurrencyListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const items = root.querySelectorAll('.currency-item');
+            const list = root.querySelector('#currencyList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#currencyCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'currencyCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                    <button type="button" onclick="selectCurrencyType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                        <span>+ Use Custom Entry: "${trimmed}"</span>
+                        <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                    </button>
+                `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.currency-item');
             items.forEach(function(li) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
@@ -6063,6 +6629,25 @@
             }
         });
 
+        // Close all custom dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            const isClickInsideDropdown = e.target.closest(
+                '#caseEntryTypeDropdownTrigger, #caseEntryTypeDropdownMenu, ' +
+                '#operationTypeDropdownTrigger, #operationTypeDropdownMenu, ' +
+                '#priorityDropdownTrigger, #priorityDropdownMenu, ' +
+                '#genderDropdownTrigger, #genderDropdownMenu, ' +
+                '#nationalityDropdownTrigger, #nationalityDropdownMenu, ' +
+                '#maritalDropdownTrigger, #maritalDropdownMenu, ' +
+                '#exhibitDropdownTrigger, #exhibitDropdownMenu, ' +
+                '#sidebarEventDropdownBtn, #sidebarEventMenu, ' +
+                '.dyn-dropdown-trigger, .dyn-dropdown-menu'
+            );
+
+            if (!isClickInsideDropdown) {
+                closeAllDropdowns();
+            }
+        });
+
         function calculateAgeFromDOB() {
             const dobInput = document.getElementById('newArrestedDOB');
             const ageInput = document.getElementById('newArrestedAge');
@@ -6097,15 +6682,6 @@
 
         // Auto-read URL query ref parameter & calculate initial age if DOB exists + Setup Drag & Drop & Draft Restoration
         document.addEventListener('DOMContentLoaded', function() {
-            if (window.jQuery && $.fn.select2) {
-                $('#operationTypeSelect').select2({
-                    placeholder: "Select Operation Type...",
-                    allowClear: true,
-                    dropdownParent: $('#operationTypeSelect').parent(),
-                    width: '100%'
-                });
-            }
-
             restoreDocketFormDraft();
 
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality
@@ -6893,6 +7469,24 @@
                 <button type="button" onclick="closeValidationErrorPopover()" class="w-full sm:w-auto px-7 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-red-600/30 transition-all cursor-pointer border-none flex items-center justify-center space-x-2">
                     <span>Fill Required Details</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MUGSHOT LIGHTBOX MODAL -->
+    <div id="arrestMugshotLightboxModal" class="fixed inset-0 z-[99999] bg-slate-900/80 backdrop-blur-md hidden flex items-center justify-center p-4" onclick="closeArrestMugshotModal()">
+        <div class="relative max-w-4xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-200" onclick="event.stopPropagation()">
+            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span id="arrestMugshotModalTitle" class="font-extrabold text-sm uppercase tracking-wider font-mono-code">Facial Biometric High-Res View</span>
+                </div>
+                <button type="button" onclick="closeArrestMugshotModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition-colors border-none bg-transparent cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-6 bg-slate-950 flex items-center justify-center min-h-[400px] max-h-[80vh] overflow-auto">
+                <img id="arrestMugshotModalImage" src="" alt="Full High Res Mugshot" class="max-h-[70vh] max-w-full object-contain rounded-xl shadow-lg border border-slate-800">
             </div>
         </div>
     </div>

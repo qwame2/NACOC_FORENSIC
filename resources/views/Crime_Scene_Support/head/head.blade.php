@@ -116,11 +116,7 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-                        <span class="text-[10px] font-mono-code text-slate-400">SYS</span>
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        <span class="text-[10px] font-mono-code text-emerald-600 font-bold">ONLINE</span>
-                    </div>
+                    
                     <div class="flex items-center gap-2.5 pl-3 border-l border-slate-200">
                         <div class="text-right">
                             <div class="text-[11px] font-bold text-slate-900 leading-tight">{{ $headName }}</div>

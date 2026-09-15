@@ -209,7 +209,7 @@ class CaseController extends Controller
             ], 422);
         }
         $jointSuspectNameLabel = count($allNames) > 1
-            ? implode(' & ', $allNames)
+            ? implode(', ', $allNames)
             : $allNames[0];
 
         // -----------------------------------------------------------------------
@@ -684,7 +684,11 @@ class CaseController extends Controller
             foreach ($newPersons as $person) {
                 if (empty($person['suspect_name'])) continue;
 
-                $currentCount++;
+                $pobVal   = $person['place_of_birth'] ?? ($person['hometown'] ?? ($person['pob'] ?? null));
+                $phoneVal = $person['phone_number'] ?? ($person['contact_phone'] ?? ($person['phone'] ?? null));
+                $addrVal  = $person['residential_address'] ?? ($person['address'] ?? null);
+                $roleVal  = $person['association_role'] ?? ($person['role'] ?? 'ASSOCIATE');
+
                 $docketData['suspects'][] = [
                     'suspect_number'      => $currentCount,
                     'suspect_name'        => $person['suspect_name'],
@@ -696,13 +700,32 @@ class CaseController extends Controller
                     'height'              => $person['height'] ?? null,
                     'eye_color'           => $person['eye_color'] ?? ($person['eye'] ?? null),
                     'nationality'         => $person['nationality'] ?? null,
-                    'place_of_birth'      => $person['place_of_birth'] ?? ($person['hometown'] ?? ($person['pob'] ?? null)),
-                    'phone_number'        => $person['phone_number'] ?? ($person['contact_phone'] ?? null),
-                    'residential_address' => $person['residential_address'] ?? ($person['address'] ?? null),
+                    'place_of_birth'      => $pobVal,
+                    'hometown'            => $pobVal,
+                    'pob'                 => $pobVal,
+                    'phone_number'        => $phoneVal,
+                    'contact_phone'       => $phoneVal,
+                    'phone'               => $phoneVal,
+                    'residential_address' => $addrVal,
+                    'address'             => $addrVal,
+                    'marital_status'      => $person['marital_status'] ?? 'Single',
+                    'spouse_name'         => $person['spouse_name'] ?? null,
+                    'spouse_phone'        => $person['spouse_phone'] ?? null,
+                    'spouse_info'         => $person['spouse_info'] ?? null,
+                    'partner_name'        => $person['spouse_name'] ?? null,
+                    'partner_phone'       => $person['spouse_phone'] ?? null,
+                    'partner_info'        => $person['spouse_info'] ?? null,
+                    'dependents'          => $person['dependents'] ?? null,
+                    'raid_location'       => $person['raid_location'] ?? ($person['location'] ?? null),
+                    'date_of_arrest'      => $person['date_of_arrest'] ?? ($person['arrest_date'] ?? null),
+                    'time_of_arrest'      => $person['time_of_arrest'] ?? ($person['arrest_time'] ?? null),
+                    'offense'             => $person['offense'] ?? ($person['offense_description'] ?? null),
                     'mugshot_front'       => $person['mugshot_front'] ?? null,
                     'mugshot_left'        => $person['mugshot_left'] ?? null,
                     'mugshot_right'       => $person['mugshot_right'] ?? null,
-                    'association_role'    => $person['association_role'] ?? ($person['role'] ?? 'Associated Person'),
+                    'is_associate'        => true,
+                    'association_role'    => $roleVal,
+                    'role'                => $roleVal,
                     'holding_facility'    => $person['holding_facility'] ?? null,
                     'notes'               => $person['notes'] ?? null,
                 ];
@@ -710,11 +733,12 @@ class CaseController extends Controller
             }
 
             $docketData['suspects_count'] = count($docketData['suspects']);
-            $allNames = array_filter(array_column($docketData['suspects'], 'suspect_name'));
+            $allNames = array_values(array_filter(array_column($docketData['suspects'], 'suspect_name')));
             if (!empty($allNames)) {
-                $jointSuspectNameLabel = count($allNames) > 1 ? implode(' & ', $allNames) : $allNames[0];
+                $jointSuspectNameLabel = count($allNames) > 1 ? implode(', ', $allNames) : $allNames[0];
                 $docketData['full_name'] = $jointSuspectNameLabel;
                 $case->suspect_name = $jointSuspectNameLabel;
+                $case->title = 'Republic vs ' . $jointSuspectNameLabel;
             }
         }
 
@@ -729,17 +753,43 @@ class CaseController extends Controller
                 $exName = $exhibit['seizure_name'] ?? ($exhibit['name'] ?? null);
                 if (empty($exName)) continue;
 
+                $photosList = [];
+                if (!empty($exhibit['photos']) && is_array($exhibit['photos'])) {
+                    $photosList = array_values(array_filter($exhibit['photos']));
+                } elseif (!empty($exhibit['photo'])) {
+                    $photosList = [$exhibit['photo']];
+                } elseif (!empty($exhibit['exhibit_photo'])) {
+                    $photosList = [$exhibit['exhibit_photo']];
+                }
+
+                $mainPhoto = !empty($photosList) ? $photosList[0] : null;
+
                 $docketData['seizures'][] = [
-                    'category'         => $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit'),
-                    'seizure_name'     => $exName,
-                    'seizure_quantity' => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
-                    'seizure_weight'   => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
-                    'seizure_unit'     => $exhibit['seizure_unit'] ?? ($exhibit['unit'] ?? null),
-                    'seizure_value'    => $exhibit['seizure_value'] ?? ($exhibit['value'] ?? null),
-                    'notes'            => $exhibit['notes'] ?? null,
-                    'added_at'         => now()->toDateTimeString(),
+                    'category'          => $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit'),
+                    'seizure_name'      => $exName,
+                    'seizure_quantity'  => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
+                    'seizure_weight'    => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
+                    'seizure_unit'      => $exhibit['seizure_unit'] ?? ($exhibit['unit'] ?? null),
+                    'seizure_packaging' => $exhibit['seizure_packaging'] ?? ($exhibit['packaging'] ?? null),
+                    'seizure_value'     => $exhibit['seizure_value'] ?? ($exhibit['value'] ?? null),
+                    'photo'             => $mainPhoto,
+                    'exhibit_photo'     => $mainPhoto,
+                    'photos'            => $photosList,
+                    'notes'             => $exhibit['notes'] ?? null,
+                    'added_at'          => now()->toDateTimeString(),
                 ];
                 $addedExhibitsCount++;
+
+                if (!empty($photosList)) {
+                    if (!isset($docketData['evidence_photos']) || !is_array($docketData['evidence_photos'])) {
+                        $docketData['evidence_photos'] = [];
+                    }
+                    foreach ($photosList as $pUrl) {
+                        if (!in_array($pUrl, $docketData['evidence_photos'])) {
+                            $docketData['evidence_photos'][] = $pUrl;
+                        }
+                    }
+                }
 
                 $qty = $exhibit['seizure_quantity'] ?? '';
                 $unit = $exhibit['seizure_unit'] ?? '';
