@@ -31,7 +31,7 @@ class CaseController extends Controller
             'unit_name'            => ['nullable', 'string', 'max:255'],
             'commanding_officer'   => ['nullable', 'string', 'max:255'],
             'submitting_officer'   => ['nullable', 'string', 'max:255'],
-            'suspect_name'         => ['nullable', 'string', 'max:255'],
+            'suspect_name'         => ['required', 'string', 'max:255'],
             'suspect_alias'        => ['nullable', 'string', 'max:255'],
             'ghana_card'           => ['nullable', 'string', 'max:255'],
             'gender'               => ['nullable', 'string', 'max:50'],
@@ -134,6 +134,8 @@ class CaseController extends Controller
             'sample_weight_gross'               => ['nullable', 'string'],
             'sample_weight_taken'               => ['nullable', 'string'],
             'sample_weight_reserved'            => ['nullable', 'string'],
+        ], [
+            'suspect_name.required' => 'Suspect Full Legal Name is required to save a case docket.',
         ])->validate();
 
         $user = Auth::user();
@@ -148,14 +150,26 @@ class CaseController extends Controller
             : (json_decode($rawDocketInput ?? '{}', true) ?: []);
 
         $allSuspects = (isset($inputDocket['suspects']) && is_array($inputDocket['suspects']))
-            ? array_values(array_filter($inputDocket['suspects'], fn($s) => !empty($s['suspect_name'])))
+            ? array_values(array_filter($inputDocket['suspects'], function($s) {
+                $n = trim($s['suspect_name'] ?? '');
+                return !empty($n) && $n !== 'Unnamed Suspect' && $n !== 'Unknown';
+            }))
             : [];
 
         // Fall back to flat suspect fields if no structured suspects array arrived
         if (empty($allSuspects)) {
+            $suspectName = trim($validated['suspect_name'] ?? '');
+            if (empty($suspectName) || $suspectName === 'Unnamed Suspect' || $suspectName === 'Unknown') {
+                return response()->json([
+                    'message' => 'The suspect name field is required. You cannot save a case docket without entering suspect details.',
+                    'errors'  => [
+                        'suspect_name' => ['Suspect Full Legal Name is required to create a docket case.']
+                    ]
+                ], 422);
+            }
             $allSuspects = [[
                 'suspect_number'   => 1,
-                'suspect_name'     => $validated['suspect_name'] ?? null,
+                'suspect_name'     => $suspectName,
                 'suspect_alias'    => $validated['suspect_alias'] ?? null,
                 'ghana_card'       => $validated['ghana_card'] ?? null,
                 'gender'           => $validated['gender'] ?? null,
@@ -186,9 +200,17 @@ class CaseController extends Controller
 
         // Build the combined suspect name label for the primary case record title
         $allNames = array_filter(array_column($allSuspects, 'suspect_name'));
+        if (empty($allNames)) {
+            return response()->json([
+                'message' => 'The suspect name field is required. You cannot save a case docket without entering suspect details.',
+                'errors'  => [
+                    'suspect_name' => ['Suspect Full Legal Name is required to create a docket case.']
+                ]
+            ], 422);
+        }
         $jointSuspectNameLabel = count($allNames) > 1
             ? implode(' & ', $allNames)
-            : ($allNames[0] ?? 'Unknown');
+            : $allNames[0];
 
         // -----------------------------------------------------------------------
         // Auto-generate unique case reference number
@@ -216,10 +238,10 @@ class CaseController extends Controller
         // All suspect rows for the same joint case share these.
         // -----------------------------------------------------------------------
         $exhibitsSummary = $validated['exhibits_summary']
-            ?? ($validated['seizure_name']
+            ?? (!empty($validated['seizure_name'])
                 ? implode(' ', array_filter([
-                    $validated['seizure_quantity'] ? "Qty: {$validated['seizure_quantity']}" : null,
-                    $validated['seizure_weight']   ? "Wt: {$validated['seizure_weight']} " . ($validated['seizure_unit'] ?? '') : $validated['seizure_unit'],
+                    !empty($validated['seizure_quantity']) ? "Qty: {$validated['seizure_quantity']}" : null,
+                    !empty($validated['seizure_weight'])   ? "Wt: {$validated['seizure_weight']} " . ($validated['seizure_unit'] ?? '') : ($validated['seizure_unit'] ?? null),
                     $validated['seizure_name']
                   ]))
                 : 'Logged Exhibits & Dossier');
@@ -664,17 +686,25 @@ class CaseController extends Controller
 
                 $currentCount++;
                 $docketData['suspects'][] = [
-                    'suspect_number'   => $currentCount,
-                    'suspect_name'     => $person['suspect_name'],
-                    'suspect_alias'    => $person['suspect_alias'] ?? null,
-                    'ghana_card'       => $person['ghana_card'] ?? null,
-                    'gender'           => $person['gender'] ?? null,
-                    'dob'              => $person['dob'] ?? null,
-                    'age'              => isset($person['age']) && $person['age'] !== '' ? (int)$person['age'] : null,
-                    'nationality'      => $person['nationality'] ?? null,
-                    'association_role' => $person['association_role'] ?? ($person['role'] ?? 'Associated Person'),
-                    'holding_facility' => $person['holding_facility'] ?? null,
-                    'notes'            => $person['notes'] ?? null,
+                    'suspect_number'      => $currentCount,
+                    'suspect_name'        => $person['suspect_name'],
+                    'suspect_alias'       => $person['suspect_alias'] ?? null,
+                    'ghana_card'          => $person['ghana_card'] ?? null,
+                    'gender'              => $person['gender'] ?? null,
+                    'dob'                 => $person['dob'] ?? ($person['date_of_birth'] ?? null),
+                    'age'                 => isset($person['age']) && $person['age'] !== '' ? (int)$person['age'] : null,
+                    'height'              => $person['height'] ?? null,
+                    'eye_color'           => $person['eye_color'] ?? ($person['eye'] ?? null),
+                    'nationality'         => $person['nationality'] ?? null,
+                    'place_of_birth'      => $person['place_of_birth'] ?? ($person['hometown'] ?? ($person['pob'] ?? null)),
+                    'phone_number'        => $person['phone_number'] ?? ($person['contact_phone'] ?? null),
+                    'residential_address' => $person['residential_address'] ?? ($person['address'] ?? null),
+                    'mugshot_front'       => $person['mugshot_front'] ?? null,
+                    'mugshot_left'        => $person['mugshot_left'] ?? null,
+                    'mugshot_right'       => $person['mugshot_right'] ?? null,
+                    'association_role'    => $person['association_role'] ?? ($person['role'] ?? 'Associated Person'),
+                    'holding_facility'    => $person['holding_facility'] ?? null,
+                    'notes'               => $person['notes'] ?? null,
                 ];
                 $addedPersonsCount++;
             }

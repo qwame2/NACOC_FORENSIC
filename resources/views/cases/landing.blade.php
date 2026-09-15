@@ -383,14 +383,54 @@
                                                 {{ $statusBadge['label'] }}
                                             </span>
                                         </td>
-                                        <td class="py-4 px-4 text-right whitespace-nowrap space-x-1.5">
-                                            <a href="/cases/{{ $case->case_number }}/associate" class="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-lg border border-blue-200 transition-all inline-flex items-center gap-1 cursor-pointer">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                                                <span>Associate</span>
-                                            </button>
-                                            <a href="/cases/{{ $case->case_number }}/review{{ $isLabLanding ? '?from=Lab+Analysis' : '' }}" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
-                                                View Docket
-                                            </a>
+                                        <td class="py-4 px-4 text-right whitespace-nowrap">
+                                            <div class="relative inline-block text-left case-action-dropdown-wrapper">
+                                                <button type="button" 
+                                                        onclick="toggleCaseActionDropdown(event, '{{ $case->case_number }}')" 
+                                                        class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                                                        title="Actions for Case {{ $case->case_number }}">
+                                                    <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                                    </svg>
+                                                    <span class="text-xs font-mono-code font-bold">Actions</span>
+                                                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                </button>
+
+                                                <div id="actionMenu-{{ $case->case_number }}" class="case-action-menu hidden absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 text-left font-sans">
+                                                    <!-- 1. ASSOCIATE DATA -->
+                                                    <a href="/cases/{{ $case->case_number }}/associate" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                                        <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                                        </div>
+                                                        <div>
+                                                            <div class="font-extrabold leading-tight">Associate Data</div>
+                                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Link accomplices &amp; exhibits</div>
+                                                        </div>
+                                                    </a>
+
+                                                    <!-- 2. EDIT DOCKET -->
+                                                    <a href="/cases/{{ $case->case_number }}/review?edit=true{{ $isLabLanding ? '&from=Lab+Analysis' : '' }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                                        <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                        </div>
+                                                        <div>
+                                                            <div class="font-extrabold leading-tight">Edit Docket</div>
+                                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Modify findings &amp; info</div>
+                                                        </div>
+                                                    </a>
+
+                                                    <!-- 3. VIEW DOCKET -->
+                                                    <a href="/cases/{{ $case->case_number }}/review{{ $isLabLanding ? '?from=Lab+Analysis' : '' }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                                        <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                        </div>
+                                                        <div>
+                                                            <div class="font-extrabold leading-tight">View Docket</div>
+                                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Full dossier inspection</div>
+                                                        </div>
+                                                    </a>
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -619,7 +659,11 @@
         async function pollMasterCasesTable() {
             try {
                 const docketModal = document.getElementById('docketModal');
-                const associateModal = document.getElementById('associateModal'); if ((docketModal && !docketModal.classList.contains('hidden')) || (associateModal && !associateModal.classList.contains('hidden'))) return;
+                const associateModal = document.getElementById('associateModal');
+                const activeActionMenu = document.querySelector('.case-action-menu:not(.hidden)');
+                if ((docketModal && !docketModal.classList.contains('hidden')) || 
+                    (associateModal && !associateModal.classList.contains('hidden')) ||
+                    activeActionMenu) return;
 
                 const res = await fetch('/api/cases', { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) return;
@@ -753,14 +797,51 @@
                                 <div class="text-[10px] text-slate-400 font-mono-code">${createdTime}</div>
                             </td>
                             <td class="py-4 px-4 text-center whitespace-nowrap">${statusBadgeHtml}</td>
-                            <td class="py-4 px-4 text-right whitespace-nowrap space-x-1.5">
-                                <a href="/cases/${c.case_number}/associate" class="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-lg border border-blue-200 transition-all inline-flex items-center gap-1 cursor-pointer">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                                    <span>Associate</span>
-                                </a>
-                                <a href="/cases/${c.case_number}/review${isLabLanding ? '?from=Lab+Analysis' : ''}" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
-                                    View Docket
-                                </a>
+                            <td class="py-4 px-4 text-right whitespace-nowrap">
+                                <div class="relative inline-block text-left case-action-dropdown-wrapper">
+                                    <button type="button" 
+                                            onclick="toggleCaseActionDropdown(event, '${c.case_number}')" 
+                                            class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                                            title="Actions for Case ${c.case_number}">
+                                        <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                        </svg>
+                                        <span class="text-xs font-mono-code font-bold">Actions</span>
+                                        <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+
+                                    <div id="actionMenu-${c.case_number}" class="case-action-menu hidden absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 text-left font-sans">
+                                        <a href="/cases/${c.case_number}/associate" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                            <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                            </div>
+                                            <div>
+                                                <div class="font-extrabold leading-tight">Associate Data</div>
+                                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">Link accomplices &amp; exhibits</div>
+                                            </div>
+                                        </a>
+
+                                        <a href="/cases/${c.case_number}/review?edit=true${isLabLanding ? '&from=Lab+Analysis' : ''}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                            <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </div>
+                                            <div>
+                                                <div class="font-extrabold leading-tight">Edit Docket</div>
+                                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">Modify findings &amp; info</div>
+                                            </div>
+                                        </a>
+
+                                        <a href="/cases/${c.case_number}/review${isLabLanding ? '?from=Lab+Analysis' : ''}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                            <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            </div>
+                                            <div>
+                                                <div class="font-extrabold leading-tight">View Docket</div>
+                                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">Full dossier inspection</div>
+                                            </div>
+                                        </a>
+                                    </div>
+                                </div>
                             </td>
                         </tr>`;
                     });
@@ -886,8 +967,36 @@
         </div>
     </div>
 
-<script>
+    <script>
+        function toggleCaseActionDropdown(event, caseRef) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            const targetMenu = document.getElementById('actionMenu-' + caseRef);
+            if (!targetMenu) return;
 
-</script>
+            const isHidden = targetMenu.classList.contains('hidden');
+            document.querySelectorAll('.case-action-menu').forEach(menu => {
+                menu.classList.add('hidden');
+                if (menu.closest('tr')) menu.closest('tr').classList.remove('z-50', 'relative');
+            });
+
+            if (isHidden) {
+                targetMenu.classList.remove('hidden');
+                if (targetMenu.closest('tr')) targetMenu.closest('tr').classList.add('z-50', 'relative');
+            }
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.case-action-dropdown-wrapper')) {
+                document.querySelectorAll('.case-action-menu').forEach(menu => {
+                    menu.classList.add('hidden');
+                    if (menu.closest('tr')) menu.closest('tr').classList.remove('z-50', 'relative');
+                });
+            }
+        });
+    </script>
+</body>
 </body>
 </html>

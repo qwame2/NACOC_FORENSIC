@@ -2773,6 +2773,16 @@
                 if (sec5) sec5.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 300);
         }
+
+        if (window.location.search.includes('edit=true') || window.location.search.includes('edit=1')) {
+            if (typeof toggleLabFormEditMode === 'function') {
+                toggleLabFormEditMode();
+            }
+            setTimeout(function() {
+                const editSec = document.getElementById('section5LabForm') || document.getElementById('section5LabExamination');
+                if (editSec) editSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 350);
+        }
     });
 </script>
 

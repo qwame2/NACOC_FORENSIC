@@ -4046,19 +4046,82 @@
             }
         }
 
+        function validateSuspectDocketForm() {
+            const requiredFields = [
+                { id: 'newArrestedName', label: 'Suspect Full Legal Name' },
+                { id: 'newArrestedID', label: 'Ghana Card # / ID Number' },
+                { id: 'newArrestedGender', label: 'Gender', triggerId: 'genderDropdownTrigger' },
+                { id: 'newArrestedDOB', label: 'Date of Birth' },
+                { id: 'newArrestedNationality', label: 'Nationality', triggerId: 'nationalityDropdownTrigger' },
+                { id: 'newArrestedPOB', label: 'Place of Birth / Hometown' },
+                { id: 'newArrestedPhone', label: 'Contact Phone Number' },
+                { id: 'newArrestedAddress', label: 'Residential Address / GPS' },
+                { id: 'newArrestedRaidLocation', label: 'Raid Scene Location' },
+                { id: 'newArrestedOffense', label: 'Primary Offense Description' },
+                { id: 'newArrestedDate', label: 'Date of Arrest' },
+                { id: 'newArrestedTime', label: 'Time of Arrest' },
+                { id: 'newArrestedFacility', label: 'Holding Facility' },
+            ];
+
+            let missingLabels = [];
+            let firstInvalidEl = null;
+
+            // Clear previous error styling
+            requiredFields.forEach(item => {
+                const target = item.triggerId ? document.getElementById(item.triggerId) : document.getElementById(item.id);
+                if (target) {
+                    target.classList.remove('border-red-500', 'ring-2', 'ring-red-500/20');
+                }
+            });
+
+            requiredFields.forEach(item => {
+                const inputEl = document.getElementById(item.id);
+                const targetEl = item.triggerId ? document.getElementById(item.triggerId) : inputEl;
+                const val = inputEl ? inputEl.value.trim() : '';
+
+                if (!val) {
+                    missingLabels.push(item.label);
+                    if (targetEl) {
+                        targetEl.classList.add('border-red-500', 'ring-2', 'ring-red-500/20');
+                        if (!firstInvalidEl) {
+                            firstInvalidEl = targetEl;
+                        }
+                    }
+                }
+            });
+
+            if (missingLabels.length > 0) {
+                if (firstInvalidEl) {
+                    firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (typeof firstInvalidEl.focus === 'function') {
+                        firstInvalidEl.focus();
+                    }
+                }
+
+                showValidationErrorPopover(missingLabels);
+                return false;
+            }
+
+            return true;
+        }
+
         function processNewArrested() {
+            if (!validateSuspectDocketForm()) {
+                return;
+            }
+
             const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
-            const name = document.getElementById('newArrestedName')?.value || 'Unnamed Suspect';
-            const alias = document.getElementById('newArrestedAlias')?.value || '';
-            const card = document.getElementById('newArrestedID')?.value || 'Unspecified Card';
-            const gender = document.getElementById('newArrestedGender')?.value || 'Unspecified';
-            const dob = document.getElementById('newArrestedDOB')?.value || 'N/A';
-            const age = document.getElementById('newArrestedAge')?.value || '';
-            const height = document.getElementById('newArrestedHeight')?.value || '';
-            const eyeColor = document.getElementById('newArrestedEyeColor')?.value || '';
-            const pob = document.getElementById('newArrestedPOB')?.value || '';
-            const phone = document.getElementById('newArrestedPhone')?.value || '';
-            const address = document.getElementById('newArrestedAddress')?.value || '';
+            const name = document.getElementById('newArrestedName')?.value?.trim() || '';
+            const alias = document.getElementById('newArrestedAlias')?.value?.trim() || '';
+            const card = document.getElementById('newArrestedID')?.value?.trim() || '';
+            const gender = document.getElementById('newArrestedGender')?.value?.trim() || '';
+            const dob = document.getElementById('newArrestedDOB')?.value?.trim() || '';
+            const age = document.getElementById('newArrestedAge')?.value?.trim() || '';
+            const height = document.getElementById('newArrestedHeight')?.value?.trim() || '';
+            const eyeColor = document.getElementById('newArrestedEyeColor')?.value?.trim() || '';
+            const pob = document.getElementById('newArrestedPOB')?.value?.trim() || '';
+            const phone = document.getElementById('newArrestedPhone')?.value?.trim() || '';
+            const address = document.getElementById('newArrestedAddress')?.value?.trim() || '';
             const maritalVal = document.getElementById('newArrestedMarital')?.value;
             const maritalLabel = document.getElementById('selectedMaritalLabel')?.innerText;
             let marital = (maritalVal && maritalVal.trim() !== '') ? maritalVal : ((maritalLabel && maritalLabel !== 'Select Marital Status...') ? maritalLabel : 'Single');
@@ -4447,7 +4510,18 @@
                     submitting_officer: 'Field Arrest Officer'
                 })
             })
-            .then(res => res.json())
+            .then(async res => {
+                const data = await res.json();
+                if (!res.ok) {
+                    let errMsg = data.message || 'Validation failed. Please check all required suspect details.';
+                    if (data.errors) {
+                        const detailList = Object.values(data.errors).flat().join('\n• ');
+                        errMsg += '\n• ' + detailList;
+                    }
+                    throw new Error(errMsg);
+                }
+                return data;
+            })
             .then(data => {
                 const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                 const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
@@ -4496,7 +4570,9 @@
             })
             .catch(err => {
                 console.error('Error saving case:', err);
-                showSuccessPopover(caseRef);
+                const msg = err.message || 'An error occurred while saving the case. Please enter all required suspect details.';
+                const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
+                showValidationErrorPopover(errItems);
             });
         }
 
@@ -4682,6 +4758,31 @@
                 modal.classList.add('hidden');
             }
             window.location.reload();
+        }
+
+        function showValidationErrorPopover(missingLabels) {
+            const modal = document.getElementById('validationErrorModal');
+            const list = document.getElementById('validationErrorList');
+            if (!modal || !list) return;
+
+            const itemsHtml = Array.isArray(missingLabels)
+                ? missingLabels.map(label => `
+                    <li class="flex items-center space-x-2 py-1.5 border-b border-red-100 last:border-none">
+                        <span class="w-2 h-2 rounded-full bg-red-600 shrink-0 shadow-xs"></span>
+                        <span class="text-xs font-bold text-red-800">${label}</span>
+                    </li>
+                `).join('')
+                : `<li class="flex items-center space-x-2 py-1.5"><span class="w-2 h-2 rounded-full bg-red-600 shrink-0 shadow-xs"></span><span class="text-xs font-bold text-red-800">${missingLabels}</span></li>`;
+
+            list.innerHTML = itemsHtml;
+            modal.classList.remove('hidden');
+        }
+
+        function closeValidationErrorPopover() {
+            const modal = document.getElementById('validationErrorModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
         }
 
         function closeAllDropdowns(exceptMenuId = null) {
@@ -5222,6 +5323,10 @@
         function openSeizurePanel(el, panelSelector) {
             if (el && el.removeAttribute) el.removeAttribute('readonly');
             const block = el ? el.closest('.seizure-block') : null;
+            if (block) {
+                document.querySelectorAll('.seizure-block').forEach(b => b.style.zIndex = '1');
+                block.style.zIndex = '99999';
+            }
             const panel = block ? block.querySelector(panelSelector) : document.querySelector(panelSelector);
             if (panel) panel.classList.remove('hidden');
         }
@@ -6745,6 +6850,48 @@
             <div class="flex items-center justify-end pt-2 border-t border-slate-100">
                 <button onclick="closeSuccessPopover()" class="w-full sm:w-auto px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/30 transition-all cursor-pointer border-none">
                     Okay
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REQUIRED SUSPECT DETAILS VALIDATION ERROR POPOVER MODAL -->
+    <div id="validationErrorModal" class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
+        <div class="bg-white rounded-3xl border border-red-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in duration-200">
+            <div class="flex items-start space-x-4">
+                <div class="w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-red-600/30">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-red-100 text-red-800 border border-red-200 uppercase tracking-wider">
+                            ACTION REQUIRED &bull; MISSING DETAILS
+                        </span>
+                        <button type="button" onclick="closeValidationErrorPopover()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <h3 class="text-base font-extrabold text-slate-900 leading-snug">
+                        Cannot Save Case Docket!
+                    </h3>
+                    <p class="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
+                        Please fill in all required suspect details before saving:
+                    </p>
+                </div>
+            </div>
+
+            <div class="p-3.5 bg-red-50/70 rounded-2xl border border-red-200/80 max-h-56 overflow-y-auto custom-scrollbar">
+                <ul id="validationErrorList" class="space-y-1">
+                    <!-- Dynamic list items injected here -->
+                </ul>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                <span class="text-[10px] font-mono-code font-bold text-slate-400">NACOC SYSTEM</span>
+                <button type="button" onclick="closeValidationErrorPopover()" class="w-full sm:w-auto px-7 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-red-600/30 transition-all cursor-pointer border-none flex items-center justify-center space-x-2">
+                    <span>Fill Required Details</span>
                 </button>
             </div>
         </div>
