@@ -123,7 +123,7 @@
                         @endphp
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
-                                <span class="px-2.5 py-0.5 {{ $isLabLanding ? 'bg-purple-600' : 'bg-emerald-600' }} text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">
+                                <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">
                                     {{ $isLabLanding ? 'LAB ANALYSIS DIRECTORATE' : 'FIELD COMMAND' }}
                                 </span>
                             </div>
@@ -139,7 +139,7 @@
                         <div class="flex items-center gap-3 shrink-0 pt-2 lg:pt-0">
                             <a 
                                 href="{{ $isLabLanding ? url('/Lab_Analysis/examination') : url('/arrest-person') }}" 
-                                class="px-5 py-3 {{ $isLabLanding ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30' }} text-white text-xs font-extrabold rounded-xl shadow-md flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none"
+                                class="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none"
                             >
                                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                 <span>{{ $isLabLanding ? 'Add Lab Examination Case' : 'Add New Case File' }}</span>
@@ -184,12 +184,12 @@
                     <div class="glass-panel-white p-5 rounded-2xl transition-all shadow-xs">
                         <div class="flex items-center justify-between text-slate-500 mb-2">
                             <span class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono-code">Pending Approval Cases</span>
-                            <div class="w-9 h-9 rounded-xl bg-purple-100/70 text-purple-700 flex items-center justify-center font-bold">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-100/70 text-emerald-700 flex items-center justify-center font-bold">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             </div>
                         </div>
-                        <div class="text-3xl font-black text-purple-600 font-mono-code" id="statPendingApproval">{{ $cases->whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count() }}</div>
-                        <div class="flex items-center text-[11px] text-purple-700 mt-2 font-semibold">
+                        <div class="text-3xl font-black text-emerald-600 font-mono-code" id="statPendingApproval">{{ $cases->whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count() }}</div>
+                        <div class="flex items-center text-[11px] text-emerald-700 mt-2 font-semibold">
                             Awaiting Directorate &amp; Head Approval
                         </div>
                     </div>
@@ -235,7 +235,7 @@
                         <div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
                             <button onclick="filterStatus('ALL', this)" class="filter-tab-btn status-tab-btn active-tab">
                                 All Statuses
-                            </button>
+                            </a>
                             <button onclick="filterStatus('Active Investigation', this)" class="filter-tab-btn status-tab-btn">
                                 Active Ops
                             </button>
@@ -311,8 +311,8 @@
                                                 'label' => $case->status
                                             ],
                                             default => [
-                                                'bg' => 'bg-purple-100 text-purple-800 border-purple-200',
-                                                'dot' => 'bg-purple-600',
+                                                'bg' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                                                'dot' => 'bg-emerald-600',
                                                 'label' => "Multi-Unit ({$compCountLanding}/4)"
                                             ]
                                         };
@@ -383,7 +383,11 @@
                                                 {{ $statusBadge['label'] }}
                                             </span>
                                         </td>
-                                        <td class="py-4 px-4 text-right whitespace-nowrap">
+                                        <td class="py-4 px-4 text-right whitespace-nowrap space-x-1.5">
+                                            <a href="/cases/{{ $case->case_number }}/associate" class="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-lg border border-blue-200 transition-all inline-flex items-center gap-1 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                                <span>Associate</span>
+                                            </button>
                                             <a href="/cases/{{ $case->case_number }}/review{{ $isLabLanding ? '?from=Lab+Analysis' : '' }}" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
                                                 View Docket
                                             </a>
@@ -398,6 +402,43 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- PAGINATION FOOTER PANEL -->
+                    <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
+                        <!-- LEFT: Rows selector & Range text -->
+                        <div class="flex items-center space-x-3 text-slate-600">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-slate-500 font-bold uppercase text-[10px]">Rows:</span>
+                                <select id="perPageSelect" onchange="changePerPage(this.value)" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-extrabold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs cursor-pointer">
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                            <span class="text-slate-300">|</span>
+                            <div>
+                                Showing <span id="paginationRange" class="font-extrabold text-slate-900">0 - 0</span> of <span id="paginationTotal" class="font-extrabold text-slate-900">0</span> records
+                            </div>
+                        </div>
+
+                        <!-- RIGHT: Navigation Buttons -->
+                        <div class="flex items-center space-x-1.5" id="paginationControls">
+                            <button id="prevPageBtn" onclick="goToPage(currentPage - 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                <span>Prev</span>
+                            </button>
+                            
+                            <div id="pageNumbersContainer" class="flex items-center space-x-1">
+                                <!-- Dynamic page number buttons -->
+                            </div>
+
+                            <button id="nextPageBtn" onclick="goToPage(currentPage + 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
+                                <span>Next</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -444,6 +485,8 @@
     <!-- JAVASCRIPT LOGIC -->
     <script>
         let currentStatusFilter = 'ALL';
+        let currentPage = 1;
+        let itemsPerPage = 10;
 
         function updateClock() {
             const now = new Date();
@@ -455,36 +498,104 @@
         updateClock();
 
         function filterCases() {
-            const searchInput = document.getElementById('caseSearchInput').value.toLowerCase().trim();
-            const rows = document.querySelectorAll('#casesTableBody .case-row');
-            let visibleCount = 0;
+            const searchInput = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
+            const rows = Array.from(document.querySelectorAll('#casesTableBody .case-row'));
 
+            let matchingRows = [];
             rows.forEach(row => {
                 const text = row.innerText.toLowerCase();
                 const status = row.getAttribute('data-status') || '';
 
-                const matchesSearch = text.includes(searchInput);
+                const matchesSearch = !searchInput || text.includes(searchInput);
                 const matchesStatus = (currentStatusFilter === 'ALL' || status === currentStatusFilter);
 
                 if (matchesSearch && matchesStatus) {
-                    row.style.display = '';
-                    visibleCount++;
+                    matchingRows.push(row);
                 } else {
                     row.style.display = 'none';
                 }
             });
 
-            document.getElementById('visibleCaseCount').innerText = visibleCount;
+            const totalMatching = matchingRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalMatching / itemsPerPage));
+
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalMatching);
+
+            matchingRows.forEach((row, index) => {
+                if (index >= startIndex && index < endIndex) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            updatePaginationUI(startIndex, endIndex, totalMatching, totalPages);
+        }
+
+        function updatePaginationUI(startIndex, endIndex, totalMatching, totalPages) {
+            const visibleCountEl = document.getElementById('visibleCaseCount');
+            if (visibleCountEl) visibleCountEl.innerText = totalMatching;
+
             const badge = document.getElementById('activeFilterBadge');
-            if (searchInput || currentStatusFilter !== 'ALL') {
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
+            const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
+            if (badge) {
+                if (searchInput || currentStatusFilter !== 'ALL') {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
             }
+
+            const rangeEl = document.getElementById('paginationRange');
+            if (rangeEl) {
+                rangeEl.innerText = totalMatching > 0 ? `${startIndex + 1} - ${endIndex}` : '0 - 0';
+            }
+
+            const totalEl = document.getElementById('paginationTotal');
+            if (totalEl) totalEl.innerText = totalMatching;
+
+            const prevBtn = document.getElementById('prevPageBtn');
+            if (prevBtn) prevBtn.disabled = (currentPage <= 1);
+
+            const nextBtn = document.getElementById('nextPageBtn');
+            if (nextBtn) nextBtn.disabled = (currentPage >= totalPages || totalMatching === 0);
+
+            const pageContainer = document.getElementById('pageNumbersContainer');
+            if (pageContainer) {
+                let pagesHtml = '';
+                const maxVisibleButtons = 5;
+                let startPage = Math.max(1, currentPage - 2);
+                let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
+                if (endPage - startPage < maxVisibleButtons - 1) {
+                    startPage = Math.max(1, endPage - maxVisibleButtons + 1);
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    const isActive = (i === currentPage);
+                    pagesHtml += `<button onclick="goToPage(${i})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}">${i}</button>`;
+                }
+                pageContainer.innerHTML = pagesHtml;
+            }
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            filterCases();
+        }
+
+        function changePerPage(val) {
+            itemsPerPage = parseInt(val, 10) || 10;
+            currentPage = 1;
+            filterCases();
         }
 
         function filterStatus(statusName, element) {
             currentStatusFilter = statusName;
+            currentPage = 1;
             document.querySelectorAll('.status-tab-btn').forEach(btn => btn.classList.remove('active-tab'));
             if (element) element.classList.add('active-tab');
             filterCases();
@@ -508,7 +619,7 @@
         async function pollMasterCasesTable() {
             try {
                 const docketModal = document.getElementById('docketModal');
-                if (docketModal && !docketModal.classList.contains('hidden')) return;
+                const associateModal = document.getElementById('associateModal'); if ((docketModal && !docketModal.classList.contains('hidden')) || (associateModal && !associateModal.classList.contains('hidden'))) return;
 
                 const res = await fetch('/api/cases', { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) return;
@@ -560,7 +671,7 @@
                                 }
                             });
                             if (compCount === 0) compCount = 1;
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200"><span class="w-1.5 h-1.5 rounded-full bg-purple-600 mr-1.5"></span>Multi-Unit (${compCount}/4)</span>`;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5"></span>Multi-Unit (${compCount}/4)</span>`;
                         }
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data.full_name : 'Unnamed Suspect');
@@ -642,7 +753,11 @@
                                 <div class="text-[10px] text-slate-400 font-mono-code">${createdTime}</div>
                             </td>
                             <td class="py-4 px-4 text-center whitespace-nowrap">${statusBadgeHtml}</td>
-                            <td class="py-4 px-4 text-right whitespace-nowrap">
+                            <td class="py-4 px-4 text-right whitespace-nowrap space-x-1.5">
+                                <a href="/cases/${c.case_number}/associate" class="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-lg border border-blue-200 transition-all inline-flex items-center gap-1 cursor-pointer">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                    <span>Associate</span>
+                                </a>
                                 <a href="/cases/${c.case_number}/review${isLabLanding ? '?from=Lab+Analysis' : ''}" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold rounded-lg border border-emerald-200 transition-all inline-flex items-center gap-1 cursor-pointer">
                                     View Docket
                                 </a>
@@ -667,11 +782,17 @@
                 if (visCountEl && !searchInput && currentStatusFilter === 'ALL') visCountEl.innerText = cases.length;
                 const totCountEl = document.getElementById('totalCaseCount');
                 if (totCountEl) totCountEl.innerText = cases.length;
+
+                filterCases();
             } catch (e) {
                 console.warn('Master cases polling failed:', e);
             }
         }
         setInterval(pollMasterCasesTable, 3000);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            filterCases();
+        });
 
         // GLOBAL FLOATING SUSPECT PREVIEW HOVER HANDLER (FLOATS ABOVE ALL TABLES & CONTAINERS)
         document.addEventListener('mouseover', function(e) {
@@ -764,5 +885,9 @@
             </div>
         </div>
     </div>
+
+<script>
+
+</script>
 </body>
 </html>

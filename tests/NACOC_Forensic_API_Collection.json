@@ -1,0 +1,356 @@
+{
+  "info": {
+    "_postman_id": "nacoc-forensic-collection-01",
+    "name": "NACOC Forensic Directorate API Suite",
+    "description": "Postman API Test Suite for NACOC Forensic Directorate Portal. Covers authentication, case creation, lab analysis unit progress, sample weight metrology, and administrative sign-off APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. User Verification - Check Approval Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('User exists and is approved in system', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.exists).to.eql(true);",
+              "    pm.expect(jsonData.is_approved).to.eql(true);",
+              "    pm.expect(jsonData.username).to.eql('anna');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/check-user-approval?login_id={{login_id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "check-user-approval"
+          ],
+          "query": [
+            {
+              "key": "login_id",
+              "value": "{{login_id}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. Authentication - Officer Login API",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('API Login returns success JSON and user profile', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "    pm.expect(jsonData.user).to.have.property('service_id');",
+              "    pm.expect(jsonData.user.service_id).to.eql('SD-878');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"login_id\": \"{{login_id}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "login"
+          ]
+        }
+      }
+    },
+    {
+      "name": "3. Master Directory - Fetch All Cases JSON",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Returns JSON array of forensic case dockets', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/cases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "cases"
+          ]
+        }
+      }
+    },
+    {
+      "name": "4. Command Statistics - Head Directorate Stats",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Returns valid system metrics & pending counts', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('pendingCasesCount');",
+              "    pm.expect(jsonData).to.have.property('pendingUsersCount');",
+              "    pm.expect(jsonData).to.have.property('activeUsersCount');",
+              "    pm.expect(jsonData).to.have.property('totalUsersCount');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/head-stats",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "head-stats"
+          ]
+        }
+      }
+    },
+    {
+      "name": "5. User Management - Directorate Approvals List",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Returns users list and pending approval counts', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property('users');",
+              "    pm.expect(jsonData).to.have.property('pendingCount');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/Forensic_Head/approvals",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "Forensic_Head",
+            "approvals"
+          ]
+        }
+      }
+    },
+    {
+      "name": "6. Case Creation - Save New Forensic Docket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Case created successfully', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 302]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"case_number\": \"FSD-2026-POSTMAN-01\",\n  \"title\": \"Suspect Docket File - Kofi Mensah\",\n  \"unit_name\": \"Crime Scene Support\",\n  \"suspect_name\": \"Kofi Mensah\",\n  \"suspect_alias\": \"Postman Test Subject\",\n  \"arrest_date\": \"2026-09-14\",\n  \"raid_location\": \"Tema Port Container Terminal 4\",\n  \"offense_description\": \"Attempted Importation of Illicit Substances\",\n  \"seizure_name\": \"Heroin Packages\",\n  \"seizure_quantity\": \"10\",\n  \"seizure_weight\": \"12.4\",\n  \"seizure_unit\": \"KG\",\n  \"presumptive_test_result\": \"YES (Positive Colorimetric Reaction)\",\n  \"confirmatory_test_result\": \"YES\",\n  \"sample_weight_description\": \"10 brick packages wrapped in brown adhesive tape\",\n  \"sample_weight_gross\": \"12.4 kg gross weight\",\n  \"sample_weight_taken\": \"20.0 grams\",\n  \"sample_weight_reserved\": \"12.380 kg\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cases"
+          ]
+        }
+      }
+    },
+    {
+      "name": "7. Unit Progress - Update Lab Examination & Sample Weight",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Lab unit progress and sample weight saved', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"unit_name\": \"Lab Analysis\",\n  \"unit_status\": \"COMPLETED\",\n  \"officer\": \"Anita Johnson\",\n  \"notes\": \"GC-MS spectrometry confirmed Diacetylmorphine (Heroin Hydrochloride 89.2% purity).\",\n  \"lab_unit\": \"Chemistry & Narcotics Unit\",\n  \"presumptive_result\": \"YES (Positive Colorimetric Reaction)\",\n  \"confirmatory_test_result\": \"YES\",\n  \"sample_weight_description\": \"10 brick packages wrapped in brown tape\",\n  \"sample_weight_gross\": \"12.4 kg gross weight\",\n  \"sample_weight_taken\": \"20.0 grams\",\n  \"sample_weight_reserved\": \"12.380 kg\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/cases/FSD-2026-POSTMAN-01/update-unit-progress",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "cases",
+            "FSD-2026-POSTMAN-01",
+            "update-unit-progress"
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. Authentication - Officer Logout API",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('API Logout returns success JSON', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.success).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "logout"
+          ]
+        }
+      }
+    }
+  ]
+}

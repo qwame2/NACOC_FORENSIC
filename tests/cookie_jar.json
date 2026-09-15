@@ -1,0 +1,35 @@
+{
+  "version": "tough-cookie@4.1.3-postman.1",
+  "storeType": "MemoryCookieStore",
+  "rejectPublicSuffixes": false,
+  "enableLooseMode": true,
+  "allowSpecialUseDomain": true,
+  "prefixSecurity": "silent",
+  "cookies": [
+    {
+      "key": "XSRF-TOKEN",
+      "value": "eyJpdiI6ImdHOHhxSXBMdEw4NGlyeExKQVNBSVE9PSIsInZhbHVlIjoiNW9sNXJBOWVpaWlyQ2RFZ0Q5NDlNV2VtczhKVmVnNWpDeGZoK2xrd3NmZ1dEK0svbkVFZWJUYktwaDhYNWZUaDA2QTJUd2JIRjRxbjBlUG5HTExRNDVkS2YwYURFd3VxREZDOVc5cnRYKzhVL2dnRi9JV2pHTXROOHFtOUJvTU4iLCJtYWMiOiJiZjQ4YTRiNDUxYzUwYTJjNzI5M2U3MmY3NWViN2EzY2I5ZmEzYmRhNTJiNjk0ZGNiNWQ5NTI1ZGJkMzdiMmY5IiwidGFnIjoiIn0%3D",
+      "expires": "2026-09-15T03:07:40.000Z",
+      "maxAge": 7200,
+      "domain": "127.0.0.1",
+      "path": "/",
+      "hostOnly": true,
+      "creation": "2026-09-15T01:07:37.852Z",
+      "lastAccessed": "2026-09-15T01:07:40.890Z",
+      "sameSite": "lax"
+    },
+    {
+      "key": "laravel-session",
+      "value": "eyJpdiI6ImxmUGRNTTNLUmtybk81dmhoR05yMEE9PSIsInZhbHVlIjoibkpHalA0MUpkZXljTE1wQityOFFrRU1kckF6c3NLNnRvMk1QUlFnWWdic0hvQzRSNTBMeWJHZXMzOURSTlZGVzRoTWpBemNGbXNuUXdVRklwbXFyUi9jaUcrQjF1OVk4citubSsxL09xTksreHBvU1YyMFlwb1F2d0hYL0Ztd0EiLCJtYWMiOiI2NGY2OGE3ZmI3ODE3OTJkYTE1NTY1YzE5MDljNDdlNDNmZmQ0MmQzOGNmMDliMWQyMjA3NjcxMWJkYTVmYjE3IiwidGFnIjoiIn0%3D",
+      "expires": "2026-09-15T03:07:40.000Z",
+      "maxAge": 7200,
+      "domain": "127.0.0.1",
+      "path": "/",
+      "httpOnly": true,
+      "hostOnly": true,
+      "creation": "2026-09-15T01:07:37.853Z",
+      "lastAccessed": "2026-09-15T01:07:40.890Z",
+      "sameSite": "lax"
+    }
+  ]
+}

@@ -23,6 +23,9 @@ class ForensicCase extends Model
      */
     protected $fillable = [
         'case_number',
+        'parent_case_id',
+        'suspect_number',
+        'laboratory_number',
         'title',
         'unit_name',
         'unit_id',
@@ -128,6 +131,15 @@ class ForensicCase extends Model
         'exhibits_summary',
         'presumptive_test_result',
         'confirmatory_test_result',
+        'sample_weight_description',
+        'sample_weight_gross',
+        'sample_weight_taken',
+        'sample_weight_reserved',
+        'confirmatory_substance_identification',
+        'detected_substances',
+        'confirmatory_test_methods',
+        'confirmatory_specifications',
+        'laboratory_analytical_findings',
         'hash_log',
         'incident_date',
     ];
@@ -140,6 +152,7 @@ class ForensicCase extends Model
     protected $casts = [
         'docket_data' => 'array',
         'evidence_photos' => 'array',
+        'detected_substances' => 'array',
         'has_children' => 'boolean',
         'has_seizures' => 'boolean',
     ];
@@ -158,5 +171,21 @@ class ForensicCase extends Model
     public function unit()
     {
         return $this->belongsTo(Unit::class);
+    }
+
+    /**
+     * For joint/multi-suspect cases: get the primary (Suspect #1) case record.
+     */
+    public function parentCase()
+    {
+        return $this->belongsTo(ForensicCase::class, 'parent_case_id');
+    }
+
+    /**
+     * For the primary case record: get all additional joint-suspect case records.
+     */
+    public function jointSuspects()
+    {
+        return $this->hasMany(ForensicCase::class, 'parent_case_id')->orderBy('suspect_number');
     }
 }

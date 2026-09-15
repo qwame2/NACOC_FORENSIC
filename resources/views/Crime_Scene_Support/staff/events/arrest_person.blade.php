@@ -16,7 +16,8 @@
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
         $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName);
-        $examRefAuto = 'EXAM-' . date('Y') . '-' . rand(1000, 9999) . '-LAB';
+        $examRefAuto = 'GSA-FM-T' . rand(10, 99) . '-F';
+        $labNumberAuto = 'Lab No.' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
         $caseRefAuto = 'NFC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
@@ -202,193 +203,200 @@
                 </div>
 
                 <!-- DOCKET LOGGING FORM -->
-                <form id="arrestDocketForm" onsubmit="event.preventDefault(); processNewArrested();" onreset="setTimeout(clearDocketFormDraftAndReset, 50)" class="space-y-6 text-xs font-medium">
+                <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();" onreset="setTimeout(clearDocketFormDraftAndReset, 50)" class="space-y-6 text-xs font-medium">
                     @csrf
 
-                <!-- SECTION 1: MASTER CASE TITLE & DOCKET CLASSIFICATION -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5">
-                    <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 01-2-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    <!-- SECTION 1: MASTER CASE TITLE & DOCKET CLASSIFICATION -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-50">
+                        <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 01-2-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Section 1: Master Case Title &amp; Classification</h3>
+                                    <p class="text-xs text-slate-500">Specify the official legal case title and select single or multiple suspect docket mode</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="font-extrabold text-slate-900 text-base">Section 1: Master Case Title &amp; Classification</h3>
-                                <p class="text-xs text-slate-500">Specify the official legal case title and select single or multiple suspect docket mode</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span id="caseTypeBadge" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                                Single Person Mode
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        <!-- CASE NAME INPUT -->
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Case Name / Legal Title <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                            <div class="flex items-center space-x-2">
+                                <span id="caseTypeBadge" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                    Single Person Mode
                                 </span>
-                                <input 
-                                    type="text" 
-                                    id="caseTitleInput" 
-                                    placeholder="e.g. Republic Vs Atto &amp; Ors" 
-                                    required 
-                                    class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal"
-                                >
                             </div>
                         </div>
 
-                        <!-- OPERATION TYPE (SELECT2 DROPDOWN) -->
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                <span>Operation Type</span>
-                                <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Optional</span>
-                            </label>
-                            <div class="relative w-full">
-                                <select 
-                                    id="operationTypeSelect" 
-                                    name="operation_type"
-                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
-                                >
-                                    <option value="">Select Operation Type...</option>
-                                    <option value="Cargo/Parcel">Cargo/Parcel</option>
-                                    <option value="Raid">Raid</option>
-                                    <option value="Search Warrant">Search Warrant</option>
-                                    <option value="Intel-led Ops">Intel-led Ops</option>
-                                    <option value="Transferred Case">Transferred Case</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- CASE ENTRY TYPE CUSTOM DROPDOWN -->
-                        <div class="relative z-30">
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Suspect Docket Mode <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <button type="button" id="caseEntryTypeDropdownTrigger" onclick="toggleCaseEntryTypeDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-slate-300 outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
-                                <span id="selectedCaseTypeLabel" class="font-extrabold text-slate-900 text-xs">Single Person Case</span>
-                                <input type="hidden" id="caseEntryTypeSelect" value="SINGLE">
-                                <svg id="caseTypeChevron" class="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                            </button>
-
-                            <div id="caseEntryTypeDropdownMenu" class="hidden absolute left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 min-w-[280px]">
-                                <button type="button" onclick="selectCaseEntryType('SINGLE', 'Single Person Case', event)" class="w-full text-left p-3 text-xs font-bold text-slate-800 hover:bg-emerald-50/80 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
-                                    <div>
-                                        <div class="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors">Single Person Case</div>
-                                        <div class="text-[10px] text-slate-500 font-normal mt-0.5">Standard docket entry for one primary suspect</div>
-                                    </div>
-                                    <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase">1 Suspect</span>
-                                </button>
-
-                                <button type="button" onclick="selectCaseEntryType('MULTIPLE', 'Multiple People Case (Joint Suspects)', event)" class="w-full text-left p-3 text-xs font-bold text-slate-800 hover:bg-amber-50/80 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
-                                    <div>
-                                        <div class="font-extrabold text-slate-900 group-hover:text-amber-800 transition-colors">Multiple People Case (Joint Suspects)</div>
-                                        <div class="text-[10px] text-slate-500 font-normal mt-0.5">Syndicate Arrested - enables multi-row suspect &amp; mugshot additions</div>
-                                    </div>
-                                    <span class="px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-mono-code font-bold rounded-lg border border-amber-200/80 uppercase">Multi-Row</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SECTION 2: MUGSHOT PHOTO UPLOAD -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5">
-                    <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <!-- CASE NAME INPUT -->
                             <div>
-                                <h3 class="font-extrabold text-slate-900 text-base">Section 2: Mugshot (Multi-Angle Photo Capture)</h3>
-                                <p class="text-xs text-slate-500">Mandatory suspect facial photo uploads for 3 required angles (Excluding back angle per protocol)</p>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                    Case Name / Legal Title <span class="text-red-600 font-bold">*</span>
+                                </label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                                    </span>
+                                    <input 
+                                        type="text" 
+                                        id="caseTitleInput" 
+                                        placeholder="e.g. Republic Vs Atto &amp; Ors" 
+                                        required 
+                                        class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal"
+                                    >
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <button type="button" id="addMugshotRowBtn" onclick="addMugshotRow()" class="hidden px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                                <span>Add Mugshot Row</span>
-                            </button>
-                            <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-[10px] font-mono-code font-bold rounded-lg border-none uppercase tracking-wider">
-                                3 Angles Required
-                            </span>
-                        </div>
-                    </div>
 
-                    <!-- MUGSHOT ROWS CONTAINER -->
-                    <div id="mugshotsContainer" class="space-y-6">
-                        <div id="mugshotCard-1" class="space-y-3">
-                            <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #1 Mugshot Photos</div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                <!-- ANGLE 1: FRONTAL VIEW -->
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
-                                    <div class="flex items-center justify-between">
-                                        <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-600 text-white uppercase">Angle 1</span>
-                                        <span class="text-[10px] font-bold text-slate-500 font-mono-code">Front View (0&deg;)</span>
-                                    </div>
-                                    <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front')">
-                                        <img id="preview-front" class="hidden w-full h-full object-contain object-center" alt="Front Mugshot">
-                                        <div id="placeholder-front" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                            <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                            <span class="text-[10px] font-bold">Upload Front Photo</span>
-                                            <span class="text-[9px] text-slate-400">Full Face Direct</span>
-                                        </div>
-                                    </div>
-                                    <input type="file" id="file-front" accept="image/*" class="hidden" onchange="previewMugshot(event, 'front')">
-                                    <button type="button" onclick="triggerMugshotUpload('front')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                                        Choose Front Photo
-                                    </button>
+                            <!-- OPERATION TYPE (SELECT2 DROPDOWN) -->
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                    <span>Operation Type</span>
+                                    <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Optional</span>
+                                </label>
+                                <div class="relative w-full">
+                                    <select 
+                                        id="operationTypeSelect" 
+                                        name="operation_type"
+                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
+                                    >
+                                        <option value="">Select Operation Type...</option>
+                                        <option value="Cargo/Parcel">Cargo/Parcel</option>
+                                        <option value="Raid">Raid</option>
+                                        <option value="Search Warrant">Search Warrant</option>
+                                        <option value="Intel-led Ops">Intel-led Ops</option>
+                                        <option value="Transferred Case">Transferred Case</option>
+                                    </select>
                                 </div>
+                            </div>
 
-                                <!-- ANGLE 2: LEFT PROFILE -->
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
-                                    <div class="flex items-center justify-between">
-                                        <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 2</span>
-                                        <span class="text-[10px] font-bold text-slate-500 font-mono-code">Left Profile (90&deg;)</span>
-                                    </div>
-                                    <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile')">
-                                        <img id="preview-left-profile" class="hidden w-full h-full object-contain object-center" alt="Left Profile Mugshot">
-                                        <div id="placeholder-left-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                            <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                                            <span class="text-[10px] font-bold">Upload Left Profile</span>
-                                            <span class="text-[9px] text-slate-400">90&deg; Full Left Side</span>
+                            <!-- CASE ENTRY TYPE CUSTOM DROPDOWN -->
+                            <div class="relative z-30">
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                    Suspect Docket Mode <span class="text-red-600 font-bold">*</span>
+                                </label>
+                                <button type="button" id="caseEntryTypeDropdownTrigger" onclick="toggleCaseEntryTypeDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-slate-300 outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                    <span id="selectedCaseTypeLabel" class="font-extrabold text-slate-500 text-xs">Select Suspect Docket Mode</span>
+                                    <input type="hidden" id="caseEntryTypeSelect" value="">
+                                    <svg id="caseTypeChevron" class="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+
+                                <div id="caseEntryTypeDropdownMenu" class="hidden absolute left-0 right-0 mt-1.5 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 min-w-[280px]">
+                                    <button type="button" onclick="selectCaseEntryType('', 'Select Suspect Docket Mode', event)" class="w-full text-left p-2.5 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-all group cursor-pointer border-b border-slate-100 mb-1">
+                                        <div>
+                                            <div class="font-bold text-slate-500 group-hover:text-slate-800 transition-colors">Select Suspect Docket Mode</div>
+                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Clear docket mode selection</div>
                                         </div>
-                                    </div>
-                                    <input type="file" id="file-left-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'left-profile')">
-                                    <button type="button" onclick="triggerMugshotUpload('left-profile')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                                        Choose Left Profile
                                     </button>
-                                </div>
 
-                                <!-- ANGLE 3: RIGHT PROFILE -->
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
-                                    <div class="flex items-center justify-between">
-                                        <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 3</span>
-                                        <span class="text-[10px] font-bold text-slate-500 font-mono-code">Right Profile (90&deg;)</span>
-                                    </div>
-                                    <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile')">
-                                        <img id="preview-right-profile" class="hidden w-full h-full object-contain object-center" alt="Right Profile Mugshot">
-                                        <div id="placeholder-right-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-                                            <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                                            <span class="text-[10px] font-bold">Upload Right Profile</span>
-                                            <span class="text-[9px] text-slate-400">90&deg; Full Right Side</span>
+                                    <button type="button" onclick="selectCaseEntryType('SINGLE', 'Single Person Case', event)" class="w-full text-left p-3 text-xs font-bold text-slate-800 hover:bg-emerald-50/80 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors">Single Person Case</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">Standard docket entry for one primary suspect</div>
                                         </div>
-                                    </div>
-                                    <input type="file" id="file-right-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'right-profile')">
-                                    <button type="button" onclick="triggerMugshotUpload('right-profile')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
-                                        Choose Right Profile
+                                        <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase">1 Suspect</span>
+                                    </button>
+
+                                    <button type="button" onclick="selectCaseEntryType('MULTIPLE', 'Multiple People Case (Joint Suspects)', event)" class="w-full text-left p-3 text-xs font-bold text-slate-800 hover:bg-amber-50/80 rounded-xl flex items-center justify-between transition-all group cursor-pointer">
+                                        <div>
+                                            <div class="font-extrabold text-slate-900 group-hover:text-amber-800 transition-colors">Multiple People Case (Joint Suspects)</div>
+                                            <div class="text-[10px] text-slate-500 font-normal mt-0.5">Syndicate Arrested - enables multi-row suspect &amp; mugshot additions</div>
+                                        </div>
+                                        <span class="px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-mono-code font-bold rounded-lg border border-amber-200/80 uppercase">Multi-Row</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+
+                    <!-- SECTION 2: MUGSHOT PHOTO UPLOAD -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-40">
+                        <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Section 2: Mugshot (Multi-Angle Photo Capture)</h3>
+                                    <p class="text-xs text-slate-500">Mandatory suspect facial photo uploads for 3 required angles (Excluding back angle per protocol)</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <button type="button" id="addMugshotRowBtn" onclick="addMugshotRow()" class="hidden px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    <span>Add Mugshot Row</span>
+                                </button>
+                                <span class="px-2.5 py-1 bg-slate-100 text-slate-700 text-[10px] font-mono-code font-bold rounded-lg border-none uppercase tracking-wider">
+                                    3 Angles Required
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- MUGSHOT ROWS CONTAINER -->
+                        <div id="mugshotsContainer" class="space-y-6">
+                            <div id="mugshotCard-1" class="space-y-3">
+                                <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #1 Mugshot Photos</div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <!-- ANGLE 1: FRONTAL VIEW -->
+                                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                        <div class="flex items-center justify-between">
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-emerald-600 text-white uppercase">Angle 1</span>
+                                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Front View (0&deg;)</span>
+                                        </div>
+                                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('front')">
+                                            <img id="preview-front" class="hidden w-full h-full object-contain object-center" alt="Front Mugshot">
+                                            <div id="placeholder-front" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
+                                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                <span class="text-[10px] font-bold">Upload Front Photo</span>
+                                                <span class="text-[9px] text-slate-400">Full Face Direct</span>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="file-front" accept="image/*" class="hidden" onchange="previewMugshot(event, 'front')">
+                                        <button type="button" onclick="triggerMugshotUpload('front')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
+                                            Choose Front Photo
+                                        </button>
+                                    </div>
+
+                                    <!-- ANGLE 2: LEFT PROFILE -->
+                                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                        <div class="flex items-center justify-between">
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 2</span>
+                                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Left Profile (90&deg;)</span>
+                                        </div>
+                                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('left-profile')">
+                                            <img id="preview-left-profile" class="hidden w-full h-full object-contain object-center" alt="Left Profile Mugshot">
+                                            <div id="placeholder-left-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
+                                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                                                <span class="text-[10px] font-bold">Upload Left Profile</span>
+                                                <span class="text-[9px] text-slate-400">90&deg; Full Left Side</span>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="file-left-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'left-profile')">
+                                        <button type="button" onclick="triggerMugshotUpload('left-profile')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
+                                            Choose Left Profile
+                                        </button>
+                                    </div>
+
+                                    <!-- ANGLE 3: RIGHT PROFILE -->
+                                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-3 flex flex-col justify-between hover:border-blue-400 transition-colors">
+                                        <div class="flex items-center justify-between">
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-bold font-mono-code bg-slate-800 text-white uppercase">Angle 3</span>
+                                            <span class="text-[10px] font-bold text-slate-500 font-mono-code">Right Profile (90&deg;)</span>
+                                        </div>
+                                        <div class="relative w-full h-36 bg-white rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden group cursor-pointer" onclick="triggerMugshotUpload('right-profile')">
+                                            <img id="preview-right-profile" class="hidden w-full h-full object-contain object-center" alt="Right Profile Mugshot">
+                                            <div id="placeholder-right-profile" class="flex flex-col items-center justify-center p-2 text-slate-400 group-hover:text-blue-600 transition-colors">
+                                                <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                                <span class="text-[10px] font-bold">Upload Right Profile</span>
+                                                <span class="text-[9px] text-slate-400">90&deg; Full Right Side</span>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="file-right-profile" accept="image/*" class="hidden" onchange="previewMugshot(event, 'right-profile')">
+                                        <button type="button" onclick="triggerMugshotUpload('right-profile')" class="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 text-[11px] font-bold rounded-xl shadow-2xs transition-colors">
+                                            Choose Right Profile
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- DRAFT AUTO-SAVE RESTORED NOTICE BANNER -->
                     <div id="docketDraftNotice" class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-2xs">
@@ -410,7 +418,7 @@
                     </div>
 
                     <!-- SECTION 3: SUSPECT PERSONAL DETAILS & BOOKING DOCKET -->
-                    <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-30">
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div class="flex items-center space-x-3">
                                 <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
@@ -435,7 +443,7 @@
                             <div id="suspectCard-1" class="space-y-6">
 
                         <!-- SUB-HEADER 3A: LEGAL IDENTITY -->
-                        <div class="space-y-4">
+                        <div class="space-y-4 relative z-30">
                             <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
                                 <span>3A. Legal Identity</span>
@@ -486,7 +494,7 @@
                             </div>
 
                             <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
                                 
                                 <!-- GHANA CARD # -->
                                 <div>
@@ -508,14 +516,18 @@
                                     </label>
                                     <button type="button" id="genderDropdownTrigger" onclick="toggleGenderDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
                                         <div class="flex items-center space-x-2">
-                                            <span id="selectedGenderIcon" class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
-                                            <span id="selectedGenderLabel" class="font-bold text-slate-900 text-xs">Male</span>
+                                            <span id="selectedGenderIcon" class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                            <span id="selectedGenderLabel" class="font-bold text-slate-500 text-xs">Select Gender</span>
                                         </div>
-                                        <input type="hidden" id="newArrestedGender" value="Male">
+                                        <input type="hidden" id="newArrestedGender" value="">
                                         <svg id="genderChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </button>
 
                                     <div id="genderDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                        <button type="button" onclick="selectGender('', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1">
+                                            <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                            <span>Select Gender</span>
+                                        </button>
                                         <button type="button" onclick="selectGender('Male', '♂', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
                                             <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
                                             <span>Male</span>
@@ -562,7 +574,7 @@
                             </div>
 
                             <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                                 
                                 <!-- HEIGHT -->
                                 <div>
@@ -590,218 +602,124 @@
                                     </div>
                                 </div>
                                 
-                                <!-- NATIONALITY (SELECT2 DROPDOWN WITH TAGGING / CUSTOM ENTRY SUPPORT) -->
-                                <div>
+                                <!-- CUSTOM NATIONALITY DROPDOWN (MATCHING GENDER DROPDOWN DESIGN) -->
+                                <div class="relative z-30">
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                         <span>Nationality <span class="text-red-600 font-bold">*</span></span>
-                                        <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Search / Type Custom</span>
+                                        <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Search / Custom</span>
                                     </label>
-                                    <div class="relative w-full">
-                                        <input type="hidden" id="newArrestedNationality" name="newArrestedNationality" value="Ghanaian">
-                                        <select 
-                                            id="nationalitySelect" 
-                                            name="nationality"
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
-                                        >
-                                            <option value="Ghanaian" selected>Ghanaian (GH)</option>
-                                            <option value="Nigerian">Nigerian (NG)</option>
-                                            <option value="Togolese">Togolese (TG)</option>
-                                            <option value="Ivorian (Ivory Coast)">Ivorian (Ivory Coast) (CI)</option>
-                                            <option value="Burkinabe (Burkina Faso)">Burkinabe (Burkina Faso) (BF)</option>
-                                            <option value="Malian">Malian (ML)</option>
-                                            <option value="Liberian">Liberian (LR)</option>
-                                            <option value="Sierra Leonean">Sierra Leonean (SL)</option>
-                                            <option value="Beninese">Beninese (BJ)</option>
-                                            <option value="Nigerien (Niger)">Nigerien (Niger) (NE)</option>
-                                            <option value="Senegalese">Senegalese (SN)</option>
-                                            <option value="Guinean">Guinean (GN)</option>
-                                            <option value="Gambian">Gambian (GM)</option>
-                                            <option value="Cameroonian">Cameroonian (CM)</option>
-                                            <option value="British (United Kingdom)">British (United Kingdom) (GB)</option>
-                                            <option value="American (USA)">American (USA) (US)</option>
-                                            <option value="Canadian">Canadian (CA)</option>
-                                            <option value="Chinese">Chinese (CN)</option>
-                                            <option value="Indian">Indian (IN)</option>
-                                            <option value="South African">South African (ZA)</option>
-                                            <option value="German">German (DE)</option>
-                                            <option value="French">French (FR)</option>
-                                            <option value="Lebanese">Lebanese (LB)</option>
-                                            <option value="Afghan">Afghan (AF)</option>
-                                            <option value="Albanian">Albanian (AL)</option>
-                                            <option value="Algerian">Algerian (DZ)</option>
-                                            <option value="Andorran">Andorran (AD)</option>
-                                            <option value="Angolan">Angolan (AO)</option>
-                                            <option value="Antiguan / Barbudan">Antiguan / Barbudan (AG)</option>
-                                            <option value="Argentine">Argentine (AR)</option>
-                                            <option value="Armenian">Armenian (AM)</option>
-                                            <option value="Australian">Australian (AU)</option>
-                                            <option value="Austrian">Austrian (AT)</option>
-                                            <option value="Azerbaijani">Azerbaijani (AZ)</option>
-                                            <option value="Bahamian">Bahamian (BS)</option>
-                                            <option value="Bahraini">Bahraini (BH)</option>
-                                            <option value="Bangladeshi">Bangladeshi (BD)</option>
-                                            <option value="Barbadian">Barbadian (BB)</option>
-                                            <option value="Belarusian">Belarusian (BY)</option>
-                                            <option value="Belgian">Belgian (BE)</option>
-                                            <option value="Belizean">Belizean (BZ)</option>
-                                            <option value="Bhutanese">Bhutanese (BT)</option>
-                                            <option value="Bolivian">Bolivian (BO)</option>
-                                            <option value="Bosnian / Herzegovinian">Bosnian / Herzegovinian (BA)</option>
-                                            <option value="Motswana / Batswana (Botswana)">Motswana / Batswana (Botswana) (BW)</option>
-                                            <option value="Brazilian">Brazilian (BR)</option>
-                                            <option value="Bruneian">Bruneian (BN)</option>
-                                            <option value="Bulgarian">Bulgarian (BG)</option>
-                                            <option value="Burmese / Myanmar">Burmese / Myanmar (MM)</option>
-                                            <option value="Burundian">Burundian (BI)</option>
-                                            <option value="Cabo Verdean">Cabo Verdean (CV)</option>
-                                            <option value="Cambodian">Cambodian (KH)</option>
-                                            <option value="Central African">Central African (CF)</option>
-                                            <option value="Chadian">Chadian (TD)</option>
-                                            <option value="Chilean">Chilean (CL)</option>
-                                            <option value="Colombian">Colombian (CO)</option>
-                                            <option value="Comorian">Comorian (KM)</option>
-                                            <option value="Congolese (Congo-Brazzaville)">Congolese (Congo-Brazzaville) (CG)</option>
-                                            <option value="Congolese (DRC)">Congolese (DRC) (CD)</option>
-                                            <option value="Costa Rican">Costa Rican (CR)</option>
-                                            <option value="Croatian">Croatian (HR)</option>
-                                            <option value="Cuban">Cuban (CU)</option>
-                                            <option value="Cypriot">Cypriot (CY)</option>
-                                            <option value="Czech">Czech (CZ)</option>
-                                            <option value="Danish">Danish (DK)</option>
-                                            <option value="Djiboutian">Djiboutian (DJ)</option>
-                                            <option value="Dominican (Dominica)">Dominican (Dominica) (DM)</option>
-                                            <option value="Dominican (Dominican Rep.)">Dominican (Dominican Rep.) (DO)</option>
-                                            <option value="Dutch (Netherlands)">Dutch (Netherlands) (NL)</option>
-                                            <option value="East Timorese">East Timorese (TL)</option>
-                                            <option value="Ecuadorian">Ecuadorian (EC)</option>
-                                            <option value="Egyptian">Egyptian (EG)</option>
-                                            <option value="Salvadoran">Salvadoran (SV)</option>
-                                            <option value="Equatorial Guinean">Equatorial Guinean (GQ)</option>
-                                            <option value="Eritrean">Eritrean (ER)</option>
-                                            <option value="Estonian">Estonian (EE)</option>
-                                            <option value="Eswatini / Swazi">Eswatini / Swazi (SZ)</option>
-                                            <option value="Ethiopian">Ethiopian (ET)</option>
-                                            <option value="Fijian">Fijian (FJ)</option>
-                                            <option value="Finnish">Finnish (FI)</option>
-                                            <option value="Gabonese">Gabonese (GA)</option>
-                                            <option value="Georgian">Georgian (GE)</option>
-                                            <option value="Greek">Greek (GR)</option>
-                                            <option value="Grenadian">Grenadian (GD)</option>
-                                            <option value="Guatemalan">Guatemalan (GT)</option>
-                                            <option value="Bissau-Guinean">Bissau-Guinean (GW)</option>
-                                            <option value="Guyanese">Guyanese (GY)</option>
-                                            <option value="Haitian">Haitian (HT)</option>
-                                            <option value="Honduran">Honduran (HN)</option>
-                                            <option value="Hungarian">Hungarian (HU)</option>
-                                            <option value="Icelandic">Icelandic (IS)</option>
-                                            <option value="Indonesian">Indonesian (ID)</option>
-                                            <option value="Iranian">Iranian (IR)</option>
-                                            <option value="Iraqi">Iraqi (IQ)</option>
-                                            <option value="Irish">Irish (IE)</option>
-                                            <option value="Israeli">Israeli (IL)</option>
-                                            <option value="Italian">Italian (IT)</option>
-                                            <option value="Jamaican">Jamaican (JM)</option>
-                                            <option value="Japanese">Japanese (JP)</option>
-                                            <option value="Jordanian">Jordanian (JO)</option>
-                                            <option value="Kazakh">Kazakh (KZ)</option>
-                                            <option value="Kenyan">Kenyan (KE)</option>
-                                            <option value="I-Kiribati">I-Kiribati (KI)</option>
-                                            <option value="North Korean">North Korean (KP)</option>
-                                            <option value="South Korean">South Korean (KR)</option>
-                                            <option value="Kuwaiti">Kuwaiti (KW)</option>
-                                            <option value="Kyrgyz">Kyrgyz (KG)</option>
-                                            <option value="Lao">Lao (LA)</option>
-                                            <option value="Latvian">Latvian (LV)</option>
-                                            <option value="Basotho (Lesotho)">Basotho (Lesotho) (LS)</option>
-                                            <option value="Libyan">Libyan (LY)</option>
-                                            <option value="Liechtenstein">Liechtenstein (LI)</option>
-                                            <option value="Lithuanian">Lithuanian (LT)</option>
-                                            <option value="Luxembourgish">Luxembourgish (LU)</option>
-                                            <option value="Malagasy (Madagascar)">Malagasy (Madagascar) (MG)</option>
-                                            <option value="Malawian">Malawian (MW)</option>
-                                            <option value="Malaysian">Malaysian (MY)</option>
-                                            <option value="Maldivian">Maldivian (MV)</option>
-                                            <option value="Maltese">Maltese (MT)</option>
-                                            <option value="Marshallese">Marshallese (MH)</option>
-                                            <option value="Mauritanian">Mauritanian (MR)</option>
-                                            <option value="Mauritian">Mauritian (MU)</option>
-                                            <option value="Mexican">Mexican (MX)</option>
-                                            <option value="Micronesian">Micronesian (FM)</option>
-                                            <option value="Moldovan">Moldovan (MD)</option>
-                                            <option value="Monacan">Monacan (MC)</option>
-                                            <option value="Mongolian">Mongolian (MN)</option>
-                                            <option value="Montenegrin">Montenegrin (ME)</option>
-                                            <option value="Moroccan">Moroccan (MA)</option>
-                                            <option value="Mozambican">Mozambican (MZ)</option>
-                                            <option value="Namibian">Namibian (NA)</option>
-                                            <option value="Nauruan">Nauruan (NR)</option>
-                                            <option value="Nepali">Nepali (NP)</option>
-                                            <option value="New Zealander">New Zealander (NZ)</option>
-                                            <option value="Nicaraguan">Nicaraguan (NI)</option>
-                                            <option value="North Macedonian">North Macedonian (MK)</option>
-                                            <option value="Norwegian">Norwegian (NO)</option>
-                                            <option value="Omani">Omani (OM)</option>
-                                            <option value="Pakistani">Pakistani (PK)</option>
-                                            <option value="Palauan">Palauan (PW)</option>
-                                            <option value="Palestinian">Palestinian (PS)</option>
-                                            <option value="Panamanian">Panamanian (PA)</option>
-                                            <option value="Papua New Guinean">Papua New Guinean (PG)</option>
-                                            <option value="Paraguayan">Paraguayan (PY)</option>
-                                            <option value="Peruvian">Peruvian (PE)</option>
-                                            <option value="Philippine / Filipino">Philippine / Filipino (PH)</option>
-                                            <option value="Polish">Polish (PL)</option>
-                                            <option value="Portuguese">Portuguese (PT)</option>
-                                            <option value="Qatari">Qatari (QA)</option>
-                                            <option value="Romanian">Romanian (RO)</option>
-                                            <option value="Russian">Russian (RU)</option>
-                                            <option value="Rwandan">Rwandan (RW)</option>
-                                            <option value="Kittitian / Nevisian">Kittitian / Nevisian (KN)</option>
-                                            <option value="Saint Lucian">Saint Lucian (LC)</option>
-                                            <option value="Vincentian">Vincentian (VC)</option>
-                                            <option value="Samoan">Samoan (WS)</option>
-                                            <option value="Sammarinese">Sammarinese (SM)</option>
-                                            <option value="Sao Tomean">Sao Tomean (ST)</option>
-                                            <option value="Saudi (Saudi Arabia)">Saudi (Saudi Arabia) (SA)</option>
-                                            <option value="Serbian">Serbian (RS)</option>
-                                            <option value="Seychellois">Seychellois (SC)</option>
-                                            <option value="Singaporean">Singaporean (SG)</option>
-                                            <option value="Slovak">Slovak (SK)</option>
-                                            <option value="Slovenian">Slovenian (SI)</option>
-                                            <option value="Solomon Islander">Solomon Islander (SB)</option>
-                                            <option value="Somali">Somali (SO)</option>
-                                            <option value="South Sudanese">South Sudanese (SS)</option>
-                                            <option value="Spanish">Spanish (ES)</option>
-                                            <option value="Sri Lankan">Sri Lankan (LK)</option>
-                                            <option value="Sudanese">Sudanese (SD)</option>
-                                            <option value="Surinamese">Surinamese (SR)</option>
-                                            <option value="Swedish">Swedish (SE)</option>
-                                            <option value="Swiss">Swiss (CH)</option>
-                                            <option value="Syrian">Syrian (SY)</option>
-                                            <option value="Taiwanese">Taiwanese (TW)</option>
-                                            <option value="Tajik">Tajik (TJ)</option>
-                                            <option value="Tanzanian">Tanzanian (TZ)</option>
-                                            <option value="Thai">Thai (TH)</option>
-                                            <option value="Tongan">Tongan (TO)</option>
-                                            <option value="Trinidadian / Tobagonian">Trinidadian / Tobagonian (TT)</option>
-                                            <option value="Tunisian">Tunisian (TN)</option>
-                                            <option value="Turkish">Turkish (TR)</option>
-                                            <option value="Turkmen">Turkmen (TM)</option>
-                                            <option value="Tuvaluan">Tuvaluan (TV)</option>
-                                            <option value="Ugandan">Ugandan (UG)</option>
-                                            <option value="Ukrainian">Ukrainian (UA)</option>
-                                            <option value="Emirati (UAE)">Emirati (UAE) (AE)</option>
-                                            <option value="Uruguayan">Uruguayan (UY)</option>
-                                            <option value="Uzbek">Uzbek (UZ)</option>
-                                            <option value="Ni-Vanuatu (Vanuatu)">Ni-Vanuatu (Vanuatu) (VU)</option>
-                                            <option value="Vatican / Holy See">Vatican / Holy See (VA)</option>
-                                            <option value="Venezuelan">Venezuelan (VE)</option>
-                                            <option value="Vietnamese">Vietnamese (VN)</option>
-                                            <option value="Yemeni">Yemeni (YE)</option>
-                                            <option value="Zambian">Zambian (ZM)</option>
-                                            <option value="Zimbabwean">Zimbabwean (ZW)</option>
-                                            <option value="Other / Dual Nationality">Other / Dual Nationality (INT)</option>
-                                        </select>
-                                        <input type="hidden" id="newArrestedNationality" value="Ghanaian">
+                                    <button type="button" id="nationalityDropdownTrigger" onclick="toggleNationalityDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                        <div class="flex items-center space-x-2">
+                                            <span id="selectedNationalityIcon" class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">NAT</span>
+                                            <span id="selectedNationalityLabel" class="font-bold text-slate-500 text-xs">Select Nationality</span>
+                                        </div>
+                                        <input type="hidden" id="newArrestedNationality" name="newArrestedNationality" value="">
+                                        <svg id="nationalityChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+
+                                    <div id="nationalityDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                        <div class="p-1 pb-2 sticky top-0 bg-white z-10 border-b border-slate-100">
+                                            <input type="text" id="nationalitySearchInput" onkeyup="filterNationalities()" onkeydown="handleNatSearchKeydown(event, false)" placeholder="Search nationality..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:border-emerald-600 outline-none placeholder:text-slate-400">
+                                        </div>
+                                        <button type="button" onclick="selectNationality('', 'NAT', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1 nat-option">
+                                            <span>Select Nationality</span>
+                                        </button>
+                                            @php
+                                                $allNationalitiesList = [
+                                                    ['name' => 'Ghanaian', 'code' => 'GH'],
+                                                    ['name' => 'Nigerian', 'code' => 'NG'],
+                                                    ['name' => 'Togolese', 'code' => 'TG'],
+                                                    ['name' => 'Ivorian (Ivory Coast)', 'code' => 'CI'],
+                                                    ['name' => 'Burkinabe (Burkina Faso)', 'code' => 'BF'],
+                                                    ['name' => 'Malian', 'code' => 'ML'],
+                                                    ['name' => 'Liberian', 'code' => 'LR'],
+                                                    ['name' => 'Sierra Leonean', 'code' => 'SL'],
+                                                    ['name' => 'Beninese', 'code' => 'BJ'],
+                                                    ['name' => 'Guinean', 'code' => 'GN'],
+                                                    ['name' => 'Senegalese', 'code' => 'SN'],
+                                                    ['name' => 'Gambian', 'code' => 'GM'],
+                                                    ['name' => 'Nigerien (Niger)', 'code' => 'NE'],
+                                                    ['name' => 'Chadian', 'code' => 'TD'],
+                                                    ['name' => 'Cameroonian', 'code' => 'CM'],
+                                                    ['name' => 'Gabonese', 'code' => 'GA'],
+                                                    ['name' => 'Congolese (DRC / Republic)', 'code' => 'CG'],
+                                                    ['name' => 'Angolan', 'code' => 'AO'],
+                                                    ['name' => 'South African', 'code' => 'ZA'],
+                                                    ['name' => 'Kenyan', 'code' => 'KE'],
+                                                    ['name' => 'Ethiopian', 'code' => 'ET'],
+                                                    ['name' => 'Ugandan', 'code' => 'UG'],
+                                                    ['name' => 'Tanzanian', 'code' => 'TZ'],
+                                                    ['name' => 'Rwandan', 'code' => 'RW'],
+                                                    ['name' => 'Zimbabwean', 'code' => 'ZW'],
+                                                    ['name' => 'Sudanese', 'code' => 'SD'],
+                                                    ['name' => 'Egyptian', 'code' => 'EG'],
+                                                    ['name' => 'Moroccan', 'code' => 'MA'],
+                                                    ['name' => 'Algerian', 'code' => 'DZ'],
+                                                    ['name' => 'Tunisian', 'code' => 'TN'],
+                                                    ['name' => 'Libyan', 'code' => 'LY'],
+                                                    ['name' => 'Somali', 'code' => 'SO'],
+                                                    ['name' => 'Zambian', 'code' => 'ZM'],
+                                                    ['name' => 'Mozambican', 'code' => 'MZ'],
+                                                    ['name' => 'Malawian', 'code' => 'MW'],
+                                                    ['name' => 'British (United Kingdom)', 'code' => 'GB'],
+                                                    ['name' => 'American (USA)', 'code' => 'US'],
+                                                    ['name' => 'Canadian', 'code' => 'CA'],
+                                                    ['name' => 'German', 'code' => 'DE'],
+                                                    ['name' => 'French', 'code' => 'FR'],
+                                                    ['name' => 'Italian', 'code' => 'IT'],
+                                                    ['name' => 'Spanish', 'code' => 'ES'],
+                                                    ['name' => 'Dutch (Netherlands)', 'code' => 'NL'],
+                                                    ['name' => 'Swiss', 'code' => 'CH'],
+                                                    ['name' => 'Portuguese', 'code' => 'PT'],
+                                                    ['name' => 'Irish', 'code' => 'IE'],
+                                                    ['name' => 'Belgian', 'code' => 'BE'],
+                                                    ['name' => 'Swedish', 'code' => 'SE'],
+                                                    ['name' => 'Norwegian', 'code' => 'NO'],
+                                                    ['name' => 'Danish', 'code' => 'DK'],
+                                                    ['name' => 'Finnish', 'code' => 'FI'],
+                                                    ['name' => 'Polish', 'code' => 'PL'],
+                                                    ['name' => 'Ukrainian', 'code' => 'UA'],
+                                                    ['name' => 'Russian', 'code' => 'RU'],
+                                                    ['name' => 'Chinese', 'code' => 'CN'],
+                                                    ['name' => 'Indian', 'code' => 'IN'],
+                                                    ['name' => 'Pakistani', 'code' => 'PK'],
+                                                    ['name' => 'Bangladeshi', 'code' => 'BD'],
+                                                    ['name' => 'Japanese', 'code' => 'JP'],
+                                                    ['name' => 'South Korean', 'code' => 'KR'],
+                                                    ['name' => 'Vietnamese', 'code' => 'VN'],
+                                                    ['name' => 'Indonesian', 'code' => 'ID'],
+                                                    ['name' => 'Malaysian', 'code' => 'MY'],
+                                                    ['name' => 'Filipino', 'code' => 'PH'],
+                                                    ['name' => 'Thai', 'code' => 'TH'],
+                                                    ['name' => 'Singaporean', 'code' => 'SG'],
+                                                    ['name' => 'Australian', 'code' => 'AU'],
+                                                    ['name' => 'New Zealander', 'code' => 'NZ'],
+                                                    ['name' => 'Brazilian', 'code' => 'BR'],
+                                                    ['name' => 'Argentine', 'code' => 'AR'],
+                                                    ['name' => 'Colombian', 'code' => 'CO'],
+                                                    ['name' => 'Mexican', 'code' => 'MX'],
+                                                    ['name' => 'Jamaican', 'code' => 'JM'],
+                                                    ['name' => 'Lebanese', 'code' => 'LB'],
+                                                    ['name' => 'Syrian', 'code' => 'SY'],
+                                                    ['name' => 'Turkish', 'code' => 'TR'],
+                                                    ['name' => 'Iranian', 'code' => 'IR'],
+                                                    ['name' => 'Iraqi', 'code' => 'IQ'],
+                                                    ['name' => 'Israeli', 'code' => 'IL'],
+                                                    ['name' => 'Saudi Arabian', 'code' => 'SA'],
+                                                    ['name' => 'Emirati', 'code' => 'AE'],
+                                                    ['name' => 'Other / Dual Nationality', 'code' => 'INT'],
+                                                ];
+                                            @endphp
+                                            @foreach($allNationalitiesList as $nat)
+                                                <button type="button" onclick="selectNationality('{{ $nat['name'] }}', '{{ $nat['code'] }}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors nat-option">
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">{{ $nat['code'] }}</span>
+                                                        <span>{{ $nat['name'] }}</span>
+                                                    </div>
+                                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">{{ $nat['code'] }}</span>
+                                                </button>
+                                            @endforeach
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -852,14 +770,14 @@
                         </div>
 
                         <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
-                        <div class="space-y-4 pt-2">
+                        <div class="space-y-4 pt-2 relative z-20">
                             <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                                 <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents</span>
                             </div>
 
                             <!-- ROW 4: MARITAL STATUS & NUMBER OF CHILDREN -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-30">
                                 
                                 <!-- CUSTOM MARITAL STATUS DROPDOWN -->
                                 <div class="relative z-30">
@@ -867,12 +785,13 @@
                                         Marital / Relationship Status <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <button type="button" id="maritalDropdownTrigger" onclick="toggleMaritalDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
-                                        <span id="selectedMaritalLabel" class="font-bold text-slate-900 text-xs">Single</span>
-                                        <input type="hidden" id="newArrestedMarital" name="marital_status" value="Single">
+                                        <span id="selectedMaritalLabel" class="font-bold text-slate-500 text-xs">Select Marital / Relationship Status</span>
+                                        <input type="hidden" id="newArrestedMarital" name="marital_status" value="">
                                         <svg id="maritalChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </button>
 
                                     <div id="maritalDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                        <button type="button" onclick="selectMaritalStatus('', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl transition-colors border-b border-slate-100 mb-1">Select Marital / Relationship Status</button>
                                         <button type="button" onclick="selectMaritalStatus('Single', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Single</button>
                                         <button type="button" onclick="selectMaritalStatus('Married', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Married (Requires Spouse Info)</button>
                                         <button type="button" onclick="selectMaritalStatus('Dating / In Relationship', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Dating / In Relationship (Requires Partner Info)</button>
@@ -980,7 +899,7 @@
                         </div>
 
                         <!-- SUB-HEADER 3C: Offence CHARGES & CUSTODY ALLOCATION -->
-                        <div class="space-y-4 pt-2">
+                        <div class="space-y-4 pt-2 relative z-10">
                             <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m3 0h1m-4 0v-3m1-3h.01M10 9h.01M10 12h.01M14 9h.01M14 12h.01M14 15h.01M7 9h.01M7 12h.01M7 15h.01"/></svg>
                                 <span>3C. Offence Charges &amp; Custody Holding Facility</span>
@@ -1055,41 +974,40 @@
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                    
 
-            <!-- SECTION 4: SEIZURES (COMMODITIES) -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6">
-                    <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                            </div>
+                    <!-- SECTION 4: SEIZURES (COMMODITIES) -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
+                        <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                </div>
                             <div>
                                 <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures (Commodities)</h3>
                                 <p class="text-xs text-slate-500">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="px-2.5 py-1 bg-emerald-50 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase tracking-wider">
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase tracking-wider shadow-2xs">
                                 Contraband Inventory
                             </span>
                         </div>
                     </div>
 
-                            <!-- SEIZURE STATUS CHECKBOX CARD -->
-                            <div class="space-y-2.5">
-                                <label class="flex items-center space-x-3 p-3.5 bg-slate-50 border border-slate-300 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none">
-                                    <input type="checkbox" id="hasSeizuresCheckbox" onchange="toggleSeizuresContainer()" class="w-5 h-5 text-black rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600">
-                                    <div class="flex flex-col">
-                                        <span class="text-xs font-extrabold text-slate-900">Seized Contraband / Illicit Commodities Recorded During Arrested</span>
-                                        <span class="text-[11px] text-slate-500 font-medium">Check this box if any narcotics, weapons, cash, or contraband commodities were confiscated from this suspect</span>
-                                    </div>
-                                </label>
+                    <!-- SEIZURE STATUS CHECKBOX CARD -->
+                    <div class="space-y-2.5">
+                        <label class="relative flex items-center space-x-3.5 p-4 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-300/80 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none overflow-hidden">
+                            <input type="checkbox" id="hasSeizuresCheckbox" onchange="toggleSeizuresContainer()" class="w-5 h-5 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600 shrink-0">
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <span class="text-xs font-extrabold text-slate-900">Seized Contraband / Illicit Commodities Recorded During Arrest</span>
+                                <span class="text-[11px] text-slate-500 font-medium">Check this box if any narcotics, weapons, cash, or contraband commodities were confiscated from this suspect</span>
                             </div>
+                        </label>
+                    </div>
 
-                            <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
-                            <div id="seizuresDetailsContainer" class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-slate-300/90 space-y-5">
+                    <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
+                    <div id="seizuresDetailsContainer" class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
                                 
                                 <div class="flex items-center justify-between border-b border-slate-300/60 pb-3">
                                     <div class="flex items-center space-x-2.5">
@@ -1924,20 +1842,32 @@
                                                             <input type="text" id="pkgSearchInner" placeholder="Type to filter packaging..." oninput="filterPackagingListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
                                                         </div>
                                                         <ul id="pkgList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <li class="pkg-item" onclick="selectPackagingType('Slabs / Blocks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs / Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Bundles / Sacks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles / Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Cartons / Boxes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons / Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Pieces / Units', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces / Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Wraps / Rolls', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps / Rolls</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Capsules / Tablets', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules / Tablets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Bags / Pouches', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bags / Pouches</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BAG</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Drums / Barrels', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drums / Barrels</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">DRM</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Vials / Ampoules', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Vials / Ampoules</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">VIL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Slabs', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Blocks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLK</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Bundles', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Sacks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SCK</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Cartons', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Boxes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BOX</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Pieces', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Units', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">UNT</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Wraps', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Rolls', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rolls</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RLL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Capsules', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Tablets', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">TAB</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Bags', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bags</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BAG</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Pouches', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pouches</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCH</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Drums', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drums</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">DRM</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Barrels', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrels</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BRL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Vials', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Vials</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">VIL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Ampoules', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ampoules</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">AMP</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Bottles', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bottles</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BTL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Packets / Envelopes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packets / Envelopes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKT</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Parcels / Packages', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Parcels / Packages</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Packets', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKT</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Envelopes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Envelopes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">ENV</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Parcels', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Parcels</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCL</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Packages', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packages</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKG</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Bales', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bales</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLE</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Jars / Containers', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Jars / Containers</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">JAR</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Jars', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Jars</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">JAR</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Containers', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Containers</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTR</span></button></li>
                                                         </ul>
                                                     </div>
                                                 </div>
@@ -2417,39 +2347,47 @@
                             </div>
                         </div>
 
-                        <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5 & SECTION 6 -->
-                        <div id="labAnalysisExclusiveSections" class="{{ $isLabAnalysis ? '' : 'hidden' }} space-y-6">
+                        <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5: FORENSIC EXAMINATION & LABORATORY ANALYSIS -->
+                        <div id="labAnalysisExclusiveSections" class="{{ $isLabAnalysis ? '' : 'hidden' }} bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
 
-                            <!-- SECTION 5: EXAMINATION INFORMATION -->
-                            <div class="bg-white p-6 rounded-2xl border border-purple-200 shadow-sm space-y-5">
-                                <div class="pb-3 border-b border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-md shadow-purple-600/30">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="font-extrabold text-slate-900 text-base">Section 5: Examination Information</h3>
-                                            <p class="text-xs text-purple-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination &amp; Testing Log</p>
-                                        </div>
+                            <!-- SECTION 5 MAIN CONTAINER HEADER -->
+                            <div class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                                        </svg>
                                     </div>
-                                <div class="flex items-center space-x-2">
-                                        <span class="px-2.5 py-1 bg-purple-100 text-purple-800 text-[10px] font-mono-code font-bold rounded-lg border border-purple-200 uppercase tracking-wider">
-                                            LAB ANALYSIS EXCLUSIVE
-                                        </span>
+                                    <div>
+                                        <h3 class="font-extrabold text-slate-900 text-base">Section 5: Forensic Examination &amp; Laboratory Analysis</h3>
+                                        <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination, Screening &amp; Confirmatory Testing Log</p>
                                     </div>
+                                </div>
+                                <div class="flex items-center space-x-2 shrink-0">
+                                    <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                        LAB ANALYSIS EXCLUSIVE
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- SUB-SECTION 5A: EXAMINATION INFORMATION -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5A</span>
+                                        <span>Examination Information</span>
+                                    </h4>
                                 </div>
 
                                 <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 4 SEIZED COMMODITIES MANIFEST -->
-                                <div class="p-4 bg-purple-50/70 rounded-xl border border-purple-200/90 space-y-2.5 shadow-2xs">
+                                <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-2.5 shadow-2xs">
                                     <div class="flex items-center justify-between">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-2">
-                                            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                             <span>Select Seized Exhibit to Examine (Manifest Sync)</span>
                                             <span class="text-red-600 font-bold">*</span>
                                         </label>
-                                        <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200">
+                                        <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
                                             No exhibit saved yet
                                         </span>
                                     </div>
@@ -2458,13 +2396,13 @@
                                             id="labExhibitSelect" 
                                             name="lab_selected_exhibit_index" 
                                             onchange="onLabExhibitSelected()" 
-                                            class="w-full px-3.5 py-3 bg-white border border-purple-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs cursor-pointer"
+                                            class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
                                         >
                                             <option value="">No exhibit saved yet</option>
                                         </select>
                                     </div>
-                                    <p class="text-[11px] text-purple-900 font-semibold flex items-center space-x-1">
-                                        <svg class="w-3.5 h-3.5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <p class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
+                                        <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <span>Select an exhibit above to view its manifest details and process forensic examination separately.</span>
                                     </p>
                                 </div>
@@ -2474,7 +2412,7 @@
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                             <span>Analysis / Examination Reference</span>
-                                            <span class="text-[9px] font-mono-code text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                            <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
                                         </label>
                                         <div class="relative flex items-center">
                                             <input 
@@ -2483,7 +2421,7 @@
                                                 name="lab_exam_reference"
                                                 value="{{ $examRefAuto }}" 
                                                 readonly 
-                                                class="w-full px-3.5 py-3 bg-purple-50/70 border border-purple-200 rounded-xl text-purple-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs"
+                                                class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs"
                                             >
                                         </div>
                                     </div>
@@ -2525,35 +2463,51 @@
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                                     <!-- Exhibit Description -->
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                             <span>Exhibit Description</span>
-                                            <span class="text-[9px] font-mono-code text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched from Manifest</span>
+                                            <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched from Manifest</span>
                                         </label>
                                         <textarea 
                                             id="labExhibitDescriptionInput" 
                                             name="lab_exhibit_description"
                                             rows="3" 
                                             placeholder="No exhibit saved yet"
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400"
                                         >No exhibit saved yet</textarea>
+                                    </div>
+
+                                    <!-- Laboratory Number -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Laboratory Number</span>
+                                            <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            id="labNumberInput" 
+                                            name="laboratory_number"
+                                            value="{{ $labNumberAuto }}" 
+                                            readonly
+                                            class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs"
+                                        >
                                     </div>
 
                                     <!-- Analyst / Examiner -->
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                             <span>Analyst / Examiner</span>
-                                            <span class="text-[9px] font-mono-code text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded font-bold uppercase">Account Holder</span>
+                                            <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner Name</span>
                                         </label>
                                         <input 
                                             type="text" 
                                             id="labAnalystInput" 
                                             name="lab_analyst"
                                             value="{{ auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName) }}" 
-                                            readonly 
-                                            class="w-full px-3.5 py-3 bg-purple-50/70 border border-purple-200 rounded-xl text-purple-900 font-extrabold outline-none shadow-2xs text-xs cursor-not-allowed"
+                                            class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
+                                            placeholder="e.g. John Adu"
                                         >
                                     </div>
                                 </div>
@@ -2569,7 +2523,7 @@
                                             id="labDateReceivedInput" 
                                             name="lab_date_received"
                                             value="{{ $todayDate }}" 
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs"
                                         >
                                     </div>
 
@@ -2583,7 +2537,7 @@
                                             id="labDateStartedInput" 
                                             name="lab_date_started"
                                             value="{{ $todayDate }}" 
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs"
                                         >
                                     </div>
 
@@ -2597,27 +2551,20 @@
                                             id="labDateCompletedInput" 
                                             name="lab_date_completed"
                                             value="{{ $todayDate }}" 
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 transition-all shadow-2xs text-xs"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs"
                                         >
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- SECTION 6: PRESUMPTIVE TEST -->
-                            <div class="bg-white p-6 rounded-2xl border border-indigo-200 shadow-sm space-y-4">
-                                <div class="pb-3 border-b border-indigo-100 flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-600/30">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="font-extrabold text-slate-900 text-base">Presumptive Test</h3>
-                                            <p class="text-xs text-indigo-700 font-semibold">Initial chemical field screening &amp; colorimetric reaction validation</p>
-                                        </div>
-                                    </div>
-                                    <span class="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-[10px] font-mono-code font-bold rounded-lg border border-indigo-200 uppercase tracking-wider">
+                            <!-- SUB-SECTION 5B: PRESUMPTIVE TEST -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5B</span>
+                                        <span>Presumptive Test</span>
+                                    </h4>
+                                    <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
                                         SCREENING RESULT
                                     </span>
                                 </div>
@@ -2738,21 +2685,14 @@
                                 </div>
                             </div>
 
-                            <!-- CONFIRMATORY TEST SECTION (UNDERNEATH PRESUMPTIVE TEST SECTION) -->
-                            <div class="bg-white p-6 rounded-2xl border border-purple-200 shadow-sm space-y-4">
-                                <div class="pb-3 border-b border-purple-100 flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-md shadow-purple-600/30">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="font-extrabold text-slate-900 text-base">Confirmatory Test</h3>
-                                            <p class="text-xs text-purple-700 font-semibold">Instrumental &amp; Spectrometry Laboratory Confirmation (GC-MS / FTIR)</p>
-                                        </div>
-                                    </div>
-                                    <span class="px-2.5 py-1 bg-purple-100 text-purple-800 text-[10px] font-mono-code font-bold rounded-lg border border-purple-200 uppercase tracking-wider">
+                            <!-- SUB-SECTION 5C: CONFIRMATORY TEST -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5C</span>
+                                        <span>Confirmatory Test</span>
+                                    </h4>
+                                    <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
                                         LAB VERIFICATION
                                     </span>
                                 </div>
@@ -2806,15 +2746,15 @@
                                     >
 
                                     <!-- SAMPLE WEIGHT GROUP INPUT CONTAINER (DYNAMICALLY SHOWN WHEN CONFIRMATORY TEST IS YES) -->
-                                    <div id="sampleWeightContainer" class="mt-4 p-4 bg-purple-50/70 rounded-xl border border-purple-200 space-y-4 transition-all duration-300 hidden">
-                                        <div class="flex items-center justify-between border-b border-purple-200/80 pb-2">
-                                            <div class="flex items-center space-x-2 text-purple-900 font-extrabold text-xs uppercase tracking-wider">
-                                                <svg class="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div id="sampleWeightContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
+                                        <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                            <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                                <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                                 </svg>
                                                 <span>SAMPLE WEIGHT</span>
                                             </div>
-                                            <span class="text-[10px] font-mono-code font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-md border border-purple-200 uppercase">
+                                            <span class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
                                                 CONFIRMATORY METROLOGY &amp; MASS
                                             </span>
                                         </div>
@@ -2830,7 +2770,7 @@
                                                     id="sampleWeightDescription" 
                                                     name="sample_weight_description" 
                                                     placeholder="e.g. Compressed tan-brown vegetal matter, sealed in plastic wrap"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
                                                 >
                                             </div>
 
@@ -2844,7 +2784,7 @@
                                                     id="sampleWeightGross" 
                                                     name="sample_weight_gross" 
                                                     placeholder="e.g. 12 slabs / 14.85 kg gross weight"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
                                                 >
                                             </div>
 
@@ -2853,27 +2793,122 @@
                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                                     Sample Taken <span class="text-red-600 font-bold">*</span>
                                                 </label>
-                                                <input 
-                                                    type="text" 
-                                                    id="sampleWeightTaken" 
-                                                    name="sample_weight_taken" 
-                                                    placeholder="e.g. 25.0 grams for lab spectrometry"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
-                                                >
+                                                <div class="relative flex rounded-xl shadow-2xs">
+                                                    <input 
+                                                        type="text" 
+                                                        id="sampleWeightTaken" 
+                                                        name="sample_weight_taken" 
+                                                        placeholder="e.g. 10"
+                                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0"
+                                                    >
+                                                    <span 
+                                                        id="sampleWeightTakenUnitAddon"
+                                                        class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0 transition-colors duration-200"
+                                                    >
+                                                        Kilograms (kg)
+                                                    </span>
+                                                </div>
+                                                <p id="sampleWeightTakenError" class="text-[11px] text-red-600 font-extrabold mt-1.5 hidden flex items-center space-x-1 animate-in fade-in duration-200">
+                                                    <svg class="w-3.5 h-3.5 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    <span>Sample taken cannot exceed the gross weight</span>
+                                                </p>
                                             </div>
 
                                             <!-- RESERVED SAMPLES -->
                                             <div class="md:col-span-2">
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Reserved Samples <span class="text-red-600 font-bold">*</span>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Reserved Samples <span class="text-red-600 font-bold">*</span></span>
+                                                    <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
                                                 </label>
                                                 <input 
                                                     type="text" 
                                                     id="sampleWeightReserved" 
                                                     name="sample_weight_reserved" 
-                                                    placeholder="e.g. 14.825 kg reserved in Evidence Management Vault"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                    readonly
+                                                    placeholder="Auto-calculated (Gross Weight - Sample Taken)"
+                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed"
                                                 >
+                                            </div>
+
+                                            <!-- RESULT SECTION (UNDERNEATH SAMPLE WEIGHT) -->
+                                            <div class="md:col-span-2 pt-4 border-t border-emerald-200/80 space-y-4">
+                                                <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                                    <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                                        <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                        </svg>
+                                                        <span>RESULT / CONFIRMATORY ANALYSIS</span>
+                                                    </div>
+                                                    <span class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                                        ANALYTICAL FINDINGS &amp; SPECS
+                                                    </span>
+                                                </div>
+
+                                                <div class="space-y-4">
+                                                    <!-- 1. SUBSTANCE IDENTIFICATION -->
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Substance Identification <span class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <input 
+                                                            type="text" 
+                                                            id="confirmatorySubstanceIdentification" 
+                                                            name="confirmatory_substance_identification" 
+                                                            placeholder="Displaying Exhibit / Drug Name"
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
+                                                        >
+                                                    </div>
+
+                                                    <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
+                                                    <div class="space-y-2">
+                                                        <div class="flex items-center justify-between">
+                                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                                Result (Detected Substances &amp; Purity %) <span class="text-red-600 font-bold">*</span>
+                                                            </label>
+                                                            <button 
+                                                                type="button" 
+                                                                onclick="addDetectedSubstanceRow()" 
+                                                                class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-2xs transition-all flex items-center space-x-1 border-none cursor-pointer"
+                                                            >
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                                <span>Add More</span>
+                                                            </button>
+                                                        </div>
+                                                        <div id="detectedSubstancesListContainer" class="space-y-2.5">
+                                                            <!-- Dynamic rows added via JS -->
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 3. TEST METHODS INPUT -->
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Test Methods <span class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <input 
+                                                            type="text" 
+                                                            id="confirmatoryTestMethods" 
+                                                            name="confirmatory_test_methods" 
+                                                            placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                        >
+                                                    </div>
+
+                                                    <!-- 4. SPECIFICATIONS TEXTAREA INPUT -->
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Specifications <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
+                                                        </label>
+                                                        <textarea 
+                                                            id="confirmatorySpecifications" 
+                                                            name="confirmatory_specifications" 
+                                                            rows="3" 
+                                                            placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
+                                                        ></textarea>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2900,7 +2935,7 @@
                                 </button>
                             </div>
                         </div>
-                    </form>
+                </form>
 
 
             </main>
@@ -2918,6 +2953,7 @@
                     if (noBox) noBox.checked = false;
                     if (inputEl) inputEl.value = 'YES';
                     if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
+                    if (typeof onLabExhibitSelected === 'function') onLabExhibitSelected();
                 } else {
                     if (noBox) noBox.checked = true;
                     if (inputEl) inputEl.value = 'NO';
@@ -2932,6 +2968,7 @@
                     if (yesBox) yesBox.checked = true;
                     if (inputEl) inputEl.value = 'YES';
                     if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
+                    if (typeof onLabExhibitSelected === 'function') onLabExhibitSelected();
                 }
             }
         }
@@ -3091,10 +3128,17 @@
                 }
                 if (addMugshotBtn) addMugshotBtn.classList.remove('hidden');
                 if (addSuspectBtn) addSuspectBtn.classList.remove('hidden');
-            } else {
+            } else if (select.value === 'SINGLE') {
                 if (badge) {
                     badge.innerText = 'Single Person Mode';
                     badge.className = 'px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider';
+                }
+                if (addMugshotBtn) addMugshotBtn.classList.add('hidden');
+                if (addSuspectBtn) addSuspectBtn.classList.add('hidden');
+            } else {
+                if (badge) {
+                    badge.innerText = 'Select Suspect Docket Mode';
+                    badge.className = 'px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-mono-code font-bold rounded-lg border border-slate-200 uppercase tracking-wider';
                 }
                 if (addMugshotBtn) addMugshotBtn.classList.add('hidden');
                 if (addSuspectBtn) addSuspectBtn.classList.add('hidden');
@@ -3183,6 +3227,77 @@
             if (card) card.remove();
         }
 
+        function calculateAgeFromDOBDynamic(dobInput) {
+            const card = dobInput.closest('.suspect-card-dynamic');
+            if (!card) return;
+            const ageInput = card.querySelector('[data-field="age"]');
+            if (!ageInput) return;
+
+            const dobVal = dobInput.value;
+            if (!dobVal) {
+                ageInput.value = '';
+                return;
+            }
+            const dob = new Date(dobVal);
+            if (isNaN(dob.getTime())) {
+                ageInput.value = '';
+                return;
+            }
+            const today = new Date();
+            let age = today.getFullYear() - dob.getFullYear();
+            const monthDiff = today.getMonth() - dob.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+                age--;
+            }
+            ageInput.value = age >= 0 ? age : '';
+        }
+
+        function handleDynamicMaritalChange(selectEl) {
+            const card = selectEl.closest('.suspect-card-dynamic');
+            if (!card) return;
+            const box = card.querySelector('.relationship-details-box');
+            const title = card.querySelector('.relationship-title');
+            const subtitle = card.querySelector('.relationship-subtitle');
+            const spouseCard = card.querySelector('.spouse-fields-card');
+            const partnerCard = card.querySelector('.partner-fields-card');
+
+            if (!box) return;
+            const val = selectEl.value;
+
+            if (val === 'Married') {
+                box.classList.remove('hidden');
+                if (title) title.innerText = 'Spouse Information (Marriage Record)';
+                if (subtitle) subtitle.innerText = 'Mandatory record for suspect legal spouse identity, phone contact, and occupation';
+                if (spouseCard) spouseCard.classList.remove('hidden');
+                if (partnerCard) partnerCard.classList.add('hidden');
+            } else if (val === 'Dating / In Relationship') {
+                box.classList.remove('hidden');
+                if (title) title.innerText = 'Dating Partner Information (Relationship Record)';
+                if (subtitle) subtitle.innerText = 'Record for suspect dating partner full name, phone contact, and residence';
+                if (spouseCard) spouseCard.classList.add('hidden');
+                if (partnerCard) partnerCard.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function toggleDynamicChildrenInput(checkboxEl) {
+            const card = checkboxEl.closest('.suspect-card-dynamic');
+            if (!card) return;
+            const container = card.querySelector('.children-input-container');
+            const input = card.querySelector('[data-field="children_count"]');
+
+            if (checkboxEl.checked) {
+                if (container) container.classList.remove('hidden');
+                if (input && (!input.value || input.value === '0')) {
+                    input.value = '1';
+                }
+            } else {
+                if (container) container.classList.add('hidden');
+                if (input) input.value = '0';
+            }
+        }
+
         function addSuspectDetailsRow() {
             suspectCount++;
             const container = document.getElementById('suspectsContainer');
@@ -3190,14 +3305,14 @@
 
             const card = document.createElement('div');
             card.id = `suspectCard-${suspectCount}`;
-            card.className = 'space-y-6 pt-6 border-t-2 border-slate-200/80';
+            card.className = 'space-y-6 pt-6 border-t-2 border-slate-200/80 suspect-card-dynamic';
             card.innerHTML = `
                 <div class="flex items-center justify-between bg-slate-100 p-3.5 rounded-xl border border-slate-200">
                     <span class="font-extrabold text-slate-900 text-sm font-mono-code uppercase flex items-center space-x-2">
-                        <span class="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">${suspectCount}</span>
-                        <span>Suspect #${suspectCount} Personal Booking Record</span>
+                        <span class="suspect-number-badge w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">${suspectCount}</span>
+                        <span class="suspect-header-title">Suspect #${suspectCount} Personal Booking Record</span>
                     </span>
-                    <button type="button" onclick="removeSuspectRow(${suspectCount})" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors border-none cursor-pointer">
+                    <button type="button" onclick="removeSuspectRow(this)" class="suspect-remove-btn px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors border-none cursor-pointer">
                         &times; Remove Suspect #${suspectCount}
                     </button>
                 </div>
@@ -3206,110 +3321,629 @@
                 <div class="space-y-4">
                     <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
-                        <span>3A. Legal Identity &amp; Origin Details (Suspect #${suspectCount})</span>
+                        <span class="suspect-subheader-3a">3A. Legal Identity &amp; Origin Details (Suspect #${suspectCount})</span>
                     </div>
 
+                    <!-- ROW 1: REF (READONLY), FULL NAME, ALIAS -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                 <span>Raid Incident Reference</span>
                                 <span class="text-[9px] font-mono-code text-slate-600 bg-slate-200 px-2 py-0.5 rounded font-bold">READONLY</span>
                             </label>
-                            <input type="text" value="RAID-2026-0419" readonly class="w-full px-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-mono-code font-bold text-slate-800 cursor-not-allowed select-none shadow-2xs">
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3.5 text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                </span>
+                                <input type="text" value="RAID-2026-0419" readonly class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-mono-code font-bold text-slate-800 cursor-not-allowed select-none shadow-2xs">
+                            </div>
                         </div>
+
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Suspect Full Legal Name <span class="text-red-600 font-bold">*</span>
                             </label>
-                            <input type="text" placeholder="e.g. Ama Serwaa" required class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                </span>
+                                <input type="text" data-field="suspect_name" placeholder="e.g. Ama Serwaa" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
+
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Alias / Street Name
                             </label>
-                            <input type="text" placeholder="e.g. Queen Bee" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                </span>
+                                <input type="text" data-field="suspect_alias" placeholder="e.g. Queen Bee / Cobra" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Ghana Card # <span class="text-red-600 font-bold">*</span>
                             </label>
-                            <input type="text" placeholder="GHA-0000000-0" required class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
+                                </span>
+                                <input type="text" data-field="ghana_card" placeholder="GHA-8840291-3" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
+
+                        <!-- DYNAMIC CUSTOM GENDER DROPDOWN -->
+                        <div class="relative z-30">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Gender <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <button type="button" onclick="toggleDynamicDropdown(this)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="dyn-gender-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                    <span class="dyn-gender-label font-bold text-slate-500 text-xs">Select Gender</span>
+                                </div>
+                                <input type="hidden" data-field="gender" value="">
+                                <svg class="dyn-chevron w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div class="dyn-dropdown-menu hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                <button type="button" onclick="selectDynamicGender(this, '', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1">
+                                    <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                    <span>Select Gender</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicGender(this, 'Male', '♂', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
+                                    <span>Male</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicGender(this, 'Female', '♀', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">♀</span>
+                                    <span>Female</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicGender(this, 'Other / Non-Binary', '⚧', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">⚧</span>
+                                    <span>Other / Non-Binary</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicGender(this, 'Unspecified', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                    <span>Unspecified</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Gender</label>
-                            <select class="w-full px-3 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600">
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                                <option value="Other">Other / Non-Binary</option>
-                            </select>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Date of Birth <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </span>
+                                <input type="date" data-field="dob" onchange="calculateAgeFromDOBDynamic(this)" oninput="calculateAgeFromDOBDynamic(this)" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Date of Birth</label>
-                            <input type="date" class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600">
-                        </div>
+
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                <span>Age</span>
-                                <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1 py-0.5 rounded font-bold uppercase">Read-Only</span>
+                                <span>Age (Years) <span class="text-red-600 font-bold">*</span></span>
+                                <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Read-Only</span>
                             </label>
-                            <input type="number" placeholder="Auto-calc age" readonly class="w-full px-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none">
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black font-mono-code font-bold text-xs transition-colors">#</span>
+                                <input type="number" data-field="age" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Height (cm / ft-in)
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                                </span>
+                                <input type="text" data-field="height" placeholder="e.g. 175 cm / 5'9&quot;" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Eye Color
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </span>
+                                <input type="text" data-field="eye_color" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+
+                        <!-- DYNAMIC CUSTOM NATIONALITY DROPDOWN -->
+                        <div class="relative z-30">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                <span>Nationality <span class="text-red-600 font-bold">*</span></span>
+                                <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Search / Custom</span>
+                            </label>
+                            <button type="button" onclick="toggleDynamicDropdown(this)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="dyn-nat-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">NAT</span>
+                                    <span class="dyn-nat-label font-bold text-slate-500 text-xs">Select Nationality</span>
+                                </div>
+                                <input type="hidden" data-field="nationality" value="">
+                                <svg class="dyn-chevron w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div class="dyn-dropdown-menu hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                                <div class="p-1 pb-2 sticky top-0 bg-white z-10 border-b border-slate-100">
+                                    <input type="text" onkeyup="filterDynamicNatOptions(this)" onkeydown="handleNatSearchKeydown(event, true, this)" placeholder="Search nationality..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:bg-white focus:border-emerald-600 outline-none placeholder:text-slate-400">
+                                </div>
+                                <button type="button" onclick="selectDynamicNationality(this, '', 'NAT', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1 nat-dyn-option">
+                                    <span>Select Nationality</span>
+                                </button>
+                                @foreach($allNationalitiesList as $nat)
+                                <button type="button" onclick="selectDynamicNationality(this, '{{ $nat['name'] }}', '{{ $nat['code'] }}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors nat-dyn-option">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">{{ $nat['code'] }}</span>
+                                        <span>{{ $nat['name'] }}</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">{{ $nat['code'] }}</span>
+                                </button>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SUB-HEADER 3B: MARITAL & RESIDENTIAL RECORDS -->
-                <div class="space-y-4 pt-2">
+                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
+                <div class="space-y-4 pt-2 relative z-20">
                     <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                        <span>3B. Residential Address &amp; Family Records (Suspect #${suspectCount})</span>
+                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
                     </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Place of Birth / Hometown</label>
-                            <input type="text" placeholder="e.g. Kumasi, Ashanti Region" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Place of Birth / Hometown <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                </span>
+                                <input type="text" data-field="pob" placeholder="e.g. Kumasi, Ashanti Region" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
+
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Contact Phone Number</label>
-                            <input type="text" placeholder="e.g. +233 24 555 0192" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                </span>
+                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
+
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Residential Address / GPS</label>
-                            <input type="text" placeholder="e.g. H/No 14 East Legon, Accra" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Residential Address / GPS <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                </span>
+                                <input type="text" data-field="address" placeholder="e.g. H/No 14 East Legon, Accra (GA-142-8809)" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-30">
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Marital / Relationship Status <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <select data-field="marital_status" onchange="handleDynamicMaritalChange(this)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs">
+                                <option value="" selected>Select Marital / Relationship Status</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married (Requires Spouse Info)</option>
+                                <option value="Dating / In Relationship">Dating / In Relationship (Requires Partner Info)</option>
+                                <option value="Divorced">Divorced</option>
+                                <option value="Widowed">Widowed</option>
+                            </select>
+                        </div>
+
+                        <div class="space-y-2.5">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                Children / Dependents Status <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <label class="flex items-center space-x-3 p-3 bg-white border border-slate-300 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none">
+                                <input type="checkbox" data-field="has_children" onchange="toggleDynamicChildrenInput(this)" class="w-5 h-5 text-black rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600">
+                                <span class="text-xs font-bold text-slate-900">Suspect Has Children / Dependents</span>
+                            </label>
+                            <div class="children-input-container hidden relative flex items-center group pt-1">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                </span>
+                                <input type="number" data-field="children_count" min="1" max="20" placeholder="Enter number of children..." value="0" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DYNAMIC CONDITIONAL SPOUSE / DATING PARTNER CARD -->
+                    <div class="relationship-details-box hidden p-5 bg-emerald-50/50 rounded-2xl border border-slate-300 space-y-4">
+                        <div class="flex items-center space-x-2.5">
+                            <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                            </div>
+                            <div>
+                                <h4 class="relationship-title font-extrabold text-slate-900 text-xs uppercase tracking-wider">Spouse Information (Marriage Record)</h4>
+                                <p class="relationship-subtitle text-[11px] text-black">Mandatory record for suspect legal spouse identity, phone contact, and occupation</p>
+                            </div>
+                        </div>
+
+                        <!-- SPOUSE FIELDS CARD -->
+                        <div class="spouse-fields-card grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Spouse Full Legal Name</label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </span>
+                                    <input type="text" data-field="spouse_name" placeholder="e.g. Abena Mensah" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Spouse Contact Phone</label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                    </span>
+                                    <input type="text" data-field="spouse_phone" placeholder="e.g. +233 20 884 0129" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Spouse Occupation / Address</label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A2.36 2.36 0 0019.358 11h-1.55A1.5 1.5 0 0116.3 9.5V7a2 2 0 00-2-2H9.7a2 2 0 00-2 2v2.5A1.5 1.5 0 016.2 11H4.642A2.36 2.36 0 003 13.255V18a2 2 0 002 2h14a2 2 0 002-2v-4.745z"/></svg>
+                                    </span>
+                                    <input type="text" data-field="spouse_info" placeholder="e.g. Trader, Tema Sector 1" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DATING PARTNER FIELDS CARD -->
+                        <div class="partner-fields-card hidden grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Partner Full Legal Name</label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </span>
+                                    <input type="text" data-field="partner_name" placeholder="e.g. Ama Serwaa" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Partner Contact Phone</label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                    </span>
+                                    <input type="text" data-field="partner_phone" placeholder="e.g. +233 24 100 2938" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Partner Residential Info</label>
+                                <div class="relative flex items-center group">
+                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                    </span>
+                                    <input type="text" data-field="partner_info" placeholder="e.g. Resident, East Legon" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- SUB-HEADER 3C: Offence CHARGES & CUSTODY ALLOCATION -->
+                <!-- SUB-HEADER 3C: OFFENCE CHARGES & CUSTODY HOLDING FACILITY -->
                 <div class="space-y-4 pt-2">
                     <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m3 0h1m-4 0v-3m1-3h.01M10 9h.01M10 12h.01M14 9h.01M14 12h.01M14 15h.01M7 9h.01M7 12h.01M7 15h.01"/></svg>
-                        <span>3C. Offence Charges &amp; Custody Holding Facility (Suspect #${suspectCount})</span>
+                        <span class="suspect-subheader-3c">3C. Offence Charges &amp; Custody Holding Facility (Suspect #${suspectCount})</span>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Place of Incident</label>
-                            <input type="text" placeholder="e.g. East Legon Sector 4" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Place of Incident <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                </span>
+                                <input type="text" data-field="raid_location" placeholder="e.g. East Legon Sector 4, Accra" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
+
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Brief Facts/ Charge Description</label>
-                            <input type="text" placeholder="e.g. Narcotics Trafficking &amp; Illegal Firearm" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Brief Facts/ Charge Description <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex group">
+                                <span class="absolute left-3.5 top-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                                </span>
+                                <textarea data-field="offense" rows="3" placeholder="e.g. High-Purity Narcotics Trafficking &amp; Illegal Firearm Possession, Breach of Peace..." required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 resize-y min-h-[96px]"></textarea>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
                         <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">Assigned Custody Holding Facility</label>
-                            <input type="text" placeholder="e.g. NACOC Holding Cell Sector B" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 shadow-2xs">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Date of Arrest <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                </span>
+                                <input type="date" data-field="date_of_arrest" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Time of Arrest <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </span>
+                                <input type="time" data-field="time_of_arrest" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Assigned Custody Holding Facility <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m3 0h1m-4 0v-3m1-3h.01M10 9h.01M10 12h.01M14 9h.01M14 12h.01M14 15h.01M7 9h.01M7 12h.01M7 15h.01"/></svg>
+                                </span>
+                                <input type="text" data-field="holding_facility" placeholder="e.g. NACOC High-Security Holding Cell Sector B" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
             container.appendChild(card);
+            reindexSuspectCards();
         }
 
-        function removeSuspectRow(id) {
-            const card = document.getElementById(`suspectCard-${id}`);
-            if (card) card.remove();
+        function reindexSuspectCards() {
+            const container = document.getElementById('suspectsContainer');
+            if (!container) return;
+            const cards = container.querySelectorAll('.suspect-card-dynamic');
+            cards.forEach((card, index) => {
+                const num = index + 2;
+                card.id = `suspectCard-${num}`;
+                const badge = card.querySelector('.suspect-number-badge');
+                if (badge) badge.textContent = num;
+
+                const title = card.querySelector('.suspect-header-title');
+                if (title) title.textContent = `Suspect #${num} Personal Booking Record`;
+
+                const removeBtn = card.querySelector('.suspect-remove-btn');
+                if (removeBtn) {
+                    removeBtn.innerHTML = `&times; Remove Suspect #${num}`;
+                    removeBtn.setAttribute('onclick', `removeSuspectRow(this)`);
+                }
+
+                const sub3a = card.querySelector('.suspect-subheader-3a');
+                if (sub3a) sub3a.textContent = `3A. Legal Identity & Origin Details (Suspect #${num})`;
+
+                const sub3c = card.querySelector('.suspect-subheader-3c');
+                if (sub3c) sub3c.textContent = `3C. Offence Charges & Custody Holding Facility (Suspect #${num})`;
+            });
+            suspectCount = cards.length + 1;
+        }
+
+        function removeSuspectRow(target) {
+            if (typeof target === 'number' || typeof target === 'string') {
+                const card = document.getElementById(`suspectCard-${target}`);
+                if (card) card.remove();
+            } else if (target && target.closest) {
+                const card = target.closest('.suspect-card-dynamic');
+                if (card) card.remove();
+            }
+            reindexSuspectCards();
+            if (typeof saveDocketFormDraft === 'function') {
+                saveDocketFormDraft();
+            }
+        }
+
+        /**
+         * Collect all suspects from the suspectsContainer.
+         * Suspect #1 is read from its known fixed element IDs.
+         * Additional suspects (dynamically added) are read via data-field attributes.
+         * Returns an array of suspect objects.
+         */
+        function collectAllSuspects() {
+            const suspects = [];
+
+            // --- Suspect #1: read from fixed IDs ---
+            const s1Name     = document.getElementById('newArrestedName')?.value?.trim()     || '';
+            const s1Alias    = document.getElementById('newArrestedAlias')?.value?.trim()    || '';
+            const s1Card     = document.getElementById('newArrestedID')?.value?.trim()       || '';
+            const s1Gender   = document.getElementById('newArrestedGender')?.value?.trim()   || '';
+            const s1DOB      = document.getElementById('newArrestedDOB')?.value?.trim()      || '';
+            const s1Age      = document.getElementById('newArrestedAge')?.value?.trim()      || '';
+            const s1Height   = document.getElementById('newArrestedHeight')?.value?.trim()   || '';
+            const s1Eye      = document.getElementById('newArrestedEyeColor')?.value?.trim() || '';
+            const s1Nat      = document.getElementById('nationalitySelect')?.value?.trim()   || document.getElementById('newArrestedNationality')?.value?.trim() || '';
+            const s1POB      = document.getElementById('newArrestedPOB')?.value?.trim()      || '';
+            const s1Phone    = document.getElementById('newArrestedPhone')?.value?.trim()    || '';
+            const s1Address  = document.getElementById('newArrestedAddress')?.value?.trim()  || '';
+            const s1Marital  = document.getElementById('newArrestedMarital')?.value?.trim()  || '';
+            const s1HasKids  = document.getElementById('hasChildrenCheckbox')?.checked       || false;
+            const s1Kids     = s1HasKids ? (document.getElementById('newArrestedChildren')?.value || '1') : '0';
+            const s1SpouseN  = document.getElementById('newArrestedSpouseName')?.value?.trim() || '';
+            const s1SpouseP  = document.getElementById('newArrestedSpousePhone')?.value?.trim() || '';
+            const s1SpouseI  = document.getElementById('newArrestedSpouseInfo')?.value?.trim() || '';
+            const s1PartnerN = document.getElementById('newArrestedPartnerName')?.value?.trim() || '';
+            const s1PartnerP = document.getElementById('newArrestedPartnerPhone')?.value?.trim() || '';
+            const s1PartnerI = document.getElementById('newArrestedPartnerInfo')?.value?.trim() || '';
+            const s1Offense  = document.getElementById('newArrestedOffense')?.value?.trim()  || '';
+            const s1Raid     = document.getElementById('newArrestedRaidLocation')?.value?.trim() || '';
+            const s1Facility = document.getElementById('newArrestedFacility')?.value?.trim() || '';
+            const s1Date     = document.getElementById('newArrestedDate')?.value?.trim() || '';
+            const s1Time     = document.getElementById('newArrestedTime')?.value?.trim() || '';
+
+            let s1SpouseSummary = 'N/A';
+            if (s1Marital === 'Married') {
+                s1SpouseSummary = `Spouse: ${s1SpouseN} (${s1SpouseP}) - ${s1SpouseI}`;
+            } else if (s1Marital === 'Dating / In Relationship') {
+                s1SpouseSummary = `Partner: ${s1PartnerN} (${s1PartnerP}) - ${s1PartnerI}`;
+            }
+
+            // Mugshots for Suspect #1
+            const s1MugFront = document.getElementById('preview-front')?.src || null;
+            const s1MugLeft  = document.getElementById('preview-left-profile')?.src || null;
+            const s1MugRight = document.getElementById('preview-right-profile')?.src || null;
+
+            if (s1Name) {
+                suspects.push({
+                    suspect_number:   1,
+                    suspect_name:     s1Name,
+                    suspect_alias:    s1Alias,
+                    ghana_card:       s1Card,
+                    gender:           s1Gender,
+                    dob:              s1DOB,
+                    age:              s1Age,
+                    height:           s1Height,
+                    eye_color:        s1Eye,
+                    nationality:      s1Nat,
+                    pob:              s1POB,
+                    phone:            s1Phone,
+                    address:          s1Address,
+                    marital_status:   s1Marital,
+                    has_children:     s1HasKids,
+                    children_count:   s1Kids,
+                    spouse_name:      s1SpouseN,
+                    spouse_phone:     s1SpouseP,
+                    spouse_info:      s1SpouseI,
+                    partner_name:     s1PartnerN,
+                    partner_phone:    s1PartnerP,
+                    partner_info:     s1PartnerI,
+                    spouse_summary:   s1SpouseSummary,
+                    offense:          s1Offense,
+                    raid_location:    s1Raid,
+                    date_of_arrest:   s1Date,
+                    time_of_arrest:   s1Time,
+                    holding_facility: s1Facility,
+                    mugshot_front:    s1MugFront && s1MugFront.startsWith('data:') ? s1MugFront : null,
+                    mugshot_left:     s1MugLeft && s1MugLeft.startsWith('data:') ? s1MugLeft : null,
+                    mugshot_right:    s1MugRight && s1MugRight.startsWith('data:') ? s1MugRight : null,
+                });
+            }
+
+            // --- Additional suspects: read via data-field attributes ---
+            const dynamicCards = document.querySelectorAll('.suspect-card-dynamic');
+            let suspectNum = 2;
+            dynamicCards.forEach(card => {
+                const getField = (field) => {
+                    const el = card.querySelector(`[data-field="${field}"]`);
+                    if (!el) return '';
+                    if (el.type === 'checkbox') return el.checked;
+                    return el.value?.trim() || '';
+                };
+                const sName     = getField('suspect_name');
+                const sAlias    = getField('suspect_alias');
+                const sCard     = getField('ghana_card');
+                const sGender   = getField('gender') || '';
+                const sDOB      = getField('dob');
+                const sAge      = getField('age');
+                const sHeight   = getField('height');
+                const sEye      = getField('eye_color');
+                const sNat      = getField('nationality') || '';
+                const sPOB      = getField('pob');
+                const sPhone    = getField('phone');
+                const sAddress  = getField('address');
+                const sMarital  = getField('marital_status') || '';
+                const sHasKids  = getField('has_children') === true;
+                const sKids     = sHasKids ? (getField('children_count') || '1') : '0';
+                const sSpouseN  = getField('spouse_name');
+                const sSpouseP  = getField('spouse_phone');
+                const sSpouseI  = getField('spouse_info');
+                const sPartnerN = getField('partner_name');
+                const sPartnerP = getField('partner_phone');
+                const sPartnerI = getField('partner_info');
+                const sRaid     = getField('raid_location');
+                const sOffense  = getField('offense');
+                const sDate     = getField('date_of_arrest');
+                const sTime     = getField('time_of_arrest');
+                const sFacility = getField('holding_facility');
+
+                const sMugFront = document.getElementById(`preview-front-${suspectNum}`)?.src || null;
+                const sMugLeft  = document.getElementById(`preview-left-profile-${suspectNum}`)?.src || null;
+                const sMugRight = document.getElementById(`preview-right-profile-${suspectNum}`)?.src || null;
+
+                let sSpouseSummary = 'N/A';
+                if (sMarital === 'Married') {
+                    sSpouseSummary = `Spouse: ${sSpouseN} (${sSpouseP}) - ${sSpouseI}`;
+                } else if (sMarital === 'Dating / In Relationship') {
+                    sSpouseSummary = `Partner: ${sPartnerN} (${sPartnerP}) - ${sPartnerI}`;
+                }
+
+                // Only add if a name was entered
+                if (sName) {
+                    suspects.push({
+                        suspect_number:   suspectNum,
+                        suspect_name:     sName,
+                        suspect_alias:    sAlias,
+                        ghana_card:       sCard,
+                        gender:           sGender,
+                        dob:              sDOB,
+                        age:              sAge,
+                        height:           sHeight,
+                        eye_color:        sEye,
+                        nationality:      sNat,
+                        pob:              sPOB,
+                        phone:            sPhone,
+                        address:          sAddress,
+                        marital_status:   sMarital,
+                        has_children:     sHasKids,
+                        children_count:   sKids,
+                        spouse_name:      sSpouseN,
+                        spouse_phone:     sSpouseP,
+                        spouse_info:      sSpouseI,
+                        partner_name:     sPartnerN,
+                        partner_phone:    sPartnerP,
+                        partner_info:     sPartnerI,
+                        spouse_summary:   sSpouseSummary,
+                        offense:          sOffense,
+                        raid_location:    sRaid,
+                        date_of_arrest:   sDate,
+                        time_of_arrest:   sTime,
+                        holding_facility: sFacility,
+                        mugshot_front:    sMugFront && sMugFront.startsWith('data:') ? sMugFront : null,
+                        mugshot_left:     sMugLeft && sMugLeft.startsWith('data:') ? sMugLeft : null,
+                        mugshot_right:    sMugRight && sMugRight.startsWith('data:') ? sMugRight : null,
+                    });
+                    suspectNum++;
+                }
+            });
+
+            return suspects;
         }
 
         function toggleSidebarEventMenu(e) {
@@ -3637,6 +4271,9 @@
                 presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES (Positive Colorimetric Reaction)';
             }
 
+            // Collect all suspects (Suspect #1 + any additional)
+            const allSuspects = collectAllSuspects();
+
             const docketPayload = {
                 raid_ref: ref,
                 full_name: name,
@@ -3663,8 +4300,16 @@
                 evidence_photos: seizedExhibitDataUrls,
                 vehicle: primarySeizure.veh || {},
                 weapon: primarySeizure.wpn || {},
+                // All suspects stored here — primary + additional
+                suspects: allSuspects,
+                suspects_count: allSuspects.length,
                 lab_examination: {
-                    presumptive_result: presumptiveVal
+                    laboratory_number: document.getElementById('labNumberInput')?.value || '',
+                    presumptive_result: presumptiveVal,
+                    substance_identification: document.getElementById('confirmatorySubstanceIdentification')?.value || '',
+                    detected_substances: typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() : [],
+                    test_methods: document.getElementById('confirmatoryTestMethods')?.value || '',
+                    specifications: document.getElementById('confirmatorySpecifications')?.value || ''
                 }
             };
 
@@ -3918,6 +4563,7 @@
 
                 Object.keys(draft).forEach(id => {
                     if (id === '_custom_labels' || id === '_seizedExhibitDataUrls') return;
+                    if (id === 'caseEntryTypeSelect' || id === 'newArrestedGender' || id === 'nationalitySelect' || id === 'newArrestedNationality' || id === 'newArrestedMarital') return;
                     const el = document.getElementById(id);
                     if (!el) return;
 
@@ -3931,18 +4577,6 @@
                         }
                     }
                 });
-
-                if (draft['nationalitySelect'] && window.jQuery && $.fn.select2) {
-                    const savedNat = draft['nationalitySelect'];
-                    if ($('#nationalitySelect').length) {
-                        if ($('#nationalitySelect').find("option[value='" + $.escapeSelector(savedNat) + "']").length === 0) {
-                            const newOption = new Option(savedNat, savedNat, true, true);
-                            $('#nationalitySelect').append(newOption).trigger('change');
-                        } else {
-                            $('#nationalitySelect').val(savedNat).trigger('change');
-                        }
-                    }
-                }
 
                 if (draft['drugSelect'] && window.jQuery && $.fn.select2) {
                     const savedDrug = draft['drugSelect'];
@@ -3968,39 +4602,11 @@
                     }
                 }
 
-                if (draft._custom_labels) {
-                    const l = draft._custom_labels;
-                    if (l.selectedGenderLabel && document.getElementById('selectedGenderLabel')) {
-                        document.getElementById('selectedGenderLabel').innerText = l.selectedGenderLabel;
-                    }
-                    if (l.selectedGenderIcon && document.getElementById('selectedGenderIcon')) {
-                        document.getElementById('selectedGenderIcon').innerText = l.selectedGenderIcon.trim();
-                    }
-                    if (l.selectedNationalityLabel && document.getElementById('selectedNationalityLabel')) {
-                        document.getElementById('selectedNationalityLabel').innerText = l.selectedNationalityLabel;
-                    }
-                    if (l.selectedNationalityBadge && document.getElementById('selectedNationalityBadge')) {
-                        document.getElementById('selectedNationalityBadge').innerText = l.selectedNationalityBadge;
-                    }
-                    if (l.selectedMaritalLabel && document.getElementById('selectedMaritalLabel')) {
-                        const mLabel = document.getElementById('selectedMaritalLabel');
-                        mLabel.innerText = l.selectedMaritalLabel;
-                        mLabel.className = "font-bold text-slate-900 text-xs";
-                        const mInput = document.getElementById('newArrestedMarital');
-                        if (mInput) {
-                            mInput.value = l.selectedMaritalLabel;
-                        }
-                    }
-                    if (l.selectedCaseTypeLabel && document.getElementById('selectedCaseTypeLabel')) {
-                        document.getElementById('selectedCaseTypeLabel').innerText = l.selectedCaseTypeLabel;
-                    }
-                }
-
                 toggleChildrenInput();
                 toggleSeizuresContainer();
                 handleCaseEntryTypeChange();
 
-                const maritalVal = document.getElementById('newArrestedMarital')?.value || 'Single';
+                const maritalVal = document.getElementById('newArrestedMarital')?.value || '';
                 handleMaritalChange(maritalVal);
 
                 const seizureCat = document.getElementById('newSeizureCategory')?.value;
@@ -4095,6 +4701,16 @@
                     if (c) c.classList.remove('rotate-180');
                 }
             });
+            document.querySelectorAll('.dyn-dropdown-menu').forEach(menu => {
+                if (menu.id !== exceptMenuId) {
+                    menu.classList.add('hidden');
+                    const parent = menu.closest('.relative');
+                    if (parent) {
+                        const c = parent.querySelector('.dyn-chevron');
+                        if (c) c.classList.remove('rotate-180');
+                    }
+                }
+            });
         }
 
         function toggleCaseEntryTypeDropdown(e) {
@@ -4115,7 +4731,16 @@
             const input = document.getElementById('caseEntryTypeSelect');
             if (input) input.value = val;
             const labelEl = document.getElementById('selectedCaseTypeLabel');
-            if (labelEl) labelEl.innerText = label;
+            if (labelEl) {
+                labelEl.innerText = label;
+                if (!val) {
+                    labelEl.classList.remove('text-slate-900');
+                    labelEl.classList.add('text-slate-500');
+                } else {
+                    labelEl.classList.remove('text-slate-500');
+                    labelEl.classList.add('text-slate-900');
+                }
+            }
             closeAllDropdowns();
             handleCaseEntryTypeChange();
             saveDocketFormDraft();
@@ -4152,7 +4777,16 @@
             const input = document.getElementById('newArrestedGender');
             if (input) input.value = val;
             const label = document.getElementById('selectedGenderLabel');
-            if (label) label.innerText = val;
+            if (label) {
+                label.innerText = val || 'Select Gender';
+                if (!val) {
+                    label.classList.remove('text-slate-900');
+                    label.classList.add('text-slate-500');
+                } else {
+                    label.classList.remove('text-slate-500');
+                    label.classList.add('text-slate-900');
+                }
+            }
             const icon = document.getElementById('selectedGenderIcon');
             if (icon) {
                 icon.innerText = symbol;
@@ -4177,29 +4811,197 @@
             }
         }
 
-        function selectNationality(val, code, e) {
+        function selectNationality(val, codeOrIcon, e) {
             if (e) e.stopPropagation();
             const input = document.getElementById('newArrestedNationality');
             if (input) input.value = val;
             const label = document.getElementById('selectedNationalityLabel');
-            if (label) label.innerText = val;
-            const badge = document.getElementById('selectedNationalityBadge');
-            if (badge && code) badge.innerText = code;
+            if (label) {
+                label.innerText = val || 'Select Nationality';
+                if (!val) {
+                    label.className = "font-bold text-slate-500 text-xs";
+                } else {
+                    label.className = "font-bold text-slate-900 text-xs";
+                }
+            }
+            const icon = document.getElementById('selectedNationalityIcon');
+            if (icon) {
+                icon.innerText = codeOrIcon || (val ? 'CUSTOM' : 'NAT');
+                if (!val) {
+                    icon.className = "w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold";
+                } else {
+                    icon.className = "w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold";
+                }
+            }
             closeAllDropdowns();
             saveDocketFormDraft();
         }
 
         function filterNationalities() {
-            const query = document.getElementById('nationalitySearchInput').value.toLowerCase();
+            const rawVal = (document.getElementById('nationalitySearchInput')?.value || '').trim();
+            const lowerQuery = rawVal.toLowerCase();
+            const menu = document.getElementById('nationalityDropdownMenu');
             const options = document.querySelectorAll('.nat-option');
             options.forEach(opt => {
                 const text = opt.innerText.toLowerCase();
-                if (text.includes(query)) {
+                if (!lowerQuery || text.includes(lowerQuery)) {
                     opt.style.display = 'flex';
                 } else {
                     opt.style.display = 'none';
                 }
             });
+
+            if (!menu) return;
+            let customBtn = document.getElementById('nationalityCustomBtn');
+            if (rawVal.length > 0) {
+                if (!customBtn) {
+                    customBtn = document.createElement('div');
+                    customBtn.id = 'nationalityCustomBtn';
+                    customBtn.className = 'p-1 border-b border-emerald-200 bg-emerald-50/50 mb-1';
+                    const stickyBox = menu.querySelector('div.sticky');
+                    if (stickyBox && stickyBox.nextSibling) {
+                        menu.insertBefore(customBtn, stickyBox.nextSibling);
+                    } else {
+                        menu.insertBefore(customBtn, menu.firstChild);
+                    }
+                }
+                const safeVal = rawVal.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                customBtn.innerHTML = `
+                    <button type="button" onclick="selectNationality('${safeVal}', 'CUSTOM', event)" class="w-full text-left px-3 py-2 text-xs font-extrabold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded-xl flex items-center justify-between transition-colors border border-emerald-300 shadow-2xs cursor-pointer">
+                        <span class="truncate">+ Use Custom Entry: "${rawVal}"</span>
+                        <span class="text-[9px] font-mono-code bg-emerald-700 text-white px-1.5 py-0.5 rounded font-bold uppercase shrink-0">CUSTOM</span>
+                    </button>
+                `;
+                customBtn.style.display = 'block';
+            } else if (customBtn) {
+                customBtn.style.display = 'none';
+            }
+        }
+
+        function handleNatSearchKeydown(e, isDynamic = false, inputEl = null) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                if (isDynamic && inputEl) {
+                    const rawVal = (inputEl.value || '').trim();
+                    if (rawVal) {
+                        selectDynamicNationality(inputEl, rawVal, 'CUSTOM', e);
+                    }
+                } else {
+                    const rawVal = (document.getElementById('nationalitySearchInput')?.value || '').trim();
+                    if (rawVal) {
+                        selectNationality(rawVal, 'CUSTOM', e);
+                    }
+                }
+            }
+        }
+
+        function toggleDynamicDropdown(triggerBtn) {
+            if (!triggerBtn) return;
+            const parent = triggerBtn.closest('.relative');
+            if (!parent) return;
+            const menu = parent.querySelector('.dyn-dropdown-menu');
+            const chevron = triggerBtn.querySelector('.dyn-chevron');
+            if (!menu) return;
+            const isHidden = menu.classList.contains('hidden');
+
+            document.querySelectorAll('.dyn-dropdown-menu').forEach(m => m.classList.add('hidden'));
+            document.querySelectorAll('.dyn-chevron').forEach(c => c.classList.remove('rotate-180'));
+            closeAllDropdowns();
+
+            if (isHidden) {
+                menu.classList.remove('hidden');
+                if (chevron) chevron.classList.add('rotate-180');
+                const searchInput = menu.querySelector('input[type="text"]');
+                if (searchInput) setTimeout(() => searchInput.focus(), 50);
+            }
+        }
+
+        function selectDynamicGender(optionBtn, val, symbol, colorClasses, e) {
+            if (e) e.stopPropagation();
+            const parent = optionBtn.closest('.relative');
+            if (!parent) return;
+            const input = parent.querySelector('[data-field="gender"]');
+            if (input) input.value = val;
+            const label = parent.querySelector('.dyn-gender-label');
+            if (label) {
+                label.innerText = val || 'Select Gender';
+                label.className = val ? 'dyn-gender-label font-bold text-slate-900 text-xs' : 'dyn-gender-label font-bold text-slate-500 text-xs';
+            }
+            const icon = parent.querySelector('.dyn-gender-icon');
+            if (icon) {
+                icon.innerText = symbol;
+                icon.className = `dyn-gender-icon w-5 h-5 rounded-full ${colorClasses} flex items-center justify-center text-[10px] font-bold`;
+            }
+            const menu = parent.querySelector('.dyn-dropdown-menu');
+            if (menu) menu.classList.add('hidden');
+            const chevron = parent.querySelector('.dyn-chevron');
+            if (chevron) chevron.classList.remove('rotate-180');
+            saveDocketFormDraft();
+        }
+
+        function selectDynamicNationality(optionBtn, val, codeOrIcon, e) {
+            if (e) e.stopPropagation();
+            const parent = optionBtn.closest('.relative');
+            if (!parent) return;
+            const input = parent.querySelector('[data-field="nationality"]');
+            if (input) input.value = val;
+            const label = parent.querySelector('.dyn-nat-label');
+            if (label) {
+                label.innerText = val || 'Select Nationality';
+                label.className = val ? 'dyn-nat-label font-bold text-slate-900 text-xs' : 'dyn-nat-label font-bold text-slate-500 text-xs';
+            }
+            const icon = parent.querySelector('.dyn-nat-icon');
+            if (icon) {
+                icon.innerText = codeOrIcon || (val ? 'CUSTOM' : 'NAT');
+                icon.className = val ? 'dyn-nat-icon w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold' : 'dyn-nat-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold';
+            }
+            const menu = parent.querySelector('.dyn-dropdown-menu');
+            if (menu) menu.classList.add('hidden');
+            const chevron = parent.querySelector('.dyn-chevron');
+            if (chevron) chevron.classList.remove('rotate-180');
+            saveDocketFormDraft();
+        }
+
+        function filterDynamicNatOptions(inputEl) {
+            const rawVal = (inputEl.value || '').trim();
+            const lowerQuery = rawVal.toLowerCase();
+            const menu = inputEl.closest('.dyn-dropdown-menu');
+            if (!menu) return;
+
+            const options = menu.querySelectorAll('.nat-dyn-option');
+            options.forEach(opt => {
+                const text = opt.innerText.toLowerCase();
+                if (!lowerQuery || text.includes(lowerQuery)) {
+                    opt.style.display = 'flex';
+                } else {
+                    opt.style.display = 'none';
+                }
+            });
+
+            let customBtn = menu.querySelector('.nat-dyn-custom-btn');
+            if (rawVal.length > 0) {
+                if (!customBtn) {
+                    customBtn = document.createElement('div');
+                    customBtn.className = 'nat-dyn-custom-btn p-1 border-b border-emerald-200 bg-emerald-50/50 mb-1';
+                    const stickyBox = menu.querySelector('div.sticky');
+                    if (stickyBox && stickyBox.nextSibling) {
+                        menu.insertBefore(customBtn, stickyBox.nextSibling);
+                    } else {
+                        menu.insertBefore(customBtn, menu.firstChild);
+                    }
+                }
+                const safeVal = rawVal.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                customBtn.innerHTML = `
+                    <button type="button" onclick="selectDynamicNationality(this, '${safeVal}', 'CUSTOM', event)" class="w-full text-left px-3 py-2 text-xs font-extrabold text-emerald-900 bg-emerald-100 hover:bg-emerald-200 rounded-xl flex items-center justify-between transition-colors border border-emerald-300 shadow-2xs cursor-pointer">
+                        <span class="truncate">+ Use Custom Entry: "${rawVal}"</span>
+                        <span class="text-[9px] font-mono-code bg-emerald-700 text-white px-1.5 py-0.5 rounded font-bold uppercase shrink-0">CUSTOM</span>
+                    </button>
+                `;
+                customBtn.style.display = 'block';
+            } else if (customBtn) {
+                customBtn.style.display = 'none';
+            }
         }
 
         function toggleChildrenInput() {
@@ -4254,8 +5056,12 @@
             if (input) input.value = val;
             const label = document.getElementById('selectedMaritalLabel');
             if (label) {
-                label.innerText = val;
-                label.className = "font-bold text-slate-900 text-xs";
+                label.innerText = val || 'Select Marital / Relationship Status';
+                if (!val) {
+                    label.className = "font-bold text-slate-500 text-xs";
+                } else {
+                    label.className = "font-bold text-slate-900 text-xs";
+                }
             }
             closeAllDropdowns();
             handleMaritalChange(val);
@@ -5089,7 +5895,7 @@
                 }
             }
             const natContainer = document.getElementById('nationalityDropdownMenu');
-            const natTrigger = document.getElementById('natDropdownTrigger');
+            const natTrigger = document.getElementById('nationalityDropdownTrigger');
             if (natContainer && !natContainer.classList.contains('hidden')) {
                 if (!natContainer.contains(e.target) && (!natTrigger || !natTrigger.contains(e.target))) {
                     natContainer.classList.add('hidden');
@@ -5126,6 +5932,29 @@
                     const sChevron = document.getElementById('sidebarEventChevron');
                     if (sChevron) sChevron.classList.remove('rotate-180');
                 }
+            }
+
+            // Close dynamic custom dropdown menus when clicking outside
+            document.querySelectorAll('.dyn-dropdown-menu').forEach(menu => {
+                if (!menu.classList.contains('hidden')) {
+                    const parent = menu.closest('.relative');
+                    if (parent && !parent.contains(e.target)) {
+                        menu.classList.add('hidden');
+                        const chevron = parent.querySelector('.dyn-chevron');
+                        if (chevron) chevron.classList.remove('rotate-180');
+                    }
+                }
+            });
+        });
+
+        // Close all custom dropdowns when scrolling or pressing Escape key
+        window.addEventListener('scroll', function() {
+            closeAllDropdowns();
+        }, { passive: true });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAllDropdowns();
             }
         });
 
@@ -5170,31 +5999,58 @@
                     dropdownParent: $('#operationTypeSelect').parent(),
                     width: '100%'
                 });
-
-                $('#nationalitySelect').select2({
-                    placeholder: "Select or type custom nationality...",
-                    allowClear: true,
-                    tags: true,
-                    createTag: function(params) {
-                        var term = $.trim(params.term);
-                        if (term === '') return null;
-                        return {
-                            id: term,
-                            text: term,
-                            newTag: true
-                        };
-                    },
-                    dropdownParent: $('#nationalitySelect').parent(),
-                    width: '100%'
-                }).on('change', function() {
-                    const val = $(this).val();
-                    const hidden = document.getElementById('newArrestedNationality');
-                    if (hidden) hidden.value = val || 'Ghanaian';
-                    saveDocketFormDraft();
-                });
             }
 
             restoreDocketFormDraft();
+
+            // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality
+            if (document.getElementById('caseEntryTypeSelect')) {
+                document.getElementById('caseEntryTypeSelect').value = '';
+                const cLabel = document.getElementById('selectedCaseTypeLabel');
+                if (cLabel) {
+                    cLabel.innerText = 'Select Suspect Docket Mode';
+                    cLabel.className = 'font-extrabold text-slate-500 text-xs';
+                }
+                handleCaseEntryTypeChange();
+            }
+
+            if (document.getElementById('newArrestedGender')) {
+                document.getElementById('newArrestedGender').value = '';
+                const gLabel = document.getElementById('selectedGenderLabel');
+                if (gLabel) {
+                    gLabel.innerText = 'Select Gender';
+                    gLabel.className = 'font-bold text-slate-500 text-xs';
+                }
+                const gIcon = document.getElementById('selectedGenderIcon');
+                if (gIcon) {
+                    gIcon.innerText = '?';
+                    gIcon.className = 'w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold';
+                }
+            }
+
+            if (document.getElementById('newArrestedNationality')) {
+                document.getElementById('newArrestedNationality').value = '';
+                const nLabel = document.getElementById('selectedNationalityLabel');
+                if (nLabel) {
+                    nLabel.innerText = 'Select Nationality';
+                    nLabel.className = 'font-bold text-slate-500 text-xs';
+                }
+                const nIcon = document.getElementById('selectedNationalityIcon');
+                if (nIcon) {
+                    nIcon.innerText = 'NAT';
+                    nIcon.className = 'w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold';
+                }
+            }
+
+            if (document.getElementById('newArrestedMarital')) {
+                document.getElementById('newArrestedMarital').value = '';
+                const mLabel = document.getElementById('selectedMaritalLabel');
+                if (mLabel) {
+                    mLabel.innerText = 'Select Marital / Relationship Status';
+                    mLabel.className = 'font-bold text-slate-500 text-xs';
+                }
+                handleMaritalChange('');
+            }
 
             const form = document.querySelector('form');
             if (form) {
@@ -5536,7 +6392,10 @@
 
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
-            if (examRefInput) examRefInput.value = `EXAM-${currentYear}-${paddedIdx}-LAB`;
+            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-'))) {
+                const randNum = Math.floor(Math.random() * 90 + 10);
+                examRefInput.value = `GSA-FM-T${randNum}-F`;
+            }
 
             const name = selectedOption.getAttribute('data-name') || '';
             const cat = selectedOption.getAttribute('data-cat') || '';
@@ -5559,6 +6418,254 @@
                     descInput.value = labExhibitUserEdits[idx];
                 }
             }
+
+            // Populate SAMPLE WEIGHT Description (Drug Name) & Gross Weight (Quantity / Weight & Unit)
+            const sampleDescInput = document.getElementById('sampleWeightDescription');
+            const sampleGrossInput = document.getElementById('sampleWeightGross');
+            const drugName = name || cat || '';
+            let grossWeightParts = [];
+            if (qty || pkg) grossWeightParts.push(`${qty} ${pkg}`.trim());
+            if (weight || unit) grossWeightParts.push(`${weight} ${unit}`.trim());
+            const grossWeightText = grossWeightParts.join(' / ');
+
+            if (sampleDescInput) {
+                if (!sampleDescInput.value || sampleDescInput.getAttribute('data-auto-synced') === 'true' || sampleDescInput.value.startsWith('e.g.')) {
+                    if (drugName) {
+                        sampleDescInput.value = drugName;
+                        sampleDescInput.setAttribute('data-auto-synced', 'true');
+                    }
+                }
+            }
+
+            const substanceIdInput = document.getElementById('confirmatorySubstanceIdentification');
+            if (substanceIdInput) {
+                if (!substanceIdInput.value || substanceIdInput.getAttribute('data-auto-synced') === 'true' || substanceIdInput.value.startsWith('Displaying')) {
+                    if (drugName) {
+                        substanceIdInput.value = drugName;
+                        substanceIdInput.setAttribute('data-auto-synced', 'true');
+                    }
+                }
+            }
+            if (sampleGrossInput) {
+                if (!sampleGrossInput.value || sampleGrossInput.getAttribute('data-auto-synced') === 'true' || sampleGrossInput.value.startsWith('e.g.')) {
+                    if (grossWeightText) {
+                        sampleGrossInput.value = grossWeightText;
+                        sampleGrossInput.setAttribute('data-auto-synced', 'true');
+                    }
+                }
+            }
+
+            const unitAddon = document.getElementById('sampleWeightTakenUnitAddon');
+            if (unitAddon) {
+                if (unit) {
+                    unitAddon.textContent = unit;
+                } else if (grossWeightText) {
+                    const uMatch = grossWeightText.match(/(Kilograms?\s*\([^\)]+\)|Kilograms?|kg|Grams?|g|mg|lbs?)/i);
+                    if (uMatch) unitAddon.textContent = uMatch[1];
+                }
+            }
+
+            updateSampleWeightReserved();
+        }
+
+        function findWeightChunk(parts) {
+            if (!parts || parts.length === 0) return '';
+            for (let i = parts.length - 1; i >= 0; i--) {
+                const lower = parts[i].toLowerCase();
+                if (/\b(kg|kgs|kilogram|kilograms|g|gm|gms|gram|grams|mg|mgs|milligram|milligrams|lb|lbs|pound|pounds)\b/i.test(lower) || /\d\s*(kg|g|mg|lb)\b/i.test(lower)) {
+                    return parts[i];
+                }
+            }
+            for (let i = parts.length - 1; i >= 0; i--) {
+                if (/[\d]+/.test(parts[i])) {
+                    return parts[i];
+                }
+            }
+            return parts[parts.length - 1];
+        }
+
+        function parseParts(str) {
+            return str.split('/').map(p => p.trim()).filter(p => p.length > 0);
+        }
+
+        function parseQtyAndUnit(chunk) {
+            if (!chunk) return null;
+            const numMatch = chunk.match(/([\d]+(?:\.[\d]+)?)/);
+            if (!numMatch) return null;
+            const num = parseFloat(numMatch[1]);
+            if (isNaN(num)) return null;
+
+            const lower = chunk.toLowerCase();
+            let unit = '';
+
+            if (/\b(kg|kgs|kilogram|kilograms)\b/i.test(lower) || /\d\s*kg\b/i.test(lower)) {
+                unit = 'kg';
+            } else if (/\b(mg|mgs|milligram|milligrams)\b/i.test(lower) || /\d\s*mg\b/i.test(lower)) {
+                unit = 'mg';
+            } else if (/\b(g|gm|gms|gram|grams)\b/i.test(lower) || /\d\s*g\b/i.test(lower)) {
+                unit = 'g';
+            } else if (/\b(lb|lbs|pound|pounds)\b/i.test(lower) || /\d\s*lb\b/i.test(lower)) {
+                unit = 'lb';
+            } else {
+                const idx = chunk.indexOf(numMatch[1]);
+                if (idx !== -1) {
+                    const afterNum = chunk.substring(idx + numMatch[1].length).trim();
+                    const firstWord = afterNum.split(/\s+/)[0];
+                    if (firstWord) {
+                        unit = firstWord.replace(/[^a-zA-Z]/g, '');
+                    }
+                }
+            }
+            return { num, unit };
+        }
+
+        function toKg(num, unit) {
+            if (!unit) return null;
+            const u = unit.toLowerCase();
+            if (u === 'kg') return num;
+            if (u === 'g') return num / 1000;
+            if (u === 'mg') return num / 1000000;
+            if (u === 'lb') return num * 0.453592;
+            return null;
+        }
+
+        function formatNum(num) {
+            if (num < 0) num = 0;
+            const rounded = Math.round(num * 10000) / 10000;
+            return rounded.toString();
+        }
+
+        function computeReservedSample(grossStr, takenStr) {
+            if (!grossStr || typeof grossStr !== 'string' || !grossStr.trim()) {
+                return { reserved: '0', isOverflow: false };
+            }
+
+            const grossParts = parseParts(grossStr);
+            let targetGrossChunk = findWeightChunk(grossParts);
+            const gParsed = parseQtyAndUnit(targetGrossChunk);
+
+            const defaultReserved = (gParsed && gParsed.unit) ? `0 ${gParsed.unit}` : '0';
+
+            if (!takenStr || typeof takenStr !== 'string' || !takenStr.trim()) {
+                return { reserved: defaultReserved, isOverflow: false };
+            }
+
+            const takenParts = parseParts(takenStr);
+            let targetTakenChunk = findWeightChunk(takenParts);
+            const tParsed = parseQtyAndUnit(targetTakenChunk);
+
+            if (!gParsed || !tParsed) {
+                return { reserved: defaultReserved, isOverflow: false };
+            }
+
+            let gKg = toKg(gParsed.num, gParsed.unit);
+            let tKg = toKg(tParsed.num, tParsed.unit);
+
+            if (gKg !== null && tKg === null && !tParsed.unit) {
+                tKg = toKg(tParsed.num, gParsed.unit);
+            }
+
+            if (gKg !== null && tKg !== null) {
+                if (tKg > gKg) {
+                    return { reserved: defaultReserved, isOverflow: true };
+                }
+                const diffKg = gKg - tKg;
+                const gU = gParsed.unit.toLowerCase();
+                let resVal = '0';
+                if (gU === 'g' || gU === 'gm' || gU === 'gram' || gU === 'grams') {
+                    resVal = formatNum(diffKg * 1000) + (gParsed.unit ? ' ' + gParsed.unit : '');
+                } else if (gU === 'mg' || gU === 'milligram' || gU === 'milligrams') {
+                    resVal = formatNum(diffKg * 1000000) + (gParsed.unit ? ' ' + gParsed.unit : '');
+                } else {
+                    resVal = formatNum(diffKg) + (gParsed.unit ? ' ' + gParsed.unit : '');
+                }
+                return { reserved: resVal, isOverflow: false };
+            } else {
+                if (tParsed.num > gParsed.num) {
+                    return { reserved: defaultReserved, isOverflow: true };
+                }
+                const diff = gParsed.num - tParsed.num;
+                const unit = gParsed.unit || tParsed.unit;
+                return { reserved: formatNum(diff) + (unit ? ' ' + unit : ''), isOverflow: false };
+            }
+        }
+
+        function updateSampleWeightReserved() {
+            const grossInput = document.getElementById('sampleWeightGross');
+            const takenInput = document.getElementById('sampleWeightTaken');
+            const addonInput = document.getElementById('sampleWeightTakenUnitAddon');
+            const reservedInput = document.getElementById('sampleWeightReserved');
+            const errorMsgEl = document.getElementById('sampleWeightTakenError');
+
+            if (!grossInput || !reservedInput) return;
+
+            const grossStr = grossInput.value || '';
+            const takenStr = takenInput ? takenInput.value : '';
+
+            const result = computeReservedSample(grossStr, takenStr);
+
+            reservedInput.value = result.reserved;
+
+            if (result.isOverflow) {
+                if (errorMsgEl) errorMsgEl.classList.remove('hidden');
+                if (takenInput) {
+                    takenInput.classList.add('border-red-500', 'ring-2', 'ring-red-500/20');
+                    takenInput.classList.remove('border-slate-300');
+                }
+                if (addonInput) {
+                    addonInput.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
+                    addonInput.classList.remove('border-slate-300', 'bg-slate-100/90', 'text-slate-700');
+                }
+            } else {
+                if (errorMsgEl) errorMsgEl.classList.add('hidden');
+                if (takenInput) {
+                    takenInput.classList.remove('border-red-500', 'ring-2', 'ring-red-500/20');
+                    takenInput.classList.add('border-slate-300');
+                }
+                if (addonInput) {
+                    addonInput.classList.remove('border-red-500', 'bg-red-50', 'text-red-700');
+                    addonInput.classList.add('border-slate-300', 'bg-slate-100/90', 'text-slate-700');
+                }
+            }
+        }
+
+        function addDetectedSubstanceRow(substance = '', percentage = '') {
+            const container = document.getElementById('detectedSubstancesListContainer');
+            if (!container) return;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'detected-substance-row flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-xl border border-slate-300 shadow-2xs animate-in fade-in duration-200';
+            rowDiv.innerHTML = `
+                <div class="flex-1 w-full">
+                    <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Substance / Compound Detected</label>
+                    <input type="text" class="detected-substance-name w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-sans" placeholder="e.g. Cocaine Hydrochloride" value="${substance}">
+                </div>
+                <div class="w-full sm:w-44">
+                    <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Purity / Percentage</label>
+                    <input type="text" class="detected-substance-percent w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-mono-code" placeholder="e.g. 85.4%" value="${percentage}">
+                </div>
+                <button type="button" onclick="removeDetectedSubstanceRow(this)" class="mt-2 sm:mt-5 p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Row">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            `;
+            container.appendChild(rowDiv);
+        }
+
+        function removeDetectedSubstanceRow(btn) {
+            const row = btn.closest('.detected-substance-row');
+            if (row) row.remove();
+        }
+
+        function getDetectedSubstancesData() {
+            const rows = document.querySelectorAll('#detectedSubstancesListContainer .detected-substance-row');
+            const data = [];
+            rows.forEach(r => {
+                const sub = r.querySelector('.detected-substance-name')?.value || '';
+                const pct = r.querySelector('.detected-substance-percent')?.value || '';
+                if (sub.trim() !== '' || pct.trim() !== '') {
+                    data.push({ substance: sub.trim(), percentage: pct.trim() });
+                }
+            });
+            return data;
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -5572,6 +6679,13 @@
                 });
             }
 
+            const sampleGrossEl = document.getElementById('sampleWeightGross');
+            const sampleTakenEl = document.getElementById('sampleWeightTaken');
+            ['input', 'keyup', 'change', 'blur', 'paste'].forEach(function(evt) {
+                if (sampleGrossEl) sampleGrossEl.addEventListener(evt, updateSampleWeightReserved);
+                if (sampleTakenEl) sampleTakenEl.addEventListener(evt, updateSampleWeightReserved);
+            });
+
             // Real-time capturing listeners for all Section 4 input events
             ['input', 'keyup', 'change', 'blur', 'paste'].forEach(function(eventType) {
                 document.addEventListener(eventType, function(e) {
@@ -5583,7 +6697,13 @@
                 }, true);
             });
 
+            const detContainer = document.getElementById('detectedSubstancesListContainer');
+            if (detContainer && detContainer.children.length === 0) {
+                addDetectedSubstanceRow('', '');
+            }
+
             syncSection4ExhibitsToLabSection();
+            updateSampleWeightReserved();
         });
     </script>
 

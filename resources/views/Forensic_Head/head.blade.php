@@ -57,8 +57,8 @@
         }
 
         .sidebar-logo-ring {
-            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-            box-shadow: 0 0 20px rgba(59,130,246,0.3);
+            background: #0f172a;
+            box-shadow: 0 0 20px rgba(15,23,42,0.3);
         }
 
         .nav-item {
@@ -115,7 +115,7 @@
         .search-input::placeholder { color: #94A3B8; }
 
         .btn-primary {
-            background: linear-gradient(135deg, #059669, #10b981);
+            background: #059669;
             border: 1px solid #10b981;
             box-shadow: 0 4px 12px rgba(16,185,129,0.25);
             color: white; font-weight: 700; font-size: 11px;
@@ -124,14 +124,14 @@
             transition: all 0.2s;
         }
         .btn-primary:hover {
-            background: linear-gradient(135deg, #10b981, #34d399);
+            background: #047857;
             box-shadow: 0 6px 18px rgba(16,185,129,0.35);
             transform: translateY(-1px);
         }
 
         /* ── Hero Banner ─────────────────────────────── */
         .hero-banner {
-            background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+            background: #0F172A;
             border: 1px solid #334155;
             border-radius: 16px;
             position: relative; overflow: hidden;
@@ -141,14 +141,13 @@
         .hero-banner::before {
             content: '';
             position: absolute; inset: 0;
-            background: radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.2) 0%, transparent 60%),
-                        radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.15) 0%, transparent 50%);
+            background: transparent;
             pointer-events: none;
         }
         .hero-banner::after {
             content: '';
             position: absolute; top: -1px; left: 0; right: 0; height: 2px;
-            background: linear-gradient(90deg, transparent, #3b82f6, #6366f1, #3b82f6, transparent);
+            background: #1e293b;
             border-radius: 16px 16px 0 0;
         }
 
@@ -191,7 +190,7 @@
         .kpi-card::before {
             content: '';
             position: absolute; top: 0; left: 0; right: 0; height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(59,130,246,0.2), transparent);
+            background: transparent;
         }
 
         .kpi-icon {
@@ -276,15 +275,15 @@
 
         .btn-review {
             padding: 6px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer;
-            background: linear-gradient(135deg, #1e40af, #2563eb);
-            border: 1px solid #3b82f6; color: #ffffff;
+            background: #0f172a;
+            border: 1px solid #1e293b; color: #ffffff;
             transition: all 0.2s ease; font-family: 'JetBrains Mono', monospace;
             display: inline-flex; align-items: center; gap: 6px;
-            box-shadow: 0 2px 6px rgba(37,99,235,0.2);
+            box-shadow: 0 2px 6px rgba(15,23,42,0.2);
         }
         .btn-review:hover {
-            background: linear-gradient(135deg, #2563eb, #3b82f6);
-            box-shadow: 0 4px 12px rgba(37,99,235,0.35);
+            background: #1e293b;
+            box-shadow: 0 4px 12px rgba(15,23,42,0.35);
             transform: translateY(-1px);
         }
 
@@ -381,7 +380,7 @@
         }
         .modal-box::before {
             content: ''; display: block; height: 2px; margin-bottom: 0;
-            background: linear-gradient(90deg, #3b82f6, #6366f1, #3b82f6);
+            background: #0f172a;
             border-radius: 2px 2px 0 0; margin: -28px -28px 28px;
         }
 
@@ -444,10 +443,10 @@
         /* ── Avatar ──────────────────────────────────── */
         .avatar {
             width: 38px; height: 38px; border-radius: 10px;
-            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+            background: #0f172a;
             display: flex; align-items: center; justify-content: center;
             font-size: 13px; font-weight: 800; color: white;
-            box-shadow: 0 2px 8px rgba(59,130,246,0.3);
+            box-shadow: 0 2px 8px rgba(15,23,42,0.3);
         }
 
         /* ── Divider line ────────────────────────────── */
@@ -1298,7 +1297,7 @@
             </button>
             <div class="flex items-center gap-3" id="modalActionButtons">
                 <button type="button" onclick="declineCaseFromModal()"
-                    class="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 border border-red-500 shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
+                    class="px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 border border-red-700 shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                     Decline Case
                 </button>

@@ -43,6 +43,8 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
         'username' => $user->username,
     ]);
 });
+Route::post('/api/login', [AuthController::class, 'login']);
+Route::post('/api/logout', [AuthController::class, 'logout']);
 
 
 /*
@@ -57,27 +59,29 @@ Route::middleware(['auth'])->group(function () {
 
     // MASTER CASE DIRECTORY & CASES API
     Route::get('/cases', function () {
-        $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+        $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
         return view('cases.landing', compact('cases'));
     });
 
     Route::get('/cases/landing', function () {
-        $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+        $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
         return view('cases.landing', compact('cases'));
     });
 
     Route::get('/Crime_Scene_Support/cases', function () {
-        $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+        $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
         return view('cases.landing', compact('cases'));
     });
 
     Route::get('/api/cases', [CaseController::class, 'index']);
     Route::get('/cases/{id}/review', [CaseController::class, 'showReview'])->name('cases.review');
     Route::get('/cases/{id}/pdf', [CaseController::class, 'showPdf'])->name('cases.pdf');
+    Route::get('/cases/{id}/associate', [CaseController::class, 'showAssociate'])->name('cases.associate');
 
     // CASE CREATION & UNIT PROGRESS UPDATES
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::post('/cases/{id}/update-unit-progress', [CaseController::class, 'updateUnitProgress']);
+    Route::post('/cases/{id}/associate', [CaseController::class, 'associate']);
 
     // GENERAL DOCKET & EVENT ROUTES
     Route::get('/arrest-person', function () {
@@ -162,14 +166,14 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware([EnsureHeadOfficer::class])->group(function () {
 
         Route::get('/Forensic_Head', function () {
-            $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+            $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
             $pendingCasesCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count();
             $pendingCount = User::where('is_approved', false)->count();
             return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
         });
 
         Route::get('/Forensic_Head/cases', function () {
-            $cases = ForensicCase::orderBy('created_at', 'desc')->get();
+            $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
             $pendingCasesCount = ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count();
             $pendingCount = User::where('is_approved', false)->count();
             return view('Forensic_Head.cases', compact('cases', 'pendingCasesCount', 'pendingCount'));

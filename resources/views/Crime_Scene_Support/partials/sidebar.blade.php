@@ -31,7 +31,7 @@
     $newCaseUrl = $isLabContext ? url('/Lab_Analysis/examination') : url('/arrest-person');
 @endphp
 <!-- LEFT UNIT COMMAND SIDEBAR (EXECUTIVE GRAY THEME WITH SHADOW) -->
-<aside class="w-64 bg-slate-100 text-slate-800 flex flex-col shrink-0 shadow-2xl select-none z-30 relative">
+<aside class="w-64 bg-slate-100 text-slate-800 flex flex-col shrink-0 shadow-2xl select-none z-30 relative overflow-x-hidden font-sans">
     
     <!-- BRAND / SYSTEM LOGO -->
     <div class="h-16 px-5 flex items-center justify-between bg-slate-100">
@@ -143,20 +143,20 @@
             ? strtoupper(substr($nameParts[0], 0, 1) . substr(end($nameParts), 0, 1))
             : strtoupper(substr($userName, 0, 2));
     @endphp
-    <div class="p-3.5 bg-slate-200/50 space-y-2">
-        <div class="flex items-center space-x-3 px-2 py-1">
+    <div class="p-3.5 bg-slate-200/60 space-y-2.5 border-t border-slate-200/80">
+        <div class="flex items-center space-x-3 px-1 py-0.5">
             <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-extrabold text-xs text-white shadow-sm shadow-emerald-600/30 shrink-0">
                 {{ $initials }}
             </div>
             <div class="flex-1 min-w-0">
-                <div class="text-xs font-extrabold text-slate-900 truncate">{{ $userName }}</div>
-                <div class="text-[10px] text-blue-600 font-mono-code font-bold truncate">{{ $userUnit }} Head</div>
+                <div class="text-xs font-extrabold text-slate-900 truncate" title="{{ $userName }}">{{ $userName }}</div>
+                <div class="text-[11px] text-emerald-700 font-extrabold truncate" title="{{ $userUnit }} Head">{{ $userUnit }} Head</div>
             </div>
         </div>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
-            <button type="submit" class="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl bg-white text-slate-800 hover:bg-red-600 hover:text-white text-xs font-bold transition-all shadow-sm cursor-pointer">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <button type="submit" class="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl bg-white hover:bg-red-600 text-slate-800 hover:text-white text-xs font-bold transition-all shadow-2xs border border-slate-200/80 hover:border-red-600 cursor-pointer group">
+                <svg class="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                 <span>Logout Terminal</span>
             </button>
         </form>

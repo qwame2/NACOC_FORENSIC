@@ -39,6 +39,8 @@ class AuthController extends Controller
             ->orWhere('email', $loginId)
             ->first();
 
+        $isJsonReq = $request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json');
+
         if ($user && Hash::check($password, $user->password)) {
             $isForensicHead = $user->is_head && (
                 $user->unit === 'Forensic Directorate' ||
@@ -49,6 +51,12 @@ class AuthController extends Controller
 
             // Block Unit Head login if account is not approved by Head of Forensic Directorate
             if ($user->is_head && !$isForensicHead && isset($user->is_approved) && !$user->is_approved) {
+                if ($isJsonReq) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Account Pending Approval: Your Unit Head registration has been submitted to the Head of Forensic Directorate for approval.'
+                    ], 403);
+                }
                 return back()->withErrors([
                     'login_id' => 'Account Pending Approval: Your Unit Head registration has been submitted to the Head of Forensic Directorate for approval. You cannot log in until your account is approved.',
                 ])->with('pending_login_id', $loginId)->onlyInput('login_id');
@@ -57,20 +65,42 @@ class AuthController extends Controller
             Auth::login($user, $request->has('remember'));
             $request->session()->regenerate();
 
+            $redirectUrl = '/cases';
             if ($isForensicHead) {
-                return redirect()->intended('/Forensic_Head')->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate Command Portal.');
+                $redirectUrl = '/Forensic_Head';
+            } else if ($user->is_head) {
+                $redirectUrl = '/Crime_Scene_Support/head';
+            } else if ($user->is_staff) {
+                $redirectUrl = '/Crime_Scene_Support/staff';
             }
 
-            if ($user->is_head) {
-                $unitTitle = $user->unit ?? 'Unit';
-                return redirect()->intended('/Crime_Scene_Support/head')->with('status', "Login Successful! Welcome to {$unitTitle} Command Portal.");
+            if ($isJsonReq) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Login Successful! Welcome to NACOC Forensic Directorate.',
+                    'redirect_url' => $redirectUrl,
+                    'user' => [
+                        'id' => $user->id,
+                        'fullname' => $user->fullname,
+                        'service_id' => $user->service_id,
+                        'username' => $user->username,
+                        'email' => $user->email,
+                        'unit' => $user->unit,
+                        'is_head' => (bool) $user->is_head,
+                        'is_staff' => (bool) $user->is_staff,
+                        'is_approved' => (bool) $user->is_approved,
+                    ]
+                ], 200);
             }
 
-            if ($user->is_staff) {
-                return redirect()->intended('/Crime_Scene_Support/staff')->with('status', 'Login Successful! Welcome to Field Operations Portal.');
-            }
+            return redirect()->intended($redirectUrl)->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate.');
+        }
 
-            return redirect()->intended('/cases')->with('status', 'Login Successful! Welcome to NACOC Master Case Directory.');
+        if ($isJsonReq) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Wrong username or password.'
+            ], 401);
         }
 
         return back()->withErrors([
@@ -230,6 +260,13 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Officer logged out successfully.'
+            ], 200);
+        }
 
         return redirect('/login')->with('status', 'Officer logged out successfully.');
     }

@@ -102,10 +102,6 @@
             <!-- TOP BAR -->
             <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-20">
                 <div class="flex items-center gap-4 flex-1 max-w-2xl">
-                    <div class="flex items-center gap-2.5 pr-4 border-r border-slate-200">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>
-                        <span class="text-[10px] font-mono-code font-bold uppercase tracking-widest text-emerald-600">Live</span>
-                    </div>
                     <div class="relative w-full">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -130,8 +126,8 @@
                             <div class="text-[11px] font-bold text-slate-900 leading-tight">{{ $headName }}</div>
                             <div class="text-[10px] font-mono-code text-slate-400 leading-tight">UNIT HEAD</div>
                         </div>
-                        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-100 to-cyan-100 border border-emerald-200 flex items-center justify-center">
-                            <span class="text-xs font-bold text-emerald-700">{{ strtoupper(substr($headName, 0, 2)) }}</span>
+                        <div class="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center">
+                            <span class="text-xs font-bold text-slate-700">{{ strtoupper(substr($headName, 0, 2)) }}</span>
                         </div>
                     </div>
                 </div>
@@ -145,7 +141,7 @@
                 <!-- HERO -->
                 <div class="px-6 pt-6">
                     <div class="card rounded-xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative overflow-hidden scan-line">
-                        <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-emerald-500 via-cyan-500 to-purple-500"></div>
+                        <div class="absolute top-0 left-0 w-1 h-full bg-slate-900"></div>
                         <div class="pl-4">
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="text-[10px] font-mono-code font-bold uppercase tracking-widest text-emerald-600">Command Center</span>
