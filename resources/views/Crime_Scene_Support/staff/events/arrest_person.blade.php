@@ -21,6 +21,16 @@
         $caseRefAuto = 'NFC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
+        $isDrugCase = false;
+        if (isset($case)) {
+            $exCat = strtolower($case->exhibit_category ?? '');
+            $szDrug = $case->seizure_name_drug ?? '';
+            $szName = strtolower($case->seizure_name ?? '');
+            $exSum = strtolower($case->exhibits_summary ?? '');
+            if (!empty($szDrug) || str_contains($exCat, 'drug') || str_contains($exCat, 'narcotic') || str_contains($exCat, 'substance') || str_contains($szName, 'cocaine') || str_contains($szName, 'heroin') || str_contains($szName, 'cannabis') || str_contains($szName, 'drug') || str_contains($exSum, 'cocaine') || str_contains($exSum, 'heroin') || str_contains($exSum, 'cannabis') || str_contains($exSum, 'drug')) {
+                $isDrugCase = true;
+            }
+        }
     @endphp
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -613,7 +623,7 @@
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 </div>
                                 <div>
-                                    <h3 class="font-extrabold text-slate-900 text-base">Section 3: Suspect Booking &amp; Personal Details</h3>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Section 3: Suspect Personal Details</h3>
                                     <p class="text-xs text-slate-500">Enter suspect legal identity, origin, residential address, marital records, and custody cell allocation</p>
                                 </div>
                             </div>
@@ -770,10 +780,17 @@
                                         Height (cm / ft-in)
                                     </label>
                                     <div class="relative flex items-center group">
-                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors z-10">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
                                         </span>
-                                        <input type="text" id="newArrestedHeight" placeholder="e.g. 175 cm / 5'9&quot;" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                        <input type="text" id="newArrestedHeight" placeholder="e.g. 175" class="w-full pl-10 pr-24 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                        <div class="absolute right-1.5 flex items-center">
+                                            <select id="newArrestedHeightUnit" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono-code font-black text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 cursor-pointer transition-colors uppercase">
+                                                <option value="CM" selected>CM</option>
+                                                <option value="IN">IN</option>
+                                                <option value="FT">FT</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -972,19 +989,55 @@
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                         Marital / Relationship Status <span class="text-red-600 font-bold">*</span>
                                     </label>
-                                    <button type="button" id="maritalDropdownTrigger" onclick="toggleMaritalDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
-                                        <span id="selectedMaritalLabel" class="font-bold text-slate-500 text-xs">Select Marital / Relationship Status</span>
+                                    <button type="button" id="maritalDropdownTrigger" onclick="toggleMaritalDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                        <div class="flex items-center space-x-2">
+                                            <span id="selectedMaritalIcon" class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">MS</span>
+                                            <span id="selectedMaritalLabel" class="font-bold text-slate-500 text-xs">Select Marital / Relationship Status</span>
+                                        </div>
                                         <input type="hidden" id="newArrestedMarital" name="marital_status" value="">
                                         <svg id="maritalChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                     </button>
 
                                     <div id="maritalDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
-                                        <button type="button" onclick="selectMaritalStatus('', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl transition-colors border-b border-slate-100 mb-1">Select Marital / Relationship Status</button>
-                                        <button type="button" onclick="selectMaritalStatus('Single', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Single</button>
-                                        <button type="button" onclick="selectMaritalStatus('Married', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Married (Requires Spouse Info)</button>
-                                        <button type="button" onclick="selectMaritalStatus('Dating / In Relationship', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Dating / In Relationship (Requires Partner Info)</button>
-                                        <button type="button" onclick="selectMaritalStatus('Divorced', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Divorced</button>
-                                        <button type="button" onclick="selectMaritalStatus('Widowed', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Widowed</button>
+                                        <button type="button" onclick="selectMaritalStatus('', 'MS', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1">
+                                            <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">MS</span>
+                                            <span>Select Marital / Relationship Status</span>
+                                        </button>
+                                        <button type="button" onclick="selectMaritalStatus('Single', 'SGL', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">SGL</span>
+                                                <span>Single</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code text-slate-400 font-bold">SGL</span>
+                                        </button>
+                                        <button type="button" onclick="selectMaritalStatus('Married', 'MRD', 'bg-blue-100 text-blue-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">MRD</span>
+                                                <span>Married (Requires Spouse Info)</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code text-slate-400 font-bold">MRD</span>
+                                        </button>
+                                        <button type="button" onclick="selectMaritalStatus('Dating / In Relationship', 'DAT', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">DAT</span>
+                                                <span>Dating / In Relationship (Requires Partner Info)</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code text-slate-400 font-bold">DAT</span>
+                                        </button>
+                                        <button type="button" onclick="selectMaritalStatus('Divorced', 'DIV', 'bg-amber-100 text-amber-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">DIV</span>
+                                                <span>Divorced</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code text-slate-400 font-bold">DIV</span>
+                                        </button>
+                                        <button type="button" onclick="selectMaritalStatus('Widowed', 'WID', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">WID</span>
+                                                <span>Widowed</span>
+                                            </div>
+                                            <span class="text-[10px] font-mono-code text-slate-400 font-bold">WID</span>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -1130,7 +1183,7 @@
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                         </span>
-                                        <input type="date" id="newArrestedDate" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
+                                        <input type="date" id="newArrestedDate" placeholder="Select Date of Arrest" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
                                     </div>
                                 </div>
 
@@ -1143,7 +1196,7 @@
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         </span>
-                                        <input type="time" id="newArrestedTime" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
+                                        <input type="time" id="newArrestedTime" placeholder="Select Time of Arrest" required class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
                                     </div>
                                 </div>
 
@@ -2664,9 +2717,9 @@
                                             id="labExhibitDescriptionInput" 
                                             name="lab_exhibit_description"
                                             rows="3" 
-                                            placeholder="No exhibit saved yet"
+                                            placeholder="No drug exhibit saved yet"
                                             class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400"
-                                        >No exhibit saved yet</textarea>
+                                        >No drug exhibit saved yet</textarea>
                                     </div>
 
                                     <!-- Laboratory Number -->
@@ -2766,41 +2819,41 @@
 
                                     <div class="flex items-center space-x-3">
                                         <!-- YES CHECKBOX -->
-                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
                                             <input 
                                                 type="checkbox" 
                                                 id="presumptiveTestYes" 
                                                 name="presumptive_test_yes" 
                                                 value="YES"
-                                                checked
                                                 onchange="togglePresumptiveTest('YES')"
                                                 class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer"
                                             >
                                             <div class="flex items-center space-x-1.5">
                                                 <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-                                                <span class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
+                                                <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
                                             </div>
                                         </label>
 
                                         <!-- NO CHECKBOX -->
-                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                        <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
                                             <input 
                                                 type="checkbox" 
                                                 id="presumptiveTestNo" 
                                                 name="presumptive_test_no" 
                                                 value="NO"
+                                                checked
                                                 onchange="togglePresumptiveTest('NO')"
                                                 class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
                                             >
                                             <div class="flex items-center space-x-1.5">
                                                 <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                                                <span class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
+                                                <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
                                             </div>
                                         </label>
                                     </div>
 
                                     <!-- DROPDOWN / MULTI-ROW INPUT BOXES FOR PRESUMPTIVE TEST REACTION DETAILS -->
-                                    <div id="presumptiveReactionDetailsContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300">
+                                    <div id="presumptiveReactionDetailsContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
                                         <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
                                             <div class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
                                                 <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2951,32 +3004,52 @@
 
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <!-- DESCRIPTION -->
-                                            <div class="md:col-span-2">
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Description <span class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <input 
-                                                    type="text" 
-                                                    id="sampleWeightDescription" 
-                                                    name="sample_weight_description" 
-                                                    placeholder="e.g. Compressed tan-brown vegetal matter, sealed in plastic wrap"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
-                                                >
-                                            </div>
+                                             <div class="md:col-span-2">
+                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                     <span>Description <span class="text-red-600 font-bold">*</span></span>
+                                                     <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                 </label>
+                                                 <input 
+                                                     type="text" 
+                                                     id="sampleWeightDescription" 
+                                                     name="sample_weight_description" 
+                                                     readonly
+                                                     placeholder="Fetched from drug manifest"
+                                                     class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
+                                                 >
+                                             </div>
 
-                                            <!-- NUMBER OF UNIT / GROSS WEIGHT -->
-                                            <div>
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Number of Unit / Gross Weight <span class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <input 
-                                                    type="text" 
-                                                    id="sampleWeightGross" 
-                                                    name="sample_weight_gross" 
-                                                    placeholder="e.g. 12 slabs / 14.85 kg gross weight"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
-                                                >
-                                            </div>
+                                             <!-- NUMBER OF UNITS -->
+                                             <div>
+                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                     <span>Number of Units <span class="text-red-600 font-bold">*</span></span>
+                                                     <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                 </label>
+                                                 <input 
+                                                     type="text" 
+                                                     id="sampleWeightUnits" 
+                                                     name="sample_weight_units" 
+                                                     readonly
+                                                     placeholder="Fetched from drug manifest"
+                                                     class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed"
+                                                 >
+                                             </div>
+
+                                             <!-- GROSS WEIGHT -->
+                                             <div>
+                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                     <span>Gross Weight <span class="text-red-600 font-bold">*</span></span>
+                                                     <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                 </label>
+                                                 <input 
+                                                     type="text" 
+                                                     id="sampleWeightGross" 
+                                                     name="sample_weight_gross" 
+                                                     readonly
+                                                     placeholder="Fetched from drug manifest"
+                                                     class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed"
+                                                 >
+                                             </div>
 
                                             <!-- SAMPLE TAKEN -->
                                             <div>
@@ -3007,7 +3080,7 @@
                                             </div>
 
                                             <!-- RESERVED SAMPLES -->
-                                            <div class="md:col-span-2">
+                                            <div>
                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
                                                     <span>Reserved Samples <span class="text-red-600 font-bold">*</span></span>
                                                     <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
@@ -3039,15 +3112,17 @@
                                                 <div class="space-y-4">
                                                     <!-- 1. SUBSTANCE IDENTIFICATION -->
                                                     <div>
-                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                            Substance Identification <span class="text-red-600 font-bold">*</span>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                            <span>Substance Identification <span class="text-red-600 font-bold">*</span></span>
+                                                            <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                                         </label>
                                                         <input 
                                                             type="text" 
                                                             id="confirmatorySubstanceIdentification" 
                                                             name="confirmatory_substance_identification" 
-                                                            placeholder="Displaying Exhibit / Drug Name"
-                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
+                                                            readonly
+                                                            placeholder="Fetched from drug manifest"
+                                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
                                                         >
                                                     </div>
 
@@ -3183,6 +3258,16 @@
                 }
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const noBox = document.getElementById('presumptiveTestNo');
+            const yesBox = document.getElementById('presumptiveTestYes');
+            if (noBox && noBox.checked) {
+                togglePresumptiveTest('NO');
+            } else if (yesBox && yesBox.checked) {
+                togglePresumptiveTest('YES');
+            }
+        });
 
         function addPresumptiveTestRow() {
             const container = document.getElementById('presumptiveTestRowsContainer');
@@ -3676,7 +3761,7 @@
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Gender <span class="text-red-600 font-bold">*</span>
                             </label>
-                            <button type="button" onclick="toggleDynamicDropdown(this)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                            <button type="button" onclick="toggleDynamicDropdown(this, event)" class="dyn-dropdown-trigger w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
                                 <div class="flex items-center space-x-2">
                                     <span class="dyn-gender-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
                                     <span class="dyn-gender-label font-bold text-slate-500 text-xs">Select Gender</span>
@@ -3739,10 +3824,17 @@
                                 Height (cm / ft-in)
                             </label>
                             <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors z-10">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
                                 </span>
-                                <input type="text" data-field="height" placeholder="e.g. 175 cm / 5'9&quot;" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                <input type="text" data-field="height" placeholder="e.g. 175" class="w-full pl-10 pr-24 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                <div class="absolute right-1.5 flex items-center">
+                                    <select data-field="height_unit" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono-code font-black text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 cursor-pointer transition-colors uppercase">
+                                        <option value="CM" selected>CM</option>
+                                        <option value="IN">IN</option>
+                                        <option value="FT">FT</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -3764,7 +3856,7 @@
                                 <span>Nationality <span class="text-red-600 font-bold">*</span></span>
                                 <span class="text-[9px] font-mono-code text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Search / Custom</span>
                             </label>
-                            <button type="button" onclick="toggleDynamicDropdown(this)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                            <button type="button" onclick="toggleDynamicDropdown(this, event)" class="dyn-dropdown-trigger w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
                                 <div class="flex items-center space-x-2">
                                     <span class="dyn-nat-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">NAT</span>
                                     <span class="dyn-nat-label font-bold text-slate-500 text-xs">Select Nationality</span>
@@ -3839,18 +3931,60 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-30">
-                        <div>
+                        <!-- DYNAMIC CUSTOM MARITAL STATUS DROPDOWN -->
+                        <div class="relative z-30">
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Marital / Relationship Status <span class="text-red-600 font-bold">*</span>
                             </label>
-                            <select data-field="marital_status" onchange="handleDynamicMaritalChange(this)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs">
-                                <option value="" selected>Select Marital / Relationship Status</option>
-                                <option value="Single">Single</option>
-                                <option value="Married">Married (Requires Spouse Info)</option>
-                                <option value="Dating / In Relationship">Dating / In Relationship (Requires Partner Info)</option>
-                                <option value="Divorced">Divorced</option>
-                                <option value="Widowed">Widowed</option>
-                            </select>
+                            <button type="button" onclick="toggleDynamicDropdown(this, event)" class="dyn-dropdown-trigger w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group cursor-pointer">
+                                <div class="flex items-center space-x-2">
+                                    <span class="dyn-marital-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">MS</span>
+                                    <span class="dyn-marital-label font-bold text-slate-500 text-xs">Select Marital / Relationship Status</span>
+                                </div>
+                                <input type="hidden" data-field="marital_status" value="">
+                                <svg class="dyn-chevron w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div class="dyn-dropdown-menu hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                <button type="button" onclick="selectDynamicMarital(this, '', 'MS', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1">
+                                    <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">MS</span>
+                                    <span>Select Marital / Relationship Status</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicMarital(this, 'Single', 'SGL', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">SGL</span>
+                                        <span>Single</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">SGL</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicMarital(this, 'Married', 'MRD', 'bg-blue-100 text-blue-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">MRD</span>
+                                        <span>Married (Requires Spouse Info)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">MRD</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicMarital(this, 'Dating / In Relationship', 'DAT', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">DAT</span>
+                                        <span>Dating / In Relationship (Requires Partner Info)</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">DAT</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicMarital(this, 'Divorced', 'DIV', 'bg-amber-100 text-amber-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-bold">DIV</span>
+                                        <span>Divorced</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">DIV</span>
+                                </button>
+                                <button type="button" onclick="selectDynamicMarital(this, 'Widowed', 'WID', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">WID</span>
+                                        <span>Widowed</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code text-slate-400 font-bold">WID</span>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="space-y-2.5">
@@ -4516,8 +4650,8 @@
             const address = document.getElementById('newArrestedAddress')?.value?.trim() || '';
             const maritalVal = document.getElementById('newArrestedMarital')?.value;
             const maritalLabel = document.getElementById('selectedMaritalLabel')?.innerText;
-            let marital = (maritalVal && maritalVal.trim() !== '') ? maritalVal : ((maritalLabel && maritalLabel !== 'Select Marital Status...') ? maritalLabel : 'Single');
-            if (marital === 'Unspecified') { marital = 'Single'; }
+            let marital = (maritalVal && maritalVal.trim() !== '') ? maritalVal : ((maritalLabel && maritalLabel !== 'Select Marital Status...' && maritalLabel !== 'Select Marital / Relationship Status') ? maritalLabel : '');
+            if (marital === 'Unspecified') { marital = ''; }
             const hasChildren = document.getElementById('hasChildrenCheckbox')?.checked;
             const childrenVal = hasChildren ? (document.getElementById('newArrestedChildren')?.value || '1') : '0';
             const childrenText = hasChildren ? `${childrenVal} Kids` : 'No Children';
@@ -5106,13 +5240,13 @@
             const form = document.querySelector('form');
             if (form) form.reset();
             const mInput = document.getElementById('newArrestedMarital');
-            if (mInput) mInput.value = 'Single';
+            if (mInput) mInput.value = '';
             const mLabel = document.getElementById('selectedMaritalLabel');
             if (mLabel) {
-                mLabel.innerText = 'Single';
-                mLabel.className = "font-bold text-slate-900 text-xs";
+                mLabel.innerText = 'Select Marital / Relationship Status';
+                mLabel.className = "font-bold text-slate-500 text-xs";
             }
-            handleMaritalChange('Single');
+            handleMaritalChange('');
             toggleChildrenInput();
             toggleSeizuresContainer();
         }
@@ -5177,7 +5311,7 @@
             }
         }
 
-        function closeAllDropdowns(exceptMenuId = null) {
+        function closeAllDropdowns(exceptTarget = null) {
             const list = [
                 { menu: 'caseEntryTypeDropdownMenu', chevron: 'caseTypeChevron' },
                 { menu: 'operationTypeDropdownMenu', chevron: 'opTypeChevron' },
@@ -5189,7 +5323,7 @@
                 { menu: 'sidebarEventMenu', chevron: 'sidebarEventChevron' }
             ];
             list.forEach(item => {
-                if (item.menu !== exceptMenuId) {
+                if (item.menu !== exceptTarget && document.getElementById(item.menu) !== exceptTarget) {
                     const m = document.getElementById(item.menu);
                     const c = document.getElementById(item.chevron);
                     if (m) m.classList.add('hidden');
@@ -5197,7 +5331,7 @@
                 }
             });
             document.querySelectorAll('.dyn-dropdown-menu').forEach(menu => {
-                if (menu.id !== exceptMenuId) {
+                if (menu !== exceptTarget && (!menu.id || menu.id !== exceptTarget)) {
                     menu.classList.add('hidden');
                     const parent = menu.closest('.relative');
                     if (parent) {
@@ -5467,7 +5601,8 @@
             }
         }
 
-        function toggleDynamicDropdown(triggerBtn) {
+        function toggleDynamicDropdown(triggerBtn, e = null) {
+            if (e) e.stopPropagation();
             if (!triggerBtn) return;
             const parent = triggerBtn.closest('.relative');
             if (!parent) return;
@@ -5476,9 +5611,7 @@
             if (!menu) return;
             const isHidden = menu.classList.contains('hidden');
 
-            document.querySelectorAll('.dyn-dropdown-menu').forEach(m => m.classList.add('hidden'));
-            document.querySelectorAll('.dyn-chevron').forEach(c => c.classList.remove('rotate-180'));
-            closeAllDropdowns();
+            closeAllDropdowns(menu);
 
             if (isHidden) {
                 menu.classList.remove('hidden');
@@ -5526,6 +5659,32 @@
             if (icon) {
                 icon.innerText = codeOrIcon || (val ? 'CUSTOM' : 'NAT');
                 icon.className = val ? 'dyn-nat-icon w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold' : 'dyn-nat-icon w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold';
+            }
+            const menu = parent.querySelector('.dyn-dropdown-menu');
+            if (menu) menu.classList.add('hidden');
+            const chevron = parent.querySelector('.dyn-chevron');
+            if (chevron) chevron.classList.remove('rotate-180');
+            saveDocketFormDraft();
+        }
+
+        function selectDynamicMarital(optionBtn, val, codeOrIcon, colorClasses, e) {
+            if (e) e.stopPropagation();
+            const parent = optionBtn.closest('.relative');
+            if (!parent) return;
+            const input = parent.querySelector('[data-field="marital_status"]');
+            if (input) {
+                input.value = val;
+                handleDynamicMaritalChange(input);
+            }
+            const label = parent.querySelector('.dyn-marital-label');
+            if (label) {
+                label.innerText = val || 'Select Marital / Relationship Status';
+                label.className = val ? 'dyn-marital-label font-bold text-slate-900 text-xs' : 'dyn-marital-label font-bold text-slate-500 text-xs';
+            }
+            const icon = parent.querySelector('.dyn-marital-icon');
+            if (icon) {
+                icon.innerText = codeOrIcon || 'MS';
+                icon.className = `dyn-marital-icon w-5 h-5 rounded-full ${colorClasses || (val ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600')} flex items-center justify-center text-[10px] font-bold`;
             }
             const menu = parent.querySelector('.dyn-dropdown-menu');
             if (menu) menu.classList.add('hidden');
@@ -5621,7 +5780,7 @@
             }
         }
 
-        function selectMaritalStatus(val, e) {
+        function selectMaritalStatus(val, codeOrIcon, colorClasses, e) {
             if (e) e.stopPropagation();
             const input = document.getElementById('newArrestedMarital');
             if (input) input.value = val;
@@ -5633,6 +5792,11 @@
                 } else {
                     label.className = "font-bold text-slate-900 text-xs";
                 }
+            }
+            const icon = document.getElementById('selectedMaritalIcon');
+            if (icon) {
+                icon.innerText = codeOrIcon || 'MS';
+                icon.className = `w-5 h-5 rounded-full ${colorClasses || (val ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600')} flex items-center justify-center text-[10px] font-bold`;
             }
             closeAllDropdowns();
             handleMaritalChange(val);
@@ -6104,6 +6268,16 @@
 
                 if (category === 'Vehicles' && vehicleWrapper) {
                     vehicleWrapper.classList.remove('hidden');
+                }
+            }
+
+            const isLabUser = (typeof isLabAnalysis !== 'undefined' && isLabAnalysis) || {{ $isLabAnalysis ? 'true' : 'false' }};
+            const labSec = document.getElementById('labAnalysisExclusiveSections');
+            if (labSec) {
+                if (isLabUser) {
+                    labSec.classList.remove('hidden');
+                } else {
+                    labSec.classList.add('hidden');
                 }
             }
         }
@@ -6926,12 +7100,28 @@
         // SECTION 5: MANIFEST SYNC & EXHIBIT SELECTION LOGIC FOR LAB ANALYSIS
         let labExhibitUserEdits = {};
 
+        function isDrugCategory(cat) {
+            if (!cat) return false;
+            const c = String(cat).toLowerCase().trim();
+            return c.includes('drug') || 
+                   c.includes('narcotic') || 
+                   c.includes('substance') || 
+                   c.includes('cocaine') || 
+                   c.includes('heroin') || 
+                   c.includes('cannabis') || 
+                   c.includes('weed') || 
+                   c.includes('meth') || 
+                   c.includes('tramadol');
+        }
+
         function syncSection4ExhibitsToLabSection() {
             const selectEl = document.getElementById('labExhibitSelect');
             const badgeEl = document.getElementById('labExhibitCountBadge');
             const descInput = document.getElementById('labExhibitDescriptionInput');
+            const labSec = document.getElementById('labAnalysisExclusiveSections');
             if (!selectEl) return;
 
+            const isLabUser = (typeof isLabAnalysis !== 'undefined' && isLabAnalysis) || {{ $isLabAnalysis ? 'true' : 'false' }};
             const chk = document.getElementById('hasSeizuresCheckbox');
             const container = document.getElementById('seizuresDetailsContainer');
             const hasSeizures = chk && chk.checked;
@@ -6949,6 +7139,8 @@
                 if (descInput) {
                     descInput.value = 'No exhibit saved yet';
                 }
+                if (labSec && !isLabUser) labSec.classList.add('hidden');
+                else if (labSec) labSec.classList.remove('hidden');
                 onLabExhibitSelected();
                 return;
             }
@@ -6964,6 +7156,8 @@
                 if (descInput) {
                     descInput.value = 'No exhibit saved yet';
                 }
+                if (labSec && !isLabUser) labSec.classList.add('hidden');
+                else if (labSec) labSec.classList.remove('hidden');
                 onLabExhibitSelected();
                 return;
             }
@@ -6977,24 +7171,12 @@
                             block.querySelector('#exhibitSearchInput')?.value || 
                             '';
 
-                if (!cat || cat.trim() === '') {
-                    return; // Skip blocks where Exhibit (Commodity Category) is empty
-                }
-
-                let name = '';
-                if (cat === 'Drugs') {
-                    name = block.querySelector('#newSeizureNameDrug')?.value || block.querySelector('#drugSearchInput')?.value || '';
-                } else if (cat === 'Weapons') {
-                    name = block.querySelector('#newSeizureNameWeapon')?.value || block.querySelector('#weaponSearchInput')?.value || '';
-                } else if (cat === 'Money') {
-                    name = block.querySelector('#newSeizureNameCurrency')?.value || block.querySelector('#currencySearchInput')?.value || '';
-                } else if (cat === 'Ammunition') {
-                    name = block.querySelector('#newSeizureNameAmmo')?.value || block.querySelector('#ammoSearchInput')?.value || '';
-                } else if (cat === 'Electronic Devices') {
-                    name = block.querySelector('#newSeizureNameDevice')?.value || block.querySelector('#deviceSearchInput')?.value || '';
-                } else {
-                    name = block.querySelector('#newSeizureName')?.value || '';
-                }
+                let name = block.querySelector('#newSeizureNameDrug')?.value || 
+                           block.querySelector('#drugSearchInput')?.value || 
+                           block.querySelector('#newSeizureName')?.value || 
+                           block.querySelector('#weaponSearchInput')?.value || 
+                           block.querySelector('#currencySearchInput')?.value || 
+                           '';
 
                 const qty = block.querySelector('#newSeizureQuantity')?.value || '';
                 const pkg = block.querySelector('#newSeizurePackaging')?.value || block.querySelector('#pkgSearchInput')?.value || '';
@@ -7004,11 +7186,10 @@
 
                 let displayName = name;
                 if (!displayName || displayName.trim() === '') {
-                    displayName = (cat && cat.trim() !== '') ? cat : `Seizure Item #${itemNum}`;
+                    displayName = (cat && cat.trim() !== '') ? cat : `Exhibit #${itemNum}`;
                 }
 
                 let optionText = `Exhibit #${itemNum}: ${displayName}`;
-                if (cat) optionText += ` [${cat}]`;
                 if (qty || weight) optionText += ` — ${qty ? qty + ' ' + (pkg || 'qty') : ''}${weight ? ' ' + weight + ' ' + (unit || '') : ''}`;
 
                 const opt = document.createElement('option');
@@ -7035,8 +7216,18 @@
                 if (descInput) {
                     descInput.value = 'No exhibit saved yet';
                 }
+                if (labSec && !isLabUser) labSec.classList.add('hidden');
+                else if (labSec) labSec.classList.remove('hidden');
                 onLabExhibitSelected();
                 return;
+            }
+
+            if (labSec) {
+                if (isLabUser) {
+                    labSec.classList.remove('hidden');
+                } else {
+                    labSec.classList.add('hidden');
+                }
             }
 
             if (badgeEl) {
@@ -7100,17 +7291,23 @@
                 }
             }
 
-            // Populate SAMPLE WEIGHT Description (Drug Name) & Gross Weight (Quantity / Weight & Unit)
+            // Populate SAMPLE WEIGHT Description, Units/Packaging, & Gross Weight
             const sampleDescInput = document.getElementById('sampleWeightDescription');
+            const sampleUnitsInput = document.getElementById('sampleWeightUnits');
             const sampleGrossInput = document.getElementById('sampleWeightGross');
             const drugName = name || cat || '';
-            let grossWeightParts = [];
-            if (qty || pkg) grossWeightParts.push(`${qty} ${pkg}`.trim());
-            if (weight || unit) grossWeightParts.push(`${weight} ${unit}`.trim());
-            const grossWeightText = grossWeightParts.join(' / ');
+            let unitsText = qty ? `${qty} ${pkg}`.trim() : (pkg || '');
+            let grossWeightText = weight ? `${weight} ${unit}`.trim() : (unit || '');
+
+            const nonDrugKwList = ['truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency', 'zonda', 'cash', 'usd', 'ghs', 'laptop', 'phone'];
+            const isNonDrugVal = (val) => {
+                if (!val) return false;
+                const lVal = val.toLowerCase();
+                return nonDrugKwList.some(kw => lVal.includes(kw));
+            };
 
             if (sampleDescInput) {
-                if (!sampleDescInput.value || sampleDescInput.getAttribute('data-auto-synced') === 'true' || sampleDescInput.value.startsWith('e.g.')) {
+                if (!sampleDescInput.value || sampleDescInput.getAttribute('data-auto-synced') === 'true' || sampleDescInput.value.startsWith('e.g.') || isNonDrugVal(sampleDescInput.value)) {
                     if (drugName) {
                         sampleDescInput.value = drugName;
                         sampleDescInput.setAttribute('data-auto-synced', 'true');
@@ -7120,15 +7317,24 @@
 
             const substanceIdInput = document.getElementById('confirmatorySubstanceIdentification');
             if (substanceIdInput) {
-                if (!substanceIdInput.value || substanceIdInput.getAttribute('data-auto-synced') === 'true' || substanceIdInput.value.startsWith('Displaying')) {
+                if (!substanceIdInput.value || substanceIdInput.getAttribute('data-auto-synced') === 'true' || substanceIdInput.value.startsWith('Displaying') || isNonDrugVal(substanceIdInput.value)) {
                     if (drugName) {
                         substanceIdInput.value = drugName;
                         substanceIdInput.setAttribute('data-auto-synced', 'true');
                     }
                 }
             }
+
+            if (sampleUnitsInput) {
+                if (!sampleUnitsInput.value || sampleUnitsInput.getAttribute('data-auto-synced') === 'true' || isNonDrugVal(sampleUnitsInput.value)) {
+                    if (unitsText) {
+                        sampleUnitsInput.value = unitsText;
+                        sampleUnitsInput.setAttribute('data-auto-synced', 'true');
+                    }
+                }
+            }
             if (sampleGrossInput) {
-                if (!sampleGrossInput.value || sampleGrossInput.getAttribute('data-auto-synced') === 'true' || sampleGrossInput.value.startsWith('e.g.')) {
+                if (!sampleGrossInput.value || sampleGrossInput.getAttribute('data-auto-synced') === 'true' || sampleGrossInput.value.startsWith('e.g.') || isNonDrugVal(sampleGrossInput.value)) {
                     if (grossWeightText) {
                         sampleGrossInput.value = grossWeightText;
                         sampleGrossInput.setAttribute('data-auto-synced', 'true');

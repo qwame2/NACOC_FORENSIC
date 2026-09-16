@@ -7,7 +7,57 @@
     $priority = strtoupper($case->priority ?? 'NORMAL');
     
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
-    $evidencePhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
+    
+    $allAssocPhotos = [];
+    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+        foreach ($docketData['seizures'] as $szItem) {
+            $cat = strtolower($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''));
+            $pCat = strtolower($case->exhibit_category ?? '');
+            $sNameSz = strtolower($szItem['seizure_name'] ?? '');
+            $pName = strtolower($case->seizure_name ?? '');
+
+            $isAssocSz = !empty($szItem['is_associate']) 
+                || !empty($szItem['associated_person']) 
+                || (($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit'));
+
+            if ($isAssocSz) {
+                if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
+                    foreach ($szItem['photos'] as $ap) {
+                        if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
+                    }
+                }
+                $apSingle = $szItem['photo'] ?? ($szItem['exhibit_photo'] ?? null);
+                if ($apSingle && !in_array($apSingle, $allAssocPhotos)) {
+                    $allAssocPhotos[] = $apSingle;
+                }
+            }
+        }
+    }
+
+    $rawPhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
+    if (!is_array($rawPhotos)) $rawPhotos = [];
+    $evidencePhotos = [];
+    foreach ($rawPhotos as $p) {
+        if ($p && !in_array($p, $evidencePhotos)) $evidencePhotos[] = $p;
+    }
+    if (!empty($docketData['evidence_photos']) && is_array($docketData['evidence_photos'])) {
+        foreach ($docketData['evidence_photos'] as $p) {
+            if ($p && !in_array($p, $evidencePhotos)) $evidencePhotos[] = $p;
+        }
+    }
+    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+        foreach ($docketData['seizures'] as $szItem) {
+            if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
+                foreach ($szItem['photos'] as $p) {
+                    if ($p && !in_array($p, $evidencePhotos)) $evidencePhotos[] = $p;
+                }
+            }
+            $singleP = $szItem['photo'] ?? ($szItem['exhibit_photo'] ?? null);
+            if ($singleP && !in_array($singleP, $evidencePhotos)) {
+                $evidencePhotos[] = $singleP;
+            }
+        }
+    }
 
     if (empty($evidencePhotos) && ($case->has_seizures || !empty($case->seizure_name) || !empty($case->exhibits_summary) || !empty($case->exhibit_category))) {
         $cat = strtolower($case->exhibit_category ?? '');
@@ -65,24 +115,78 @@
     $labConfirmatory = !empty($labExam['confirmatory_result']) ? $labExam['confirmatory_result'] : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'NO');
     $labSampleWeight = $labExam['sample_weight'] ?? [];
     
-    $defaultDrugName = $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibit_category ?: ($case->exhibits_summary ?: $case->title)));
+    // Extract top drug exhibits first
+    $topDrugExhibits = [];
+    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+        foreach ($docketData['seizures'] as $idx => $sz) {
+            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+            $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
+            if (!empty($sz['seizure_name_drug']) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains(strtolower($sName), 'cocaine') || str_contains(strtolower($sName), 'heroin') || str_contains(strtolower($sName), 'cannabis') || str_contains(strtolower($sName), 'drug')) {
+                $topDrugExhibits[] = [
+                    'index' => $idx + 1,
+                    'name'  => $sName ?: 'Drug Exhibit',
+                    'cat'   => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
+                    'qty'   => $sz['seizure_quantity'] ?? null,
+                    'weight'=> $sz['seizure_weight'] ?? null,
+                    'unit'  => $sz['seizure_unit'] ?? null,
+                ];
+            }
+        }
+    }
     
-    $defaultGrossWeightParts = [];
-    if (!empty($case->seizure_quantity)) {
-        $defaultGrossWeightParts[] = trim($case->seizure_quantity . ' ' . ($case->seizure_packaging ?? ''));
-    }
-    if (!empty($case->seizure_weight)) {
-        $defaultGrossWeightParts[] = trim($case->seizure_weight . ' ' . ($case->seizure_unit ?? ''));
-    }
-    $defaultGrossWeight = !empty($defaultGrossWeightParts) ? implode(' / ', array_filter($defaultGrossWeightParts)) : ($case->exhibits_summary ?? '');
+    $firstDrugFound = !empty($topDrugExhibits) ? $topDrugExhibits[0]['name'] : null;
+    $defaultDrugName = $firstDrugFound ?: ($case->seizure_name_drug ?: ($isDrugCase ? ($case->exhibits_summary ?: 'Drug Exhibit') : 'Drug Exhibit'));
+    
+    $firstDrugQty = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['qty'] ?? ($topDrugExhibits[0]['seizure_quantity'] ?? null)) : $case->seizure_quantity;
+    $firstDrugPkg = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['pkg'] ?? ($topDrugExhibits[0]['seizure_packaging'] ?? null)) : $case->seizure_packaging;
+    $firstDrugWeight = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['weight'] ?? ($topDrugExhibits[0]['seizure_weight'] ?? null)) : $case->seizure_weight;
+    $firstDrugUnit = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['unit'] ?? ($topDrugExhibits[0]['seizure_unit'] ?? null)) : $case->seizure_unit;
 
-    $labSampleDesc = !empty($labSampleWeight['description']) ? $labSampleWeight['description'] : (!empty($case->sample_weight_description) ? $case->sample_weight_description : $defaultDrugName);
-    $labSampleGross = !empty($labSampleWeight['gross_weight']) ? $labSampleWeight['gross_weight'] : (!empty($case->sample_weight_gross) ? $case->sample_weight_gross : $defaultGrossWeight);
+    $defaultUnits = !empty($firstDrugQty) ? trim($firstDrugQty . ' ' . ($firstDrugPkg ?? '')) : '';
+    $defaultGrossWeight = !empty($firstDrugWeight) ? trim($firstDrugWeight . ' ' . ($firstDrugUnit ?? '')) : ($defaultUnits ?: ($case->exhibits_summary ?? ''));
+
+    $nonDrugKeywords = ['truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency', 'zonda', 'cash', 'usd', 'ghs', 'laptop', 'phone'];
+
+    $rawSampleDesc = !empty($labSampleWeight['description']) ? $labSampleWeight['description'] : (!empty($case->sample_weight_description) ? $case->sample_weight_description : '');
+    $isNonDrugDesc = false;
+    if (!empty($rawSampleDesc)) {
+        $lDesc = strtolower($rawSampleDesc);
+        foreach ($nonDrugKeywords as $kw) {
+            if (str_contains($lDesc, $kw)) { $isNonDrugDesc = true; break; }
+        }
+        if (!empty($case->seizure_name) && strtolower($case->exhibit_category) !== 'drugs' && strtolower($rawSampleDesc) === strtolower($case->seizure_name)) {
+            $isNonDrugDesc = true;
+        }
+    }
+    $labSampleDesc = (!empty($rawSampleDesc) && !$isNonDrugDesc) ? $rawSampleDesc : $defaultDrugName;
+
+    $rawSampleUnits = !empty($labSampleWeight['units_packaging']) ? $labSampleWeight['units_packaging'] : (!empty($case->sample_weight_units) ? $case->sample_weight_units : '');
+    $labSampleUnits = !empty($rawSampleUnits) ? $rawSampleUnits : $defaultUnits;
+
+    $rawSampleGross = !empty($labSampleWeight['gross_weight']) ? $labSampleWeight['gross_weight'] : (!empty($case->sample_weight_gross) ? $case->sample_weight_gross : '');
+    $isNonDrugGross = false;
+    if (!empty($rawSampleGross)) {
+        if (!empty($case->seizure_quantity) && strtolower($case->exhibit_category) !== 'drugs' && (trim($rawSampleGross) === trim((string)$case->seizure_quantity) || str_starts_with(trim($rawSampleGross), trim((string)$case->seizure_quantity) . ' '))) {
+            $isNonDrugGross = true;
+        }
+    }
+    $labSampleGross = (!empty($rawSampleGross) && !$isNonDrugGross) ? $rawSampleGross : $defaultGrossWeight;
     $labSampleTaken = !empty($labSampleWeight['sample_taken']) ? $labSampleWeight['sample_taken'] : (!empty($case->sample_weight_taken) ? $case->sample_weight_taken : '');
     $labSampleReserved = !empty($labSampleWeight['reserved_samples']) ? $labSampleWeight['reserved_samples'] : (!empty($case->sample_weight_reserved) ? $case->sample_weight_reserved : '');
-    $labSampleUnit = !empty($case->seizure_unit) ? $case->seizure_unit : 'Kilograms (kg)';
+    $labSampleUnit = !empty($firstDrugUnit) ? $firstDrugUnit : (!empty($case->seizure_unit) ? $case->seizure_unit : 'Kilograms (kg)');
 
-    $labSubstanceId = !empty($labExam['substance_identification']) ? $labExam['substance_identification'] : (!empty($case->confirmatory_substance_identification) ? $case->confirmatory_substance_identification : ($defaultDrugName ?? ''));
+    $rawSubstanceId = !empty($labExam['substance_identification']) ? $labExam['substance_identification'] : (!empty($case->confirmatory_substance_identification) ? $case->confirmatory_substance_identification : '');
+    $isNonDrugSub = false;
+    if (!empty($rawSubstanceId)) {
+        $lSub = strtolower($rawSubstanceId);
+        foreach ($nonDrugKeywords as $kw) {
+            if (str_contains($lSub, $kw)) { $isNonDrugSub = true; break; }
+        }
+        if (!empty($case->seizure_name) && strtolower($case->exhibit_category) !== 'drugs' && strtolower($rawSubstanceId) === strtolower($case->seizure_name)) {
+            $isNonDrugSub = true;
+        }
+    }
+    $labSubstanceId = (!empty($rawSubstanceId) && !$isNonDrugSub) ? $rawSubstanceId : $defaultDrugName;
     $labDetectedSubstances = !empty($labExam['detected_substances']) ? $labExam['detected_substances'] : (!empty($case->detected_substances) ? $case->detected_substances : []);
     if (is_string($labDetectedSubstances)) {
         $labDetectedSubstances = json_decode($labDetectedSubstances, true) ?: [];
@@ -93,6 +197,71 @@
         $labSampleUnit = $uMatch[1];
     }
     $labFindings = !empty($labExam['findings']) ? $labExam['findings'] : (!empty($unitProgress['Lab Analysis']['notes']) ? $unitProgress['Lab Analysis']['notes'] : (!empty($case->laboratory_analytical_findings) ? $case->laboratory_analytical_findings : ''));
+
+    // Determine if the case involves drugs/narcotics
+    $exhibitCategory = strtolower($case->exhibit_category ?? '');
+    $seizureNameDrug = $case->seizure_name_drug ?? '';
+    $seizureName = strtolower($case->seizure_name ?? '');
+    $exhibitsSummary = strtolower($case->exhibits_summary ?? '');
+
+    $isDrugCase = false;
+    if (!empty($seizureNameDrug)) {
+        $isDrugCase = true;
+    } elseif (
+        str_contains($exhibitCategory, 'drug') || 
+        str_contains($exhibitCategory, 'narcotic') || 
+        str_contains($exhibitCategory, 'substance') || 
+        str_contains($exhibitCategory, 'cannabis') || 
+        str_contains($exhibitCategory, 'cocaine') || 
+        str_contains($exhibitCategory, 'heroin') || 
+        str_contains($exhibitCategory, 'meth') || 
+        str_contains($exhibitCategory, 'tramadol')
+    ) {
+        $isDrugCase = true;
+    } elseif (
+        str_contains($seizureName, 'cocaine') || 
+        str_contains($seizureName, 'heroin') || 
+        str_contains($seizureName, 'cannabis') || 
+        str_contains($seizureName, 'weed') || 
+        str_contains($seizureName, 'meth') || 
+        str_contains($seizureName, 'tramadol') || 
+        str_contains($seizureName, 'drug') || 
+        str_contains($seizureName, 'narcotic')
+    ) {
+        $isDrugCase = true;
+    } elseif (
+        str_contains($exhibitsSummary, 'cocaine') || 
+        str_contains($exhibitsSummary, 'heroin') || 
+        str_contains($exhibitsSummary, 'cannabis') || 
+        str_contains($exhibitsSummary, 'weed') || 
+        str_contains($exhibitsSummary, 'meth') || 
+        str_contains($exhibitsSummary, 'tramadol') || 
+        str_contains($exhibitsSummary, 'drug') || 
+        str_contains($exhibitsSummary, 'narcotic')
+    ) {
+        $isDrugCase = true;
+    } else {
+        $docketSeizures = $docketData['seizures'] ?? [];
+        if (is_array($docketSeizures) && count($docketSeizures) > 0) {
+            foreach ($docketSeizures as $sz) {
+                $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                $dName = $sz['seizure_name_drug'] ?? '';
+                $sName = strtolower($sz['seizure_name'] ?? '');
+                if (!empty($dName) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($sName, 'cocaine') || str_contains($sName, 'heroin') || str_contains($sName, 'cannabis') || str_contains($sName, 'drug') || str_contains($sName, 'narcotic')) {
+                    $isDrugCase = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    $labStatus = strtoupper($unitProgress['Lab Analysis']['status'] ?? ($case->lab_status ?? 'PENDING'));
+    $hasSavedLabData = ($labStatus === 'COMPLETED') 
+        || (isset($case->lab_status) && strtoupper($case->lab_status) === 'COMPLETED')
+        || !empty($case->laboratory_analytical_findings) 
+        || !empty($case->confirmatory_substance_identification) 
+        || !empty($case->sample_weight_taken) 
+        || (!empty($docketData['lab_examination']) && !empty($docketData['lab_examination']['has_saved']));
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -318,6 +487,18 @@
             }
         @endphp
 
+        @php
+            $primarySuspectNamesList = [];
+            foreach ($suspectsList as $sp) {
+                $spIsAssoc = !empty($sp['is_associate']) || (!empty($sp['association_role']) && strtolower($sp['association_role']) !== 'primary suspect');
+                if (!$spIsAssoc && !empty($sp['suspect_name'])) {
+                    $primarySuspectNamesList[] = $sp['suspect_name'];
+                }
+            }
+            $primarySuspectsCombinedNames = !empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Primary Suspects');
+            $renderedPrimaryExhibit = false;
+        @endphp
+
         @foreach($suspectsList as $sIdx => $sItem)
             @php
                 $sNum   = $sItem['suspect_number'] ?? ($sIdx + 1);
@@ -333,7 +514,7 @@
                 $sPOB   = $sItem['place_of_birth'] ?? ($sItem['hometown'] ?? ($sItem['pob'] ?? ($sNum == 1 ? ($case->pob ?? ($docketData['pob'] ?? 'N/A')) : 'N/A')));
                 $sPhone = $sItem['phone_number'] ?? ($sItem['contact_phone'] ?? ($sItem['phone'] ?? ($sNum == 1 ? ($case->phone ?? ($docketData['phone'] ?? 'N/A')) : 'N/A')));
                 $sAddr  = $sItem['residential_address'] ?? ($sItem['address'] ?? ($sNum == 1 ? ($case->address ?? ($docketData['address'] ?? 'N/A')) : 'N/A'));
-                $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? ($case->marital_status ?? 'Single') : 'Single');
+                $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null);
                 $sSpouseN = $sItem['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
                 $sSpouseP = $sItem['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null);
                 $sSpouseI = $sItem['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null);
@@ -420,7 +601,7 @@
             <!-- SECTION: SUSPECT BOOKING & PERSONAL IDENTITY FOR SUSPECT #{{ $sNum }} -->
             <div class="space-y-2 avoid-break relative z-10">
                 <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
-                    <span>SUSPECT #{{ $sNum }} BOOKING &amp; PERSONAL IDENTITY ({{ strtoupper($sName) }})</span>
+                    <span>SUSPECT #{{ $sNum }} PERSONAL IDENTITY ({{ strtoupper($sName) }})</span>
                     @if($isAssociate)
                         <span class="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">ASSOCIATE</span>
                     @endif
@@ -438,36 +619,49 @@
                         <tr>
                             <td class="pdf-label-cell">Alias / Street Name:</td>
                             <td class="pdf-value-cell font-black text-slate-900">{{ $sAlias }}</td>
-                        <tr>
                             <td class="pdf-label-cell">Ghana Card / ID #:</td>
                             <td class="pdf-value-cell font-mono-code font-black text-blue-900">{{ $sCard }}</td>
+                        </tr>
+                        <tr>
                             <td class="pdf-label-cell">Gender &amp; Age / DOB:</td>
-                            <td class="pdf-value-cell">
+                            <td class="pdf-value-cell font-bold text-slate-900">
                                 {{ $sGender }}
-                                {{ !empty($sAge) ? "• Age: {$sAge}" : '' }}
-                                {{ !empty($sDOB) ? "• DOB: {$sDOB}" : '' }}
-                                {{ !empty($sHeight) ? "• Height: {$sHeight}" : '' }}
-                                {{ !empty($sEye) ? "• Eyes: {$sEye}" : '' }}
+                                @if(!empty($sAge)) • Age: {{ $sAge }} @endif
+                                @if(!empty($sDOB)) • DOB: {{ $sDOB }} @endif
+                            </td>
+                            <td class="pdf-label-cell">Physical Specs:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">
+                                @if(!empty($sHeight)) Height: {{ $sHeight }} @endif
+                                @if(!empty($sEye)) @if(!empty($sHeight)) • @endif Eyes: {{ $sEye }} @endif
+                                @if(empty($sHeight) && empty($sEye)) N/A @endif
                             </td>
                         </tr>
                         <tr>
                             <td class="pdf-label-cell">Nationality:</td>
-                            <td class="pdf-value-cell">{{ $sNat }}</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $sNat }}</td>
                             <td class="pdf-label-cell">Hometown / POB:</td>
-                            <td class="pdf-value-cell">{{ $sPOB }}</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $sPOB }}</td>
                         </tr>
                         <tr>
                             <td class="pdf-label-cell">Contact Phone:</td>
-                            <td class="pdf-value-cell">{{ $sPhone }}</td>
+                            <td class="pdf-value-cell font-mono-code font-bold text-slate-900">{{ $sPhone }}</td>
                             <td class="pdf-label-cell">Residential Address:</td>
-                            <td class="pdf-value-cell">{{ $sAddr }}</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $sAddr }}</td>
                         </tr>
                         <tr>
-                            <td class="pdf-label-cell">Marital &amp; Family:</td>
-                            <td class="pdf-value-cell" colspan="3">
-                                Status: {{ $sMarital }} 
-                                @if(!empty($sSpouseN)) • Spouse: {{ $sSpouseN }} ({{ $sSpouseP }}) @endif
-                                @if(!empty($sDependents)) • Dependents: {{ $sDependents }} @endif
+                            <td class="pdf-label-cell">Marital Status:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $sMarital ?: 'N/A' }}</td>
+                            <td class="pdf-label-cell">Spouse &amp; Family:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">
+                                @if(!empty($sSpouseN))
+                                    Spouse: {{ $sSpouseN }} @if(!empty($sSpouseP)) ({{ $sSpouseP }}) @endif
+                                @endif
+                                @if(!empty($sDependents))
+                                    @if(!empty($sSpouseN)) • @endif Dependents: {{ $sDependents }}
+                                @endif
+                                @if(empty($sSpouseN) && empty($sDependents))
+                                    N/A
+                                @endif
                             </td>
                         </tr>
                     </tbody>
@@ -502,6 +696,181 @@
                     </tbody>
                 </table>
             </div>
+
+            <!-- SECTION: ASSOCIATE OR PRIMARY LOGGED EXHIBITS FOR SUSPECT #{{ $sNum }} -->
+            @if($isAssociate)
+                @php
+                    $pdfAssocExhibits = array_filter($docketData['seizures'] ?? [], function($sz) use ($sName, $case) {
+                        if (!empty($sz['associated_person']) && strtolower($sz['associated_person']) === strtolower($sName)) {
+                            return true;
+                        }
+                        if (!empty($sz['is_associate'])) {
+                            return true;
+                        }
+                        $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                        $pCat = strtolower($case->exhibit_category ?? '');
+                        $sNameSz = strtolower($sz['seizure_name'] ?? '');
+                        $pName = strtolower($case->seizure_name ?? '');
+                        return ($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit');
+                    });
+                @endphp
+                @if(!empty($pdfAssocExhibits) && count($pdfAssocExhibits) > 0)
+                <div class="space-y-2 avoid-break relative z-10 pt-1">
+                    <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
+                        <span>ASSOCIATE LOGGED EXHIBITS (SUSPECT #{{ $sNum }}: {{ strtoupper($sName) }})</span>
+                        <span class="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">ASSOCIATE DOSSIER</span>
+                    </div>
+                    @foreach($pdfAssocExhibits as $aEx)
+                    <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs mb-2">
+                        <tbody>
+                            <tr>
+                                <td class="pdf-label-cell w-1/5">Exhibit Category:</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-amber-900 w-3/10">{{ $aEx['category'] ?? ($aEx['exhibit_category'] ?? 'Associate Exhibit') }}</td>
+                                <td class="pdf-label-cell w-1/5">Exhibit / Commodity Name:</td>
+                                <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $aEx['seizure_name'] ?? ($aEx['name'] ?? 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="pdf-label-cell">Quantity / Weight:</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-slate-950">
+                                    @if(!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
+                                        {{ implode(' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
+                                    @else
+                                        N/A
+                                    @endif
+                                </td>
+                                <td class="pdf-label-cell">Estimated Valuation:</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-emerald-800">{{ $aEx['seizure_value'] ?? ($aEx['value'] ?? 'N/A') }}</td>
+                            </tr>
+                            @if(!empty($aEx['seizure_packaging']))
+                            <tr>
+                                <td class="pdf-label-cell">Packaging &amp; Format:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $aEx['seizure_packaging'] }}</td>
+                            </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                    @endforeach
+
+                    @php
+                        $assocPhotosPdf = [];
+                        foreach ($pdfAssocExhibits as $aEx) {
+                            if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
+                                foreach ($aEx['photos'] as $ap) {
+                                    if ($ap && !in_array($ap, $assocPhotosPdf)) $assocPhotosPdf[] = $ap;
+                                }
+                            }
+                            $apSingle = $aEx['photo'] ?? ($aEx['exhibit_photo'] ?? null);
+                            if ($apSingle && !in_array($apSingle, $assocPhotosPdf)) {
+                                $assocPhotosPdf[] = $apSingle;
+                            }
+                        }
+                        if (empty($assocPhotosPdf) && !empty($allAssocPhotos)) {
+                            $assocPhotosPdf = $allAssocPhotos;
+                        }
+                        if (empty($assocPhotosPdf) && !empty($evidencePhotos)) {
+                            $assocPhotosPdf = $evidencePhotos;
+                        }
+                    @endphp
+                    @if(!empty($assocPhotosPdf) && count($assocPhotosPdf) > 0)
+                    <div class="pt-2">
+                        <div class="text-[10px] font-mono-code font-bold text-amber-900 uppercase pb-1 flex items-center justify-between">
+                            <span>Associate Exhibit Evidence Photos ({{ $sName }})</span>
+                            <span class="text-[9px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300 font-mono-code font-bold">{{ count($assocPhotosPdf) }} Photo(s)</span>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2">
+                            @foreach($assocPhotosPdf as $idx => $photoUrl)
+                                <div class="p-1 bg-amber-50/50 border border-amber-300 rounded-lg space-y-1 text-center">
+                                    <div class="w-full h-24 bg-white rounded overflow-hidden border border-amber-300">
+                                        <img src="{{ $getImgSrc($photoUrl) }}" class="w-full h-full object-cover" alt="Associate Exhibit Photo {{ $idx + 1 }}">
+                                    </div>
+                                    <div class="text-[8px] font-mono-code font-bold text-amber-900 uppercase">Associate Photo #{{ $idx + 1 }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+                </div>
+                @endif
+            @else
+                @if(!$renderedPrimaryExhibit)
+                @php $renderedPrimaryExhibit = true; @endphp
+                <div class="space-y-2 avoid-break relative z-10 pt-1">
+                    <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
+                        <span>PRIMARY SUSPECT LOGGED EXHIBITS ({{ strtoupper($primarySuspectsCombinedNames) }})</span>
+                        <span class="text-[10px] text-slate-900 font-bold bg-slate-200 px-2 py-0.5 rounded border border-slate-300">PRIMARY SUSPECT DOSSIER</span>
+                    </div>
+                    <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs mb-2">
+                        <tbody>
+                            <tr>
+                                <td class="pdf-label-cell w-1/5">Exhibit Category:</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-amber-900 w-3/10">{{ $case->exhibit_category ?? 'N/A' }}</td>
+                                <td class="pdf-label-cell w-1/5">Primary Seizure Name:</td>
+                                <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $case->seizure_name ?: ($case->exhibits_summary ?: 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="pdf-label-cell">Quantity / Weight:</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-slate-950">
+                                    @if($case->seizure_quantity || $case->seizure_weight)
+                                        {{ implode(' • ', array_filter([$case->seizure_quantity ? "Qty: {$case->seizure_quantity}" : null, $case->seizure_weight ? "Wt: {$case->seizure_weight} {$case->seizure_unit}" : ($case->seizure_unit ? "Unit: {$case->seizure_unit}" : null)])) }}
+                                    @else
+                                        {{ $case->exhibits_summary ?: 'N/A' }}
+                                    @endif
+                                </td>
+                                <td class="pdf-label-cell">Estimated Valuation:</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-emerald-800">{{ $case->seizure_value ?: ($case->valuation ?? 'N/A') }}</td>
+                            </tr>
+                            @if(!empty($case->veh_make) || !empty($case->veh_reg_no) || !empty($case->veh_type) || !empty($docketData['vehicle']['make']) || !empty($docketData['vehicle']['reg']) || !empty($docketData['vehicle']['type']))
+                            <tr>
+                                <td class="pdf-label-cell">Vehicle Type:</td>
+                                <td class="pdf-value-cell font-black text-amber-950">{{ $case->veh_type ?: ($docketData['vehicle']['type'] ?? 'N/A') }}</td>
+                                <td class="pdf-label-cell">Make &amp; Model:</td>
+                                <td class="pdf-value-cell font-black text-slate-950">{{ trim(($case->veh_make ?: ($docketData['vehicle']['make'] ?? 'N/A')) . ' ' . ($case->veh_model ?: ($docketData['vehicle']['model'] ?? ''))) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="pdf-label-cell">Reg. Number &amp; VIN:</td>
+                                <td class="pdf-value-cell font-mono-code font-bold text-slate-900">
+                                    REG: {{ $case->veh_reg_no ?: ($docketData['vehicle']['reg'] ?? 'N/A') }}
+                                    @if(!empty($case->veh_vin) || !empty($docketData['vehicle']['chassis']))
+                                        <span class="text-slate-500 font-normal"> | VIN: {{ $case->veh_vin ?: ($docketData['vehicle']['chassis'] ?? 'N/A') }}</span>
+                                    @endif
+                                </td>
+                                <td class="pdf-label-cell">Registered Owner:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">
+                                    {{ $case->veh_owner ?: ($docketData['vehicle']['owner'] ?? 'N/A') }}
+                                    @if(!empty($case->veh_owner_contact))
+                                        <span class="text-xs font-normal text-slate-600">({{ $case->veh_owner_contact }})</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                    @php
+                        $primaryPhotosPdf = [];
+                        foreach ($evidencePhotos as $pUrl) {
+                            if (!in_array($pUrl, $allAssocPhotos)) {
+                                $primaryPhotosPdf[] = $pUrl;
+                            }
+                        }
+                    @endphp
+                    @if(!empty($primaryPhotosPdf) && count($primaryPhotosPdf) > 0)
+                    <div class="pt-2">
+                        <div class="text-[10px] font-mono-code font-bold text-slate-800 uppercase pb-1">Primary Exhibit Evidence Photos ({{ $primarySuspectsCombinedNames }})</div>
+                        <div class="grid grid-cols-4 gap-2">
+                            @foreach($primaryPhotosPdf as $idx => $photoUrl)
+                                <div class="p-1 bg-slate-50 border border-slate-300 rounded-lg space-y-1 text-center">
+                                    <div class="w-full h-20 bg-slate-200 rounded overflow-hidden border border-slate-300">
+                                        <img src="{{ $getImgSrc($photoUrl) }}" class="w-full h-full object-cover" alt="Primary Exhibit Photo {{ $idx + 1 }}">
+                                    </div>
+                                    <div class="text-[8px] font-mono-code font-bold text-slate-700 uppercase">Exhibit Photo #{{ $idx + 1 }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+                </div>
+                @endif
+            @endif
         @endforeach
 
         <!-- SECTION: CONFISCATED COMMODITIES & VAULT INVENTORY -->
@@ -535,25 +904,37 @@
                         <td class="pdf-label-cell">Seizing Officer:</td>
                         <td class="pdf-value-cell font-bold text-slate-900">{{ $case->seizure_officer ?: 'N/A' }}</td>
                     </tr>
-                    @if(!empty($case->veh_make) || !empty($case->veh_reg_no) || !empty($docketData['vehicle']['make']) || !empty($docketData['vehicle']['reg']))
+                    @if(!empty($case->veh_make) || !empty($case->veh_reg_no) || !empty($case->veh_type) || !empty($docketData['vehicle']['make']) || !empty($docketData['vehicle']['reg']) || !empty($docketData['vehicle']['type']))
                     <tr>
-                        <td class="pdf-label-cell">Seized Vehicle Record:</td>
-                        <td class="pdf-value-cell font-bold" colspan="3">
-                            Make/Model: {{ $case->veh_make ?: ($docketData['vehicle']['make'] ?? 'N/A') }} {{ $case->veh_model ?? '' }} •
-                            REG: {{ $case->veh_reg_no ?: ($docketData['vehicle']['reg'] ?? 'N/A') }} •
-                            VIN: {{ $case->veh_vin ?: ($docketData['vehicle']['chassis'] ?? 'N/A') }} •
-                            Owner: {{ $case->veh_owner ?: ($docketData['vehicle']['owner'] ?? 'N/A') }}
+                        <td class="pdf-label-cell">Vehicle Type:</td>
+                        <td class="pdf-value-cell font-black text-amber-950">{{ $case->veh_type ?: ($docketData['vehicle']['type'] ?? 'N/A') }}</td>
+                        <td class="pdf-label-cell">Make &amp; Model:</td>
+                        <td class="pdf-value-cell font-black text-slate-950">{{ trim(($case->veh_make ?: ($docketData['vehicle']['make'] ?? 'N/A')) . ' ' . ($case->veh_model ?: ($docketData['vehicle']['model'] ?? ''))) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="pdf-label-cell">Reg. Number &amp; VIN:</td>
+                        <td class="pdf-value-cell font-mono-code font-bold text-slate-900">
+                            REG: {{ $case->veh_reg_no ?: ($docketData['vehicle']['reg'] ?? 'N/A') }}
+                            @if(!empty($case->veh_vin) || !empty($docketData['vehicle']['chassis']))
+                                <span class="text-slate-500 font-normal"> | VIN: {{ $case->veh_vin ?: ($docketData['vehicle']['chassis'] ?? 'N/A') }}</span>
+                            @endif
+                        </td>
+                        <td class="pdf-label-cell">Registered Owner:</td>
+                        <td class="pdf-value-cell font-bold text-slate-900">
+                            {{ $case->veh_owner ?: ($docketData['vehicle']['owner'] ?? 'N/A') }}
+                            @if(!empty($case->veh_owner_contact))
+                                <span class="text-xs font-normal text-slate-600">({{ $case->veh_owner_contact }})</span>
+                            @endif
                         </td>
                     </tr>
                     @endif
                     @if(!empty($case->wpn_model) || !empty($case->wpn_serial_no) || !empty($docketData['weapon']['model']))
                     <tr>
-                        <td class="pdf-label-cell">Seized Firearm Record:</td>
-                        <td class="pdf-value-cell font-bold" colspan="3">
-                            Model: {{ $case->wpn_model ?: ($docketData['weapon']['model'] ?? 'N/A') }} •
-                            Serial: {{ $case->wpn_serial_no ?: ($docketData['weapon']['serial_no'] ?? 'N/A') }} •
-                            Calibre: {{ $case->wpn_calibre ?: ($docketData['weapon']['calibre'] ?? 'N/A') }} •
-                            Status: {{ $case->wpn_loaded_status ?: ($docketData['weapon']['loaded_status'] ?? 'N/A') }}
+                        <td class="pdf-label-cell">Firearm Model:</td>
+                        <td class="pdf-value-cell font-black text-slate-950">{{ $case->wpn_model ?: ($docketData['weapon']['model'] ?? 'N/A') }}</td>
+                        <td class="pdf-label-cell">Serial &amp; Calibre:</td>
+                        <td class="pdf-value-cell font-bold text-slate-900">
+                            S/N: {{ $case->wpn_serial_no ?: ($docketData['weapon']['serial_no'] ?? 'N/A') }} | Cal: {{ $case->wpn_calibre ?: ($docketData['weapon']['calibre'] ?? 'N/A') }}
                         </td>
                     </tr>
                     @endif
@@ -573,7 +954,7 @@
                     @if(!empty($photoUrl))
                     <div class="p-1.5 bg-slate-50 border border-slate-300 rounded-xl space-y-1 text-center">
                         <div class="w-full h-28 bg-slate-200 rounded-lg overflow-hidden border border-slate-300">
-                            <img src="{{ $photoUrl }}" class="w-full h-full object-cover" alt="Exhibit Photo {{ $idx + 1 }}">
+                            <img src="{{ $getImgSrc($photoUrl) }}" class="w-full h-full object-cover" alt="Exhibit Photo {{ $idx + 1 }}">
                         </div>
                         <div class="text-[8px] font-mono-code font-bold text-slate-700 uppercase">Exhibit Photo #{{ $idx + 1 }}</div>
                     </div>
@@ -583,10 +964,11 @@
         </div>
         @endif
 
-        <!-- SECTION: LABORATORY EXAMINATION & SCIENTIFIC ANALYSIS REPORT -->
+        <!-- SECTION: LABORATORY EXAMINATION RESULT -->
+        @if($hasSavedLabData)
         <div class="space-y-2 avoid-break relative z-10">
             <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
-                <span>LABORATORY EXAMINATION &amp; SCIENTIFIC ANALYSIS REPORT</span>
+                <span>LABORATORY EXAMINATION RESULT</span>
                 <span class="text-[10px] font-mono-code font-black text-emerald-900 uppercase">OFFICIAL VERIFIED CERTIFICATE</span>
             </div>
             <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
@@ -601,18 +983,74 @@
                         <td class="pdf-label-cell">Laboratory Number:</td>
                         <td class="pdf-value-cell font-mono-code font-black text-slate-950">{{ $labNumber }}</td>
                         <td class="pdf-label-cell">Analyst / Examiner:</td>
-                        <td class="pdf-value-cell font-black text-slate-950">{{ $labAnalyst }} ({{ $labUnit }})</td>
+                        <td class="pdf-value-cell font-black text-slate-950">{{ $labAnalyst }}</td>
                     </tr>
                     <tr>
                         <td class="pdf-label-cell">Examination Timeline:</td>
-                        <td class="pdf-value-cell font-mono-code font-bold" colspan="3">
-                            Received: <strong>{{ $labDateReceived }}</strong> • Started: <strong>{{ $labDateStarted }}</strong> • Completed: <strong>{{ $labDateCompleted }}</strong>
+                        <td class="pdf-value-cell p-1.5" colspan="3">
+                            <table class="w-full text-[10.5px] border border-slate-300 rounded overflow-hidden">
+                                <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[9px]">
+                                    <tr class="border-b border-slate-300">
+                                        <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Received</th>
+                                        <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Started</th>
+                                        <th class="px-2 py-1 text-left bg-slate-200/70">Completed</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white font-bold font-mono-code text-slate-900">
+                                    <tr>
+                                        <td class="px-2 py-1 border-r border-slate-300 text-blue-900">{{ $labDateReceived }}</td>
+                                        <td class="px-2 py-1 border-r border-slate-300 text-amber-900">{{ $labDateStarted }}</td>
+                                        <td class="px-2 py-1 text-emerald-900">{{ $labDateCompleted }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </td>
                     </tr>
                     <tr>
                         <td class="pdf-label-cell">Presumptive Reaction:</td>
-                        <td class="pdf-value-cell font-black {{ !str_contains($labPresumptive, 'NO') ? 'text-emerald-950' : 'text-red-950' }}">
-                            {{ $labPresumptive }}
+                        <td class="pdf-value-cell p-1.5">
+                            @php
+                                $pRawPdf = trim($labPresumptive ?? '');
+                                $pResPdf = 'N/A';
+                                $pPresPdf = 'N/A';
+                                $pPurPdf = 'N/A';
+
+                                if (!empty($pRawPdf)) {
+                                    if (str_starts_with(strtoupper($pRawPdf), 'YES') || str_starts_with(strtoupper($pRawPdf), 'POS')) {
+                                        $pResPdf = 'YES';
+                                    } elseif (str_starts_with(strtoupper($pRawPdf), 'NO') || str_starts_with(strtoupper($pRawPdf), 'NEG')) {
+                                        $pResPdf = 'NO';
+                                    } else {
+                                        $pResPdf = strtok($pRawPdf, ' (');
+                                    }
+
+                                    if (preg_match('/Presence of:\s*([^-\)]+)/i', $pRawPdf, $mPresPdf)) {
+                                        $pPresPdf = trim($mPresPdf[1]);
+                                    } elseif (preg_match('/\(([^-\)]+)\)/', $pRawPdf, $mPresPdf)) {
+                                        $pPresPdf = trim($mPresPdf[1]);
+                                    }
+
+                                    if (preg_match('/Purity\/Percentage:\s*([^\)]+)/i', $pRawPdf, $mPurPdf)) {
+                                        $pPurPdf = trim($mPurPdf[1]);
+                                    }
+                                }
+                            @endphp
+                            <table class="w-full text-[10.5px] border border-slate-300 rounded overflow-hidden">
+                                <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[9px]">
+                                    <tr class="border-b border-slate-300">
+                                        <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
+                                        <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Presence of</th>
+                                        <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white">
+                                    <tr>
+                                        <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pResPdf === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pResPdf }}</td>
+                                        <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $pPresPdf }}</td>
+                                        <td class="px-2 py-1 font-bold text-slate-900">{{ $pPurPdf }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </td>
                         <td class="pdf-label-cell">Confirmatory Test:</td>
                         <td class="pdf-value-cell font-black {{ $labConfirmatory === 'YES' ? 'text-emerald-950' : 'text-slate-950' }}">
@@ -621,11 +1059,29 @@
                     </tr>
                     <tr>
                         <td class="pdf-label-cell">Sample Metrology:</td>
-                        <td class="pdf-value-cell font-bold" colspan="3">
-                            Description: <strong>{{ $labSampleDesc ?: 'N/A' }}</strong> •
-                            Gross Weight: <strong>{{ $labSampleGross ?: 'N/A' }}</strong> •
-                            Mass Taken: <strong>{{ $labSampleTaken ? $labSampleTaken . ' ' . $labSampleUnit : 'N/A' }}</strong> •
-                            Reserved: <strong>{{ $labSampleReserved ?: 'N/A' }}</strong>
+                        <td class="pdf-value-cell p-2.5" colspan="3">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                    <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Description</div>
+                                    <div class="font-bold text-slate-950 text-xs mt-0.5">{{ $labSampleDesc ?: 'N/A' }}</div>
+                                </div>
+                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                    <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Number of Units</div>
+                                    <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5">{{ $labSampleUnits ?: 'N/A' }}</div>
+                                </div>
+                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                    <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Gross Weight</div>
+                                    <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5">{{ $labSampleGross ?: 'N/A' }}</div>
+                                </div>
+                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                    <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Mass Taken</div>
+                                    <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5">{{ $labSampleTaken ? $labSampleTaken . ' ' . $labSampleUnit : 'N/A' }}</div>
+                                </div>
+                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                    <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Reserved Samples</div>
+                                    <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5">{{ $labSampleReserved ?: 'N/A' }}</div>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     <tr>
@@ -637,16 +1093,16 @@
                     @if(!empty($labDetectedSubstances))
                     <tr>
                         <td class="pdf-label-cell">Detected Compounds:</td>
-                        <td class="pdf-value-cell" colspan="3">
-                            <div class="flex flex-wrap gap-1.5">
-                                @foreach($labDetectedSubstances as $subItem)
-                                    @if(!empty($subItem['substance']))
-                                        <span class="px-2 py-0.5 bg-emerald-100 text-emerald-950 font-mono-code font-black text-[10px] rounded border border-emerald-300">
-                                            {{ $subItem['substance'] }} {{ !empty($subItem['percentage']) ? '(' . $subItem['percentage'] . ')' : '' }}
-                                        </span>
-                                    @endif
-                                @endforeach
-                            </div>
+                        <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
+                            @php $pdfDetList = []; @endphp
+                            @foreach($labDetectedSubstances as $subItem)
+                                @if(!empty($subItem['substance']))
+                                    @php 
+                                        $pdfDetList[] = $subItem['substance'] . (!empty($subItem['percentage']) ? ' (' . $subItem['percentage'] . ')' : ''); 
+                                    @endphp
+                                @endif
+                            @endforeach
+                            {{ implode(', ', $pdfDetList) }}
                         </td>
                     </tr>
                     @endif
@@ -659,6 +1115,7 @@
                 </tbody>
             </table>
         </div>
+        @endif
 
         <!-- EXECUTIVE CERTIFICATION & OFFICIAL SIGN-OFF -->
         <div class="pt-4 border-t-2 border-slate-900 space-y-4 avoid-break relative z-10">

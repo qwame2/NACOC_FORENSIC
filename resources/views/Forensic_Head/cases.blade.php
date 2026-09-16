@@ -515,15 +515,45 @@
                                                 @php
                                                     $dDataHead = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
                                                     $uProgHead = $dDataHead['unit_progress'] ?? [];
+
+                                                    $exCatH = strtolower($case->exhibit_category ?? '');
+                                                    $sDrugH = $case->seizure_name_drug ?? '';
+                                                    $sNameH = strtolower($case->seizure_name ?? '');
+                                                    $exSumH = strtolower($case->exhibits_summary ?? '');
+                                                    $isDrugHead = (!empty($sDrugH) || 
+                                                        str_contains($exCatH, 'drug') || str_contains($exCatH, 'narcotic') || str_contains($exCatH, 'substance') || str_contains($exCatH, 'cannabis') || str_contains($exCatH, 'cocaine') || str_contains($exCatH, 'heroin') || str_contains($exCatH, 'meth') || str_contains($exCatH, 'tramadol') ||
+                                                        str_contains($sNameH, 'cocaine') || str_contains($sNameH, 'heroin') || str_contains($sNameH, 'cannabis') || str_contains($sNameH, 'weed') || str_contains($sNameH, 'meth') || str_contains($sNameH, 'tramadol') || str_contains($sNameH, 'drug') || str_contains($sNameH, 'narcotic') ||
+                                                        str_contains($exSumH, 'cocaine') || str_contains($exSumH, 'heroin') || str_contains($exSumH, 'cannabis') || str_contains($exSumH, 'weed') || str_contains($exSumH, 'meth') || str_contains($exSumH, 'tramadol') || str_contains($exSumH, 'drug') || str_contains($exSumH, 'narcotic')
+                                                    );
+                                                    if (!$isDrugHead) {
+                                                        $dSeizuresH = $dDataHead['seizures'] ?? [];
+                                                        if (is_array($dSeizuresH) && count($dSeizuresH) > 0) {
+                                                            foreach ($dSeizuresH as $szH) {
+                                                                $catH = strtolower($szH['category'] ?? ($szH['exhibit_category'] ?? ''));
+                                                                $dNameH = $szH['seizure_name_drug'] ?? '';
+                                                                $szNameH = strtolower($szH['seizure_name'] ?? '');
+                                                                if (!empty($dNameH) || str_contains($catH, 'drug') || str_contains($catH, 'narcotic') || str_contains($szNameH, 'cocaine') || str_contains($szNameH, 'heroin') || str_contains($szNameH, 'cannabis') || str_contains($szNameH, 'drug') || str_contains($szNameH, 'narcotic')) {
+                                                                    $isDrugHead = true;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    $unitsHeadList = ['Crime Scene Support', 'Evidence Management'];
+                                                    if ($isDrugHead) { $unitsHeadList[] = 'Lab Analysis'; }
+                                                    $unitsHeadList[] = 'Digital & Physical Forensics';
+                                                    $tCountHead = count($unitsHeadList);
+
                                                     $cCountHead = 0;
-                                                    foreach(['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'] as $uK) {
+                                                    foreach($unitsHeadList as $uK) {
                                                         if (isset($uProgHead[$uK]['status']) && strtoupper($uProgHead[$uK]['status']) === 'COMPLETED') $cCountHead++;
                                                     }
                                                     if ($cCountHead === 0) $cCountHead = 1;
                                                 @endphp
                                                 <span class="status-badge bg-emerald-100 text-emerald-800 border-emerald-300" id="status-{{ $case->case_number }}">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5 inline-block"></span>
-                                                    Multi-Unit ({{ $cCountHead }}/4)
+                                                    Multi-Unit ({{ $cCountHead }}/{{ $tCountHead }})
                                                 </span>
                                             @else
                                                 <span class="status-badge status-await" id="status-{{ $case->case_number }}">

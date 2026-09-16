@@ -37,7 +37,7 @@
                 'pob'              => $case->pob ?? null,
                 'phone'            => $case->phone ?? null,
                 'address'          => $case->address ?? null,
-                'marital_status'   => $case->marital_status ?? 'Single',
+                'marital_status'   => $case->marital_status ?? null,
                 'holding_facility' => $case->holding_facility ?? 'NACOC Holding Cell',
                 'offense'          => $case->offense_description ?? $case->description ?? null,
                 'date_of_arrest'   => $case->arrest_date ?? null,
@@ -55,6 +55,62 @@
                 'seizure_weight'   => $case->seizure_weight ? ($case->seizure_weight . ' ' . ($case->seizure_unit ?? '')) : 'N/A',
                 'seizure_value'    => $case->seizure_value ?? $case->valuation ?? 'N/A'
             ]] : []);
+
+        $exhibitCategory = strtolower($case->exhibit_category ?? '');
+        $seizureNameDrug = $case->seizure_name_drug ?? '';
+        $seizureName = strtolower($case->seizure_name ?? '');
+        $exhibitsSummary = strtolower($case->exhibits_summary ?? '');
+
+        $isDrugCase = false;
+        if (!empty($seizureNameDrug)) {
+            $isDrugCase = true;
+        } elseif (
+            str_contains($exhibitCategory, 'drug') || 
+            str_contains($exhibitCategory, 'narcotic') || 
+            str_contains($exhibitCategory, 'substance') || 
+            str_contains($exhibitCategory, 'cannabis') || 
+            str_contains($exhibitCategory, 'cocaine') || 
+            str_contains($exhibitCategory, 'heroin') || 
+            str_contains($exhibitCategory, 'meth') || 
+            str_contains($exhibitCategory, 'tramadol')
+        ) {
+            $isDrugCase = true;
+        } elseif (
+            str_contains($seizureName, 'cocaine') || 
+            str_contains($seizureName, 'heroin') || 
+            str_contains($seizureName, 'cannabis') || 
+            str_contains($seizureName, 'weed') || 
+            str_contains($seizureName, 'meth') || 
+            str_contains($seizureName, 'tramadol') || 
+            str_contains($seizureName, 'drug') || 
+            str_contains($seizureName, 'narcotic')
+        ) {
+            $isDrugCase = true;
+        } elseif (
+            str_contains($exhibitsSummary, 'cocaine') || 
+            str_contains($exhibitsSummary, 'heroin') || 
+            str_contains($exhibitsSummary, 'cannabis') || 
+            str_contains($exhibitsSummary, 'weed') || 
+            str_contains($exhibitsSummary, 'meth') || 
+            str_contains($exhibitsSummary, 'tramadol') || 
+            str_contains($exhibitsSummary, 'drug') || 
+            str_contains($exhibitsSummary, 'narcotic')
+        ) {
+            $isDrugCase = true;
+        } else {
+            $dSeizures = $existingSeizures;
+            if (is_array($dSeizures) && count($dSeizures) > 0) {
+                foreach ($dSeizures as $sz) {
+                    $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                    $dName = $sz['seizure_name_drug'] ?? '';
+                    $sName = strtolower($sz['seizure_name'] ?? '');
+                    if (!empty($dName) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($sName, 'cocaine') || str_contains($sName, 'heroin') || str_contains($sName, 'cannabis') || str_contains($sName, 'drug') || str_contains($sName, 'narcotic')) {
+                        $isDrugCase = true;
+                        break;
+                    }
+                }
+            }
+        }
     @endphp
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -109,6 +165,7 @@
             color: #0f172a !important;
             box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03) !important;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            position: relative !important;
         }
         .select2-container--default .select2-selection--single:hover {
             border-color: #94a3b8 !important;
@@ -125,7 +182,12 @@
             font-weight: 700 !important;
             line-height: 38px !important;
             padding-left: 0 !important;
-            padding-right: 1.5rem !important;
+            padding-right: 3rem !important;
+            width: 100% !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__placeholder {
+            color: #94a3b8 !important; /* Greyed out placeholder text (slate-400) */
+            font-weight: 500 !important;
         }
         .select2-container--default .select2-selection--single .select2-selection__arrow {
             height: 38px !important;
@@ -140,6 +202,36 @@
         .select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
             border-color: transparent transparent #2563eb transparent !important;
             border-width: 0 4px 5px 4px !important;
+        }
+
+        /* Perfectly Centered Clear X Button Styling */
+        .select2-container--default .select2-selection--single .select2-selection__clear {
+            position: absolute !important;
+            right: 32px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            color: #ef4444 !important;
+            font-weight: 800 !important;
+            font-size: 0.875rem !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            cursor: pointer !important;
+            z-index: 10 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 20px !important;
+            width: 20px !important;
+            border-radius: 9999px !important;
+            background-color: #fee2e2 !important;
+            transition: all 0.2s ease !important;
+            border: none !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__clear:hover {
+            color: #ffffff !important;
+            background-color: #ef4444 !important;
+            transform: translateY(-50%) scale(1.15) !important;
         }
 
         /* Dropdown Popup Panel */
@@ -310,7 +402,7 @@
                                         $sPOB        = $s['place_of_birth'] ?? ($s['hometown'] ?? ($s['pob'] ?? ($sNum == 1 ? ($case->pob ?? null) : null)));
                                         $sPhone      = $s['phone_number'] ?? ($s['contact_phone'] ?? ($s['phone'] ?? ($sNum == 1 ? ($case->phone ?? null) : null)));
                                         $sAddr       = $s['residential_address'] ?? ($s['address'] ?? ($sNum == 1 ? ($case->address ?? null) : null));
-                                        $sMarital    = $s['marital_status'] ?? ($sNum == 1 ? ($case->marital_status ?? 'Single') : 'Single');
+                                        $sMarital    = $s['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null);
                                         $sSpouseN    = $s['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
                                         $sSpouseP    = $s['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null);
                                         $sSpouseI    = $s['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null);
@@ -462,7 +554,7 @@
                                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Marital Status:</span>
-                                                        <strong class="text-slate-800">{{ $sMarital ?: 'Single' }}</strong>
+                                                        <strong class="text-slate-800">{{ $sMarital ?: 'N/A' }}</strong>
                                                     </div>
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Spouse / Partner Info:</span>
@@ -752,24 +844,24 @@
                                 </label>
 
                                 <div class="flex items-center space-x-3">
-                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all cursor-pointer select-none space-x-2 group">
-                                        <input type="checkbox" id="presumptiveTestYes" name="presumptive_test_yes" value="YES" checked onchange="togglePresumptiveTest('YES')" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                        <input type="checkbox" id="presumptiveTestYes" name="presumptive_test_yes" value="YES" onchange="togglePresumptiveTest('YES')" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
                                         <div class="flex items-center space-x-1.5">
                                             <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-                                            <span class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
+                                            <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
                                         </div>
                                     </label>
 
-                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
-                                        <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO" onchange="togglePresumptiveTest('NO')" class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                    <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                        <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO" checked onchange="togglePresumptiveTest('NO')" class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
                                         <div class="flex items-center space-x-1.5">
                                             <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                                            <span class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
+                                            <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
                                         </div>
                                     </label>
                                 </div>
 
-                                <div id="presumptiveReactionDetailsContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300">
+                                <div id="presumptiveReactionDetailsContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
                                     <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
                                         <div class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
                                             <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -985,7 +1077,7 @@
         }
 
         function getNationalityOptionsHtml() {
-            let options = '<option value="" disabled selected>-- Select Nationality --</option>';
+            let options = '<option value=""></option>';
             worldNationalitiesList.forEach(nat => {
                 options += `<option value="${nat}">${nat}</option>`;
             });
@@ -1241,7 +1333,7 @@
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Role / Association <span class="text-red-600">*</span></label>
                         <select name="associated_persons[${personCounter}][role]" class="select2-role-dropdown w-full px-3 py-2 bg-white border border-blue-300 rounded-xl text-xs font-extrabold text-blue-700">
-                            <option value="" disabled selected>-- Select Role / Association --</option>
+                            <option value=""></option>
                             <option value="Co-Suspect">Co-Suspect</option>
                             <option value="Accomplice">Accomplice</option>
                             <option value="Driver / Courier">Driver / Courier</option>
@@ -1262,7 +1354,7 @@
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Gender</label>
                         <select name="associated_persons[${personCounter}][gender]" class="select2-gender-dropdown w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold">
-                            <option value="" disabled selected>-- Select Gender --</option>
+                            <option value=""></option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                             <option value="Other">Other</option>
@@ -1294,12 +1386,21 @@
                     </div>
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Height (cm / ft-in)</label>
-                        <input type="text" name="associated_persons[${personCounter}][height]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code" placeholder="e.g. 180 cm / 5ft 11in">
+                        <div class="relative flex items-center">
+                            <input type="text" name="associated_persons[${personCounter}][height]" class="w-full px-3 pr-20 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-900" placeholder="e.g. 180">
+                            <div class="absolute right-1 flex items-center">
+                                <select name="associated_persons[${personCounter}][height_unit]" class="py-1 px-1.5 bg-slate-100 text-slate-800 font-mono-code font-black text-xs border border-slate-300 rounded-lg focus:outline-none uppercase">
+                                    <option value="CM" selected>CM</option>
+                                    <option value="IN">IN</option>
+                                    <option value="FT">FT</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Eye Color</label>
                         <select name="associated_persons[${personCounter}][eye_color]" class="select2-eyecolor-dropdown w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold">
-                            <option value="" disabled selected>-- Select Eye Color --</option>
+                            <option value=""></option>
                             <option value="Brown">Brown</option>
                             <option value="Black">Black</option>
                             <option value="Dark Brown">Dark Brown</option>
@@ -1338,8 +1439,9 @@
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Marital / Relationship Status</label>
-                            <select name="associated_persons[${personCounter}][marital_status]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800">
-                                <option value="Single" selected>Single</option>
+                            <select name="associated_persons[${personCounter}][marital_status]" class="select2-marital-dropdown w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold">
+                                <option value=""></option>
+                                <option value="Single">Single</option>
                                 <option value="Married">Married</option>
                                 <option value="Divorced">Divorced</option>
                                 <option value="Widowed">Widowed</option>
@@ -1379,11 +1481,11 @@
                         </div>
                         <div>
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date of Arrest</label>
-                            <input type="date" name="associated_persons[${personCounter}][date_of_arrest]" value="${new Date().toISOString().split('T')[0]}" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
+                            <input type="date" name="associated_persons[${personCounter}][date_of_arrest]" value="" placeholder="Select Date of Arrest" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
                         </div>
                         <div>
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Time of Arrest</label>
-                            <input type="time" name="associated_persons[${personCounter}][time_of_arrest]" value="14:30" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
+                            <input type="time" name="associated_persons[${personCounter}][time_of_arrest]" value="" placeholder="Select Time of Arrest" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
                         </div>
                         <div class="sm:col-span-3">
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Alleged Offense / Charges Description</label>
@@ -1397,7 +1499,20 @@
             if (window.jQuery && $.fn.select2) {
                 const $card = $(`#personCard-${personCounter}`);
                 $card.find('.select2-role-dropdown').select2({
-                    placeholder: "-- Select Role / Association --",
+                    tags: true,
+                    allowClear: true,
+                    placeholder: "-- Select or Type Custom Role / Association --",
+                    createTag: function(params) {
+                        var term = $.trim(params.term);
+                        if (term === '') {
+                            return null;
+                        }
+                        return {
+                            id: term,
+                            text: term,
+                            newTag: true
+                        };
+                    },
                     templateResult: function(role) {
                         if (!role.id) return role.text;
                         const roleBadges = {
@@ -1415,10 +1530,11 @@
                             'Associate': { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' }
                         };
                         const b = roleBadges[role.text] || { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' };
+                        const tagLabel = role.newTag ? 'CUSTOM ROLE' : 'ROLE';
                         return $(`
                             <div class="flex items-center justify-between py-0.5">
                                 <span class="font-extrabold text-slate-900 text-xs">${role.text}</span>
-                                <span class="px-2 py-0.5 text-[9px] font-mono-code font-bold rounded-md uppercase border ${b.bg} ${b.text} ${b.border}">ROLE</span>
+                                <span class="px-2 py-0.5 text-[9px] font-mono-code font-bold rounded-md uppercase border ${b.bg} ${b.text} ${b.border}">${tagLabel}</span>
                             </div>
                         `);
                     },
@@ -1426,6 +1542,7 @@
                     width: '100%'
                 });
                 $card.find('.select2-gender-dropdown').select2({
+                    allowClear: true,
                     placeholder: "-- Select Gender --",
                     templateResult: function(gen) {
                         if (!gen.id) return gen.text;
@@ -1435,13 +1552,28 @@
                     width: '100%'
                 });
                 $card.find('.select2-nationality-dropdown').select2({
-                    placeholder: "-- Select World Nationality --",
+                    tags: true,
+                    allowClear: true,
+                    placeholder: "-- Select or Type Custom World Nationality --",
+                    createTag: function(params) {
+                        var term = $.trim(params.term);
+                        if (term === '') {
+                            return null;
+                        }
+                        return {
+                            id: term,
+                            text: term,
+                            newTag: true
+                        };
+                    },
                     templateResult: function(nat) {
                         if (!nat.id) return nat.text;
                         const isGhana = nat.text === 'Ghanaian';
-                        const dot = isGhana
-                            ? '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-mono-code font-bold rounded-md uppercase">GHANA</span>'
-                            : '<span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>';
+                        const dot = nat.newTag
+                            ? '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-300 text-[9px] font-mono-code font-bold rounded-md uppercase">CUSTOM</span>'
+                            : (isGhana
+                                ? '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-mono-code font-bold rounded-md uppercase">GHANA</span>'
+                                : '<span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>');
                         return $(`
                             <div class="flex items-center justify-between py-0.5">
                                 <span class="font-bold text-slate-800 text-xs">${nat.text}</span>
@@ -1453,6 +1585,7 @@
                     width: '100%'
                 });
                 $card.find('.select2-eyecolor-dropdown').select2({
+                    allowClear: true,
                     placeholder: "-- Select Eye Color --",
                     templateResult: function(eye) {
                         if (!eye.id) return eye.text;
@@ -1477,6 +1610,30 @@
                         `);
                     },
                     templateSelection: function(eye) { return eye.text; },
+                    width: '100%'
+                });
+                $card.find('.select2-marital-dropdown').select2({
+                    allowClear: true,
+                    placeholder: "Select Marital / Relationship Status",
+                    templateResult: function(m) {
+                        if (!m.id) return m.text;
+                        const badges = {
+                            'Single': '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-200 text-[9px] font-mono-code font-bold rounded-md uppercase">SINGLE</span>',
+                            'Married': '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9px] font-mono-code font-bold rounded-md uppercase">MARRIED</span>',
+                            'Divorced': '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 text-[9px] font-mono-code font-bold rounded-md uppercase">DIVORCED</span>',
+                            'Widowed': '<span class="px-2 py-0.5 bg-slate-100 text-slate-800 border border-slate-200 text-[9px] font-mono-code font-bold rounded-md uppercase">WIDOWED</span>',
+                            'Separated': '<span class="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 text-[9px] font-mono-code font-bold rounded-md uppercase">SEPARATED</span>',
+                            'Cohabiting / Partner': '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 text-[9px] font-mono-code font-bold rounded-md uppercase">PARTNER</span>'
+                        };
+                        const badge = badges[m.text] || '<span class="w-2 h-2 rounded-full bg-slate-400 shrink-0"></span>';
+                        return $(`
+                            <div class="flex items-center justify-between py-0.5">
+                                <span class="font-bold text-slate-800 text-xs">${m.text}</span>
+                                ${badge}
+                            </div>
+                        `);
+                    },
+                    templateSelection: function(m) { return m.text; },
                     width: '100%'
                 });
             }
@@ -2712,6 +2869,16 @@
                 }
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const noBox = document.getElementById('presumptiveTestNo');
+            const yesBox = document.getElementById('presumptiveTestYes');
+            if (noBox && noBox.checked) {
+                togglePresumptiveTest('NO');
+            } else if (yesBox && yesBox.checked) {
+                togglePresumptiveTest('YES');
+            }
+        });
 
         function toggleConfirmatoryTest(choice) {
             const yesBox = document.getElementById('confirmatoryTestYes');

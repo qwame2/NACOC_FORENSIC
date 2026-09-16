@@ -23,14 +23,127 @@
     $priority = strtoupper($case->priority ?? 'NORMAL');
     
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
-    $evidencePhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
+    
+    $allAssocPhotos = [];
+    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+        foreach ($docketData['seizures'] as $szItem) {
+            $cat = strtolower($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''));
+            $pCat = strtolower($case->exhibit_category ?? '');
+            $sNameSz = strtolower($szItem['seizure_name'] ?? '');
+            $pName = strtolower($case->seizure_name ?? '');
+
+            $isAssocSz = !empty($szItem['is_associate']) 
+                || !empty($szItem['associated_person']) 
+                || (($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit'));
+
+            if ($isAssocSz) {
+                if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
+                    foreach ($szItem['photos'] as $ap) {
+                        if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
+                    }
+                }
+                $apSingle = $szItem['photo'] ?? ($szItem['exhibit_photo'] ?? null);
+                if ($apSingle && !in_array($apSingle, $allAssocPhotos)) {
+                    $allAssocPhotos[] = $apSingle;
+                }
+            }
+        }
+    }
+
+    $rawPhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
+    if (!is_array($rawPhotos)) $rawPhotos = [];
+    $evidencePhotos = [];
+    foreach ($rawPhotos as $p) {
+        if ($p && !in_array($p, $evidencePhotos)) $evidencePhotos[] = $p;
+    }
+    if (!empty($docketData['evidence_photos']) && is_array($docketData['evidence_photos'])) {
+        foreach ($docketData['evidence_photos'] as $p) {
+            if ($p && !in_array($p, $evidencePhotos)) $evidencePhotos[] = $p;
+        }
+    }
+    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+        foreach ($docketData['seizures'] as $szItem) {
+            if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
+                foreach ($szItem['photos'] as $p) {
+                    if ($p && !in_array($p, $evidencePhotos)) $evidencePhotos[] = $p;
+                }
+            }
+            $singleP = $szItem['photo'] ?? ($szItem['exhibit_photo'] ?? null);
+            if ($singleP && !in_array($singleP, $evidencePhotos)) {
+                $evidencePhotos[] = $singleP;
+            }
+        }
+    }
+
+    // Determine if the case involves drugs/narcotics
+    $exhibitCategory = strtolower($case->exhibit_category ?? '');
+    $seizureNameDrug = $case->seizure_name_drug ?? '';
+    $seizureName = strtolower($case->seizure_name ?? '');
+    $exhibitsSummary = strtolower($case->exhibits_summary ?? '');
+    $offense = strtolower($case->offense ?? '');
+
+    $isDrugCase = false;
+    if (!empty($seizureNameDrug)) {
+        $isDrugCase = true;
+    } elseif (
+        str_contains($exhibitCategory, 'drug') || 
+        str_contains($exhibitCategory, 'narcotic') || 
+        str_contains($exhibitCategory, 'substance') || 
+        str_contains($exhibitCategory, 'cannabis') || 
+        str_contains($exhibitCategory, 'cocaine') || 
+        str_contains($exhibitCategory, 'heroin') || 
+        str_contains($exhibitCategory, 'meth') || 
+        str_contains($exhibitCategory, 'tramadol')
+    ) {
+        $isDrugCase = true;
+    } elseif (
+        str_contains($seizureName, 'cocaine') || 
+        str_contains($seizureName, 'heroin') || 
+        str_contains($seizureName, 'cannabis') || 
+        str_contains($seizureName, 'weed') || 
+        str_contains($seizureName, 'meth') || 
+        str_contains($seizureName, 'tramadol') || 
+        str_contains($seizureName, 'drug') || 
+        str_contains($seizureName, 'narcotic')
+    ) {
+        $isDrugCase = true;
+    } elseif (
+        str_contains($exhibitsSummary, 'cocaine') || 
+        str_contains($exhibitsSummary, 'heroin') || 
+        str_contains($exhibitsSummary, 'cannabis') || 
+        str_contains($exhibitsSummary, 'weed') || 
+        str_contains($exhibitsSummary, 'meth') || 
+        str_contains($exhibitsSummary, 'tramadol') || 
+        str_contains($exhibitsSummary, 'drug') || 
+        str_contains($exhibitsSummary, 'narcotic')
+    ) {
+        $isDrugCase = true;
+    } else {
+        $docketSeizures = $docketData['seizures'] ?? [];
+        if (is_array($docketSeizures) && count($docketSeizures) > 0) {
+            foreach ($docketSeizures as $sz) {
+                $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                $dName = $sz['seizure_name_drug'] ?? '';
+                $sName = strtolower($sz['seizure_name'] ?? '');
+                if (!empty($dName) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($sName, 'cocaine') || str_contains($sName, 'heroin') || str_contains($sName, 'cannabis') || str_contains($sName, 'drug') || str_contains($sName, 'narcotic')) {
+                    $isDrugCase = true;
+                    break;
+                }
+            }
+        }
+    }
 
     $unitsList = [
         'Crime Scene Support',
         'Evidence Management',
-        'Lab Analysis',
-        'Digital & Physical Forensics'
     ];
+    if ($isDrugCase) {
+        $unitsList[] = 'Lab Analysis';
+    }
+    $unitsList[] = 'Digital & Physical Forensics';
+
+    $totalUnitsCount = count($unitsList);
+
     $unitProgress = $docketData['unit_progress'] ?? [
         'Crime Scene Support' => ['status' => 'COMPLETED', 'officer' => $case->commanding_officer ?? 'Crime Scene Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
         'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
@@ -60,25 +173,78 @@
     $labConfirmatory = !empty($labExam['confirmatory_result']) ? $labExam['confirmatory_result'] : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'NO');
     $labSampleWeight = $labExam['sample_weight'] ?? [];
     
-    // Compute default drug name & gross weight from previously saved case data
-    $defaultDrugName = $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibit_category ?: ($case->exhibits_summary ?: $case->title)));
+    // Extract top drug exhibits first
+    $topDrugExhibits = [];
+    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+        foreach ($docketData['seizures'] as $idx => $sz) {
+            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+            $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
+            if (!empty($sz['seizure_name_drug']) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains(strtolower($sName), 'cocaine') || str_contains(strtolower($sName), 'heroin') || str_contains(strtolower($sName), 'cannabis') || str_contains(strtolower($sName), 'drug')) {
+                $topDrugExhibits[] = [
+                    'index' => $idx + 1,
+                    'name'  => $sName ?: 'Drug Exhibit',
+                    'cat'   => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
+                    'qty'   => $sz['seizure_quantity'] ?? null,
+                    'weight'=> $sz['seizure_weight'] ?? null,
+                    'unit'  => $sz['seizure_unit'] ?? null,
+                ];
+            }
+        }
+    }
     
-    $defaultGrossWeightParts = [];
-    if (!empty($case->seizure_quantity)) {
-        $defaultGrossWeightParts[] = trim($case->seizure_quantity . ' ' . ($case->seizure_packaging ?? ''));
-    }
-    if (!empty($case->seizure_weight)) {
-        $defaultGrossWeightParts[] = trim($case->seizure_weight . ' ' . ($case->seizure_unit ?? ''));
-    }
-    $defaultGrossWeight = !empty($defaultGrossWeightParts) ? implode(' / ', array_filter($defaultGrossWeightParts)) : ($case->exhibits_summary ?? '');
+    $firstDrugFound = !empty($topDrugExhibits) ? $topDrugExhibits[0]['name'] : null;
+    $defaultDrugName = $firstDrugFound ?: ($case->seizure_name_drug ?: ($isDrugCase ? ($case->exhibits_summary ?: 'Drug Exhibit') : 'Drug Exhibit'));
+    
+    $firstDrugQty = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['qty'] ?? ($topDrugExhibits[0]['seizure_quantity'] ?? null)) : $case->seizure_quantity;
+    $firstDrugPkg = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['pkg'] ?? ($topDrugExhibits[0]['seizure_packaging'] ?? null)) : $case->seizure_packaging;
+    $firstDrugWeight = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['weight'] ?? ($topDrugExhibits[0]['seizure_weight'] ?? null)) : $case->seizure_weight;
+    $firstDrugUnit = !empty($topDrugExhibits) ? ($topDrugExhibits[0]['unit'] ?? ($topDrugExhibits[0]['seizure_unit'] ?? null)) : $case->seizure_unit;
 
-    $labSampleDesc = !empty($labSampleWeight['description']) ? $labSampleWeight['description'] : (!empty($case->sample_weight_description) ? $case->sample_weight_description : $defaultDrugName);
-    $labSampleGross = !empty($labSampleWeight['gross_weight']) ? $labSampleWeight['gross_weight'] : (!empty($case->sample_weight_gross) ? $case->sample_weight_gross : $defaultGrossWeight);
+    $defaultUnits = !empty($firstDrugQty) ? trim($firstDrugQty . ' ' . ($firstDrugPkg ?? '')) : '';
+    $defaultGrossWeight = !empty($firstDrugWeight) ? trim($firstDrugWeight . ' ' . ($firstDrugUnit ?? '')) : ($defaultUnits ?: ($case->exhibits_summary ?? ''));
+
+    $nonDrugKeywords = ['truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency', 'zonda', 'cash', 'usd', 'ghs', 'laptop', 'phone'];
+
+    $rawSampleDesc = !empty($labSampleWeight['description']) ? $labSampleWeight['description'] : (!empty($case->sample_weight_description) ? $case->sample_weight_description : '');
+    $isNonDrugDesc = false;
+    if (!empty($rawSampleDesc)) {
+        $lDesc = strtolower($rawSampleDesc);
+        foreach ($nonDrugKeywords as $kw) {
+            if (str_contains($lDesc, $kw)) { $isNonDrugDesc = true; break; }
+        }
+        if (!empty($case->seizure_name) && strtolower($case->exhibit_category) !== 'drugs' && strtolower($rawSampleDesc) === strtolower($case->seizure_name)) {
+            $isNonDrugDesc = true;
+        }
+    }
+    $labSampleDesc = (!empty($rawSampleDesc) && !$isNonDrugDesc) ? $rawSampleDesc : $defaultDrugName;
+
+    $rawSampleUnits = !empty($labSampleWeight['units_packaging']) ? $labSampleWeight['units_packaging'] : (!empty($case->sample_weight_units) ? $case->sample_weight_units : '');
+    $labSampleUnits = !empty($rawSampleUnits) ? $rawSampleUnits : $defaultUnits;
+
+    $rawSampleGross = !empty($labSampleWeight['gross_weight']) ? $labSampleWeight['gross_weight'] : (!empty($case->sample_weight_gross) ? $case->sample_weight_gross : '');
+    $isNonDrugGross = false;
+    if (!empty($rawSampleGross)) {
+        if (!empty($case->seizure_quantity) && strtolower($case->exhibit_category) !== 'drugs' && (trim($rawSampleGross) === trim((string)$case->seizure_quantity) || str_starts_with(trim($rawSampleGross), trim((string)$case->seizure_quantity) . ' '))) {
+            $isNonDrugGross = true;
+        }
+    }
+    $labSampleGross = (!empty($rawSampleGross) && !$isNonDrugGross) ? $rawSampleGross : $defaultGrossWeight;
     $labSampleTaken = !empty($labSampleWeight['sample_taken']) ? $labSampleWeight['sample_taken'] : (!empty($case->sample_weight_taken) ? $case->sample_weight_taken : '');
     $labSampleReserved = !empty($labSampleWeight['reserved_samples']) ? $labSampleWeight['reserved_samples'] : (!empty($case->sample_weight_reserved) ? $case->sample_weight_reserved : '');
-    $labSampleUnit = !empty($case->seizure_unit) ? $case->seizure_unit : 'Kilograms (kg)';
+    $labSampleUnit = !empty($firstDrugUnit) ? $firstDrugUnit : (!empty($case->seizure_unit) ? $case->seizure_unit : 'Kilograms (kg)');
 
-    $labSubstanceId = !empty($labExam['substance_identification']) ? $labExam['substance_identification'] : (!empty($case->confirmatory_substance_identification) ? $case->confirmatory_substance_identification : ($defaultDrugName ?? ''));
+    $rawSubstanceId = !empty($labExam['substance_identification']) ? $labExam['substance_identification'] : (!empty($case->confirmatory_substance_identification) ? $case->confirmatory_substance_identification : '');
+    $isNonDrugSub = false;
+    if (!empty($rawSubstanceId)) {
+        $lSub = strtolower($rawSubstanceId);
+        foreach ($nonDrugKeywords as $kw) {
+            if (str_contains($lSub, $kw)) { $isNonDrugSub = true; break; }
+        }
+        if (!empty($case->seizure_name) && strtolower($case->exhibit_category) !== 'drugs' && strtolower($rawSubstanceId) === strtolower($case->seizure_name)) {
+            $isNonDrugSub = true;
+        }
+    }
+    $labSubstanceId = (!empty($rawSubstanceId) && !$isNonDrugSub) ? $rawSubstanceId : $defaultDrugName;
     $labDetectedSubstances = !empty($labExam['detected_substances']) ? $labExam['detected_substances'] : (!empty($case->detected_substances) ? $case->detected_substances : []);
     if (is_string($labDetectedSubstances)) {
         $labDetectedSubstances = json_decode($labDetectedSubstances, true) ?: [];
@@ -90,6 +256,12 @@
     }
     $labFindings = !empty($labExam['findings']) ? $labExam['findings'] : (!empty($unitProgress['Lab Analysis']['notes']) ? $unitProgress['Lab Analysis']['notes'] : (!empty($case->laboratory_analytical_findings) ? $case->laboratory_analytical_findings : ''));
     $labStatus = strtoupper($unitProgress['Lab Analysis']['status'] ?? 'PENDING');
+    $hasSavedLabData = ($labStatus === 'COMPLETED') 
+        || (isset($case->lab_status) && strtoupper($case->lab_status) === 'COMPLETED')
+        || !empty($case->laboratory_analytical_findings) 
+        || !empty($case->confirmatory_substance_identification) 
+        || !empty($case->sample_weight_taken) 
+        || (!empty($docketData['lab_examination']) && !empty($docketData['lab_examination']['has_saved']));
 
     if (empty($evidencePhotos) && ($case->has_seizures || !empty($case->seizure_name) || !empty($case->exhibits_summary) || !empty($case->exhibit_category))) {
         $cat = strtolower($case->exhibit_category ?? '');
@@ -498,20 +670,20 @@
                                 {{ $completedUnitsCount }}/4 Units Completed
                             </span>
                         </div>
-                        <h2 class="text-lg font-black text-slate-900 tracking-tight">4-Unit Directorate Progress &amp; Inter-Unit Workflow</h2>
-                        <p class="text-xs text-slate-600 font-medium">All 4 units build on this case. HOF approval triggers once all 4 units complete their analysis.</p>
+                        <h2 class="text-lg font-black text-slate-900 tracking-tight">{{ $totalUnitsCount }}-Unit Directorate Progress &amp; Inter-Unit Workflow</h2>
+                        <p class="text-xs text-slate-600 font-medium">All {{ $totalUnitsCount }} units build on this case. HOF approval triggers once all {{ $totalUnitsCount }} units complete their analysis.</p>
                     </div>
 
                     <!-- PROGRESS BAR -->
                     <div class="w-48 sm:w-64 bg-slate-200/90 rounded-xl h-8 p-1 border border-slate-300 shadow-inner relative overflow-hidden flex items-center shrink-0">
-                        <div id="unitProgressBar" class="bg-emerald-600 h-full rounded-lg transition-all duration-500 flex items-center justify-center text-xs font-mono-code font-extrabold text-white shadow-xs" style="width: {{ max(18, ($completedUnitsCount / 4) * 100) }}%;">
-                            {{ round(($completedUnitsCount / 4) * 100) }}%
+                        <div id="unitProgressBar" class="bg-emerald-600 h-full rounded-lg transition-all duration-500 flex items-center justify-center text-xs font-mono-code font-extrabold text-white shadow-xs" style="width: {{ max(18, ($completedUnitsCount / $totalUnitsCount) * 100) }}%;">
+                            {{ round(($completedUnitsCount / $totalUnitsCount) * 100) }}%
                         </div>
                     </div>
                 </div>
 
-                <!-- 4 UNITS CARDS GRID -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="unitsGridContainer">
+                <!-- UNITS CARDS GRID -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{{ $totalUnitsCount }} gap-4" id="unitsGridContainer">
                     @foreach($unitsList as $unitNameKey)
                         @php
                             $uData = $unitProgress[$unitNameKey] ?? ['status' => 'PENDING'];
@@ -554,15 +726,15 @@
                     @endforeach
                 </div>
 
-                <!-- ALL 4 UNITS COMPLETED NOTICE BANNER -->
-                <div id="completedUnitsBanner" class="p-5 bg-slate-900 text-white rounded-2xl border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg {{ $completedUnitsCount < 4 ? 'hidden' : '' }}">
+                <!-- UNITS COMPLETED NOTICE BANNER -->
+                <div id="completedUnitsBanner" class="p-5 bg-slate-900 text-white rounded-2xl border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg {{ $completedUnitsCount < $totalUnitsCount ? 'hidden' : '' }}">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-base shrink-0 shadow-2xs">
                             ✓
                         </div>
                         <div>
-                            <h4 class="text-xs font-black text-white uppercase tracking-wider font-mono-code">Multi-Unit Directorate Processing Complete (4/4 Units)</h4>
-                            <p class="text-[11px] text-slate-300">All 4 specialized units have completed their findings and saved their case sections. Docket is submitted for HOF executive sign-off.</p>
+                            <h4 class="text-xs font-black text-white uppercase tracking-wider font-mono-code">Multi-Unit Directorate Processing Complete ({{ $completedUnitsCount }}/{{ $totalUnitsCount }} Units)</h4>
+                            <p class="text-[11px] text-slate-300">All {{ $totalUnitsCount }} specialized units have completed their findings and saved their case sections. Docket is submitted for HOF executive sign-off.</p>
                         </div>
                     </div>
                     <span class="px-3 py-1 rounded-full text-[10px] font-mono-code font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider shrink-0">
@@ -637,6 +809,16 @@
                         'mugshot_right'    => $case->mugshot_right ?? null,
                     ]];
                 }
+
+                $primarySuspectNamesList = [];
+                foreach ($suspectsList as $sp) {
+                    $spIsAssoc = !empty($sp['is_associate']) || (!empty($sp['association_role']) && strtolower($sp['association_role']) !== 'primary suspect');
+                    if (!$spIsAssoc && !empty($sp['suspect_name'])) {
+                        $primarySuspectNamesList[] = $sp['suspect_name'];
+                    }
+                }
+                $primarySuspectsCombinedNames = !empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Primary Suspects');
+                $renderedPrimaryExhibit = false;
             @endphp
 
             @foreach($suspectsList as $sIdx => $sItem)
@@ -654,7 +836,7 @@
                     $sPOB   = $sItem['place_of_birth'] ?? ($sItem['hometown'] ?? ($sItem['pob'] ?? ($sNum == 1 ? ($case->pob ?? ($docketData['pob'] ?? 'N/A')) : 'N/A')));
                     $sPhone = $sItem['phone_number'] ?? ($sItem['contact_phone'] ?? ($sItem['phone'] ?? ($sNum == 1 ? ($case->phone ?? ($docketData['phone'] ?? 'N/A')) : 'N/A')));
                     $sAddr  = $sItem['residential_address'] ?? ($sItem['address'] ?? ($sNum == 1 ? ($case->address ?? ($docketData['address'] ?? 'N/A')) : 'N/A'));
-                    $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? ($case->marital_status ?? 'Single') : 'Single');
+                    $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null);
                     $sSpouseN = $sItem['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
                     $sSpouseP = $sItem['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null);
                     $sSpouseI = $sItem['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null);
@@ -831,7 +1013,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                             <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Marital / Relationship Status</div>
-                                <div class="font-bold text-slate-900 mt-0.5">{{ $sMarital }}</div>
+                                <div class="font-bold text-slate-900 mt-0.5">{{ $sMarital ?: 'N/A' }}</div>
                             </div>
                             <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Spouse / Partner Details</div>
@@ -882,6 +1064,208 @@
                             </p>
                         </div>
                     </div>
+
+                    <!-- ASSOCIATE LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($sName) }} -->
+                    @if($isAssociate)
+                        @php
+                            $assocExhibits = array_filter($docketData['seizures'] ?? [], function($sz) use ($sName, $case) {
+                                if (!empty($sz['associated_person']) && strtolower($sz['associated_person']) === strtolower($sName)) {
+                                    return true;
+                                }
+                                if (!empty($sz['is_associate'])) {
+                                    return true;
+                                }
+                                $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                                $pCat = strtolower($case->exhibit_category ?? '');
+                                $sNameSz = strtolower($sz['seizure_name'] ?? '');
+                                $pName = strtolower($case->seizure_name ?? '');
+                                return ($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit');
+                            });
+                        @endphp
+
+                        @if(!empty($assocExhibits) && count($assocExhibits) > 0)
+                        <div class="p-5 bg-amber-50/50 border-2 border-amber-300 rounded-2xl space-y-4 shadow-sm">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200">
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-extrabold bg-amber-600 text-white uppercase tracking-wider shadow-2xs">
+                                        ASSOCIATE EXHIBIT DOSSIER
+                                    </span>
+                                    <div>
+                                        <h3 class="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                                            Associated Seizures &amp; Exhibits — {{ $sName }}
+                                        </h3>
+                                        <p class="text-[11px] text-slate-600">Confiscated items and exhibit inventory attached to Associate {{ $sName }}</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-code font-extrabold bg-amber-100 text-amber-900 border border-amber-300 w-max">
+                                    {{ count($assocExhibits) }} EXHIBIT ITEM(S) LOGGED
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                @foreach($assocExhibits as $aEx)
+                                    <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                        <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">Exhibit Category</div>
+                                        <div class="font-extrabold text-amber-900 text-xs mt-0.5 font-mono-code">{{ $aEx['category'] ?? ($aEx['exhibit_category'] ?? 'Associate Exhibit') }}</div>
+                                    </div>
+                                    <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Exhibit / Commodity Name</div>
+                                        <div class="font-extrabold text-slate-900 text-xs mt-0.5">{{ $aEx['seizure_name'] ?? ($aEx['name'] ?? 'N/A') }}</div>
+                                    </div>
+                                    <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Quantity / Weight</div>
+                                        <div class="font-extrabold text-slate-900 font-mono-code text-xs mt-0.5">
+                                            @if(!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
+                                                {{ implode(' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
+                                            @else
+                                                N/A
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Estimated Valuation</div>
+                                        <div class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">{{ $aEx['seizure_value'] ?? ($aEx['value'] ?? 'N/A') }}</div>
+                                    </div>
+                                    @if(!empty($aEx['seizure_packaging']))
+                                    <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Packaging &amp; Format</div>
+                                        <div class="font-bold text-slate-900 text-xs mt-0.5">{{ $aEx['seizure_packaging'] }}</div>
+                                    </div>
+                                    @endif
+                                @endforeach
+                            </div>
+
+                            <!-- ASSOCIATE EXHIBIT PHOTOS GALLERY -->
+                            @php
+                                $assocPhotos = [];
+                                foreach($assocExhibits as $aEx) {
+                                    if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
+                                        foreach ($aEx['photos'] as $ap) { if ($ap && !in_array($ap, $assocPhotos)) $assocPhotos[] = $ap; }
+                                    }
+                                    $apSingle = $aEx['photo'] ?? ($aEx['exhibit_photo'] ?? null);
+                                    if ($apSingle && !in_array($apSingle, $assocPhotos)) $assocPhotos[] = $apSingle;
+                                }
+                            @endphp
+                            @if(!empty($assocPhotos) && count($assocPhotos) > 0)
+                            <div class="pt-3 border-t border-amber-200 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">Exhibit Visual Evidence Gallery ({{ $sName }})</span>
+                                    <span class="text-[10px] font-mono-code font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">{{ count($assocPhotos) }} Attached Photo(s)</span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    @foreach($assocPhotos as $apIdx => $apUrl)
+                                        <div class="p-1 bg-white border border-amber-200 rounded-xl space-y-1 text-center shadow-2xs">
+                                            <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer" onclick="openMugshotModal('{{ $apUrl }}', 'Exhibit Photo #{{ $apIdx + 1 }} — {{ $sName }}')">
+                                                <img src="{{ $apUrl }}" class="w-full h-full object-cover" alt="Exhibit Photo">
+                                            </div>
+                                            <div class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">Exhibit Photo #{{ $apIdx + 1 }}</div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                        @endif
+                    @else
+                        @if(!$renderedPrimaryExhibit)
+                        @php $renderedPrimaryExhibit = true; @endphp
+                        <!-- PRIMARY SUSPECT LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($primarySuspectsCombinedNames) }} -->
+                        <div class="p-5 bg-slate-50 border-2 border-slate-300 rounded-2xl space-y-4 shadow-sm">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-extrabold bg-slate-900 text-white uppercase tracking-wider shadow-2xs">
+                                        PRIMARY SUSPECT EXHIBIT DOSSIER
+                                    </span>
+                                    <div>
+                                        <h3 class="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                                            Primary Seizures &amp; Exhibits — {{ $primarySuspectsCombinedNames }}
+                                        </h3>
+                                        <p class="text-[11px] text-slate-600">Confiscated items and exhibit inventory attached to Primary Suspects ({{ $primarySuspectsCombinedNames }})</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-code font-extrabold bg-slate-200 text-slate-800 border border-slate-300 w-max">
+                                    1 EXHIBIT ITEM(S) LOGGED
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Exhibit Category</div>
+                                    <div class="font-extrabold text-amber-700 text-xs mt-0.5 font-mono-code">{{ $case->exhibit_category ?? 'N/A' }}</div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Primary Commodity / Seizure Name</div>
+                                    <div class="font-extrabold text-slate-900 text-xs mt-0.5">{{ $case->seizure_name ?: ($case->title ?: 'N/A') }}</div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Quantity / Weight</div>
+                                    <div class="font-extrabold text-slate-900 font-mono-code text-xs mt-0.5">
+                                        @if($case->seizure_quantity || $case->seizure_weight)
+                                            {{ implode(' • ', array_filter([$case->seizure_quantity ? "Qty: {$case->seizure_quantity}" : null, $case->seizure_weight ? "Wt: {$case->seizure_weight} {$case->seizure_unit}" : ($case->seizure_unit ? "Unit: {$case->seizure_unit}" : null)])) }}
+                                        @else
+                                            {{ $case->exhibits_summary ?: 'N/A' }}
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Estimated Valuation</div>
+                                    <div class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">{{ $case->seizure_value ?: ($case->valuation ?? 'N/A') }}</div>
+                                </div>
+                            </div>
+
+                            @if(!empty($case->veh_make) || !empty($case->veh_reg_no) || !empty($docketData['vehicle']['make']) || !empty($docketData['vehicle']['reg']))
+                            <div class="p-4 bg-slate-900 text-white rounded-xl space-y-2 border border-slate-800 text-xs shadow-sm">
+                                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                    <div class="text-[10px] font-mono-code font-bold text-amber-400 uppercase tracking-wider">Seized Vehicle Details Record ({{ $primarySuspectsCombinedNames }})</div>
+                                    <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-mono-code font-bold uppercase">{{ $case->veh_type ?: ($docketData['vehicle']['type'] ?? 'VEHICLE') }}</span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Make &amp; Model:</span> <span class="font-bold text-white text-xs">{{ $case->veh_make ?: ($docketData['vehicle']['make'] ?? 'N/A') }} {{ $case->veh_model ?: ($docketData['vehicle']['model'] ?? '') }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Reg Number:</span> <span class="font-mono-code font-bold text-emerald-400 text-xs">{{ $case->veh_reg_no ?: ($docketData['vehicle']['reg'] ?? 'N/A') }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Chassis / VIN:</span> <span class="font-mono-code font-bold text-slate-200 text-xs">{{ $case->veh_vin ?: ($docketData['vehicle']['chassis'] ?? 'N/A') }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Engine Number:</span> <span class="font-mono-code font-bold text-slate-200 text-xs">{{ $case->veh_engine_no ?: ($docketData['vehicle']['engine'] ?? 'N/A') }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Registered Owner:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_owner ?: ($docketData['vehicle']['owner'] ?? 'N/A') }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Driver:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_driver ?: ($docketData['vehicle']['driver'] ?? 'N/A') }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Owner Contact:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_owner_contact ?: 'N/A' }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Color / Year:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_colour ?: ($docketData['vehicle']['color'] ?? 'N/A') }} {{ $case->veh_year ? "({$case->veh_year})" : '' }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Docs Available:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_docs_available ?: 'N/A' }} {{ $case->veh_doc_ref ? "({$case->veh_doc_ref})" : '' }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Condition / Fuel:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_condition ?: 'N/A' }} {{ $case->veh_fuel ? "({$case->veh_fuel})" : '' }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Keys Received:</span> <span class="font-bold text-slate-200 text-xs">{{ $case->veh_keys_recv ?: 'N/A' }} {{ $case->veh_key_count !== null ? "({$case->veh_key_count} keys)" : '' }}</span></div>
+                                    <div><span class="text-slate-400 font-mono-code text-[10px] block">Existing Damage:</span> <span class="font-semibold text-slate-200 text-xs">{{ $case->veh_damage ?: 'None' }}</span></div>
+                                </div>
+                            </div>
+                            @endif
+
+                            <!-- PRIMARY EXHIBIT PHOTOS GALLERY -->
+                            @php
+                                $primaryPhotos = [];
+                                foreach ($evidencePhotos as $pUrl) {
+                                    if (!in_array($pUrl, $allAssocPhotos)) {
+                                        $primaryPhotos[] = $pUrl;
+                                    }
+                                }
+                            @endphp
+                            @if(!empty($primaryPhotos) && count($primaryPhotos) > 0)
+                            <div class="pt-3 border-t border-slate-200 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">Exhibit Visual Evidence Gallery ({{ $primarySuspectsCombinedNames }})</span>
+                                    <span class="text-[10px] font-mono-code font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded">{{ count($primaryPhotos) }} Attached Photo(s)</span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    @foreach($primaryPhotos as $pIdx => $pUrl)
+                                        <div class="p-1 bg-white border border-slate-200 rounded-xl space-y-1 text-center shadow-2xs">
+                                            <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer" onclick="openMugshotModal('{{ $pUrl }}', 'Exhibit Photo #{{ $pIdx + 1 }} — {{ $primarySuspectsCombinedNames }}')">
+                                                <img src="{{ $pUrl }}" class="w-full h-full object-cover" alt="Exhibit Photo">
+                                            </div>
+                                            <div class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">Exhibit Photo #{{ $pIdx + 1 }}</div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+                        </div>
+                        @endif
+                    @endif
                 </div>
             @endforeach
 
@@ -931,6 +1315,54 @@
                         <div class="font-bold text-slate-900 text-sm mt-0.5">{{ $case->seizure_officer ?: 'N/A' }} {{ $case->seizure_location ? "({$case->seizure_location})" : '' }}</div>
                     </div>
                 </div>
+
+                @php
+                    $allSeizuresList = $docketData['seizures'] ?? [];
+                @endphp
+                @if(!empty($allSeizuresList) && count($allSeizuresList) > 0)
+                <div class="space-y-3 pt-3 border-t border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-xs font-black text-slate-900 uppercase tracking-wider font-mono-code">
+                            All Logged Seizures &amp; Exhibits Dossier ({{ count($allSeizuresList) }} Items Logged)
+                        </div>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">VERIFIED INVENTORY</span>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
+                                <tr>
+                                    <th class="py-2.5 px-4 font-bold">Item #</th>
+                                    <th class="py-2.5 px-4 font-bold">Category</th>
+                                    <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
+                                    <th class="py-2.5 px-4 font-bold">Quantity</th>
+                                    <th class="py-2.5 px-4 font-bold">Weight / Unit</th>
+                                    <th class="py-2.5 px-4 font-bold">Packaging</th>
+                                    <th class="py-2.5 px-4 font-bold">Est. Value</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-800">
+                                @foreach($allSeizuresList as $sIdx => $szItem)
+                                    <tr>
+                                        <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">#{{ $sIdx + 1 }}</td>
+                                        <td class="py-2.5 px-4 font-bold font-mono-code text-amber-700">{{ $szItem['category'] ?? ($szItem['exhibit_category'] ?? 'General Exhibit') }}</td>
+                                        <td class="py-2.5 px-4 font-extrabold text-slate-900">{{ $szItem['seizure_name'] ?? ($szItem['name'] ?? 'N/A') }}</td>
+                                        <td class="py-2.5 px-4 font-mono-code">{{ $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A') }}</td>
+                                        <td class="py-2.5 px-4 font-mono-code">
+                                            @if(!empty($szItem['seizure_weight']) || !empty($szItem['weight']))
+                                                {{ $szItem['seizure_weight'] ?? $szItem['weight'] }} {{ $szItem['seizure_unit'] ?? ($szItem['unit'] ?? '') }}
+                                            @else
+                                                N/A
+                                            @endif
+                                        </td>
+                                        <td class="py-2.5 px-4 font-mono-code">{{ $szItem['seizure_packaging'] ?? ($szItem['packaging'] ?? 'N/A') }}</td>
+                                        <td class="py-2.5 px-4 font-mono-code font-bold text-emerald-700">{{ $szItem['seizure_value'] ?? ($szItem['value'] ?? 'N/A') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
 
                 @if(!empty($case->veh_make) || !empty($case->veh_reg_no) || !empty($docketData['vehicle']['make']) || !empty($docketData['vehicle']['reg']))
                 <div class="p-4 bg-slate-900 text-white rounded-2xl space-y-2.5 border border-slate-800 text-xs shadow-sm">
@@ -1008,7 +1440,7 @@
             </div>
 
             <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
-            @if($isLabContext || $labStatus === 'COMPLETED')
+            @if($isLabContext || $hasSavedLabData)
             <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl" id="section5LabExamination">
                 <!-- SECTION HEADER -->
                 <div class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1021,8 +1453,8 @@
                         <div>
                             <div class="flex items-center gap-2">
                                 <h3 class="font-extrabold text-slate-900 text-base">Examination Information</h3>
-                                <span id="section5BadgeStatus" class="px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase {{ $labStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : ($labStatus === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300') }}">
-                                    {{ $labStatus === 'COMPLETED' ? '✓ LAB COMPLETED' : ($labStatus === 'IN_PROGRESS' ? '⏳ LAB IN PROGRESS' : '⭕ LAB PENDING') }}
+                                <span id="section5BadgeStatus" class="px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase {{ $hasSavedLabData ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : ($labStatus === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-amber-100 text-amber-800 border border-amber-300') }}">
+                                    {{ $hasSavedLabData ? '✓ LAB COMPLETED' : ($labStatus === 'IN_PROGRESS' ? '⏳ LAB IN PROGRESS' : '⭕ LAB PENDING') }}
                                 </span>
                             </div>
                             <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination &amp; Testing Log</p>
@@ -1036,28 +1468,61 @@
                 </div>
 
                 @if($isLabContext)
-                <form id="section5LabForm" onsubmit="submitSection5LabExam(event)" class="space-y-5 {{ $labStatus === 'COMPLETED' ? 'hidden' : '' }}">
+                @php
+                    $drugExhibits = [];
+                    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+                        foreach ($docketData['seizures'] as $idx => $sz) {
+                            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                            $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
+                            if (!empty($sz['seizure_name_drug']) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains(strtolower($sName), 'cocaine') || str_contains(strtolower($sName), 'heroin') || str_contains(strtolower($sName), 'cannabis') || str_contains(strtolower($sName), 'drug')) {
+                                $drugExhibits[] = [
+                                    'index' => $idx + 1,
+                                    'name'  => $sName ?: 'Drug Exhibit',
+                                    'cat'   => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
+                                    'qty'   => $sz['seizure_quantity'] ?? null,
+                                    'weight'=> $sz['seizure_weight'] ?? null,
+                                    'unit'  => $sz['seizure_unit'] ?? null,
+                                ];
+                            }
+                        }
+                    }
+                    if (empty($drugExhibits) && $isDrugCase) {
+                        $drugExhibits[] = [
+                            'index' => 1,
+                            'name'  => $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibits_summary ?: 'Drug Exhibit')),
+                            'cat'   => $case->exhibit_category ?: 'Drugs',
+                            'qty'   => $case->seizure_quantity,
+                            'weight'=> $case->seizure_weight,
+                            'unit'  => $case->seizure_unit,
+                        ];
+                    }
+                    $initialLabDesc = !empty($drugExhibits) ? $drugExhibits[0]['name'] : ($case->seizure_name_drug ?: ($isDrugCase ? ($case->exhibits_summary ?: $case->seizure_name) : 'No drug exhibit saved yet'));
+                @endphp
+                <form id="section5LabForm" onsubmit="submitSection5LabExam(event)" class="space-y-5 {{ $hasSavedLabData ? 'hidden' : '' }}">
                     <!-- EXHIBIT SELECTOR CARD FROM SECTION 4 MANIFEST -->
                     <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-2.5 shadow-2xs">
                         <div class="flex items-center justify-between">
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-2">
-                                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                 <span>Select Seized Exhibit to Examine (Manifest Sync)</span>
                                 <span class="text-red-600 font-bold">*</span>
                             </label>
                             <span class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                                {{ !empty($case->exhibits_summary) || !empty($case->seizure_name) ? '1 Exhibit Synced' : 'No exhibit saved yet' }}
+                                {{ !empty($drugExhibits) ? count($drugExhibits) . ' Drug Exhibit(s) Synced' : 'No drug exhibit saved yet' }}
                             </span>
                         </div>
                         <div class="relative">
                             <select 
                                 id="labExhibitSelect" 
+                                onchange="onReviewLabExhibitChange(this)"
                                 class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
                             >
-                                @if(!empty($case->exhibits_summary) || !empty($case->seizure_name))
-                                    <option value="1" selected>EXH-01: {{ $case->seizure_name ?: $case->exhibits_summary }}</option>
+                                @if(!empty($drugExhibits))
+                                    @foreach($drugExhibits as $dEx)
+                                        <option value="{{ $dEx['index'] }}" data-name="{{ $dEx['name'] }}" {{ $loop->first ? 'selected' : '' }}>Exhibit #{{ $dEx['index'] }}: {{ $dEx['name'] }}</option>
+                                    @endforeach
                                 @else
-                                    <option value="">No exhibit saved yet</option>
+                                    <option value="">No drug exhibit saved yet</option>
                                 @endif
                             </select>
                         </div>
@@ -1127,7 +1592,7 @@
                                 id="labExhibitDescriptionInput" 
                                 rows="3" 
                                 class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs"
-                            >{{ $case->exhibits_summary ?: ($case->seizure_name ?: 'No exhibit saved yet') }}</textarea>
+                            >{{ $initialLabDesc }}</textarea>
                         </div>
 
                         <!-- Laboratory Number -->
@@ -1228,14 +1693,17 @@
                                 Presumptive Test Reaction Result <span class="text-red-600 font-bold">*</span>
                             </label>
 
+                            @php
+                                $pIsYes = !empty($labPresumptive) && (str_starts_with(strtoupper($labPresumptive), 'YES') || str_starts_with(strtoupper($labPresumptive), 'POS'));
+                            @endphp
                             <div class="flex items-center space-x-3">
                                 <!-- YES CHECKBOX -->
-                                <label id="labelPresumptiveYes" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ !str_contains($labPresumptive, 'NO') ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
+                                <label id="labelPresumptiveYes" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $pIsYes ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
                                     <input 
                                         type="radio" 
                                         name="form_presumptive_radio" 
                                         value="YES"
-                                        {{ !str_contains($labPresumptive, 'NO') ? 'checked' : '' }}
+                                        {{ $pIsYes ? 'checked' : '' }}
                                         onchange="onPresumptiveRadioChange('YES')"
                                         class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer"
                                     >
@@ -1246,12 +1714,12 @@
                                 </label>
 
                                 <!-- NO CHECKBOX -->
-                                <label id="labelPresumptiveNo" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ str_contains($labPresumptive, 'NO') ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
+                                <label id="labelPresumptiveNo" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ !$pIsYes ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
                                     <input 
                                         type="radio" 
                                         name="form_presumptive_radio" 
                                         value="NO"
-                                        {{ str_contains($labPresumptive, 'NO') ? 'checked' : '' }}
+                                        {{ !$pIsYes ? 'checked' : '' }}
                                         onchange="onPresumptiveRadioChange('NO')"
                                         class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer"
                                     >
@@ -1263,7 +1731,7 @@
                             </div>
 
                             <!-- DROPDOWN INPUT BOXES FOR PRESUMPTIVE TEST REACTION DETAILS -->
-                            <div id="presumptiveReactionDetailsContainerReview" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 {{ str_contains($labPresumptive, 'NO') ? 'hidden' : '' }}">
+                            <div id="presumptiveReactionDetailsContainerReview" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 {{ !$pIsYes ? 'hidden' : '' }}">
                                 <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
                                     <div class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
                                         <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1412,31 +1880,52 @@
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <!-- DESCRIPTION -->
                                     <div class="md:col-span-2">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                            Description <span class="text-red-600 font-bold">*</span>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                            <span>Description <span class="text-red-600 font-bold">*</span></span>
+                                            <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                         </label>
                                         <input 
                                             type="text" 
                                             id="sampleWeightDescriptionReview" 
                                             name="sample_weight_description" 
                                             value="{{ $labSampleDesc }}"
-                                            placeholder="e.g. Compressed tan-brown vegetal matter, sealed in plastic wrap"
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
+                                            readonly
+                                            placeholder="Fetched from drug manifest"
+                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
                                         >
                                     </div>
 
-                                    <!-- NUMBER OF UNIT / GROSS WEIGHT -->
+                                    <!-- NUMBER OF UNITS -->
                                     <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                            Number of Unit / Gross Weight <span class="text-red-600 font-bold">*</span>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                            <span>Number of Units <span class="text-red-600 font-bold">*</span></span>
+                                            <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            id="sampleWeightUnitsReview" 
+                                            name="sample_weight_units" 
+                                            value="{{ $labSampleUnits }}"
+                                            readonly
+                                            placeholder="Fetched from drug manifest"
+                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed"
+                                        >
+                                    </div>
+
+                                    <!-- GROSS WEIGHT -->
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                            <span>Gross Weight <span class="text-red-600 font-bold">*</span></span>
+                                            <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                         </label>
                                         <input 
                                             type="text" 
                                             id="sampleWeightGrossReview" 
                                             name="sample_weight_gross" 
                                             value="{{ $labSampleGross }}"
-                                            placeholder="e.g. 12 slabs / 14.85 kg gross weight"
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                            readonly
+                                            placeholder="Fetched from drug manifest"
+                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed"
                                         >
                                     </div>
 
@@ -1470,7 +1959,7 @@
                                     </div>
 
                                     <!-- RESERVED SAMPLES -->
-                                    <div class="md:col-span-2">
+                                    <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
                                             <span>Reserved Samples <span class="text-red-600 font-bold">*</span></span>
                                             <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
@@ -1503,16 +1992,18 @@
                                         <div class="space-y-4">
                                             <!-- 1. SUBSTANCE IDENTIFICATION -->
                                             <div>
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Substance Identification <span class="text-red-600 font-bold">*</span>
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Substance Identification <span class="text-red-600 font-bold">*</span></span>
+                                                    <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                                 </label>
                                                 <input 
                                                     type="text" 
                                                     id="confirmatorySubstanceIdentificationReview" 
                                                     name="confirmatory_substance_identification" 
                                                     value="{{ $labSubstanceId }}"
-                                                    placeholder="Displaying Exhibit / Drug Name"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans"
+                                                    readonly
+                                                    placeholder="Fetched from drug manifest"
+                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
                                                 >
                                             </div>
 
@@ -1594,7 +2085,7 @@
                 @endif
 
                 <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
-                <div id="section5ReadOnlyDisplay" class="space-y-4 {{ $isLabContext && $labStatus !== 'COMPLETED' ? 'hidden' : '' }}">
+                <div id="section5ReadOnlyDisplay" class="space-y-4 {{ !$hasSavedLabData ? 'hidden' : '' }}">
                     <!-- TOP VERIFICATION BANNER -->
                     <div class="p-4 bg-emerald-50/90 rounded-2xl border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                         <div class="flex items-center space-x-3">
@@ -1607,7 +2098,7 @@
                                     <span>&bull;</span>
                                     <span class="text-emerald-700">OFFICIAL EXAMINATION RECORD</span>
                                 </div>
-                                <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION &amp; SCIENTIFIC ANALYSIS REPORT</div>
+                                <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT</div>
                             </div>
                         </div>
                         @if($isLabContext)
@@ -1635,19 +2126,72 @@
                             </tr>
                             <tr class="bg-slate-100/90 border-b border-slate-300">
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Analyst / Examiner:</td>
-                                <td class="p-3 font-black text-slate-900 border-r border-slate-300 bg-white" id="section5AnalystDisplay">{{ $labAnalyst }} ({{ $labUnit }})</td>
+                                <td class="p-3 font-black text-slate-900 border-r border-slate-300 bg-white" id="section5AnalystDisplay">{{ $labAnalyst }}</td>
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Examination Timeline:</td>
-                                <td class="p-3 font-bold text-slate-950 font-mono-code text-xs bg-white">
-                                    Received: <strong>{{ $labDateReceived }}</strong> • Started: <strong>{{ $labDateStarted }}</strong> • Completed: <strong>{{ $labDateCompleted }}</strong>
+                                <td class="p-2 bg-white">
+                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                                        <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
+                                            <tr class="border-b border-slate-300">
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Received</th>
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Started</th>
+                                                <th class="px-2 py-1 text-left bg-slate-200/70">Completed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white font-bold font-mono-code text-slate-900">
+                                            <tr>
+                                                <td class="px-2 py-1 border-r border-slate-300 text-blue-900" id="section5DateReceivedDisplay">{{ $labDateReceived }}</td>
+                                                <td class="px-2 py-1 border-r border-slate-300 text-amber-900" id="section5DateStartedDisplay">{{ $labDateStarted }}</td>
+                                                <td class="px-2 py-1 text-emerald-900" id="section5DateCompletedDisplay">{{ $labDateCompleted }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </td>
                             </tr>
                             <tr class="border-b border-slate-300">
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Presumptive Reaction:</td>
-                                <td class="p-3 font-black border-r border-slate-300 bg-white {{ !str_contains($labPresumptive, 'NO') ? 'text-emerald-950' : 'text-red-950' }}" id="section5PresumptiveDisplay">
-                                    <span class="inline-flex items-center space-x-1.5">
-                                        <span class="w-2.5 h-2.5 rounded-full {{ !str_contains($labPresumptive, 'NO') ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
-                                        <span>{{ $labPresumptive }}</span>
-                                    </span>
+                                <td class="p-2 border-r border-slate-300 bg-white" id="section5PresumptiveDisplay">
+                                    @php
+                                        $pRaw = trim($labPresumptive ?? '');
+                                        $pResult = 'N/A';
+                                        $pPresence = 'N/A';
+                                        $pPurity = 'N/A';
+
+                                        if (!empty($pRaw)) {
+                                            if (str_starts_with(strtoupper($pRaw), 'YES') || str_starts_with(strtoupper($pRaw), 'POS')) {
+                                                $pResult = 'YES';
+                                            } elseif (str_starts_with(strtoupper($pRaw), 'NO') || str_starts_with(strtoupper($pRaw), 'NEG')) {
+                                                $pResult = 'NO';
+                                            } else {
+                                                $pResult = strtok($pRaw, ' (');
+                                            }
+
+                                            if (preg_match('/Presence of:\s*([^-\)]+)/i', $pRaw, $mPresence)) {
+                                                $pPresence = trim($mPresence[1]);
+                                            } elseif (preg_match('/\(([^-\)]+)\)/', $pRaw, $mPresence)) {
+                                                $pPresence = trim($mPresence[1]);
+                                            }
+
+                                            if (preg_match('/Purity\/Percentage:\s*([^\)]+)/i', $pRaw, $mPurity)) {
+                                                $pPurity = trim($mPurity[1]);
+                                            }
+                                        }
+                                    @endphp
+                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                                        <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
+                                            <tr class="border-b border-slate-300">
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Presence of</th>
+                                                <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white">
+                                            <tr>
+                                                <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pResult === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pResult }}</td>
+                                                <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $pPresence }}</td>
+                                                <td class="px-2 py-1 font-bold text-slate-900">{{ $pPurity }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </td>
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Confirmatory Test:</td>
                                 <td class="p-3 font-black bg-white {{ $labConfirmatory === 'YES' ? 'text-emerald-950' : 'text-slate-950' }}" id="section5ConfirmatoryDisplay">
@@ -1659,11 +2203,29 @@
                             </tr>
                             <tr class="bg-slate-100/90 border-b border-slate-300">
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Sample Metrology:</td>
-                                <td class="p-3 font-bold text-slate-900 bg-white" colspan="3">
-                                    Description: <strong class="text-slate-950" id="section5SampleDescDisplay">{{ $labSampleDesc ?: 'N/A' }}</strong> • 
-                                    Gross Weight: <strong class="text-slate-950 font-mono-code" id="section5SampleGrossDisplay">{{ $labSampleGross ?: 'N/A' }}</strong> • 
-                                    Mass Taken: <strong class="text-emerald-950 font-mono-code" id="section5SampleTakenDisplay">{{ $labSampleTaken ? $labSampleTaken . ' ' . $labSampleUnit : 'N/A' }}</strong> • 
-                                    Reserved: <strong class="text-slate-950 font-mono-code" id="section5SampleReservedDisplay">{{ $labSampleReserved ?: 'N/A' }}</strong>
+                                <td class="p-3 bg-white" colspan="3">
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        <div class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Description</div>
+                                            <div class="font-bold text-slate-950 text-xs mt-0.5" id="section5SampleDescDisplay">{{ $labSampleDesc ?: 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Number of Units</div>
+                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleUnitsDisplay">{{ $labSampleUnits ?: 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Gross Weight</div>
+                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleGrossDisplay">{{ $labSampleGross ?: 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Mass Taken</div>
+                                            <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5" id="section5SampleTakenDisplay">{{ $labSampleTaken ? $labSampleTaken . ' ' . $labSampleUnit : 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Reserved Samples</div>
+                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleReservedDisplay">{{ $labSampleReserved ?: 'N/A' }}</div>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                             <tr class="border-b border-slate-300">
@@ -1674,18 +2236,20 @@
                             </tr>
                             <tr class="bg-slate-100/90 border-b border-slate-300">
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Detected Compounds:</td>
-                                <td class="p-3 bg-white" colspan="3">
-                                    <div class="flex flex-wrap gap-2" id="section5DetectedSubstancesDisplay">
-                                        @forelse($labDetectedSubstances as $subItem)
-                                            @if(!empty($subItem['substance']))
-                                                <span class="px-3 py-1 bg-emerald-100 text-emerald-950 font-mono-code font-black text-xs rounded-xl border border-emerald-300 shadow-2xs">
-                                                    {{ $subItem['substance'] }} {{ !empty($subItem['percentage']) ? '(' . $subItem['percentage'] . ')' : '' }}
-                                                </span>
-                                            @endif
-                                        @empty
-                                            <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
-                                        @endforelse
-                                    </div>
+                                <td class="p-3 bg-white font-bold text-slate-900 text-xs" colspan="3" id="section5DetectedSubstancesDisplay">
+                                    @php $detList = []; @endphp
+                                    @foreach($labDetectedSubstances as $subItem)
+                                        @if(!empty($subItem['substance']))
+                                            @php 
+                                                $detList[] = $subItem['substance'] . (!empty($subItem['percentage']) ? ' (' . $subItem['percentage'] . ')' : ''); 
+                                            @endphp
+                                        @endif
+                                    @endforeach
+                                    @if(count($detList) > 0)
+                                        <span>{{ implode(', ', $detList) }}</span>
+                                    @else
+                                        <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                                    @endif
                                 </td>
                             </tr>
                             <tr class="border-b border-slate-300">
@@ -1744,6 +2308,22 @@
 </div>
 
 <script>
+    function onReviewLabExhibitChange(sel) {
+        if (!sel) return;
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt) return;
+        const exhVal = opt.value;
+        const nameVal = opt.getAttribute('data-name') || '';
+        const exhNoInput = document.getElementById('labExhibitNumberInput');
+        const descInput = document.getElementById('labExhibitDescriptionInput');
+        const subIdInput = document.getElementById('confirmatorySubstanceIdentificationReview');
+        const sampleDescInput = document.getElementById('sampleWeightDescriptionReview');
+        if (exhNoInput && exhVal) exhNoInput.value = 'EXH-0' + exhVal;
+        if (descInput) descInput.value = nameVal;
+        if (subIdInput) subIdInput.value = nameVal;
+        if (sampleDescInput) sampleDescInput.value = nameVal;
+    }
+
     const caseNumber = @json($case->case_number);
     const officerName = @json($officerName);
     const officerRole = @json($officerRole);
@@ -1938,12 +2518,13 @@
                 }
 
                 // 2. Update progress tracker counter and progress bar
+                const totalUnits = unitsListArray.length;
                 const badgeCounter = document.getElementById('unitCompletedCountBadge');
                 if (badgeCounter) {
-                    badgeCounter.textContent = `${compCount}/4 Units Completed`;
+                    badgeCounter.textContent = `${compCount}/${totalUnits} Units Completed`;
                 }
 
-                const pct = Math.round((compCount / 4) * 100);
+                const pct = Math.round((compCount / totalUnits) * 100);
                 const progressBar = document.getElementById('unitProgressBar');
                 if (progressBar) {
                     progressBar.style.width = `${Math.max(18, pct)}%`;
@@ -1965,14 +2546,14 @@
                     portal.classList.add('hidden');
                 }
 
-                if (compCount >= 4) {
+                if (compCount >= totalUnits) {
                     if (banner) banner.classList.remove('hidden');
                     if (headerStatusBadge) {
                         headerStatusBadge.innerHTML = `<span class="status-badge status-await"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span> Awaiting Sign-off</span>`;
                     }
-                    showToast(`✔ Multi-Unit Directorate Processing Complete (4/4 Units)! All 4 specialized units have completed findings. Docket is submitted for HOF executive sign-off.`);
+                    showToast(`✔ Multi-Unit Directorate Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`);
                 } else {
-                    showToast(`✔ Progress for unit "${updatedUnitKey}" updated successfully! (${compCount}/4 Units Completed)`);
+                    showToast(`✔ Progress for unit "${updatedUnitKey}" updated successfully! (${compCount}/${totalUnits} Units Completed)`);
                 }
             } else {
                 showToast(`❌ Error updating unit progress: ${data.message || 'Server error'}`);
@@ -1991,7 +2572,7 @@
 
     /* ── Dynamic Button Text: Save Case vs Submit Case for Approval ── */
     const unitProgressData = @json($unitProgress);
-    const unitsListArray = ['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'];
+    const unitsListArray = @json($unitsList);
 
     function updateUnitSubmitButtonText() {
         const selectedUnit = document.getElementById('updateUnitName')?.value;
@@ -2010,7 +2591,7 @@
             }
         });
 
-        if (simulatedCompletedCount >= 4) {
+        if (simulatedCompletedCount >= unitsListArray.length) {
             btnTextEl.innerText = 'Submit Case for Approval';
         } else {
             btnTextEl.innerText = 'Save Case';
@@ -2317,6 +2898,7 @@
                     presumptive_result: presumptive,
                     confirmatory_test_result: confirmatory,
                     sample_weight_description: document.getElementById('sampleWeightDescriptionReview')?.value || '',
+                    sample_weight_units: document.getElementById('sampleWeightUnitsReview')?.value || '',
                     sample_weight_gross: document.getElementById('sampleWeightGrossReview')?.value || '',
                     sample_weight_taken: document.getElementById('sampleWeightTakenReview')?.value || '',
                     sample_weight_reserved: document.getElementById('sampleWeightReservedReview')?.value || '',
@@ -2339,7 +2921,40 @@
                 const uAnalystEl = document.getElementById('section5AnalystDisplay');
                 if (uAnalystEl) uAnalystEl.textContent = analyst;
                 const uPresumptiveEl = document.getElementById('section5PresumptiveDisplay');
-                if (uPresumptiveEl) uPresumptiveEl.textContent = presumptive;
+                if (uPresumptiveEl) {
+                    const str = String(presumptive || '').trim();
+                    let pRes = 'N/A', pPres = 'N/A', pPur = 'N/A';
+                    if (str) {
+                        const up = str.toUpperCase();
+                        if (up.startsWith('YES') || up.startsWith('POS')) pRes = 'YES';
+                        else if (up.startsWith('NO') || up.startsWith('NEG')) pRes = 'NO';
+                        else pRes = str.split(/[\s\(]/)[0] || 'N/A';
+
+                        const mPres = str.match(/Presence of:\s*([^-\)]+)/i) || str.match(/\(([^-\)]+)\)/);
+                        if (mPres) pPres = mPres[1].trim();
+
+                        const mPur = str.match(/Purity\/Percentage:\s*([^\)]+)/i);
+                        if (mPur) pPur = mPur[1].trim();
+                    }
+                    uPresumptiveEl.innerHTML = `
+                        <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                            <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
+                                <tr class="border-b border-slate-300">
+                                    <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
+                                    <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Presence of</th>
+                                    <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white">
+                                <tr>
+                                    <td class="px-2 py-1 border-r border-slate-300 font-extrabold ${pRes === 'YES' ? 'text-emerald-800' : 'text-slate-900'}">${escapeHtml(pRes)}</td>
+                                    <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">${escapeHtml(pPres)}</td>
+                                    <td class="px-2 py-1 font-bold text-slate-900">${escapeHtml(pPur)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    `;
+                }
                 const uConfirmatoryEl = document.getElementById('section5ConfirmatoryDisplay');
                 if (uConfirmatoryEl) uConfirmatoryEl.innerHTML = `<span class="w-2.5 h-2.5 rounded-full ${confirmatory === 'YES' ? 'bg-emerald-600' : 'bg-slate-500'}"></span><span>${confirmatory === 'YES' ? 'YES' : 'NO'}</span>`;
                 const uDescEl = document.getElementById('section5SampleDescDisplay');
@@ -2360,7 +2975,9 @@
                 if (uDetectedEl) {
                     const arr = typeof getDetectedSubstancesDataReview === 'function' ? getDetectedSubstancesDataReview() : [];
                     if (arr.length > 0) {
-                        uDetectedEl.innerHTML = arr.map(item => `<span class="px-3 py-1 bg-emerald-100 text-emerald-900 font-mono-code font-extrabold text-xs rounded-xl border border-emerald-300 shadow-2xs">${escapeHtml(item.substance)} ${item.percentage ? '(' + escapeHtml(item.percentage) + ')' : ''}</span>`).join(' ');
+                        uDetectedEl.textContent = arr.map(item => `${item.substance}${item.percentage ? ' (' + item.percentage + ')' : ''}`).join(', ');
+                    } else {
+                        uDetectedEl.textContent = 'No individual compound breakdown logged';
                     }
                 }
                 const uFindingsEl = document.getElementById('section5FindingsDisplay');
@@ -2783,7 +3400,7 @@
         }
 
         // Lock form if already completed
-        const isAlreadyCompleted = @json($labStatus === 'COMPLETED');
+        const isAlreadyCompleted = @json($hasSavedLabData);
         if (isAlreadyCompleted) {
             lockSection5Form();
         }

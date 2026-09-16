@@ -131,6 +131,7 @@ class CaseController extends Controller
             'presumptive_reaction_result_input' => ['nullable', 'string'],
             'confirmatory_test_result'          => ['nullable', 'string'],
             'sample_weight_description'         => ['nullable', 'string'],
+            'sample_weight_units'               => ['nullable', 'string'],
             'sample_weight_gross'               => ['nullable', 'string'],
             'sample_weight_taken'               => ['nullable', 'string'],
             'sample_weight_reserved'            => ['nullable', 'string'],
@@ -181,7 +182,7 @@ class CaseController extends Controller
                 'pob'              => $validated['pob'] ?? null,
                 'phone'            => $validated['phone'] ?? null,
                 'address'          => $validated['address'] ?? null,
-                'marital_status'   => $validated['marital_status'] ?? 'Single',
+                'marital_status'   => $validated['marital_status'] ?? null,
                 'has_children'     => !empty($validated['has_children']),
                 'children_count'   => $validated['children_count'] ?? null,
                 'spouse_name'      => $validated['spouse_name'] ?? null,
@@ -332,6 +333,7 @@ class CaseController extends Controller
             'laboratory_number'        => $request->input('laboratory_number') ?? ($request->input('lab_number') ?? ('Lab No.' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y'))),
             'confirmatory_test_result' => $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? 'NO'),
             'sample_weight_description'=> $request->input('sample_weight_description') ?? null,
+            'sample_weight_units'      => $request->input('sample_weight_units') ?? null,
             'sample_weight_gross'      => $request->input('sample_weight_gross') ?? null,
             'sample_weight_taken'      => $request->input('sample_weight_taken') ?? null,
             'sample_weight_reserved'   => $request->input('sample_weight_reserved') ?? null,
@@ -347,7 +349,7 @@ class CaseController extends Controller
         // -----------------------------------------------------------------------
         $suspectFields = function (array $suspect) use ($validated): array {
             $marital = !empty($suspect['marital_status']) && $suspect['marital_status'] !== 'Unspecified'
-                ? $suspect['marital_status'] : 'Single';
+                ? $suspect['marital_status'] : null;
 
             // Build spouse/partner info string
             $spouseInfo = $suspect['spouse_info'] ?? null;
@@ -555,6 +557,13 @@ class CaseController extends Controller
                 $docketData['lab_examination']['sample_weight']['description'] = $sampleDesc;
                 $case->sample_weight_description = $sampleDesc;
             }
+            $sampleUnits = $request->input('sample_weight_units');
+            if ($sampleUnits !== null && $sampleUnits !== '') {
+                $docketData['lab_examination']['sample_weight']['units_packaging'] = $sampleUnits;
+                if (\Schema::hasColumn('cases', 'sample_weight_units')) {
+                    $case->sample_weight_units = $sampleUnits;
+                }
+            }
             $sampleGross = $request->input('sample_weight_gross');
             if ($sampleGross !== null && $sampleGross !== '') {
                 $docketData['lab_examination']['sample_weight']['gross_weight'] = $sampleGross;
@@ -708,7 +717,7 @@ class CaseController extends Controller
                     'phone'               => $phoneVal,
                     'residential_address' => $addrVal,
                     'address'             => $addrVal,
-                    'marital_status'      => $person['marital_status'] ?? 'Single',
+                    'marital_status'      => $person['marital_status'] ?? null,
                     'spouse_name'         => $person['spouse_name'] ?? null,
                     'spouse_phone'        => $person['spouse_phone'] ?? null,
                     'spouse_info'         => $person['spouse_info'] ?? null,
@@ -764,6 +773,10 @@ class CaseController extends Controller
 
                 $mainPhoto = !empty($photosList) ? $photosList[0] : null;
 
+                $assocPersonName = (!empty($newPersons) && is_array($newPersons) && !empty($newPersons[0]['suspect_name']))
+                    ? $newPersons[0]['suspect_name']
+                    : null;
+
                 $docketData['seizures'][] = [
                     'category'          => $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit'),
                     'seizure_name'      => $exName,
@@ -777,6 +790,8 @@ class CaseController extends Controller
                     'photos'            => $photosList,
                     'notes'             => $exhibit['notes'] ?? null,
                     'added_at'          => now()->toDateTimeString(),
+                    'is_associate'      => true,
+                    'associated_person' => $assocPersonName,
                 ];
                 $addedExhibitsCount++;
 
@@ -794,6 +809,29 @@ class CaseController extends Controller
                 $qty = $exhibit['seizure_quantity'] ?? '';
                 $unit = $exhibit['seizure_unit'] ?? '';
                 $exhibitSummaries[] = trim("{$qty} {$unit} {$exName}");
+
+                // Update case model exhibit metadata if primary fields are empty
+                $cat = $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit');
+                if (empty($case->exhibit_category) || $case->exhibit_category === 'General Exhibit') {
+                    $case->exhibit_category = $cat;
+                }
+                if (empty($case->seizure_name)) {
+                    $case->seizure_name = $exName;
+                }
+                $case->has_seizures = true;
+
+                $catLower = strtolower($cat);
+                $exNameLower = strtolower($exName);
+                if (
+                    str_contains($catLower, 'drug') || str_contains($catLower, 'narcotic') || str_contains($catLower, 'substance') ||
+                    str_contains($exNameLower, 'cocaine') || str_contains($exNameLower, 'heroin') || str_contains($exNameLower, 'cannabis') ||
+                    str_contains($exNameLower, 'weed') || str_contains($exNameLower, 'meth') || str_contains($exNameLower, 'tramadol') ||
+                    str_contains($exNameLower, 'drug') || str_contains($exNameLower, 'narcotic')
+                ) {
+                    if (empty($case->seizure_name_drug)) {
+                        $case->seizure_name_drug = $exName;
+                    }
+                }
             }
 
             if (!empty($exhibitSummaries)) {
@@ -803,6 +841,10 @@ class CaseController extends Controller
                 } else {
                     $case->exhibits_summary = "Associated: " . $newExText;
                 }
+            }
+
+            if (!empty($docketData['evidence_photos'])) {
+                $case->evidence_photos = $docketData['evidence_photos'];
             }
         }
 

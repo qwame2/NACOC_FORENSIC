@@ -283,8 +283,38 @@
 
                                         $dDataLanding = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
                                         $uProgLanding = $dDataLanding['unit_progress'] ?? [];
+
+                                        $exCatL = strtolower($case->exhibit_category ?? '');
+                                        $sDrugL = $case->seizure_name_drug ?? '';
+                                        $sNameL = strtolower($case->seizure_name ?? '');
+                                        $exSumL = strtolower($case->exhibits_summary ?? '');
+                                        $isDrugLanding = (!empty($sDrugL) || 
+                                            str_contains($exCatL, 'drug') || str_contains($exCatL, 'narcotic') || str_contains($exCatL, 'substance') || str_contains($exCatL, 'cannabis') || str_contains($exCatL, 'cocaine') || str_contains($exCatL, 'heroin') || str_contains($exCatL, 'meth') || str_contains($exCatL, 'tramadol') ||
+                                            str_contains($sNameL, 'cocaine') || str_contains($sNameL, 'heroin') || str_contains($sNameL, 'cannabis') || str_contains($sNameL, 'weed') || str_contains($sNameL, 'meth') || str_contains($sNameL, 'tramadol') || str_contains($sNameL, 'drug') || str_contains($sNameL, 'narcotic') ||
+                                            str_contains($exSumL, 'cocaine') || str_contains($exSumL, 'heroin') || str_contains($exSumL, 'cannabis') || str_contains($exSumL, 'weed') || str_contains($exSumL, 'meth') || str_contains($exSumL, 'tramadol') || str_contains($exSumL, 'drug') || str_contains($exSumL, 'narcotic')
+                                        );
+                                        if (!$isDrugLanding) {
+                                            $dSeizuresL = $dDataLanding['seizures'] ?? [];
+                                            if (is_array($dSeizuresL) && count($dSeizuresL) > 0) {
+                                                foreach ($dSeizuresL as $szL) {
+                                                    $catL = strtolower($szL['category'] ?? ($szL['exhibit_category'] ?? ''));
+                                                    $dNameL = $szL['seizure_name_drug'] ?? '';
+                                                    $szNameL = strtolower($szL['seizure_name'] ?? '');
+                                                    if (!empty($dNameL) || str_contains($catL, 'drug') || str_contains($catL, 'narcotic') || str_contains($szNameL, 'cocaine') || str_contains($szNameL, 'heroin') || str_contains($szNameL, 'cannabis') || str_contains($szNameL, 'drug') || str_contains($szNameL, 'narcotic')) {
+                                                        $isDrugLanding = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        $unitsLandingList = ['Crime Scene Support', 'Evidence Management'];
+                                        if ($isDrugLanding) { $unitsLandingList[] = 'Lab Analysis'; }
+                                        $unitsLandingList[] = 'Digital & Physical Forensics';
+                                        $totalUnitsLanding = count($unitsLandingList);
+
                                         $compCountLanding = 0;
-                                        foreach(['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'] as $ukey) {
+                                        foreach($unitsLandingList as $ukey) {
                                             if (isset($uProgLanding[$ukey]['status']) && strtoupper($uProgLanding[$ukey]['status']) === 'COMPLETED') {
                                                 $compCountLanding++;
                                             }
@@ -313,7 +343,7 @@
                                             default => [
                                                 'bg' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
                                                 'dot' => 'bg-emerald-600',
-                                                'label' => "Multi-Unit ({$compCountLanding}/4)"
+                                                'label' => "Multi-Unit ({$compCountLanding}/{$totalUnitsLanding})"
                                             ]
                                         };
 
@@ -752,14 +782,25 @@
                                 let dData = (typeof c.docket_data === 'string') ? (JSON.parse(c.docket_data || '{}') || {}) : c.docket_data;
                                 uProg = dData.unit_progress || {};
                             }
+                            let exCat = String(c.exhibit_category || '').toLowerCase();
+                            let sDrug = c.seizure_name_drug || '';
+                            let sName = String(c.seizure_name || '').toLowerCase();
+                            let exSum = String(c.exhibits_summary || '').toLowerCase();
+                            let isDrug = Boolean(sDrug || exCat.includes('drug') || exCat.includes('narcotic') || exCat.includes('substance') || exCat.includes('cannabis') || exCat.includes('cocaine') || exCat.includes('heroin') || exCat.includes('meth') || exCat.includes('tramadol') || sName.includes('cocaine') || sName.includes('heroin') || sName.includes('cannabis') || sName.includes('weed') || sName.includes('meth') || sName.includes('tramadol') || sName.includes('drug') || sName.includes('narcotic') || exSum.includes('cocaine') || exSum.includes('heroin') || exSum.includes('cannabis') || exSum.includes('weed') || exSum.includes('meth') || exSum.includes('tramadol') || exSum.includes('drug') || exSum.includes('narcotic'));
+                            
+                            let checkUnits = ['Crime Scene Support', 'Evidence Management'];
+                            if (isDrug) checkUnits.push('Lab Analysis');
+                            checkUnits.push('Digital & Physical Forensics');
+                            let totalU = checkUnits.length;
+
                             let compCount = 0;
-                            ['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'].forEach(ukey => {
+                            checkUnits.forEach(ukey => {
                                 if (uProg[ukey] && uProg[ukey].status && String(uProg[ukey].status).toUpperCase() === 'COMPLETED') {
                                     compCount++;
                                 }
                             });
                             if (compCount === 0) compCount = 1;
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5"></span>Multi-Unit (${compCount}/4)</span>`;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5"></span>Multi-Unit (${compCount}/${totalU})</span>`;
                         }
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data.full_name : 'Unnamed Suspect');

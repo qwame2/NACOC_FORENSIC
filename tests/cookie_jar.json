@@ -8,27 +8,27 @@
   "cookies": [
     {
       "key": "XSRF-TOKEN",
-      "value": "eyJpdiI6IjUwd2x4M0xXTWFVQUxYbmtGcUVIS1E9PSIsInZhbHVlIjoiNEUyVkxsWFdKckNaTlh5WEZuYm5vUUxZNzJqOTU3OUlwdnByTlc0a25xaU9JZzlBY1Q2LzVjQjl4bHBrNWdJYUttYUNiUkJiemcxUGpPMFpLSE5qckF2Q3hac1U1QlQrUTZvNDVVZGY1V1pNU1NiVnB4Z1BqNU02RVd1UStxZ1MiLCJtYWMiOiI1YjE4MDRlNzQ2YjU0MDViODMzNGE0NzUyZmE3YjdjZWZjMWQ4NDRlNmM5MTkyMWRkOGMwNzdlNzcwNTFhMmYxIiwidGFnIjoiIn0%3D",
-      "expires": "2026-09-16T00:45:12.000Z",
+      "value": "eyJpdiI6ImNXM2gvbGphd0xMYnJTdGlZZExqb3c9PSIsInZhbHVlIjoibmNKdnNsVDVJaXhFYmFsS3ZuRHkvTkZQdkxvSjE2S0ZSQU9TRXNtSWtPTVlOTy9CNzN2NjM5UVYyTlpBL04vbVloSmptbjNzdWdZNS9lb2N3RmRwUm04TUFIWHdWNUlBRzhMT25iTnhGdjhtWW5MSzA1bmVZRlpKaEhkRTNSY1MiLCJtYWMiOiJjYjU4NTZiNjNhZWJiNTU2NDBmYThhMzllNTk4ZTRjODdiNTU2NDI1OTU4OTRhNGRhZWJkNTRlMTJjY2RkN2QwIiwidGFnIjoiIn0%3D",
+      "expires": "2026-09-16T17:57:32.000Z",
       "maxAge": 7200,
       "domain": "127.0.0.1",
       "path": "/",
       "hostOnly": true,
-      "creation": "2026-09-15T22:45:09.801Z",
-      "lastAccessed": "2026-09-15T22:45:12.464Z",
+      "creation": "2026-09-16T15:57:29.431Z",
+      "lastAccessed": "2026-09-16T15:57:32.190Z",
       "sameSite": "lax"
     },
     {
       "key": "laravel-session",
-      "value": "eyJpdiI6IjFVZ0t3SmJUY3VUbmVkalZ3N1pMS3c9PSIsInZhbHVlIjoiS092SEhEZ25SbjZ5Tis3bXNCM1JKVEtWYlpnVTdhbjBWQ050Q0RFWFBJQlVSRngxRXYrVm5LVVZ6LzZoVTZFREFGSExpamdYWEduSnVkTmdWR3pDYjRDRG4rSUNwVWJXOGZvS3BBYVBjQTYxRW5EZGY0eXhZanJ6QStUU05vZ0UiLCJtYWMiOiJiYzg1MDM0NzY4NzEzZDFjYWE5NDAwMTg2Y2E1ZmQ1ZDM2N2FjYTY1ZDIxZDgyYTNiMmI2MmU1Y2Q1MzVhZmYxIiwidGFnIjoiIn0%3D",
-      "expires": "2026-09-16T00:45:12.000Z",
+      "value": "eyJpdiI6Im5QM2E3aVhWT0U1Y2l0QUhzOUZteVE9PSIsInZhbHVlIjoiSVNIYjJYc21QSldKSzNqYi91WlJPcXNObzVRZ09NSnc5YkhydGJOZUo4c2tpOWpZMmlZODhORHZhNmQ0bHk2VDVBbUpIT2pQMElWdTY5WDVQcFFabkp6c21ic05KaTFjdnFzTThVb1hEMU5GS2RXNTdwcThJYkh1VmNhaUJCRHEiLCJtYWMiOiIzMmRlMmNlZmUxOTc1NzQwYzUxZTkwNDA4MjEwY2ZhNGI1ZDhlZTFhMWYwODM1M2NmMzJiZDVhYWRkNTFlNWRiIiwidGFnIjoiIn0%3D",
+      "expires": "2026-09-16T17:57:32.000Z",
       "maxAge": 7200,
       "domain": "127.0.0.1",
       "path": "/",
       "httpOnly": true,
       "hostOnly": true,
-      "creation": "2026-09-15T22:45:09.801Z",
-      "lastAccessed": "2026-09-15T22:45:12.464Z",
+      "creation": "2026-09-16T15:57:29.432Z",
+      "lastAccessed": "2026-09-16T15:57:32.190Z",
       "sameSite": "lax"
     }
   ]
