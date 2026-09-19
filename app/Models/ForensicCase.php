@@ -188,4 +188,12 @@ class ForensicCase extends Model
     {
         return $this->hasMany(ForensicCase::class, 'parent_case_id')->orderBy('suspect_number');
     }
+
+    /**
+     * Get all associate laboratory examination records for this case.
+     */
+    public function associateLabExaminations()
+    {
+        return $this->hasMany(AssociateLabExamination::class, 'case_id');
+    }
 }

@@ -697,13 +697,13 @@
                                 <!-- GHANA CARD # -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Ghana Card # <span class="text-red-600 font-bold">*</span>
+                                        Ghana Card # 
                                     </label>
                                     <div class="relative flex items-center group">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
                                         </span>
-                                        <input type="text" id="newArrestedID" placeholder="GHA-8840291-3" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                        <input type="text" id="newArrestedID" placeholder="GHA-8840291-3" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
 
@@ -2491,20 +2491,26 @@
                                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Loaded Status</label>
-                                                <select id="wpnLoadedStatus" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                    <option value="">Select...</option>
-                                                    <option value="Loaded">Loaded</option>
-                                                    <option value="Unloaded">Unloaded</option>
-                                                    <option value="Unknown">Unknown / Not Applicable</option>
+                                                <select id="wpnLoadedStatus" class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                    <option value="" class="text-slate-400 font-normal">Select...</option>
+                                                    <option value="Loaded" class="font-semibold text-slate-900">Loaded</option>
+                                                    <option value="Unloaded" class="font-semibold text-slate-900">Unloaded</option>
+                                                    <option value="Round in Chamber" class="font-semibold text-slate-900">Round in Chamber</option>
+                                                    <option value="Magazine Attached (Loaded)" class="font-semibold text-slate-900">Magazine Attached (Loaded)</option>
+                                                    <option value="Magazine Attached (Empty)" class="font-semibold text-slate-900">Magazine Attached (Empty)</option>
+                                                    <option value="Unknown / Unspecified" class="font-semibold text-slate-900">Unknown / Unspecified</option>
                                                 </select>
                                             </div>
                                             <div>
                                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition at Recovery</label>
-                                                <select id="wpnCondition" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                    <option value="">Select...</option>
-                                                    <option value="Intact">Intact</option>
-                                                    <option value="Damaged">Damaged</option>
-                                                    <option value="Broken">Broken</option>
+                                                <select id="wpnCondition" class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                    <option value="" class="text-slate-400 font-normal">Select...</option>
+                                                    <option value="Operable / Good Condition" class="font-semibold text-slate-900">Operable / Good Condition</option>
+                                                    <option value="Fair / Used Condition" class="font-semibold text-slate-900">Fair / Used Condition</option>
+                                                    <option value="Rusty / Corroded" class="font-semibold text-slate-900">Rusty / Corroded</option>
+                                                    <option value="Damaged / Inoperable" class="font-semibold text-slate-900">Damaged / Inoperable</option>
+                                                    <option value="Serial Defaced / Tampered" class="font-semibold text-slate-900">Serial Defaced / Tampered</option>
+                                                    <option value="Modified / Sawed-Off" class="font-semibold text-slate-900">Modified / Sawed-Off</option>
                                                 </select>
                                             </div>
                                             <div>
@@ -2892,13 +2898,16 @@
                                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                                             Percentage (%) <span class="text-red-600 font-bold">*</span>
                                                         </label>
-                                                        <input 
-                                                            type="text" 
-                                                            class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" 
-                                                            onchange="updatePresumptiveReactionText()" 
-                                                            oninput="updatePresumptiveReactionText()" 
-                                                            placeholder="e.g. 85.5% or 80-90%"
-                                                        >
+                                                        <div class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                                                            <input 
+                                                                type="text" 
+                                                                class="presumptive-percentage-input w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code" 
+                                                                onchange="updatePresumptiveReactionText()" 
+                                                                oninput="updatePresumptiveReactionText()" 
+                                                                placeholder="e.g. 85.5"
+                                                            >
+                                                            <span class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3302,13 +3311,16 @@
                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                             Percentage (%) <span class="text-red-600 font-bold">*</span>
                         </label>
-                        <input 
-                            type="text" 
-                            class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" 
-                            onchange="updatePresumptiveReactionText()" 
-                            oninput="updatePresumptiveReactionText()" 
-                            placeholder="e.g. 85.5% or 80-90%"
-                        >
+                        <div class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                            <input 
+                                type="text" 
+                                class="presumptive-percentage-input w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code" 
+                                onchange="updatePresumptiveReactionText()" 
+                                oninput="updatePresumptiveReactionText()" 
+                                placeholder="e.g. 85.5"
+                            >
+                            <span class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -3363,7 +3375,11 @@
 
             rows.forEach((row, idx) => {
                 const presence = row.querySelector('.presumptive-presence-input')?.value?.trim() || '';
-                const percentage = row.querySelector('.presumptive-percentage-input')?.value?.trim() || '';
+                let rawPct = row.querySelector('.presumptive-percentage-input')?.value?.trim() || '';
+                let percentage = rawPct;
+                if (percentage && !percentage.endsWith('%')) {
+                    percentage = percentage + '%';
+                }
                 
                 let parts = [];
                 if (presence) parts.push(`Presence of: ${presence}`);
@@ -3746,13 +3762,13 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Ghana Card # <span class="text-red-600 font-bold">*</span>
+                                Ghana Card #
                             </label>
                             <div class="relative flex items-center group">
                                 <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
                                 </span>
-                                <input type="text" data-field="ghana_card" placeholder="GHA-8840291-3" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                <input type="text" data-field="ghana_card" placeholder="GHA-8840291-3" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
 
@@ -4334,7 +4350,10 @@
                 // Only add if a name was entered
                 if (sName) {
                     suspects.push({
+                        associate_id:     'ASC-' + String(suspectNum - 1).padStart(3, '0'),
+                        suspect_id:       'ASC-' + String(suspectNum - 1).padStart(3, '0'),
                         suspect_number:   suspectNum,
+                        is_associate:     true,
                         suspect_name:     sName,
                         suspect_alias:    sAlias,
                         ghana_card:       sCard,
@@ -4575,7 +4594,6 @@
         function validateSuspectDocketForm() {
             const requiredFields = [
                 { id: 'newArrestedName', label: 'Suspect Full Legal Name' },
-                { id: 'newArrestedID', label: 'Ghana Card # / ID Number' },
                 { id: 'newArrestedGender', label: 'Gender', triggerId: 'genderDropdownTrigger' },
                 { id: 'newArrestedDOB', label: 'Date of Birth' },
                 { id: 'newArrestedNationality', label: 'Nationality', triggerId: 'nationalityDropdownTrigger' },
@@ -7526,9 +7544,12 @@
                     <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Substance / Compound Detected</label>
                     <input type="text" class="detected-substance-name w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-sans" placeholder="e.g. Cocaine Hydrochloride" value="${substance}">
                 </div>
-                <div class="w-full sm:w-44">
+                <div class="w-full sm:w-48">
                     <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Purity / Percentage</label>
-                    <input type="text" class="detected-substance-percent w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-mono-code" placeholder="e.g. 85.4%" value="${percentage}">
+                    <div class="flex items-center rounded-lg overflow-hidden shadow-2xs">
+                        <input type="text" class="detected-substance-percent w-full pl-3 pr-2 py-2 bg-slate-50 border border-y border-l border-slate-300 rounded-l-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-mono-code" placeholder="e.g. 85.4" value="${percentage}">
+                        <span class="inline-flex items-center px-2.5 py-2 bg-slate-200/80 border border-slate-300 rounded-r-lg text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                    </div>
                 </div>
                 <button type="button" onclick="removeDetectedSubstanceRow(this)" class="mt-2 sm:mt-5 p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Row">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>

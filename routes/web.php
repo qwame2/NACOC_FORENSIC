@@ -82,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::post('/cases/{id}/update-unit-progress', [CaseController::class, 'updateUnitProgress']);
     Route::post('/cases/{id}/associate', [CaseController::class, 'associate']);
+    Route::post('/cases/{id}/reassign-exhibit', [CaseController::class, 'reassignExhibit']);
 
     // GENERAL DOCKET & EVENT ROUTES
     Route::get('/arrest-person', function () {

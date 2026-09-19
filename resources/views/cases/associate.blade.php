@@ -61,53 +61,36 @@
         $seizureName = strtolower($case->seizure_name ?? '');
         $exhibitsSummary = strtolower($case->exhibits_summary ?? '');
 
+        // Gather all exhibit items across case model and docket seizures
+        $allExhibitsCheckAssoc = [];
+        if (!empty($case->exhibit_category) || !empty($case->seizure_name_drug) || !empty($case->seizure_name)) {
+            $allExhibitsCheckAssoc[] = [
+                'category'          => $case->exhibit_category ?? '',
+                'seizure_name_drug' => $case->seizure_name_drug ?? '',
+                'seizure_name'      => $case->seizure_name ?? '',
+            ];
+        }
+        if (is_array($existingSeizures) && count($existingSeizures) > 0) {
+            foreach ($existingSeizures as $sz) { $allExhibitsCheckAssoc[] = $sz; }
+        }
+
         $isDrugCase = false;
-        if (!empty($seizureNameDrug)) {
-            $isDrugCase = true;
-        } elseif (
-            str_contains($exhibitCategory, 'drug') || 
-            str_contains($exhibitCategory, 'narcotic') || 
-            str_contains($exhibitCategory, 'substance') || 
-            str_contains($exhibitCategory, 'cannabis') || 
-            str_contains($exhibitCategory, 'cocaine') || 
-            str_contains($exhibitCategory, 'heroin') || 
-            str_contains($exhibitCategory, 'meth') || 
-            str_contains($exhibitCategory, 'tramadol')
-        ) {
-            $isDrugCase = true;
-        } elseif (
-            str_contains($seizureName, 'cocaine') || 
-            str_contains($seizureName, 'heroin') || 
-            str_contains($seizureName, 'cannabis') || 
-            str_contains($seizureName, 'weed') || 
-            str_contains($seizureName, 'meth') || 
-            str_contains($seizureName, 'tramadol') || 
-            str_contains($seizureName, 'drug') || 
-            str_contains($seizureName, 'narcotic')
-        ) {
-            $isDrugCase = true;
-        } elseif (
-            str_contains($exhibitsSummary, 'cocaine') || 
-            str_contains($exhibitsSummary, 'heroin') || 
-            str_contains($exhibitsSummary, 'cannabis') || 
-            str_contains($exhibitsSummary, 'weed') || 
-            str_contains($exhibitsSummary, 'meth') || 
-            str_contains($exhibitsSummary, 'tramadol') || 
-            str_contains($exhibitsSummary, 'drug') || 
-            str_contains($exhibitsSummary, 'narcotic')
-        ) {
-            $isDrugCase = true;
-        } else {
-            $dSeizures = $existingSeizures;
-            if (is_array($dSeizures) && count($dSeizures) > 0) {
-                foreach ($dSeizures as $sz) {
-                    $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
-                    $dName = $sz['seizure_name_drug'] ?? '';
-                    $sName = strtolower($sz['seizure_name'] ?? '');
-                    if (!empty($dName) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($sName, 'cocaine') || str_contains($sName, 'heroin') || str_contains($sName, 'cannabis') || str_contains($sName, 'drug') || str_contains($sName, 'narcotic')) {
-                        $isDrugCase = true;
-                        break;
-                    }
+        $drugKeywords = ['drug', 'narcotic', 'opioid', 'cocaine', 'heroin', 'cannabis', 'marijuana', 'weed', 'hashish', 'hash', 'meth', 'methamphetamine', 'fentanyl', 'tramadol', 'codeine', 'morphine', 'opium', 'amphetamine', 'mdma', 'ecstasy'];
+
+        foreach ($allExhibitsCheckAssoc as $exCheck) {
+            $cat   = strtolower($exCheck['category'] ?? ($exCheck['exhibit_category'] ?? ''));
+            $dName = strtolower($exCheck['seizure_name_drug'] ?? '');
+            $sName = strtolower($exCheck['seizure_name'] ?? ($exCheck['name'] ?? ($exCheck['commodity_name'] ?? ($exCheck['description'] ?? ''))));
+
+            if (!empty($dName)) {
+                $isDrugCase = true;
+                break;
+            }
+
+            foreach ($drugKeywords as $kw) {
+                if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
+                    $isDrugCase = true;
+                    break 2;
                 }
             }
         }
@@ -341,6 +324,7 @@
                 <!-- MAIN FORM WRAPPER -->
                 <form id="associateDocketForm" action="/cases/{{ $case->case_number }}/associate" method="POST" autocomplete="off" class="space-y-6 text-xs font-medium">
                     @csrf
+                    <input type="hidden" name="from_unit" value="{{ $isLabAnalysis ? 'Lab Analysis' : (request()->query('unit') ?? request()->query('from') ?? '') }}">
 
                     <!-- SECTION 1: SAVED CASE INFORMATION & SUSPECT BIO DATA (READ-ONLY) -->
                     <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 relative">
@@ -361,7 +345,7 @@
                         </div>
 
                         <!-- CASE GENERAL INFO GRID -->
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Case Reference #</label>
                                 <input type="text" value="{{ $case->case_number }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold font-mono-code text-blue-600 cursor-not-allowed">
@@ -373,6 +357,10 @@
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Submitting Officer</label>
                                 <input type="text" value="{{ $case->submitting_officer ?? $case->commanding_officer ?? 'Handling Officer' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Seizing Officer(s)</label>
+                                <input type="text" value="{{ $case->seizure_officer ?? ($case->seizing_officer ?? 'Davel Addo (43543)') }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
                             </div>
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Arrest Location / Vault</label>
@@ -585,7 +573,7 @@
                                                     <span class="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
                                                     <span>3. Arrest Incident, Offense &amp; Custody Cell</span>
                                                 </div>
-                                                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-[11px] bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
+                                                <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 text-[11px] bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Raid Location / Place of Arrest:</span>
                                                         <strong class="text-slate-800">{{ $sRaid ?: 'N/A' }}</strong>
@@ -595,6 +583,24 @@
                                                         <strong class="text-slate-800">
                                                             {{ !empty($sArrestDate) ? $sArrestDate : 'N/A' }}
                                                             {{ !empty($sArrestTime) ? " @ {$sArrestTime}" : '' }}
+                                                        </strong>
+                                                    </div>
+                                                    <div>
+                                                        <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Arresting Officer(s):</span>
+                                                        <strong class="text-slate-900 font-extrabold">
+                                                            {{ $s['arresting_officer'] ?? 'N/A' }}
+                                                            @if(!empty($s['arresting_officer_id']))
+                                                                <span class="font-mono-code text-blue-700">({{ $s['arresting_officer_id'] }})</span>
+                                                            @endif
+                                                        </strong>
+                                                    </div>
+                                                    <div>
+                                                        <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Seizing Officer(s):</span>
+                                                        <strong class="text-slate-900 font-extrabold">
+                                                            {{ $s['seizing_officer'] ?? ($s['seizure_officer'] ?? ($case->seizure_officer ?? $case->seizing_officer ?? 'Davel Addo (43543)')) }}
+                                                            @if(!empty($s['seizing_officer_id']))
+                                                                <span class="font-mono-code text-slate-600">({{ $s['seizing_officer_id'] }})</span>
+                                                            @endif
                                                         </strong>
                                                     </div>
                                                     <div>
@@ -630,6 +636,7 @@
                                             <th class="py-2.5 px-4 font-bold">Quantity</th>
                                             <th class="py-2.5 px-4 font-bold">Weight</th>
                                             <th class="py-2.5 px-4 font-bold">Est. Value</th>
+                                            <th class="py-2.5 px-4 font-bold">Seizing Officer</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100 text-slate-800">
@@ -653,10 +660,11 @@
                                                 <td class="py-3 px-4 font-mono-code">{{ $ex['seizure_quantity'] ?? $ex['quantity'] ?? 'N/A' }}</td>
                                                 <td class="py-3 px-4 font-mono-code">{{ $ex['seizure_weight'] ?? $ex['weight'] ?? 'N/A' }}</td>
                                                 <td class="py-3 px-4 font-mono-code font-bold text-emerald-700">{{ $ex['seizure_value'] ?? $ex['value'] ?? 'N/A' }}</td>
+                                                <td class="py-3 px-4 font-mono-code font-extrabold text-slate-800">{{ $ex['seizure_officer'] ?? $ex['seizing_officer'] ?? ($case->seizure_officer ?? $case->seizing_officer ?? 'Davel Addo (43543)') }}</td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="6" class="py-4 text-center text-slate-400 font-mono-code">No saved exhibits logged.</td>
+                                                <td colspan="7" class="py-4 text-center text-slate-400 font-mono-code">No saved exhibits logged.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -893,7 +901,10 @@
                                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                                         Percentage (%) <span class="text-red-600 font-bold">*</span>
                                                     </label>
-                                                    <input type="text" class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" onchange="updatePresumptiveReactionText()" oninput="updatePresumptiveReactionText()" placeholder="e.g. 85.5% or 80-90%">
+                                                    <div class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                                                        <input type="text" class="presumptive-percentage-input w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code" onchange="updatePresumptiveReactionText()" oninput="updatePresumptiveReactionText()" placeholder="e.g. 85.5">
+                                                        <span class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -950,42 +961,194 @@
                                 <input type="hidden" id="confirmatoryTestResultInput" name="confirmatory_test_result" value="NO">
 
                                 <div id="sampleWeightContainer" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
+                                    <!-- SAMPLE WEIGHT / METROLOGY HEADER -->
                                     <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
                                         <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
                                             <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                             </svg>
-                                            <span>CONFIRMATORY ANALYSIS &amp; FINDINGS</span>
+                                            <span>SAMPLE WEIGHT</span>
                                         </div>
+                                        <span class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                            CONFIRMATORY METROLOGY &amp; MASS
+                                        </span>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- DESCRIPTION -->
                                         <div class="md:col-span-2">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                Substance Identification <span class="text-red-600 font-bold">*</span>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Description <span class="text-red-600 font-bold">*</span></span>
+                                                <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                             </label>
-                                            <input type="text" id="confirmatorySubstanceIdentification" name="confirmatory_substance_identification" placeholder="e.g. Cocaine Hydrochloride" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans">
+                                            <input 
+                                                type="text" 
+                                                id="sampleWeightDescription" 
+                                                name="sample_weight_description" 
+                                                readonly
+                                                placeholder="Fetched from drug manifest"
+                                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
+                                            >
                                         </div>
 
+                                        <!-- NUMBER OF UNITS -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Number of Units <span class="text-red-600 font-bold">*</span></span>
+                                                <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                id="sampleWeightUnits" 
+                                                name="sample_weight_units" 
+                                                readonly
+                                                placeholder="Fetched from drug manifest"
+                                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed"
+                                            >
+                                        </div>
+
+                                        <!-- GROSS WEIGHT -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Gross Weight <span class="text-red-600 font-bold">*</span></span>
+                                                <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                id="sampleWeightGross" 
+                                                name="sample_weight_gross" 
+                                                readonly
+                                                placeholder="Fetched from drug manifest"
+                                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed"
+                                            >
+                                        </div>
+
+                                        <!-- SAMPLE TAKEN -->
                                         <div>
                                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                Test Methods <span class="text-red-600 font-bold">*</span>
+                                                Sample Taken <span class="text-red-600 font-bold">*</span>
                                             </label>
-                                            <input type="text" id="confirmatoryTestMethods" name="confirmatory_test_methods" placeholder="e.g. GC-MS, FTIR Spectrometry" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                                            <div class="relative flex rounded-xl shadow-2xs">
+                                                <input 
+                                                    type="text" 
+                                                    id="sampleWeightTaken" 
+                                                    name="sample_weight_taken" 
+                                                    placeholder="e.g. 10"
+                                                    oninput="updateSampleWeightReserved()"
+                                                    onchange="updateSampleWeightReserved()"
+                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0"
+                                                >
+                                                <span 
+                                                    id="sampleWeightTakenUnitAddon"
+                                                    class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0 transition-colors duration-200"
+                                                >
+                                                    Kilograms (kg)
+                                                </span>
+                                            </div>
+                                            <p id="sampleWeightTakenError" class="text-[11px] text-red-600 font-extrabold mt-1.5 hidden flex items-center space-x-1 animate-in fade-in duration-200">
+                                                <svg class="w-3.5 h-3.5 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                <span>Sample taken cannot exceed the gross weight</span>
+                                            </p>
                                         </div>
 
+                                        <!-- RESERVED SAMPLES -->
                                         <div>
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                Analytical Findings Summary
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Reserved Samples <span class="text-red-600 font-bold">*</span></span>
+                                                <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
                                             </label>
-                                            <input type="text" id="analyticalFindingsSummary" name="analytical_findings_summary" placeholder="e.g. High purity illicit narcotic confirmed" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs placeholder:text-slate-400 font-sans">
+                                            <input 
+                                                type="text" 
+                                                id="sampleWeightReserved" 
+                                                name="sample_weight_reserved" 
+                                                readonly
+                                                placeholder="Auto-calculated (Gross Weight - Sample Taken)"
+                                                value="0"
+                                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed"
+                                            >
                                         </div>
 
-                                        <div class="md:col-span-2">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                Specifications / Notes
-                                            </label>
-                                            <textarea id="confirmatorySpecifications" name="confirmatory_specifications" rows="2" placeholder="e.g. Verified against NIST library database." class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
+                                        <!-- RESULT / CONFIRMATORY ANALYSIS SECTION -->
+                                        <div class="md:col-span-2 pt-4 border-t border-emerald-200/80 space-y-4">
+                                            <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                                <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    <span>RESULT / CONFIRMATORY ANALYSIS</span>
+                                                </div>
+                                                <span class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                                    ANALYTICAL FINDINGS &amp; SPECS
+                                                </span>
+                                            </div>
+
+                                            <div class="space-y-4">
+                                                <!-- 1. SUBSTANCE IDENTIFICATION -->
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                        <span>Substance Identification <span class="text-red-600 font-bold">*</span></span>
+                                                        <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                    </label>
+                                                    <input 
+                                                        type="text" 
+                                                        id="confirmatorySubstanceIdentification" 
+                                                        name="confirmatory_substance_identification" 
+                                                        readonly
+                                                        placeholder="Fetched from drug manifest"
+                                                        class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
+                                                    >
+                                                </div>
+
+                                                <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
+                                                <div class="space-y-2">
+                                                    <div class="flex items-center justify-between">
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                            Result (Detected Substances &amp; Purity %) <span class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <button 
+                                                            type="button" 
+                                                            onclick="addDetectedSubstanceRow()" 
+                                                            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-2xs transition-all flex items-center space-x-1 border-none cursor-pointer"
+                                                        >
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                            <span>Add More</span>
+                                                        </button>
+                                                    </div>
+                                                    <div id="detectedSubstancesListContainer" class="space-y-2.5">
+                                                        <!-- Dynamic rows added via JS -->
+                                                    </div>
+                                                </div>
+
+                                                <!-- 3. TEST METHODS INPUT -->
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Test Methods <span class="text-red-600 font-bold">*</span>
+                                                    </label>
+                                                    <input 
+                                                        type="text" 
+                                                        id="confirmatoryTestMethods" 
+                                                        name="confirmatory_test_methods" 
+                                                        placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
+                                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
+                                                    >
+                                                </div>
+
+                                                <!-- 4. SPECIFICATIONS TEXTAREA INPUT -->
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Specifications <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
+                                                    </label>
+                                                    <textarea 
+                                                        id="confirmatorySpecifications" 
+                                                        name="confirmatory_specifications" 
+                                                        rows="3" 
+                                                        placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
+                                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
+                                                    ></textarea>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1100,9 +1263,13 @@
                         <span class="w-6 h-6 rounded-full bg-blue-600 text-white font-mono-code font-bold text-xs flex items-center justify-center shadow-xs">
                             ${personCounter}
                         </span>
-                        <h4 class="font-extrabold text-slate-900 text-sm">New Associated Person / Co-Suspect #${personCounter}</h4>
+                        <h4 class="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                            <span>New Associated Person / Co-Suspect #${personCounter}</span>
+                            <span class="px-2 py-0.5 bg-blue-100 text-blue-900 border border-blue-300 font-mono-code font-bold text-[10px] rounded-md">ID: ASC-${String(personCounter).padStart(3, '0')}</span>
+                        </h4>
+                        <input type="hidden" name="associated_persons[${personCounter}][associate_id]" value="ASC-${String(personCounter).padStart(3, '0')}">
                     </div>
-                    <button type="button" onclick="document.getElementById('personCard-${personCounter}').remove()" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors cursor-pointer border-none flex items-center space-x-1">
+                    <button type="button" onclick="document.getElementById('personCard-${personCounter}').remove(); setTimeout(syncSuspectNamesToExhibits, 50);" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors cursor-pointer border-none flex items-center space-x-1">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         <span>Remove Person</span>
                     </button>
@@ -1320,7 +1487,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Full Name <span class="text-red-600">*</span></label>
-                        <input type="text" name="associated_persons[${personCounter}][suspect_name]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kwame Mensah">
+                        <input type="text" name="associated_persons[${personCounter}][suspect_name]" required oninput="syncSuspectNamesToExhibits()" class="assoc-suspect-name-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kwame Mensah">
                     </div>
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Alias / Street Name</label>
@@ -1352,8 +1519,8 @@
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
-                        <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Gender</label>
-                        <select name="associated_persons[${personCounter}][gender]" class="select2-gender-dropdown w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold">
+                        <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Gender <span class="text-red-600">*</span></label>
+                        <select name="associated_persons[${personCounter}][gender]" required class="select2-gender-dropdown w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold">
                             <option value=""></option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
@@ -1368,8 +1535,8 @@
                         <input type="number" name="associated_persons[${personCounter}][age]" id="personAge_${personCounter}" class="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-900 cursor-not-allowed" placeholder="Auto-calculated" readonly>
                     </div>
                     <div>
-                        <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Date of Birth</label>
-                        <input type="date" name="associated_persons[${personCounter}][dob]" id="personDob_${personCounter}" onchange="calculateAgeFromDob(this, 'personAge_${personCounter}')" oninput="calculateAgeFromDob(this, 'personAge_${personCounter}')" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-800">
+                        <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Date of Birth <span class="text-red-600">*</span></label>
+                        <input type="date" name="associated_persons[${personCounter}][dob]" id="personDob_${personCounter}" onchange="calculateAgeFromDob(this, 'personAge_${personCounter}')" oninput="calculateAgeFromDob(this, 'personAge_${personCounter}')" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-800">
                     </div>
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Nationality <span class="text-red-600">*</span></label>
@@ -1474,20 +1641,35 @@
                         <span class="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
                         <h5 class="font-extrabold text-xs text-slate-900 uppercase font-mono-code tracking-wider">Offence Charges &amp; Arrest Details</h5>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Raid Scene / Place of Arrest</label>
-                            <input type="text" name="associated_persons[${personCounter}][raid_location]" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kotoka International Airport Cargo Bay">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Raid Scene / Place of Arrest<span class="text-red-600"> *</span></label>
+                            <input type="text" name="associated_persons[${personCounter}][raid_location]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kotoka International Airport Cargo Bay">
                         </div>
                         <div>
-                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date of Arrest</label>
-                            <input type="date" name="associated_persons[${personCounter}][date_of_arrest]" value="" placeholder="Select Date of Arrest" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date of Arrest<span class="text-red-600"> *</span></label>
+                            <input type="date" name="associated_persons[${personCounter}][date_of_arrest]" required value="" placeholder="Select Date of Arrest" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
                         </div>
                         <div>
-                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Time of Arrest</label>
-                            <input type="time" name="associated_persons[${personCounter}][time_of_arrest]" value="" placeholder="Select Time of Arrest" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Time of Arrest <span class="text-red-600">*</span></label>
+                            <input type="time" name="associated_persons[${personCounter}][time_of_arrest]" value="" placeholder="Select Time of Arrest" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
                         </div>
-                        <div class="sm:col-span-3">
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Allocated Holding Facility</label>
+                            <input type="text" name="associated_persons[${personCounter}][holding_facility]" value="NACOC Holding Cell A-02" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-extrabold text-emerald-700">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Arresting Officer(s) <span class="text-red-600">*</span></label>
+                            <input type="text" name="associated_persons[${personCounter}][arresting_officer]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400" placeholder="e.g. Insp. Davel Addo, Sgt. Lorinda Mensah">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Arresting Officer Service / Badge ID <span class="text-red-600">*</span></label>
+                            <input type="text" name="associated_persons[${personCounter}][arresting_officer_id]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-900 placeholder:text-slate-400" placeholder="e.g. SERVICE-43543, BADGE-88210">
+                        </div>
+                        <div class="col-span-full">
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Alleged Offense / Charges Description</label>
                             <textarea name="associated_persons[${personCounter}][offense]" rows="2" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400" placeholder="e.g. Conspiracy to import narcotic drugs, unlawful possession of controlled substance..."></textarea>
                         </div>
@@ -1806,7 +1988,9 @@
                     targetInput.removeAttribute('readonly');
                     targetInput.focus();
                 }
+                syncSection3SeizuresToSection4();
             }, 50);
+            syncSection3SeizuresToSection4();
         }
 
         function filterExhibitList(el) {
@@ -1882,6 +2066,7 @@
             const ammoWrapper     = root.querySelector('#ammoSelectWrapper');
             const deviceWrapper   = root.querySelector('#deviceSelectWrapper');
             const deviceFieldsWrapper = root.querySelector('#deviceFieldsWrapper');
+            const weaponFieldsWrapper = root.querySelector('#weaponFieldsWrapper');
             const vehicleWrapper  = root.querySelector('#vehicleFieldsWrapper');
             const textInput       = root.querySelector('#newSeizureName');
             const drugSearch      = root.querySelector('#drugSearchInput');
@@ -1897,6 +2082,7 @@
             if (currencyWrapper)     currencyWrapper.classList.add('hidden');
             if (ammoWrapper)         ammoWrapper.classList.add('hidden');
             if (deviceWrapper)       deviceWrapper.classList.add('hidden');
+            if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
             if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
             if (vehicleWrapper)      vehicleWrapper.classList.add('hidden');
 
@@ -1911,8 +2097,9 @@
                 if (drugWrapper) drugWrapper.classList.remove('hidden');
                 if (drugSearch)  { drugSearch.placeholder = 'Select or type custom drug name...'; }
             } else if (category === 'Weapons') {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity';
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Firearms';
                 if (weaponWrapper) weaponWrapper.classList.remove('hidden');
+                if (weaponFieldsWrapper) weaponFieldsWrapper.classList.remove('hidden');
                 if (weaponSearch) { weaponSearch.placeholder = 'Select or type custom weapon type...'; }
             } else if (category === 'Money') {
                 if (quantityLabel) quantityLabel.innerText = 'Amount';
@@ -1954,6 +2141,7 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            syncSection3SeizuresToSection4();
         }
 
         function filterDrugList(el) {
@@ -1997,6 +2185,7 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            syncSection3SeizuresToSection4();
         }
 
         function filterWeaponList(el) {
@@ -2040,6 +2229,7 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            syncSection3SeizuresToSection4();
         }
 
         function filterCurrencyList(el) {
@@ -2105,6 +2295,7 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            syncSection3SeizuresToSection4();
         }
 
         function filterAmmoList(el) {
@@ -2148,6 +2339,7 @@
             if (panel)   panel.classList.add('hidden');
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
+            syncSection3SeizuresToSection4();
         }
 
         function filterDeviceList(el) {
@@ -2188,6 +2380,7 @@
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
+            syncSection3SeizuresToSection4();
         }
         function filterPackagingList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -2226,6 +2419,7 @@
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
+            syncSection3SeizuresToSection4();
         }
         function filterUnitList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -2303,7 +2497,7 @@
                 </div>
 
                 <!-- SEIZURE INPUT GRID -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 
                     <!-- 1. EXHIBIT (COMMODITY CATEGORY) DROPDOWN -->
                     <div class="relative z-[9999]" id="exhibitSelectWrapper" style="z-index: 9999;">
@@ -2501,6 +2695,105 @@
                         <input type="text" name="associated_exhibits[${seizureCounter}][seizure_value]" placeholder="e.g. GHS 1,500,000 / $120,000" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-emerald-700 text-xs focus:outline-none focus:border-emerald-600 font-mono-code">
                     </div>
 
+                    <!-- 4. SEIZING OFFICER(S) -->
+                    <div>
+                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Seizing Officer(s) <span class="text-red-600 font-bold">*</span></label>
+                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer]" value="" placeholder="e.g. Davel Addo, Ben Attah" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                    </div>
+
+                    <!-- 5. SEIZING OFFICER SERVICE / BADGE ID & ASSOCIATED SUSPECT -->
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Seizing Officer Service / Badge ID</label>
+                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer_id]" value="" placeholder="e.g. SERVICE-43543, BADGE-88210" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                    </div>
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Associated Suspect / Owner</label>
+                        <input type="hidden" name="associated_exhibits[${seizureCounter}][associate_id]" class="assoc-suspect-id-input" value="">
+                        <select name="associated_exhibits[${seizureCounter}][associated_person]" onchange="syncAssociateIdFromSelect(this)" class="assoc-suspect-select w-full px-3.5 py-2 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 shadow-xs cursor-pointer">
+                            <option value="">Select Associated Suspect...</option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <!-- WEAPON / FIREARM SPECIFICATIONS PANEL -->
+                <div id="weaponFieldsWrapper" class="hidden col-span-full bg-slate-50/80 p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                    <div class="flex items-center space-x-2 text-slate-800">
+                        <div class="w-5 h-5 rounded bg-emerald-500 text-white flex items-center justify-center font-bold text-xs">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                        </div>
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-900">WEAPON / FIREARM SPECIFIC DETAILS</span>
+                    </div>
+
+                    <!-- 1. IDENTIFICATION & SPECIFICATIONS -->
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-extrabold rounded-md uppercase tracking-wider border border-emerald-200">1. IDENTIFICATION &amp; SPECIFICATIONS</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">MODEL</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_model]" placeholder="e.g. 19 Gen 5, M&amp;P 9, Type 56, Glock 17" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">SERIAL NUMBER</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_serial_number]" placeholder="e.g. G17-984210X / Defaced" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">CALIBRE / GAUGE</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_calibre]" placeholder="e.g. 9mm, 7.62×39mm, 12-Gauge, .45 ACP" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">COLOUR</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_color]" placeholder="e.g. Matte Black, Silver, Camouflage" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">APPROX. SIZE / LENGTH</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_size_length]" placeholder="e.g. 18.5 cm (Overall), Short Barrel, 87 cm" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. RECOVERY CONDITION & LOCATION -->
+                    <div class="space-y-3 pt-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-extrabold rounded-md uppercase tracking-wider border border-emerald-200">2. RECOVERY CONDITION &amp; LOCATION</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">LOADED STATUS</label>
+                                <select name="associated_exhibits[${seizureCounter}][weapon_loaded_status]" class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl text-xs font-bold text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <option value="" class="text-slate-400 font-normal">Select...</option>
+                                    <option value="Loaded" class="font-semibold text-slate-900">Loaded</option>
+                                    <option value="Unloaded" class="font-semibold text-slate-900">Unloaded</option>
+                                    <option value="Round in Chamber" class="font-semibold text-slate-900">Round in Chamber</option>
+                                    <option value="Magazine Attached (Loaded)" class="font-semibold text-slate-900">Magazine Attached (Loaded)</option>
+                                    <option value="Magazine Attached (Empty)" class="font-semibold text-slate-900">Magazine Attached (Empty)</option>
+                                    <option value="Unknown / Unspecified" class="font-semibold text-slate-900">Unknown / Unspecified</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">CONDITION AT RECOVERY</label>
+                                <select name="associated_exhibits[${seizureCounter}][weapon_condition_at_recovery]" class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl text-xs font-bold text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <option value="" class="text-slate-400 font-normal">Select...</option>
+                                    <option value="Operable / Good Condition" class="font-semibold text-slate-900">Operable / Good Condition</option>
+                                    <option value="Fair / Used Condition" class="font-semibold text-slate-900">Fair / Used Condition</option>
+                                    <option value="Rusty / Corroded" class="font-semibold text-slate-900">Rusty / Corroded</option>
+                                    <option value="Damaged / Inoperable" class="font-semibold text-slate-900">Damaged / Inoperable</option>
+                                    <option value="Serial Defaced / Tampered" class="font-semibold text-slate-900">Serial Defaced / Tampered</option>
+                                    <option value="Modified / Sawed-Off" class="font-semibold text-slate-900">Modified / Sawed-Off</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">EXACT LOCATION FOUND</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_location_found]" placeholder="e.g. Bedroom closet, Under vehicle driver seat, Roadside ditch" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">DISTINGUISHING MARKS / FEATURES</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][weapon_distinguishing_marks]" placeholder="e.g. Scratch on left grip, custom insignia engraved, missing safety switch" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL -->
@@ -2706,6 +2999,8 @@
 
             container.appendChild(card);
             updateSeizureBlockNumbers();
+            syncSection3SeizuresToSection4();
+            setTimeout(syncSuspectNamesToExhibits, 50);
         }
 
         function handleExhibitMultipleFiles(fileInput, seizureIdx) {
@@ -2833,6 +3128,7 @@
             if (card) {
                 card.remove();
                 updateSeizureBlockNumbers();
+                syncSection3SeizuresToSection4();
             }
         }
 
@@ -2941,13 +3237,16 @@
                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                             Percentage (%) <span class="text-red-600 font-bold">*</span>
                         </label>
-                        <input 
-                            type="text" 
-                            class="presumptive-percentage-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code" 
-                            onchange="updatePresumptiveReactionText()" 
-                            oninput="updatePresumptiveReactionText()" 
-                            placeholder="e.g. 85.5% or 80-90%"
-                        >
+                        <div class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                            <input 
+                                type="text" 
+                                class="presumptive-percentage-input w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code" 
+                                onchange="updatePresumptiveReactionText()" 
+                                oninput="updatePresumptiveReactionText()" 
+                                placeholder="e.g. 85.5"
+                            >
+                            <span class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -3002,7 +3301,11 @@
 
             rows.forEach((row, idx) => {
                 const presence = row.querySelector('.presumptive-presence-input')?.value?.trim() || '';
-                const percentage = row.querySelector('.presumptive-percentage-input')?.value?.trim() || '';
+                let rawPct = row.querySelector('.presumptive-percentage-input')?.value?.trim() || '';
+                let percentage = rawPct;
+                if (percentage && !percentage.endsWith('%')) {
+                    percentage = percentage + '%';
+                }
                 
                 let parts = [];
                 if (presence) parts.push(`Presence of: ${presence}`);
@@ -3024,10 +3327,435 @@
             }
         }
 
+        function addDetectedSubstanceRow(substance = '', percentage = '') {
+            const container = document.getElementById('detectedSubstancesListContainer');
+            if (!container) return;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'detected-substance-row flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-xl border border-slate-300 shadow-2xs animate-in fade-in duration-200';
+            rowDiv.innerHTML = `
+                <div class="flex-1 w-full">
+                    <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Substance / Compound Detected <span class="text-red-600 font-bold">*</span></label>
+                    <input type="text" name="detected_substances[][name]" class="detected-substance-name w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-sans" placeholder="e.g. Cocaine Hydrochloride" value="${substance}">
+                </div>
+                <div class="w-full sm:w-48">
+                    <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Purity / Percentage <span class="text-red-600 font-bold">*</span></label>
+                    <div class="flex items-center rounded-lg overflow-hidden shadow-2xs">
+                        <input type="text" name="detected_substances[][percentage]" class="detected-substance-percent w-full pl-3 pr-2 py-2 bg-slate-50 border border-y border-l border-slate-300 rounded-l-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-mono-code" placeholder="e.g. 85.4" value="${percentage}">
+                        <span class="inline-flex items-center px-2.5 py-2 bg-slate-200/80 border border-slate-300 rounded-r-lg text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                    </div>
+                </div>
+                <button type="button" onclick="removeDetectedSubstanceRow(this)" class="mt-2 sm:mt-5 p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Row">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            `;
+            container.appendChild(rowDiv);
+        }
+
+        function removeDetectedSubstanceRow(btn) {
+            const row = btn.closest('.detected-substance-row');
+            if (row) row.remove();
+        }
+
+        function findWeightChunk(parts) {
+            if (!parts || parts.length === 0) return '';
+            for (let i = parts.length - 1; i >= 0; i--) {
+                const lower = parts[i].toLowerCase();
+                if (/\b(kg|kgs|kilogram|kilograms|g|gm|gms|gram|grams|mg|mgs|milligram|milligrams|lb|lbs|pound|pounds)\b/i.test(lower) || /\d\s*(kg|g|mg|lb)\b/i.test(lower)) {
+                    return parts[i];
+                }
+            }
+            for (let i = parts.length - 1; i >= 0; i--) {
+                if (/[\d]+/.test(parts[i])) {
+                    return parts[i];
+                }
+            }
+            return parts[parts.length - 1];
+        }
+
+        function parseParts(str) {
+            return str.split('/').map(p => p.trim()).filter(p => p.length > 0);
+        }
+
+        function parseQtyAndUnit(chunk) {
+            if (!chunk) return null;
+            const numMatch = chunk.match(/([\d]+(?:\.[\d]+)?)/);
+            if (!numMatch) return null;
+            const num = parseFloat(numMatch[1]);
+            if (isNaN(num)) return null;
+
+            const lower = chunk.toLowerCase();
+            let unit = '';
+
+            if (/\b(kg|kgs|kilogram|kilograms)\b/i.test(lower) || /\d\s*kg\b/i.test(lower)) {
+                unit = 'kg';
+            } else if (/\b(mg|mgs|milligram|milligrams)\b/i.test(lower) || /\d\s*mg\b/i.test(lower)) {
+                unit = 'mg';
+            } else if (/\b(g|gm|gms|gram|grams)\b/i.test(lower) || /\d\s*g\b/i.test(lower)) {
+                unit = 'g';
+            } else if (/\b(lb|lbs|pound|pounds)\b/i.test(lower) || /\d\s*lb\b/i.test(lower)) {
+                unit = 'lb';
+            } else {
+                const idx = chunk.indexOf(numMatch[1]);
+                if (idx !== -1) {
+                    const afterNum = chunk.substring(idx + numMatch[1].length).trim();
+                    const firstWord = afterNum.split(/\s+/)[0];
+                    if (firstWord) {
+                        unit = firstWord.replace(/[^a-zA-Z]/g, '');
+                    }
+                }
+            }
+            return { num, unit };
+        }
+
+        function toKg(num, unit) {
+            if (!unit) return null;
+            const u = unit.toLowerCase();
+            if (u === 'kg') return num;
+            if (u === 'g') return num / 1000;
+            if (u === 'mg') return num / 1000000;
+            if (u === 'lb') return num * 0.453592;
+            return null;
+        }
+
+        function formatNum(num) {
+            if (num < 0) num = 0;
+            const rounded = Math.round(num * 10000) / 10000;
+            return rounded.toString();
+        }
+
+        function computeReservedSample(grossStr, takenStr) {
+            if (!grossStr || typeof grossStr !== 'string' || !grossStr.trim()) {
+                return { reserved: '0', isOverflow: false };
+            }
+
+            const grossParts = parseParts(grossStr);
+            let targetGrossChunk = findWeightChunk(grossParts);
+            const gParsed = parseQtyAndUnit(targetGrossChunk);
+
+            const defaultReserved = (gParsed && gParsed.unit) ? `0 ${gParsed.unit}` : '0';
+
+            if (!takenStr || typeof takenStr !== 'string' || !takenStr.trim()) {
+                return { reserved: defaultReserved, isOverflow: false };
+            }
+
+            const takenParts = parseParts(takenStr);
+            let targetTakenChunk = findWeightChunk(takenParts);
+            const tParsed = parseQtyAndUnit(targetTakenChunk);
+
+            if (!gParsed || !tParsed) {
+                return { reserved: defaultReserved, isOverflow: false };
+            }
+
+            let gKg = toKg(gParsed.num, gParsed.unit);
+            let tKg = toKg(tParsed.num, tParsed.unit);
+
+            if (gKg !== null && tKg === null && !tParsed.unit) {
+                tKg = toKg(tParsed.num, gParsed.unit);
+            }
+
+            if (gKg !== null && tKg !== null) {
+                if (tKg > gKg) {
+                    return { reserved: defaultReserved, isOverflow: true };
+                }
+                const diffKg = gKg - tKg;
+                const gU = gParsed.unit.toLowerCase();
+                let resVal = '0';
+                if (gU === 'g' || gU === 'gm' || gU === 'gram' || gU === 'grams') {
+                    resVal = formatNum(diffKg * 1000) + (gParsed.unit ? ' ' + gParsed.unit : '');
+                } else if (gU === 'mg' || gU === 'milligram' || gU === 'milligrams') {
+                    resVal = formatNum(diffKg * 1000000) + (gParsed.unit ? ' ' + gParsed.unit : '');
+                } else {
+                    resVal = formatNum(diffKg) + (gParsed.unit ? ' ' + gParsed.unit : '');
+                }
+                return { reserved: resVal, isOverflow: false };
+            } else {
+                if (tParsed.num > gParsed.num) {
+                    return { reserved: defaultReserved, isOverflow: true };
+                }
+                const diff = gParsed.num - tParsed.num;
+                const unit = gParsed.unit || tParsed.unit;
+                return { reserved: formatNum(diff) + (unit ? ' ' + unit : ''), isOverflow: false };
+            }
+        }
+
+        function updateSampleWeightReserved() {
+            const grossInput = document.getElementById('sampleWeightGross');
+            const takenInput = document.getElementById('sampleWeightTaken');
+            const addonInput = document.getElementById('sampleWeightTakenUnitAddon');
+            const reservedInput = document.getElementById('sampleWeightReserved');
+            const errorMsgEl = document.getElementById('sampleWeightTakenError');
+
+            if (!grossInput || !reservedInput) return;
+
+            const grossStr = grossInput.value || '';
+            const takenStr = takenInput ? takenInput.value : '';
+
+            const result = computeReservedSample(grossStr, takenStr);
+
+            reservedInput.value = result.reserved;
+
+            if (result.isOverflow) {
+                if (errorMsgEl) errorMsgEl.classList.remove('hidden');
+                if (takenInput) {
+                    takenInput.classList.add('border-red-500', 'ring-2', 'ring-red-500/20');
+                    takenInput.classList.remove('border-slate-300');
+                }
+                if (addonInput) {
+                    addonInput.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
+                    addonInput.classList.remove('border-slate-300', 'bg-slate-100/90', 'text-slate-700');
+                }
+            } else {
+                if (errorMsgEl) errorMsgEl.classList.add('hidden');
+                if (takenInput) {
+                    takenInput.classList.remove('border-red-500', 'ring-2', 'ring-red-500/20');
+                    takenInput.classList.add('border-slate-300');
+                }
+                if (addonInput) {
+                    addonInput.classList.remove('border-red-500', 'bg-red-50', 'text-red-700');
+                    addonInput.classList.add('border-slate-300', 'bg-slate-100/90', 'text-slate-700');
+                }
+            }
+        }
+
+        function syncSection3SeizuresToSection4() {
+            const seizuresContainer = document.getElementById('seizuresListContainer');
+            if (!seizuresContainer) return;
+
+            const seizureBlocks = seizuresContainer.querySelectorAll('.seizure-block');
+            let exhibitSummaries = [];
+            let drugNamesFound = [];
+            let totalUnitsSummary = [];
+            let totalGrossWeightSummary = [];
+            let primaryUnitAddon = '';
+
+            seizureBlocks.forEach((block, idx) => {
+                const category = block.querySelector('#exhibitSearchInput')?.value?.trim() 
+                                 || block.querySelector('#newSeizureCategory')?.value?.trim() 
+                                 || '';
+                
+                let commodityName = block.querySelector('#newSeizureName')?.value?.trim() || '';
+                if (!commodityName) {
+                    commodityName = block.querySelector('#drugSearchInput')?.value?.trim()
+                                 || block.querySelector('#weaponSearchInput')?.value?.trim()
+                                 || block.querySelector('#currencySearchInput')?.value?.trim()
+                                 || block.querySelector('#ammoSearchInput')?.value?.trim()
+                                 || block.querySelector('#deviceSearchInput')?.value?.trim()
+                                 || '';
+                }
+
+                const quantity  = block.querySelector('input[name*="[seizure_quantity]"]')?.value?.trim() || '';
+                const weight    = block.querySelector('input[name*="[seizure_weight]"]')?.value?.trim() || '';
+                const unit      = block.querySelector('#unitSearchInput')?.value?.trim() 
+                               || block.querySelector('input[name*="[seizure_unit]"]')?.value?.trim() 
+                               || '';
+                const packaging = block.querySelector('#pkgSearchInput')?.value?.trim() 
+                               || block.querySelector('input[name*="[seizure_packaging]"]')?.value?.trim() 
+                               || '';
+                const streetVal = block.querySelector('input[name*="[seizure_value]"]')?.value?.trim() || '';
+
+                // Device details
+                const devModel  = block.querySelector('input[name*="[device_model]"]')?.value?.trim() || '';
+                const devSerial = block.querySelector('input[name*="[serial_number]"]')?.value?.trim() || '';
+                const devImei   = block.querySelector('input[name*="[imei_1]"]')?.value?.trim() || '';
+
+                // Vehicle details
+                const vehMake   = block.querySelector('input[name*="[vehicle_make_model]"]')?.value?.trim() || '';
+                const vehReg    = block.querySelector('input[name*="[vehicle_registration]"]')?.value?.trim() || '';
+
+                let parts = [];
+                if (category) parts.push(`[${category}]`);
+                if (commodityName) parts.push(commodityName);
+                if (devModel) parts.push(`Model: ${devModel}`);
+                if (devSerial) parts.push(`Serial: ${devSerial}`);
+                if (devImei) parts.push(`IMEI: ${devImei}`);
+                if (vehMake) parts.push(`Make: ${vehMake}`);
+                if (vehReg) parts.push(`Reg: ${vehReg}`);
+
+                let qtyWeightStr = [];
+                if (quantity) qtyWeightStr.push(`Qty: ${quantity}${packaging ? ' ' + packaging : ''}`);
+                if (weight) qtyWeightStr.push(`Weight: ${weight}${unit ? ' ' + unit : ''}`);
+                if (qtyWeightStr.length > 0) parts.push(`(${qtyWeightStr.join(', ')})`);
+                if (streetVal) parts.push(`Val: ${streetVal}`);
+
+                if (parts.length > 0) {
+                    if (seizureBlocks.length > 1) {
+                        exhibitSummaries.push(`Item #${idx + 1}: ${parts.join(' ')}`);
+                    } else {
+                        exhibitSummaries.push(parts.join(' '));
+                    }
+                }
+
+                if (quantity || packaging) {
+                    totalUnitsSummary.push(`${quantity} ${packaging}`.trim());
+                }
+                if (weight || unit) {
+                    totalGrossWeightSummary.push(`${weight} ${unit}`.trim());
+                    if (!primaryUnitAddon && unit) {
+                        primaryUnitAddon = unit;
+                    }
+                }
+
+                // Check if this item is a drug/narcotic
+                const catLower = category.toLowerCase();
+                const commLower = commodityName.toLowerCase();
+                const isDrug = catLower.includes('drug') || catLower.includes('narcotic')
+                             || commLower.includes('cocaine') || commLower.includes('heroin') 
+                             || commLower.includes('cannabis') || commLower.includes('marijuana') 
+                             || commLower.includes('meth') || commLower.includes('tramadol') 
+                             || commLower.includes('fentanyl') || commLower.includes('codeine') 
+                             || commLower.includes('morphine') || commLower.includes('weed') 
+                             || commLower.includes('hash');
+
+                if (isDrug && commodityName) {
+                    let cleanDrugName = commodityName.split('(')[0].trim();
+                    if (cleanDrugName && !drugNamesFound.includes(cleanDrugName)) {
+                        drugNamesFound.push(cleanDrugName);
+                    }
+                }
+            });
+
+            // 1. Update Exhibit Description in Section 4A (#labExhibitDescriptionInput)
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            if (descInput && exhibitSummaries.length > 0) {
+                descInput.value = exhibitSummaries.join('\n');
+            }
+
+            // 2. Auto-fetch Description, Units, Gross Weight into CONFIRMATORY METROLOGY & MASS
+            const sampleDescInput = document.getElementById('sampleWeightDescription');
+            if (sampleDescInput) {
+                sampleDescInput.value = drugNamesFound.length > 0 ? drugNamesFound.join(', ') : (exhibitSummaries[0] || 'Drug Manifest Exhibit');
+            }
+
+            const sampleUnitsInput = document.getElementById('sampleWeightUnits');
+            if (sampleUnitsInput) {
+                sampleUnitsInput.value = totalUnitsSummary.length > 0 ? totalUnitsSummary.join('; ') : '1 Item';
+            }
+
+            const sampleGrossInput = document.getElementById('sampleWeightGross');
+            if (sampleGrossInput) {
+                sampleGrossInput.value = totalGrossWeightSummary.length > 0 ? totalGrossWeightSummary.join('; ') : 'N/A';
+            }
+
+            const unitAddon = document.getElementById('sampleWeightTakenUnitAddon');
+            if (unitAddon && primaryUnitAddon) {
+                unitAddon.innerText = primaryUnitAddon;
+            }
+
+            // 3. Section 4B Presumptive Test
+            if (drugNamesFound.length > 0) {
+                // Auto-select YES for Presumptive Test if currently NO or un-toggled
+                const yesBox = document.getElementById('presumptiveTestYes');
+                const noBox = document.getElementById('presumptiveTestNo');
+                if (yesBox && !yesBox.checked) {
+                    yesBox.checked = true;
+                    if (noBox) noBox.checked = false;
+                    const container = document.getElementById('presumptiveReactionDetailsContainer');
+                    if (container) container.classList.remove('hidden');
+                }
+
+                // 4. Auto-select YES for Confirmatory Test if drug exhibit present
+                const confYesBox = document.getElementById('confirmatoryTestYes');
+                const confNoBox = document.getElementById('confirmatoryTestNo');
+                const confInputEl = document.getElementById('confirmatoryTestResultInput');
+                const sampleWeightContainer = document.getElementById('sampleWeightContainer');
+                if (confYesBox && !confYesBox.checked) {
+                    confYesBox.checked = true;
+                    if (confNoBox) confNoBox.checked = false;
+                    if (confInputEl) confInputEl.value = 'YES';
+                    if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
+                }
+
+                // 5. Update Confirmatory Substance Identification in Section 4C (#confirmatorySubstanceIdentification)
+                const subIdInput = document.getElementById('confirmatorySubstanceIdentification');
+                if (subIdInput) {
+                    subIdInput.value = drugNamesFound.join(', ');
+                }
+
+                // 6. Ensure at least 1 Detected Substance Row exists in Result section
+                const detContainer = document.getElementById('detectedSubstancesListContainer');
+                if (detContainer && detContainer.querySelectorAll('.detected-substance-row').length === 0) {
+                    addDetectedSubstanceRow(drugNamesFound[0] + ' Hydrochloride', '');
+                }
+            }
+
+            updateSampleWeightReserved();
+        }
+
+        function syncAssociateIdFromSelect(selectEl) {
+            if (!selectEl) return;
+            const block = selectEl.closest('.seizure-block');
+            if (!block) return;
+            const hiddenInput = block.querySelector('.assoc-suspect-id-input');
+            const selectedOpt = selectEl.options[selectEl.selectedIndex];
+            const assocId = selectedOpt ? selectedOpt.getAttribute('data-associate-id') : '';
+            if (hiddenInput) {
+                hiddenInput.value = assocId || '';
+            }
+        }
+
+        function syncSuspectNamesToExhibits() {
+            const personCards = document.querySelectorAll('.new-person-card');
+            const suspects = [];
+
+            personCards.forEach((card, idx) => {
+                const nameInput = card.querySelector('input[name*="[suspect_name]"]');
+                const idInput   = card.querySelector('input[name*="[associate_id]"]');
+                const name = nameInput ? nameInput.value.trim() : '';
+                const id   = idInput ? idInput.value.trim() : ('ASC-' + String(idx + 1).padStart(3, '0'));
+                if (name) {
+                    suspects.push({ name: name, id: id, index: idx });
+                }
+            });
+
+            const seizureBlocks = document.querySelectorAll('.seizure-block');
+            seizureBlocks.forEach((block, szIdx) => {
+                const select = block.querySelector('.assoc-suspect-select');
+                if (!select) return;
+
+                const currentVal = select.value ? select.value.trim() : '';
+
+                select.innerHTML = '<option value="">Select Associated Suspect...</option>';
+                suspects.forEach(sp => {
+                    const opt = document.createElement('option');
+                    opt.value = sp.name;
+                    opt.setAttribute('data-associate-id', sp.id);
+                    opt.textContent = `${sp.name} (Associate ID: ${sp.id})`;
+                    if (sp.name === currentVal) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+
+                if (!select.value && suspects.length > 0) {
+                    if (suspects[szIdx]) {
+                        select.value = suspects[szIdx].name;
+                    } else if (suspects[0]) {
+                        select.value = suspects[0].name;
+                    }
+                }
+
+                syncAssociateIdFromSelect(select);
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Add 1 default person card and 1 seizure block on page load
             addAssociatePersonCard();
             addAssociateSeizureBlock();
+
+            const seizuresContainer = document.getElementById('seizuresListContainer');
+            if (seizuresContainer) {
+                seizuresContainer.addEventListener('input', syncSection3SeizuresToSection4);
+                seizuresContainer.addEventListener('change', syncSection3SeizuresToSection4);
+            }
+
+            const detContainer = document.getElementById('detectedSubstancesListContainer');
+            if (detContainer && detContainer.querySelectorAll('.detected-substance-row').length === 0) {
+                addDetectedSubstanceRow();
+            }
+
+            syncSection3SeizuresToSection4();
+            setTimeout(syncSuspectNamesToExhibits, 100);
         });
     </script>
 
