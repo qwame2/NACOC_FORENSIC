@@ -158,8 +158,9 @@ class CaseLifecycleIntegrationTest extends TestCase
                     ['suspect_name' => 'Princilla Addo', 'association_role' => 'Primary Suspect', 'is_associate' => false],
                     ['suspect_name' => 'Atta Budo', 'association_role' => 'Mastermind', 'is_associate' => true, 'associate_id' => 'ASC-001'],
                 ],
+
                 'seizures' => [
-                    ['category' => 'Drugs', 'seizure_name_drug' => 'Tramadol (High-Dose Tablets / Capsules)', 'is_associate' => false, 'exhibit_number' => 'EXH-01'],
+                    ['category' => 'Drugs', 'seizure_name_drug' => 'Tramadol (High-Dose Tablets / Capsules)', 'is_associate' => false, 'exhibit_number' => 'EXH-01', 'has_saved_lab' => true],
                     ['category' => 'Drugs', 'seizure_name_drug' => 'Cocaine (High-Purity Powder / Slabs)', 'associated_person' => 'Atta Budo', 'is_associate' => true, 'associate_id' => 'ASC-001', 'exhibit_number' => 'EXH-02'],
                 ],
                 'lab_examination' => [
@@ -167,6 +168,7 @@ class CaseLifecycleIntegrationTest extends TestCase
                     'presumptive_result' => 'YES (Presence of: Tramadol - Purity/Percentage: 20%)',
                     'substance_identification' => 'Tramadol (High-Dose Tablets / Capsules)',
                     'exhibit_number' => 'EXH-01',
+                    'has_saved' => true,
                     'sample_weight' => [
                         'description' => 'Tramadol (High-Dose Tablets / Capsules)',
                         'gross_weight' => '30 Kilograms (kg)',
@@ -279,5 +281,106 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — ATTA BUDO', $html);
         $this->assertStringContainsString('Tramadol (High-Dose Tablets / Capsules)', $html);
         $this->assertStringContainsString('Cocaine (High-Purity Powder / Slabs)', $html);
+    }
+
+    #[Test]
+    public function joint_suspect_case_exhibit_tied_to_both_and_initial_lab_status_is_pending()
+    {
+        $user = User::factory()->head()->create();
+
+        $docketPayload = [
+            'suspects' => [
+                ['suspect_name' => 'Kofi Mensah', 'association_role' => 'Primary Suspect', 'is_associate' => false],
+                ['suspect_name' => 'Kwame Nkrumah', 'association_role' => 'Co-Suspect', 'is_associate' => true, 'associate_id' => 'ASC-001'],
+            ],
+            'seizures' => [
+                [
+                    'category' => 'Drugs',
+                    'seizure_name_drug' => 'High Purity Heroin',
+                    'seizure_quantity' => '10 kg',
+                ]
+            ],
+            'lab_examination' => [
+                'presumptive_result' => 'YES (Positive Colorimetric Reaction)'
+            ]
+        ];
+
+        $caseData = [
+            'title' => 'Joint Suspect Narcotics Case',
+            'suspect_name' => 'Kofi Mensah',
+            'unit_name' => 'Crime Scene Support',
+            'exhibit_category' => 'Drugs',
+            'docket_data' => json_encode($docketPayload),
+        ];
+
+        $res = $this->actingAs($user)->postJson('/cases', $caseData);
+        $res->assertStatus(200);
+
+        $case = ForensicCase::where('title', 'Joint Suspect Narcotics Case')->first();
+        $this->assertNotNull($case);
+
+        $docketData = is_array($case->docket_data) ? $case->docket_data : json_decode($case->docket_data, true);
+
+        // 1. Assert exhibit is associated with both suspects (Kofi Mensah, Kwame Nkrumah)
+        $this->assertStringContainsString('Kofi Mensah', $docketData['seizures'][0]['associated_person']);
+        $this->assertStringContainsString('Kwame Nkrumah', $docketData['seizures'][0]['associated_person']);
+
+        // 2. Assert initial review screen displays PENDING lab status badge
+        $reviewRes = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review');
+        $reviewRes->assertStatus(200);
+        $html = $reviewRes->getContent();
+
+        $this->assertStringContainsString('⭕ LAB PENDING', $html);
+        $this->assertStringContainsString('id="section5BadgeStatus"', $html);
+    }
+
+    #[Test]
+    public function exhibit_ownership_dropdown_selection_links_to_specific_suspect_or_all_suspects()
+    {
+        $user = User::factory()->head()->create();
+
+        $docketPayload = [
+            'suspects' => [
+                ['suspect_name' => 'John Doe', 'association_role' => 'Primary Suspect', 'is_associate' => false],
+                ['suspect_name' => 'Michael Smith', 'association_role' => 'Co-Suspect', 'is_associate' => true, 'associate_id' => 'ASC-001'],
+            ],
+            'seizures' => [
+                [
+                    'category' => 'Drugs',
+                    'seizure_name_drug' => 'Cocaine Powder',
+                    'associated_person' => 'Michael Smith',
+                    'suspect_ownership' => 'Michael Smith',
+                ],
+                [
+                    'category' => 'Weapons',
+                    'seizure_name_weapon' => 'Glock 19',
+                    'associated_person' => 'John Doe, Michael Smith',
+                    'suspect_ownership' => 'All Suspects',
+                ]
+            ],
+        ];
+
+        $caseData = [
+            'title' => 'State vs. John Doe & Michael Smith',
+            'suspect_name' => 'John Doe',
+            'unit_name' => 'Crime Scene Support',
+            'exhibit_category' => 'Drugs',
+            'docket_data' => json_encode($docketPayload),
+        ];
+
+        $res = $this->actingAs($user)->postJson('/cases', $caseData);
+        $res->assertStatus(200);
+
+        $case = ForensicCase::where('title', 'State vs. John Doe & Michael Smith')->first();
+        $this->assertNotNull($case);
+
+        $docketData = is_array($case->docket_data) ? $case->docket_data : json_decode($case->docket_data, true);
+
+        // 1. Exhibit #1 (Cocaine) belongs specifically to Michael Smith
+        $this->assertEquals('Michael Smith', $docketData['seizures'][0]['associated_person']);
+
+        // 2. Exhibit #2 (Glock) belongs jointly to All Suspects (John Doe, Michael Smith)
+        $this->assertStringContainsString('John Doe', $docketData['seizures'][1]['associated_person']);
+        $this->assertStringContainsString('Michael Smith', $docketData['seizures'][1]['associated_person']);
     }
 }

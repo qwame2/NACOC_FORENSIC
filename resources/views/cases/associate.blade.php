@@ -3643,38 +3643,10 @@
 
             // 3. Section 4B Presumptive Test
             if (drugNamesFound.length > 0) {
-                // Auto-select YES for Presumptive Test if currently NO or un-toggled
-                const yesBox = document.getElementById('presumptiveTestYes');
-                const noBox = document.getElementById('presumptiveTestNo');
-                if (yesBox && !yesBox.checked) {
-                    yesBox.checked = true;
-                    if (noBox) noBox.checked = false;
-                    const container = document.getElementById('presumptiveReactionDetailsContainer');
-                    if (container) container.classList.remove('hidden');
-                }
-
-                // 4. Auto-select YES for Confirmatory Test if drug exhibit present
-                const confYesBox = document.getElementById('confirmatoryTestYes');
-                const confNoBox = document.getElementById('confirmatoryTestNo');
-                const confInputEl = document.getElementById('confirmatoryTestResultInput');
-                const sampleWeightContainer = document.getElementById('sampleWeightContainer');
-                if (confYesBox && !confYesBox.checked) {
-                    confYesBox.checked = true;
-                    if (confNoBox) confNoBox.checked = false;
-                    if (confInputEl) confInputEl.value = 'YES';
-                    if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
-                }
-
                 // 5. Update Confirmatory Substance Identification in Section 4C (#confirmatorySubstanceIdentification)
                 const subIdInput = document.getElementById('confirmatorySubstanceIdentification');
                 if (subIdInput) {
                     subIdInput.value = drugNamesFound.join(', ');
-                }
-
-                // 6. Ensure at least 1 Detected Substance Row exists in Result section
-                const detContainer = document.getElementById('detectedSubstancesListContainer');
-                if (detContainer && detContainer.querySelectorAll('.detected-substance-row').length === 0) {
-                    addDetectedSubstanceRow(drugNamesFound[0] + ' Hydrochloride', '');
                 }
             }
 

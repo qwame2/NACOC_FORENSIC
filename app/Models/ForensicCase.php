@@ -33,6 +33,7 @@ class ForensicCase extends Model
         'commanding_officer',
         'submitting_officer',
         'suspect_name',
+        'associated_person',
         'suspect_alias',
         'ghana_card',
         'gender',

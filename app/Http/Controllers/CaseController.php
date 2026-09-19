@@ -32,6 +32,7 @@ class CaseController extends Controller
             'commanding_officer'   => ['nullable', 'string', 'max:255'],
             'submitting_officer'   => ['nullable', 'string', 'max:255'],
             'suspect_name'         => ['required', 'string', 'max:255'],
+            'associated_person'    => ['nullable', 'string', 'max:255'],
             'suspect_alias'        => ['nullable', 'string', 'max:255'],
             'ghana_card'           => ['nullable', 'string', 'max:255'],
             'gender'               => ['nullable', 'string', 'max:50'],
@@ -255,6 +256,15 @@ class CaseController extends Controller
         $docketData['suspects_count'] = count($allSuspects);
         $docketData['full_name'] = $jointSuspectNameLabel;
 
+        if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+            foreach ($docketData['seizures'] as $sIdx => $sz) {
+                $assocPerson = $sz['associated_person'] ?? null;
+                if (empty($assocPerson) || strtolower(trim($assocPerson)) === 'primary suspect' || $assocPerson === 'All Suspects') {
+                    $docketData['seizures'][$sIdx]['associated_person'] = count($allNames) > 1 ? $jointSuspectNameLabel : $allNames[0];
+                }
+            }
+        }
+
         $sharedFields = [
             'title'                    => $validated['title'],
             'unit_name'                => $validated['unit_name'] ?? ($user ? $user->unit : 'Forensic Directorate'),
@@ -267,6 +277,7 @@ class CaseController extends Controller
             'operation_code_name'      => $validated['operation_code_name'] ?? null,
             'has_seizures'             => !empty($validated['has_seizures']),
             'exhibit_category'         => $validated['exhibit_category'] ?? null,
+            'associated_person'        => $validated['associated_person'] ?? ($docketData['seizures'][0]['associated_person'] ?? $jointSuspectNameLabel),
             'valuation'                => $validated['valuation'] ?? null,
             'seizure_name'             => $validated['seizure_name'] ?? null,
             'seizure_name_drug'        => $validated['seizure_name_drug'] ?? null,
@@ -483,13 +494,6 @@ class CaseController extends Controller
         if ($unitNameKey === 'Lab Analysis' || $request->has('lab_unit') || $request->has('presumptive_result')) {
             $unexaminedJointSuspects = $this->getUnexaminedLabSuspects($case, $docketData, $exOwnerName);
             if (!empty($unexaminedJointSuspects)) {
-                if (strtoupper($unitStatus) === 'COMPLETED') {
-                    return response()->json([
-                        'success'             => false,
-                        'message'             => 'Cannot save case as COMPLETED: Joint suspects case has unexamined suspects remaining (' . implode(', ', $unexaminedJointSuspects) . '). Please enter laboratory examination details for all suspects before completing the case.',
-                        'unexamined_suspects' => $unexaminedJointSuspects
-                    ], 422);
-                }
                 $unitStatus = 'IN_PROGRESS';
             }
         }
@@ -514,9 +518,28 @@ class CaseController extends Controller
             $isAssoc = $request->boolean('exhibit_is_associate');
             $primaryName = $case->suspect_name ?? '';
 
-            if (!empty($exOwnerName) && !empty($primaryName)) {
-                if (strtolower(trim($exOwnerName)) !== strtolower(trim($primaryName))) {
-                    $isAssoc = true;
+            if (!empty($exOwnerName)) {
+                $exOwnerLower = strtolower(trim($exOwnerName));
+                $isJointName = str_contains($exOwnerLower, ',') || str_contains($exOwnerLower, '&') || str_contains($exOwnerLower, 'all suspect') || str_contains($exOwnerLower, 'all suspects');
+                if ($isJointName) {
+                    $isAssoc = false;
+                } elseif (!empty($primaryName) && strtolower(trim($primaryName)) !== $exOwnerLower) {
+                    $isCoSuspect = false;
+                    if (!empty($docketData['suspects'])) {
+                        foreach ($docketData['suspects'] as $sp) {
+                            if (!empty($sp['suspect_name']) && strtolower(trim($sp['suspect_name'])) === $exOwnerLower) {
+                                if (!empty($sp['association_role']) && str_contains(strtolower($sp['association_role']), 'co-suspect')) {
+                                    $isCoSuspect = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (!$isCoSuspect) {
+                        $isAssoc = true;
+                    } else {
+                        $isAssoc = false;
+                    }
                 }
             }
 
@@ -925,21 +948,71 @@ class CaseController extends Controller
             return [];
         }
 
+        // Check if an examination has been saved for "All Suspects" or joint ownership
+        if (!empty($currentExamOwner) && (str_contains(strtolower($currentExamOwner), 'all suspect') || str_contains(strtolower($currentExamOwner), 'all suspects'))) {
+            return [];
+        }
+
+        // Check if any saved examination in lab_examinations_list, associate_lab_examinations, or seizures is marked for "All Suspects"
+        $hasAllSuspectsSaved = false;
+        if (!empty($docketData['lab_examinations_list'])) {
+            foreach ($docketData['lab_examinations_list'] as $lItem) {
+                if (!empty($lItem['has_saved']) && !empty($lItem['exhibit_owner_name'])) {
+                    $ownerLower = strtolower(trim($lItem['exhibit_owner_name']));
+                    if (str_contains($ownerLower, 'all suspect') || str_contains($ownerLower, 'all suspects')) {
+                        $hasAllSuspectsSaved = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!$hasAllSuspectsSaved && !empty($docketData['associate_lab_examinations'])) {
+            foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
+                $kLower = strtolower(trim($kAssoc));
+                if (!empty($vAssoc['has_saved']) && (str_contains($kLower, 'all suspect') || str_contains($kLower, 'all suspects'))) {
+                    $hasAllSuspectsSaved = true;
+                    break;
+                }
+            }
+        }
+        if (!$hasAllSuspectsSaved && !empty($docketData['seizures'])) {
+            foreach ($docketData['seizures'] as $sz) {
+                $szOwner = strtolower(trim($sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? ''))));
+                if (!empty($sz['has_saved_lab']) && (str_contains($szOwner, 'all suspect') || str_contains($szOwner, 'all suspects'))) {
+                    $hasAllSuspectsSaved = true;
+                    break;
+                }
+            }
+        }
+
+        if ($hasAllSuspectsSaved) {
+            return [];
+        }
+
         $unexamined = [];
         foreach ($allSuspects as $sp) {
             $spName = $sp['name'];
             $isAssoc = $sp['is_associate'];
 
+            $spLower = strtolower(trim($spName));
+
             // Skip current suspect being submitted in this active HTTP request
-            if ($currentExamOwner && strtolower(trim($currentExamOwner)) === strtolower(trim($spName))) {
-                continue;
+            if ($currentExamOwner) {
+                $currLower = strtolower(trim($currentExamOwner));
+                if ($currLower === $spLower || str_contains($currLower, $spLower) || str_contains($spLower, $currLower)) {
+                    continue;
+                }
             }
 
             $hasSaved = false;
 
             // Check DB table AssociateLabExamination
             $hasSavedInDb = \App\Models\AssociateLabExamination::where('case_id', $case->id)
-                ->whereRaw('LOWER(trim(suspect_name)) = ?', [strtolower(trim($spName))])
+                ->where(function($q) use ($spLower) {
+                    $q->whereRaw('LOWER(trim(suspect_name)) = ?', [$spLower])
+                      ->orWhereRaw('LOWER(trim(suspect_name)) LIKE ?', ['%' . $spLower . '%'])
+                      ->orWhereRaw('LOWER(trim(suspect_name)) LIKE ?', ['%all suspect%']);
+                })
                 ->where('has_saved', true)
                 ->exists();
 
@@ -950,7 +1023,8 @@ class CaseController extends Controller
             // Check docket_data associate_lab_examinations
             if (!$hasSaved && !empty($docketData['associate_lab_examinations'])) {
                 foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
-                    if (strtolower(trim($kAssoc)) === strtolower(trim($spName)) && !empty($vAssoc['has_saved'])) {
+                    $kLower = strtolower(trim($kAssoc));
+                    if (( $kLower === $spLower || str_contains($kLower, $spLower) || str_contains($spLower, $kLower) || str_contains($kLower, 'all suspect') ) && !empty($vAssoc['has_saved'])) {
                         $hasSaved = true;
                         break;
                     }
@@ -960,18 +1034,35 @@ class CaseController extends Controller
             // Check docket_data lab_examinations_list
             if (!$hasSaved && !empty($docketData['lab_examinations_list'])) {
                 foreach ($docketData['lab_examinations_list'] as $lItem) {
-                    if (!empty($lItem['exhibit_owner_name']) && strtolower(trim($lItem['exhibit_owner_name'])) === strtolower(trim($spName)) && !empty($lItem['has_saved'])) {
-                        $hasSaved = true;
-                        break;
+                    if (!empty($lItem['exhibit_owner_name']) && !empty($lItem['has_saved'])) {
+                        $lOwnerLower = strtolower(trim($lItem['exhibit_owner_name']));
+                        if ($lOwnerLower === $spLower || str_contains($lOwnerLower, $spLower) || str_contains($spLower, $lOwnerLower) || str_contains($lOwnerLower, 'all suspect')) {
+                            $hasSaved = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Check docket_data seizures
+            if (!$hasSaved && !empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+                foreach ($docketData['seizures'] as $sz) {
+                    if (!empty($sz['has_saved_lab'])) {
+                        $szOwner = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
+                        if ($szOwner) {
+                            $szOwnerLower = strtolower(trim($szOwner));
+                            if ($szOwnerLower === $spLower || str_contains($szOwnerLower, $spLower) || str_contains($spLower, $szOwnerLower)) {
+                                $hasSaved = true;
+                                break;
+                            }
+                        }
                     }
                 }
             }
 
             // Check primary suspect docket_data lab_examination
             if (!$hasSaved && !$isAssoc) {
-                $hasSaved = !empty($docketData['lab_examination']['has_saved'])
-                    || !empty($docketData['lab_examination']['confirmatory_result'])
-                    || !empty($docketData['lab_examination']['presumptive_result']);
+                $hasSaved = !empty($docketData['lab_examination']['has_saved']);
             }
 
             if (!$hasSaved) {

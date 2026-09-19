@@ -1288,9 +1288,24 @@
                                         </div>
 
                                         <!-- SEIZURES INPUT GRID -->
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     
-                                    <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
+                                            <!-- SUSPECT / OWNERSHIP SELECT DROPDOWN -->
+                                            <div class="relative z-30">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Suspect / Ownership <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <div class="relative">
+                                                    <select
+                                                        onchange="this.setAttribute('data-user-selected', 'true')"
+                                                        class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
+                                                    >
+                                                        <option value="All Suspects">All Suspects (Joint Ownership)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
                                     <div class="relative z-[9999]" style="z-index: 9999;">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                             Exhibit (Commodity Category) <span class="text-red-600 font-bold">*</span>
@@ -3450,7 +3465,7 @@
                         <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #${mugshotCount} Mugshot Photos</div>
                         <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center space-x-1 shadow-2xs">
                             <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
-                            <span>ASSOCIATE / CO-SUSPECT</span>
+                            <span>CO-SUSPECT</span>
                         </span>
                     </div>
                     <button type="button" onclick="removeMugshotRow(${mugshotCount})" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-black text-[11px] font-bold rounded-lg transition-colors border border-slate-300 cursor-pointer">
@@ -3704,7 +3719,7 @@
                     <span class="font-extrabold text-slate-900 text-sm font-mono-code uppercase flex items-center space-x-2">
                         <span class="suspect-number-badge w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">${suspectCount}</span>
                         <span class="suspect-header-title">Suspect #${suspectCount} Personal Booking Record</span>
-                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center gap-1 shadow-2xs"><span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>ASSOCIATE / CO-SUSPECT</span>
+                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center gap-1 shadow-2xs"><span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>CO-SUSPECT</span>
                     </span>
                     <button type="button" onclick="removeSuspectRow(this)" class="suspect-remove-btn px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors border-none cursor-pointer">
                         &times; Remove Suspect #${suspectCount}
@@ -4198,6 +4213,9 @@
                 if (sub3c) sub3c.textContent = `3C. Offence Charges & Custody Holding Facility (Suspect #${num})`;
             });
             suspectCount = cards.length + 1;
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
         }
 
         function removeSuspectRow(target) {
@@ -4209,6 +4227,9 @@
                 if (card) card.remove();
             }
             reindexSuspectCards();
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
             if (typeof saveDocketFormDraft === 'function') {
                 saveDocketFormDraft();
             }
@@ -4266,6 +4287,11 @@
             if (s1Name) {
                 suspects.push({
                     suspect_number:   1,
+                    suspect_id:       'PRIM-001',
+                    is_associate:     false,
+                    is_co_suspect:    false,
+                    association_role: 'Primary Suspect',
+                    role:             'Primary Suspect',
                     suspect_name:     s1Name,
                     suspect_alias:    s1Alias,
                     ghana_card:       s1Card,
@@ -4350,10 +4376,13 @@
                 // Only add if a name was entered
                 if (sName) {
                     suspects.push({
-                        associate_id:     'ASC-' + String(suspectNum - 1).padStart(3, '0'),
-                        suspect_id:       'ASC-' + String(suspectNum - 1).padStart(3, '0'),
+                        associate_id:     'COS-' + String(suspectNum - 1).padStart(3, '0'),
+                        suspect_id:       'COS-' + String(suspectNum - 1).padStart(3, '0'),
                         suspect_number:   suspectNum,
                         is_associate:     true,
+                        is_co_suspect:    true,
+                        association_role: 'Co-Suspect',
+                        role:             'Co-Suspect',
                         suspect_name:     sName,
                         suspect_alias:    sAlias,
                         ghana_card:       sCard,
@@ -4708,6 +4737,10 @@
             const seizuresList = [];
             let seizureSummaryParts = [];
 
+            // Collect all suspects for exhibit association in joint cases
+            const allSuspectsForExhibits = collectAllSuspects();
+            const jointSuspectNamesLabel = allSuspectsForExhibits.map(s => s.suspect_name).filter(Boolean).join(', ');
+
             seizureBlocks.forEach((block, idx) => {
                 const itemNum = idx + 1;
                 const exhibitCat = block.querySelector('#newSeizureCategory')?.value || 'General Contraband';
@@ -4776,9 +4809,17 @@
                 const wpnLoadedStatus = block.querySelector('#wpnLoadedStatus')?.value || '';
                 const wpnCondition = block.querySelector('#wpnCondition')?.value || '';
 
+                const selectedAssocPerson = block.querySelector('.seizure-associated-person-select')?.value?.trim() || '';
+                let finalAssocPerson = selectedAssocPerson;
+                if (!finalAssocPerson || finalAssocPerson === 'All Suspects') {
+                    finalAssocPerson = jointSuspectNamesLabel || name;
+                }
+
                 seizuresList.push({
                     item_number: itemNum,
                     exhibit_category: exhibitCat,
+                    associated_person: finalAssocPerson,
+                    suspect_ownership: selectedAssocPerson || 'All Suspects',
                     seizure_name: seizureName,
                     seizure_name_drug: drugName,
                     seizure_name_weapon: wpnName,
@@ -5912,6 +5953,9 @@
 
             container.appendChild(clone);
             updateSeizureBlockNumbers();
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
             if (typeof syncSection4ExhibitsToLabSection === 'function') {
                 syncSection4ExhibitsToLabSection();
             }
@@ -5923,6 +5967,9 @@
             if (block && container && container.querySelectorAll('.seizure-block').length > 1) {
                 block.remove();
                 updateSeizureBlockNumbers();
+                if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                    syncSuspectDropdownsForExhibits();
+                }
                 if (typeof syncSection4ExhibitsToLabSection === 'function') {
                     syncSection4ExhibitsToLabSection();
                 }
@@ -7370,6 +7417,49 @@
                 }
             }
 
+            // Reset Presumptive Test
+            const presYes = document.getElementById('presumptiveTestYes');
+            const presNo = document.getElementById('presumptiveTestNo');
+            if (presYes) presYes.checked = false;
+            if (presNo) presNo.checked = false;
+
+            const presContainer = document.getElementById('presumptiveTestRowsContainer');
+            if (presContainer) {
+                const rows = presContainer.querySelectorAll('.presumptive-test-row');
+                rows.forEach((r, idx) => {
+                    if (idx === 0) {
+                        const presence = r.querySelector('.presumptive-presence-input');
+                        const percent = r.querySelector('.presumptive-percentage-input');
+                        if (presence) presence.value = '';
+                        if (percent) percent.value = '';
+                    } else {
+                        r.remove();
+                    }
+                });
+            }
+
+            // Reset Confirmatory Test
+            const confYes = document.getElementById('confirmatoryTestYes');
+            const confNo = document.getElementById('confirmatoryTestNo');
+            if (confYes) confYes.checked = false;
+            if (confNo) confNo.checked = false;
+            
+            const confResultInput = document.getElementById('confirmatoryTestResultInput');
+            if (confResultInput) confResultInput.value = '';
+
+            const detectedContainer = document.getElementById('detectedSubstancesListContainer');
+            if (detectedContainer) detectedContainer.innerHTML = '';
+
+            const confMethods = document.getElementById('confirmatoryTestMethods');
+            const confSpecs = document.getElementById('confirmatorySpecifications');
+            if (confMethods) confMethods.value = '';
+            if (confSpecs) confSpecs.value = '';
+
+            const takenInput = document.getElementById('sampleWeightTaken');
+            const reservedInput = document.getElementById('sampleWeightReserved');
+            if (takenInput) takenInput.value = '';
+            if (reservedInput) reservedInput.value = '';
+
             updateSampleWeightReserved();
         }
 
@@ -7610,9 +7700,68 @@
                 addDetectedSubstanceRow('', '');
             }
 
+            // Listener to keep Suspect/Ownership dropdown options synced with suspect names
+            ['input', 'keyup', 'change', 'blur'].forEach(function(eventType) {
+                document.addEventListener(eventType, function(e) {
+                    if (e.target && (e.target.id === 'newArrestedName' || (e.target.matches && e.target.matches('[data-field="suspect_name"]')))) {
+                        syncSuspectDropdownsForExhibits();
+                    }
+                });
+            });
+
+            syncSuspectDropdownsForExhibits();
             syncSection4ExhibitsToLabSection();
             updateSampleWeightReserved();
         });
+
+        function syncSuspectDropdownsForExhibits() {
+            const suspects = [];
+
+            // Primary Suspect Name
+            const s1Name = document.getElementById('newArrestedName')?.value?.trim() || '';
+            if (s1Name) {
+                suspects.push({ name: s1Name, role: 'Primary Suspect' });
+            }
+
+            // Dynamic Co-Suspect Names
+            document.querySelectorAll('.suspect-card-dynamic').forEach((card, idx) => {
+                const input = card.querySelector('[data-field="suspect_name"]');
+                const nameVal = input?.value?.trim() || '';
+                if (nameVal) {
+                    suspects.push({ name: nameVal, role: `Co-Suspect #${idx + 1}` });
+                }
+            });
+
+            document.querySelectorAll('.seizure-associated-person-select').forEach(select => {
+                const currentVal = select.value;
+                const userHasSelected = select.getAttribute('data-user-selected') === 'true';
+
+                select.innerHTML = '';
+
+                // Always include "All Suspects" option
+                const allOpt = document.createElement('option');
+                allOpt.value = 'All Suspects';
+                allOpt.textContent = suspects.length > 1 ? 'All Suspects (Joint Ownership)' : 'All Suspects';
+                select.appendChild(allOpt);
+
+                suspects.forEach(sp => {
+                    const opt = document.createElement('option');
+                    opt.value = sp.name;
+                    opt.textContent = `${sp.name} (${sp.role})`;
+                    select.appendChild(opt);
+                });
+
+                if (suspects.length === 1 && !userHasSelected) {
+                    select.value = suspects[0].name;
+                } else if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                    select.value = currentVal;
+                } else if (suspects.length === 1) {
+                    select.value = suspects[0].name;
+                } else {
+                    select.value = currentVal || 'All Suspects';
+                }
+            });
+        }
     </script>
 
     <!-- EXECUTIVE SUCCESS POPOVER MESSAGE CONTAINER -->

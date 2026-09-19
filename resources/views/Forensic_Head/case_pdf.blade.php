@@ -672,11 +672,19 @@
 
         @php
             $primarySuspectNamesList = [];
+            $coSuspectNamesList = [];
             $associateSuspectNamesList = [];
             foreach ($suspectsList as $sp) {
                 $spIsAssoc = !empty($sp['is_associate']) || (!empty($sp['association_role']) && strtolower($sp['association_role']) !== 'primary suspect');
+                $spIsCo = $spIsAssoc && (
+                    (!empty($sp['association_role']) && (str_contains(strtolower($sp['association_role']), 'co-suspect') || str_contains(strtolower($sp['association_role']), 'co suspect')))
+                    || (!empty($sp['role']) && (str_contains(strtolower($sp['role']), 'co-suspect') || str_contains(strtolower($sp['role']), 'co suspect')))
+                    || (!empty($sp['suspect_role']) && (str_contains(strtolower($sp['suspect_role']), 'co-suspect') || str_contains(strtolower($sp['suspect_role']), 'co suspect')))
+                );
                 if (!$spIsAssoc && !empty($sp['suspect_name'])) {
                     $primarySuspectNamesList[] = $sp['suspect_name'];
+                } elseif ($spIsCo && !empty($sp['suspect_name'])) {
+                    $coSuspectNamesList[] = $sp['suspect_name'];
                 } elseif ($spIsAssoc && !empty($sp['suspect_name'])) {
                     $associateSuspectNamesList[] = $sp['suspect_name'];
                 }
@@ -688,8 +696,9 @@
                     }
                 }
             }
-            $primarySuspectsCombinedNames = !empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Changa Essen');
-            $associateSuspectsCombinedNames = !empty($associateSuspectNamesList) ? implode(', ', array_unique($associateSuspectNamesList)) : 'Linda Asiedu';
+            $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
+            $primarySuspectsCombinedNames = !empty($primaryAndCoNamesList) ? implode(', ', $primaryAndCoNamesList) : (!empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Eric Addo'));
+            $associateSuspectsCombinedNames = !empty($associateSuspectNamesList) ? implode(', ', array_unique($associateSuspectNamesList)) : 'Atta Budo';
             $renderedPrimaryExhibit = false;
 
             $targetPrimaryIndex = 0;
@@ -734,8 +743,13 @@
                 $sLeft  = $sItem['mugshot_left']  ?? ($sNum == 1 ? $case->mugshot_left : null);
                 $sRight = $sItem['mugshot_right'] ?? ($sNum == 1 ? $case->mugshot_right : null);
 
-                $isAssociate = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect');
-                $sRoleLabel = $sItem['association_role'] ?? ($sItem['role'] ?? ($isAssociate ? 'ASSOCIATE' : 'PRIMARY SUSPECT'));
+                $isAssociate = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect') || (!empty($sItem['role']) && strtolower($sItem['role']) !== 'primary suspect');
+                $isCoSuspect = $isAssociate && (
+                    (!empty($sItem['association_role']) && (str_contains(strtolower($sItem['association_role']), 'co-suspect') || str_contains(strtolower($sItem['association_role']), 'co suspect')))
+                    || (!empty($sItem['role']) && (str_contains(strtolower($sItem['role']), 'co-suspect') || str_contains(strtolower($sItem['role']), 'co suspect')))
+                    || (!empty($sItem['suspect_role']) && (str_contains(strtolower($sItem['suspect_role']), 'co-suspect') || str_contains(strtolower($sItem['suspect_role']), 'co suspect')))
+                );
+                $sRoleLabel = $sItem['association_role'] ?? ($sItem['role'] ?? ($isCoSuspect ? 'CO-SUSPECT' : ($isAssociate ? 'ASSOCIATE SUSPECT' : 'PRIMARY SUSPECT')));
                 $assocNum = 0;
                 if ($isAssociate) {
                     foreach ($suspectsList as $cIdx => $cSp) {
@@ -754,7 +768,7 @@
                 <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
                     <span>SUSPECT #{{ $sNum }} BIOMETRIC MUGSHOT RECORD ({{ strtoupper($sName) }})</span>
                     @if($isAssociate)
-                        <span class="text-[10px] text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 font-black">ASSOCIATE (ID: {{ $sId }})</span>
+                        <span class="text-[10px] text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300 font-black">{{ strtoupper($sRoleLabel) }} (ID: {{ $sId }})</span>
                     @else
                         <span class="text-[10px] text-slate-700 font-bold">BOOKING FACILITY CAPTURE</span>
                     @endif
@@ -816,7 +830,7 @@
                 <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
                     <span>SUSPECT #{{ $sNum }} PERSONAL IDENTITY ({{ strtoupper($sName) }})</span>
                     @if($isAssociate)
-                        <span class="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">ASSOCIATE</span>
+                        <span class="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">{{ strtoupper($sRoleLabel) }}</span>
                     @endif
                 </div>
                 <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
@@ -935,7 +949,7 @@
                 </table>
             </div>
 
-            @if($sIdx === $targetPrimaryIndex)
+            @if(!$isAssociate || $isCoSuspect)
                 @php 
                     $primaryExhibitsFromDocket = [];
                     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
@@ -982,8 +996,8 @@
                 @endphp
                 <div class="space-y-2 avoid-break relative z-10 pt-1">
                     <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
-                        <span>PRIMARY SUSPECT LOGGED EXHIBITS ({{ strtoupper($primarySuspectsCombinedNames) }})</span>
-                        <span class="text-[10px] text-slate-900 font-bold bg-slate-200 px-2 py-0.5 rounded border border-slate-300">PRIMARY SUSPECT DOSSIER</span>
+                        <span>PRIMARY &amp; CO-SUSPECT LOGGED EXHIBITS ({{ strtoupper($primarySuspectsCombinedNames) }})</span>
+                        <span class="text-[10px] text-slate-900 font-bold bg-slate-200 px-2 py-0.5 rounded border border-slate-300">PRIMARY &amp; CO-SUSPECT DOSSIER</span>
                     </div>
 
                     @foreach($primaryExhibitsFromDocket as $pIdx => $pEx)
@@ -1139,7 +1153,7 @@
                     @endphp
                     @if(!empty($primaryPhotosPdf) && count($primaryPhotosPdf) > 0)
                     <div class="pt-2">
-                        <div class="text-[10px] font-mono-code font-bold text-slate-800 uppercase pb-1">Primary Exhibit Evidence Photos ({{ $primarySuspectsCombinedNames }})</div>
+                        <div class="text-[10px] font-mono-code font-bold text-slate-800 uppercase pb-1">Primary &amp; Co-Suspect Exhibit Evidence Photos ({{ $primarySuspectsCombinedNames }})</div>
                         <div class="grid grid-cols-4 gap-2">
                             @foreach($primaryPhotosPdf as $idx => $photoUrl)
                                 <div class="p-1 bg-slate-50 border border-slate-300 rounded-lg space-y-1 text-center">
@@ -1156,33 +1170,35 @@
             @endif
 
             <!-- SECTION: ASSOCIATE OR PRIMARY LOGGED EXHIBITS FOR SUSPECT #{{ $sNum }} -->
-            @if($isAssociate)
+            @if($isAssociate && !$isCoSuspect)
                 @php
-                    $pdfAssocExhibits = array_filter($docketData['seizures'] ?? [], function($sz) use ($sName, $sId, $docketData) {
-                        $szOwnerName = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['associated_suspect'] ?? null));
-                        if (!empty($szOwnerName) && strtolower(trim($szOwnerName)) !== 'associate suspect' && strtolower(trim($szOwnerName)) !== 'primary suspect') {
-                            return strtolower(trim($szOwnerName)) === strtolower(trim($sName));
-                        }
-                        $szAssocId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
-                        if (!empty($szAssocId)) {
-                            return !empty($sId) && (strtolower(trim($szAssocId)) === strtolower(trim($sId)));
-                        }
-                        if (!empty($sz['is_associate'])) {
-                            $assocSuspects = array_values(array_filter($docketData['suspects'] ?? [], function($s) {
-                                return !empty($s['suspect_name']) && (!empty($s['is_associate']) || (!empty($s['association_role']) && strtolower($s['association_role']) !== 'primary suspect'));
-                            }));
-                            if (count($assocSuspects) > 0) {
-                                $firstAssocName = $assocSuspects[0]['suspect_name'] ?? '';
-                                return strtolower(trim($sName)) === strtolower(trim($firstAssocName));
+                    $allSeizuresForPdfAssoc = array_merge(
+                        $docketData['associated_seizures'] ?? [],
+                        $docketData['associate_exhibits'] ?? []
+                    );
+                    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+                        foreach ($docketData['seizures'] as $sz) {
+                            $szOwnerName = strtolower(trim($sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['associated_suspect'] ?? ''))));
+                            if (!empty($szOwnerName) && $szOwnerName !== 'primary suspect' && $szOwnerName !== 'associate suspect' && $szOwnerName !== 'joint suspects' && !str_contains($szOwnerName, ',')) {
+                                if ($szOwnerName === strtolower(trim($sName))) {
+                                    $allSeizuresForPdfAssoc[] = $sz;
+                                }
                             }
                         }
-                        return false;
-                    });
+                    }
+                    $pdfAssocExhibits = array_values(array_filter($allSeizuresForPdfAssoc, function($sz) use ($sName, $sId) {
+                        $szOwnerName = strtolower(trim($sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['associated_suspect'] ?? ''))));
+                        if (!empty($szOwnerName) && $szOwnerName !== 'primary suspect' && $szOwnerName !== 'associate suspect' && $szOwnerName !== 'joint suspects' && !str_contains($szOwnerName, ',')) {
+                            return $szOwnerName === strtolower(trim($sName));
+                        }
+                        $szAssocId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
+                        return !empty($szAssocId) && !empty($sId) && (strtolower(trim($szAssocId)) === strtolower(trim($sId)));
+                    }));
                 @endphp
                 @if(!empty($pdfAssocExhibits) && count($pdfAssocExhibits) > 0)
                 <div class="space-y-2 avoid-break relative z-10 pt-1">
                     <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
-                        <span>ASSOCIATE DOSSIER (SUSPECT #{{ $sNum }}: {{ strtoupper($sName) }})</span>
+                        <span>{{ $isCoSuspect ? 'CO-SUSPECT DOSSIER' : 'ASSOCIATE DOSSIER' }} (SUSPECT #{{ $sNum }}: {{ strtoupper($sName) }})</span>
                         <span class="text-[10px] text-amber-900 font-bold bg-amber-100 px-2 py-0.5 rounded border border-amber-300">LOGGED EXHIBITS</span>
                     </div>
                     @foreach($pdfAssocExhibits as $aEx)
@@ -1272,36 +1288,51 @@
                     @php
                         $assocPhotosPdf = [];
                         foreach ($pdfAssocExhibits as $aEx) {
-                            if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
-                                foreach ($aEx['photos'] as $ap) {
-                                    if ($ap && !in_array($ap, $assocPhotosPdf)) $assocPhotosPdf[] = $ap;
+                            if (!empty($aEx['photos'])) {
+                                $pArr = is_array($aEx['photos']) ? $aEx['photos'] : (json_decode($aEx['photos'], true) ?: []);
+                                if (is_array($pArr)) {
+                                    foreach ($pArr as $ap) { if ($ap && !in_array($ap, $assocPhotosPdf)) $assocPhotosPdf[] = $ap; }
                                 }
                             }
-                            $apSingle = $aEx['photo'] ?? ($aEx['exhibit_photo'] ?? null);
-                            if ($apSingle && !in_array($apSingle, $assocPhotosPdf)) {
-                                $assocPhotosPdf[] = $apSingle;
+                            if (!empty($aEx['exhibit_photos'])) {
+                                $pArr = is_array($aEx['exhibit_photos']) ? $aEx['exhibit_photos'] : (json_decode($aEx['exhibit_photos'], true) ?: []);
+                                if (is_array($pArr)) {
+                                    foreach ($pArr as $ap) { if ($ap && !in_array($ap, $assocPhotosPdf)) $assocPhotosPdf[] = $ap; }
+                                }
+                            }
+                            if (!empty($aEx['evidence_photos'])) {
+                                $pArr = is_array($aEx['evidence_photos']) ? $aEx['evidence_photos'] : (json_decode($aEx['evidence_photos'], true) ?: []);
+                                if (is_array($pArr)) {
+                                    foreach ($pArr as $ap) { if ($ap && !in_array($ap, $assocPhotosPdf)) $assocPhotosPdf[] = $ap; }
+                                }
+                            }
+                            foreach (['photo', 'exhibit_photo', 'photo_url', 'image'] as $pKey) {
+                                $apSingle = $aEx[$pKey] ?? null;
+                                if ($apSingle && !in_array($apSingle, $assocPhotosPdf)) $assocPhotosPdf[] = $apSingle;
                             }
                         }
-                        if (empty($assocPhotosPdf) && !empty($allAssocPhotos)) {
-                            $assocPhotosPdf = $allAssocPhotos;
+                        if (empty($assocPhotosPdf) && !empty($rawPhotos)) {
+                            $assocPhotosPdf = $rawPhotos;
                         }
-                        if (empty($assocPhotosPdf) && !empty($evidencePhotos)) {
-                            $assocPhotosPdf = $evidencePhotos;
+                        if (empty($assocPhotosPdf) && !empty($docketData['evidence_photos'])) {
+                            foreach ($docketData['evidence_photos'] as $p) {
+                                if ($p && !in_array($p, $assocPhotosPdf)) $assocPhotosPdf[] = $p;
+                            }
                         }
                     @endphp
                     @if(!empty($assocPhotosPdf) && count($assocPhotosPdf) > 0)
                     <div class="pt-2">
                         <div class="text-[10px] font-mono-code font-bold text-amber-900 uppercase pb-1 flex items-center justify-between">
-                            <span>Associate Exhibit Evidence Photos ({{ $sName }})</span>
-                            <span class="text-[9px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300 font-mono-code font-bold">{{ count($assocPhotosPdf) }} Photo(s)</span>
+                            <span>Exhibit Visual Evidence Gallery ({{ $sName }})</span>
+                            <span class="text-[9px] bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300 font-mono-code font-bold">{{ count($assocPhotosPdf) }} Attached Photo(s)</span>
                         </div>
                         <div class="grid grid-cols-4 gap-2">
                             @foreach($assocPhotosPdf as $idx => $photoUrl)
                                 <div class="p-1 bg-amber-50/50 border border-amber-300 rounded-lg space-y-1 text-center">
                                     <div class="w-full h-24 bg-white rounded overflow-hidden border border-amber-300">
-                                        <img src="{{ $getImgSrc($photoUrl) }}" class="w-full h-full object-cover" alt="Associate Exhibit Photo {{ $idx + 1 }}">
+                                        <img src="{{ $getImgSrc($photoUrl) }}" class="w-full h-full object-cover" alt="Exhibit Photo {{ $idx + 1 }}">
                                     </div>
-                                    <div class="text-[8px] font-mono-code font-bold text-amber-900 uppercase">Associate Photo #{{ $idx + 1 }}</div>
+                                    <div class="text-[8px] font-mono-code font-bold text-amber-900 uppercase">Exhibit Photo #{{ $idx + 1 }}</div>
                                 </div>
                             @endforeach
                         </div>
@@ -1319,8 +1350,24 @@
                     $savedLabExamOwnerPdf = !empty($docketData['lab_examination']['exhibit_owner_name']) 
                         ? $docketData['lab_examination']['exhibit_owner_name'] 
                         : ($primarySuspectsCombinedNames ?: 'PRIMARY SUSPECT');
+
+                    $ownerPdfLower = strtolower(trim($savedLabExamOwnerPdf));
+                    $isJointPdfOwner = str_contains($ownerPdfLower, ',') || str_contains($ownerPdfLower, '&') || str_contains($ownerPdfLower, 'all suspect') || str_contains($ownerPdfLower, 'all suspects');
+                    if (!$isJointPdfOwner && !empty($docketData['suspects']) && count($docketData['suspects']) > 1) {
+                        $mCountPdf = 0;
+                        foreach ($docketData['suspects'] as $sp) {
+                            if (!empty($sp['suspect_name']) && str_contains($ownerPdfLower, strtolower(trim($sp['suspect_name'])))) {
+                                $mCountPdf++;
+                            }
+                        }
+                        if ($mCountPdf > 1) {
+                            $isJointPdfOwner = true;
+                        }
+                    }
+
+                    $pdfLabDossierBadge = $isJointPdfOwner ? 'PRIMARY & CO-SUSPECT DOSSIER' : 'PRIMARY SUSPECT DOSSIER';
                 @endphp
-                <span>LABORATORY EXAMINATION RESULT — PRIMARY SUSPECT DOSSIER (SUSPECT: {{ strtoupper($savedLabExamOwnerPdf) }})</span>
+                <span>{{ $pdfLabDossierBadge }} &bull; SUSPECT: {{ strtoupper($savedLabExamOwnerPdf) }} &bull; LABORATORY EXAMINATION RESULT — {{ strtoupper($savedLabExamOwnerPdf) }}</span>
                 <span class="text-[10px] font-mono-code font-black {{ $hasSavedLabData ? 'text-emerald-900' : 'text-slate-600' }} uppercase">
                     {{ $hasSavedLabData ? 'OFFICIAL VERIFIED CERTIFICATE (✓ LAB COMPLETED)' : ($labStatus === 'IN_PROGRESS' ? '⏳ LAB IN PROGRESS' : '⭕ LAB PENDING — AWAITING LAB ANALYSIS') }}
                 </span>
@@ -1563,7 +1610,7 @@
                     $assocExhibitsList = array_filter($docketData['seizures'] ?? [], function($sz) use ($aSpName, $aSpId) {
                         $szOwnerName = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
                         if (!empty($szOwnerName) && strtolower(trim($szOwnerName)) !== 'associate suspect' && strtolower(trim($szOwnerName)) !== 'primary suspect') {
-                            if (strtolower(trim($szOwnerName)) === strtolower(trim($aSpName))) {
+                            if (strtolower(trim($szOwnerName)) === strtolower(trim($aSpName)) || str_contains(strtolower($szOwnerName), strtolower(trim($aSpName)))) {
                                 return true;
                             }
                         }
@@ -1593,7 +1640,7 @@
                         $hasThisAssocSavedLabPdf = true;
                     } elseif ($docketAssocExamPdf && !empty($docketAssocExamPdf['has_saved'])) {
                         $hasThisAssocSavedLabPdf = true;
-                    } elseif (!empty($firstAssocEx['has_saved_lab']) || !empty($firstAssocEx['presumptive_result']) || !empty($firstAssocEx['confirmatory_result']) || !empty($assocLabExamPdf)) {
+                    } elseif (!empty($firstAssocEx['has_saved_lab']) || (!empty($assocLabExamPdf) && !empty($assocLabExamPdf['has_saved']))) {
                         $hasThisAssocSavedLabPdf = true;
                     }
 
@@ -1655,13 +1702,35 @@
                             $pPurityAssocPdf = trim($mPurAssocPdf[1]);
                         }
                     }
+
+                    $isCoveredByMainReportPdf = false;
+                    if (!empty($savedLabExamOwnerPdf)) {
+                        $lOwnerLowPdf = strtolower(trim($savedLabExamOwnerPdf));
+                        $aSpNameLowPdf = strtolower(trim($aSpName));
+                        if (str_contains($lOwnerLowPdf, 'all suspect') || str_contains($lOwnerLowPdf, $aSpNameLowPdf)) {
+                            $isCoveredByMainReportPdf = true;
+                        }
+                    }
+
+                    $isCoSuspectPdf = false;
+                    if (!empty($docketData['suspects'])) {
+                        foreach ($docketData['suspects'] as $sp) {
+                            if (!empty($sp['suspect_name']) && strtolower(trim($sp['suspect_name'])) === strtolower(trim($aSpName))) {
+                                if (!empty($sp['association_role']) && str_contains(strtolower($sp['association_role']), 'co-suspect')) {
+                                    $isCoSuspectPdf = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    $secondaryPdfBadge = $isCoSuspectPdf ? 'CO-SUSPECT DOSSIER' : 'ASSOCIATE DOSSIER';
                 @endphp
 
-                @if($hasThisAssocSavedLabPdf)
+                @if($hasThisAssocSavedLabPdf && !$isCoveredByMainReportPdf)
                 <div class="space-y-2 avoid-break relative z-10 mt-4">
                     <div class="text-xs font-black text-amber-950 uppercase font-mono-code border-b border-amber-400 pb-1 flex items-center justify-between bg-amber-50 p-1 rounded">
-                        <span>LABORATORY EXAMINATION RESULT — ASSOCIATE DOSSIER (SUSPECT #{{ $aSpIndex }}: {{ strtoupper($aSpName) }})</span>
-                        <span class="text-[10px] font-mono-code font-black text-amber-900 uppercase">OFFICIAL ASSOCIATE VERIFIED CERTIFICATE</span>
+                        <span>{{ $secondaryPdfBadge }} &bull; SUSPECT #{{ $aSpIndex }}: {{ strtoupper($aSpName) }} &bull; LABORATORY EXAMINATION RESULT — {{ strtoupper($aSpName) }}</span>
+                        <span class="text-[10px] font-mono-code font-black text-amber-900 uppercase">OFFICIAL {{ $isCoSuspectPdf ? 'CO-SUSPECT' : 'ASSOCIATE' }} VERIFIED CERTIFICATE</span>
                     </div>
                     <table class="pdf-table border border-amber-300 rounded-xl overflow-hidden shadow-2xs">
                         <tbody>
@@ -1834,18 +1903,13 @@
             <!-- COMBINED INVENTORY TABLE FOR ALL SUSPECTS (PRIMARY & ASSOCIATE) -->
             @php
                 $allSeizuresListPdf = $docketData['seizures'] ?? [];
-                if (!empty($docketData['associated_seizures']) && is_array($docketData['associated_seizures'])) {
-                    foreach ($docketData['associated_seizures'] as $aSz) {
-                        $allSeizuresListPdf[] = $aSz;
-                    }
-                }
             @endphp
 
             @if(!empty($allSeizuresListPdf) && count($allSeizuresListPdf) > 0)
             <div class="pt-2">
                 <div class="text-[10.5px] font-mono-code font-extrabold text-slate-900 uppercase pb-1 flex items-center justify-between">
-                    <span>MASTER VAULT COMMODITIES REGISTRY — ALL SUSPECT EXHIBITS ({{ count($allSeizuresListPdf) }} LOGGED ITEM(S))</span>
-                    <span class="text-[9px] font-mono-code font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">CONFISCATED INVENTORY</span>
+                    <span>ALL LOGGED SEIZURES &amp; EXHIBITS DOSSIER ({{ count($allSeizuresListPdf) }} ITEMS LOGGED)</span>
+                    <span class="text-[9px] font-mono-code font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">VERIFIED INVENTORY</span>
                 </div>
                 <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
                     <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[9.5px]">
@@ -1854,23 +1918,26 @@
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Suspect / Owner</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Category</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Exhibit Description</th>
-                            <th class="px-2 py-1.5 border-r border-slate-300 text-left">Qty / Weight</th>
+                            <th class="px-2 py-1.5 border-r border-slate-300 text-left">Quantity</th>
+                            <th class="px-2 py-1.5 border-r border-slate-300 text-left">Weight / Unit</th>
+                            <th class="px-2 py-1.5 border-r border-slate-300 text-left">Packaging</th>
                             <th class="px-2 py-1.5 text-left">Est. Valuation</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white font-bold text-[10px] text-slate-900">
                         @foreach($allSeizuresListPdf as $sIdx => $szItem)
                             @php
-                                $isAssoc = !empty($szItem['is_associate']) || !empty($szItem['associated_person']);
                                 $rawOwner = $szItem['associated_person'] ?? ($szItem['suspect_name'] ?? ($szItem['owner_name'] ?? null));
                                 $szId = $szItem['associate_id'] ?? ($szItem['suspect_id'] ?? null);
 
                                 $matchedOwner = null;
+                                $matchedRole = null;
                                 if (!empty($szId) && !empty($docketData['suspects'])) {
                                     foreach ($docketData['suspects'] as $sp) {
                                         $spId = $sp['associate_id'] ?? ($sp['suspect_id'] ?? null);
                                         if (!empty($spId) && strtolower(trim($spId)) === strtolower(trim($szId))) {
                                             $matchedOwner = $sp['suspect_name'] ?? null;
+                                            $matchedRole = $sp['association_role'] ?? ($sp['role'] ?? null);
                                             break;
                                         }
                                     }
@@ -1881,41 +1948,63 @@
                                 } elseif (!empty($matchedOwner)) {
                                     $ownerName = $matchedOwner;
                                 } else {
-                                    if ($isAssoc) {
-                                        $firstAssoc = array_values(array_filter($docketData['suspects'] ?? [], function($s) {
-                                            return !empty($s['suspect_name']) && (!empty($s['is_associate']) || (!empty($s['association_role']) && strtolower($s['association_role']) !== 'primary suspect'));
-                                        }));
-                                        $ownerName = !empty($firstAssoc) ? ($firstAssoc[0]['suspect_name'] ?? 'Associate Suspect') : 'Associate Suspect';
-                                    } else {
-                                        $ownerName = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : 'Primary Suspect';
+                                    $ownerName = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : 'Primary Suspect';
+                                }
+
+                                $ownerLower = strtolower(trim($ownerName));
+                                $isJoint = str_contains($ownerLower, ',') || str_contains($ownerLower, '&') || str_contains($ownerLower, 'all suspect') || str_contains($ownerLower, 'all suspects');
+                                if (!$isJoint && !empty($docketData['suspects']) && count($docketData['suspects']) > 1) {
+                                    $matchCount = 0;
+                                    foreach ($docketData['suspects'] as $sp) {
+                                        if (!empty($sp['suspect_name']) && str_contains($ownerLower, strtolower(trim($sp['suspect_name'])))) {
+                                            $matchCount++;
+                                        }
                                     }
+                                    if ($matchCount > 1) {
+                                        $isJoint = true;
+                                    }
+                                }
+
+                                if ($isJoint) {
+                                    $badgeLabel = 'PRIMARY & CO-SUSPECT';
+                                    $badgeClass = 'text-indigo-900 bg-indigo-100 border-indigo-300';
+                                } elseif ($matchedRole && str_contains(strtolower($matchedRole), 'co-suspect')) {
+                                    $badgeLabel = 'CO-SUSPECT';
+                                    $badgeClass = 'text-blue-900 bg-blue-100 border-blue-300';
+                                } elseif (!empty($szItem['is_associate']) || ($matchedRole && str_contains(strtolower($matchedRole), 'associate'))) {
+                                    $badgeLabel = 'ASSOCIATE';
+                                    $badgeClass = 'text-amber-900 bg-amber-100 border-amber-300';
+                                } else {
+                                    $badgeLabel = 'PRIMARY';
+                                    $badgeClass = 'text-slate-900 bg-slate-200 border-slate-300';
                                 }
                                 $exCat = $szItem['category'] ?? ($szItem['exhibit_category'] ?? 'General Exhibit');
                                 $exName = $szItem['seizure_name'] ?? ($szItem['name'] ?? 'N/A');
-                                $exQty = $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? null);
+                                $exQty = $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A');
                                 $exWt = $szItem['seizure_weight'] ?? ($szItem['weight'] ?? null);
                                 $exUnit = $szItem['seizure_unit'] ?? ($szItem['unit'] ?? '');
+                                $exPkg = $szItem['seizure_packaging'] ?? ($szItem['packaging'] ?? 'N/A');
                                 $exVal = $szItem['seizure_value'] ?? ($szItem['value'] ?? 'N/A');
                             @endphp
-                            <tr class="border-b border-slate-200 {{ $isAssoc ? 'bg-amber-50/40' : '' }}">
+                            <tr class="border-b border-slate-200 {{ $badgeLabel === 'ASSOCIATE' ? 'bg-amber-50/40' : ($isJoint ? 'bg-indigo-50/30' : '') }}">
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-slate-600">#{{ $sIdx + 1 }}</td>
-                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code font-black {{ $isAssoc ? 'text-amber-900' : 'text-slate-950' }}">
+                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code font-black text-slate-950">
                                     {{ $ownerName }}
-                                    @if($isAssoc)
-                                        <span class="text-[8px] font-mono-code font-extrabold text-amber-900 bg-amber-100 px-1 py-0.2 rounded border border-amber-300 ml-1">ASSOCIATE</span>
-                                    @else
-                                        <span class="text-[8px] font-mono-code font-extrabold text-slate-900 bg-slate-200 px-1 py-0.2 rounded border border-slate-300 ml-1">PRIMARY</span>
-                                    @endif
+                                    <span class="text-[8px] font-mono-code font-extrabold px-1 py-0.2 rounded border ml-0.5 {{ $badgeClass }}">
+                                        {{ $badgeLabel }}
+                                    </span>
                                 </td>
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code font-bold text-amber-900">{{ $exCat }}</td>
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-black text-slate-950">{{ $exName }}</td>
-                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code">
-                                    @if(!empty($exQty) || !empty($exWt))
-                                        {{ implode(' • ', array_filter([!empty($exQty) ? "Qty: {$exQty}" : null, !empty($exWt) ? "Wt: {$exWt} {$exUnit}" : null])) }}
+                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-slate-900">{{ $exQty }}</td>
+                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-slate-900">
+                                    @if(!empty($exWt))
+                                        {{ $exWt }} {{ $exUnit }}
                                     @else
                                         N/A
                                     @endif
                                 </td>
+                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-slate-900">{{ $exPkg }}</td>
                                 <td class="px-2 py-1.5 font-mono-code font-black text-emerald-800">{{ $exVal }}</td>
                             </tr>
                         @endforeach
