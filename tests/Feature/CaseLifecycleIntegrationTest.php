@@ -41,7 +41,7 @@ class CaseLifecycleIntegrationTest extends TestCase
             ->post('/cases', $caseData);
 
         $response->assertStatus(302);
-        $this->assertDatabaseHas('cases', [
+        $this->assertDatabaseHas('single_suspect_cases', [
             'case_number' => 'CSS-2026-9901',
             'title' => 'Seizure of Suspected Narcotic Substance'
         ]);
@@ -70,7 +70,7 @@ class CaseLifecycleIntegrationTest extends TestCase
             ->post('/cases/CSS-2026-9901/approve');
 
         $approveResponse->assertStatus(302);
-        $this->assertDatabaseHas('cases', [
+        $this->assertDatabaseHas('single_suspect_cases', [
             'case_number' => 'CSS-2026-9901',
             'status' => 'Approved',
         ]);
@@ -383,4 +383,501 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertStringContainsString('John Doe', $docketData['seizures'][1]['associated_person']);
         $this->assertStringContainsString('Michael Smith', $docketData['seizures'][1]['associated_person']);
     }
+
+    #[Test]
+    public function case_title_synchronizes_when_suspect_name_is_updated()
+    {
+        $user = User::factory()->head()->create();
+
+        $docketPayload = [
+            'suspects' => [
+                ['suspect_name' => 'Eric', 'association_role' => 'Primary Suspect', 'is_associate' => false],
+                ['suspect_name' => 'Linda', 'association_role' => 'Co-Suspect', 'is_associate' => true, 'associate_id' => 'ASC-001'],
+                ['suspect_name' => 'Atta', 'association_role' => 'Co-Suspect', 'is_associate' => true, 'associate_id' => 'ASC-002'],
+            ],
+            'seizures' => [
+                ['category' => 'Drugs', 'seizure_name_drug' => 'Cocaine Powder', 'associated_person' => 'Eric, Linda, Atta']
+            ]
+        ];
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-7701',
+            'title' => 'Republic vs Eric, Linda, Atta',
+            'suspect_name' => 'Eric',
+            'unit_name' => 'Crime Scene Support',
+            'docket_data' => $docketPayload,
+        ]);
+
+        // 1. Update Suspect 1: Eric -> Ericoo
+        $payload1 = [
+            'suspects' => [
+                ['suspect_name' => 'Ericoo', 'association_role' => 'Primary Suspect'],
+                ['suspect_name' => 'Linda', 'association_role' => 'Co-Suspect'],
+                ['suspect_name' => 'Atta', 'association_role' => 'Co-Suspect'],
+            ]
+        ];
+        $res1 = $this->actingAs($user)->postJson('/cases/' . $case->case_number . '/update', [
+            'suspects_data_json' => json_encode($payload1)
+        ]);
+        $res1->assertStatus(200);
+        $this->assertEquals('Republic vs Ericoo, Linda, Atta', $case->fresh()->title);
+
+        // 2. Update Suspect 2: Linda -> Lindaah
+        $payload2 = [
+            'suspects' => [
+                ['suspect_name' => 'Ericoo', 'association_role' => 'Primary Suspect'],
+                ['suspect_name' => 'Lindaah', 'association_role' => 'Co-Suspect'],
+                ['suspect_name' => 'Atta', 'association_role' => 'Co-Suspect'],
+            ]
+        ];
+        $res2 = $this->actingAs($user)->postJson('/cases/' . $case->case_number . '/update', [
+            'suspects_data_json' => json_encode($payload2)
+        ]);
+        $res2->assertStatus(200);
+        $this->assertEquals('Republic vs Ericoo, Lindaah, Atta', $case->fresh()->title);
+
+        // 3. Update Suspect 3: Atta -> Attab
+        $payload3 = [
+            'suspects' => [
+                ['suspect_name' => 'Ericoo', 'association_role' => 'Primary Suspect'],
+                ['suspect_name' => 'Lindaah', 'association_role' => 'Co-Suspect'],
+                ['suspect_name' => 'Attab', 'association_role' => 'Co-Suspect'],
+            ]
+        ];
+        $res3 = $this->actingAs($user)->postJson('/cases/' . $case->case_number . '/update', [
+            'suspects_data_json' => json_encode($payload3)
+        ]);
+        $res3->assertStatus(200);
+        $this->assertEquals('Republic vs Ericoo, Lindaah, Attab', $case->fresh()->title);
+
+        // 4. Test Single Suspect Case Title synchronization
+        $singleCase = ForensicCase::create([
+            'case_number' => 'NFC-2026-7702',
+            'title' => 'Republic vs Eric',
+            'suspect_name' => 'Eric',
+            'unit_name' => 'Crime Scene Support',
+            'docket_data' => ['suspects' => [['suspect_name' => 'Eric']]],
+        ]);
+
+        $singleRes = $this->actingAs($user)->postJson('/cases/' . $singleCase->case_number . '/update', [
+            'suspect_name' => 'Ericoo'
+        ]);
+        $singleRes->assertStatus(200);
+        $this->assertEquals('Republic vs Ericoo', $singleCase->fresh()->title);
+
+        // 5. Test Case where suspect_name column holds combined suspect names string
+        $combinedCase = ForensicCase::create([
+            'case_number' => 'NFC-2026-7703',
+            'title' => 'Republic vs Eric, Linda, Atta',
+            'suspect_name' => 'Eric, Linda, Atta',
+            'unit_name' => 'Crime Scene Support',
+            'docket_data' => [
+                'suspects' => [
+                    ['suspect_name' => 'Eric, Linda, Atta'],
+                    ['suspect_name' => 'Linda'],
+                    ['suspect_name' => 'Atta'],
+                ]
+            ],
+        ]);
+
+        $combinedRes = $this->actingAs($user)->postJson('/cases/' . $combinedCase->case_number . '/update', [
+            'title' => 'Republic vs Eric, Linda, Atta',
+            'suspects_data_json' => json_encode([
+                'suspects' => [
+                    ['suspect_name' => 'Ericoo'],
+                    ['suspect_name' => 'Linda'],
+                    ['suspect_name' => 'Atta'],
+                ]
+            ])
+        ]);
+        $combinedRes->assertStatus(200);
+        $this->assertEquals('Republic vs Ericoo, Linda, Atta', $combinedCase->fresh()->title);
+    }
+
+    #[Test]
+    public function test_seized_exhibit_photos_persist_when_case_is_updated()
+    {
+        $user = User::factory()->head()->create();
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-7704',
+            'title' => 'Republic vs John Doe',
+            'suspect_name' => 'John Doe',
+            'seizure_name_drug' => 'Suspected Cocaine',
+            'unit_name' => 'Crime Scene Support',
+            'docket_data' => [
+                'suspects' => [['suspect_name' => 'John Doe']],
+                'seizures' => [['seizure_name_drug' => 'Suspected Cocaine', 'evidence_photos' => []]],
+            ],
+        ]);
+
+        $testPhotos = [
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'https://example.com/exhibit_photo2.jpg'
+        ];
+
+        $updateResponse = $this->actingAs($user)->postJson('/cases/' . $case->case_number . '/update', [
+            'title' => 'Republic vs John Doe',
+            'suspects_data_json' => json_encode([
+                'suspects' => [['suspect_name' => 'John Doe']],
+                'exhibits' => [
+                    [
+                        'exhibit_index' => 0,
+                        'seizure_name_drug' => 'Suspected Cocaine',
+                        'evidence_photos' => $testPhotos,
+                    ]
+                ]
+            ])
+        ]);
+
+        $updateResponse->assertStatus(200);
+
+        $refreshedCase = $case->fresh();
+        $this->assertEquals($testPhotos, $refreshedCase->evidence_photos);
+
+        $docketData = $refreshedCase->docket_data;
+        $this->assertEquals($testPhotos, $docketData['seizures'][0]['evidence_photos']);
+        $this->assertEquals($testPhotos, $docketData['evidence_photos']);
+    }
+
+    #[Test]
+    public function test_marital_record_and_spouse_info_displays_and_persists_in_edit_page()
+    {
+        $user = User::factory()->head()->create();
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-7705',
+            'title' => 'Republic vs Kwadwo Mensah',
+            'suspect_name' => 'Kwadwo Mensah',
+            'marital_status' => 'Married',
+            'children_count' => '2',
+            'spouse_name' => 'Abena Mensah',
+            'spouse_phone' => '+233208840129',
+            'spouse_info' => 'Trader, Tema Sector 1',
+            'unit_name' => 'Crime Scene Support',
+            'docket_data' => [
+                'suspects' => [
+                    [
+                        'suspect_name' => 'Kwadwo Mensah',
+                        'marital_status' => 'Married',
+                        'children_count' => '2',
+                        'spouse_name' => 'Abena Mensah',
+                        'spouse_phone' => '+233208840129',
+                        'spouse_info' => 'Trader, Tema Sector 1',
+                    ]
+                ]
+            ],
+        ]);
+
+        // 1. Assert edit page displays previously saved spouse information & marital status
+        $editResponse = $this->actingAs($user)->get('/cases/' . $case->case_number . '/edit');
+        $editResponse->assertStatus(200);
+        $editHtml = $editResponse->getContent();
+
+        $this->assertStringContainsString('Abena Mensah', $editHtml);
+        $this->assertStringContainsString('+233208840129', $editHtml);
+        $this->assertStringContainsString('Trader, Tema Sector 1', $editHtml);
+        $this->assertStringContainsString('Married', $editHtml);
+
+        // 2. Perform update modifying spouse info and children count
+        $updateResponse = $this->actingAs($user)->postJson('/cases/' . $case->case_number . '/update', [
+            'title' => 'Republic vs Kwadwo Mensah',
+            'suspects_data_json' => json_encode([
+                'suspects' => [
+                    [
+                        'suspect_name' => 'Kwadwo Mensah',
+                        'marital_status' => 'Married',
+                        'children_count' => '3',
+                        'spouse_name' => 'Abena Mensah-Updated',
+                        'spouse_phone' => '+233208840999',
+                        'spouse_info' => 'Senior Manager, Tema Sector 1',
+                    ]
+                ]
+            ])
+        ]);
+
+        $updateResponse->assertStatus(200);
+
+        $refreshedCase = $case->fresh();
+        $this->assertEquals('Married', $refreshedCase->marital_status);
+        $this->assertEquals('3', $refreshedCase->children_count);
+        $this->assertEquals('Abena Mensah-Updated', $refreshedCase->spouse_name);
+        $this->assertEquals('+233208840999', $refreshedCase->spouse_phone);
+        $this->assertEquals('Senior Manager, Tema Sector 1', $refreshedCase->spouse_info);
+    }
+
+    #[Test]
+    public function test_clearing_mugshot_and_exhibit_photos_persists_empty_state()
+    {
+        $user = User::factory()->head()->create();
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-7706',
+            'title' => 'Republic vs Jane Doe',
+            'suspect_name' => 'Jane Doe',
+            'mugshot_front' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'evidence_photos' => ['https://example.com/photo1.jpg'],
+            'unit_name' => 'Crime Scene Support',
+            'docket_data' => [
+                'mugshots' => ['front' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='],
+                'mugshot_front' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                'evidence_photos' => ['https://example.com/photo1.jpg'],
+                'suspects' => [
+                    [
+                        'suspect_name' => 'Jane Doe',
+                        'mugshot_front' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                        'mugshots' => ['front' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==']
+                    ]
+                ],
+                'seizures' => [
+                    ['seizure_name_drug' => 'Heroin', 'evidence_photos' => ['https://example.com/photo1.jpg']]
+                ],
+            ],
+        ]);
+
+        $updateResponse = $this->actingAs($user)->postJson('/cases/' . $case->case_number . '/update', [
+            'title' => 'Republic vs Jane Doe',
+            'mugshot_front' => '',
+            'mugshot_left' => '',
+            'mugshot_right' => '',
+            'suspects_data_json' => json_encode([
+                'suspects' => [
+                    [
+                        'suspect_name' => 'Jane Doe',
+                        'mugshot_front' => '',
+                        'mugshot_left' => '',
+                        'mugshot_right' => '',
+                        'mugshots' => [
+                            'front' => '',
+                            'front-profile' => '',
+                            'left' => '',
+                            'left-profile' => '',
+                            'right' => '',
+                            'right-profile' => ''
+                        ]
+                    ]
+                ],
+                'exhibits' => [
+                    [
+                        'exhibit_index' => 0,
+                        'seizure_name_drug' => 'Heroin',
+                        'evidence_photos' => [],
+                    ]
+                ]
+            ])
+        ]);
+
+        $updateResponse->assertStatus(200);
+
+        $refreshedCase = $case->fresh();
+        $this->assertEquals('', $refreshedCase->mugshot_front);
+        $this->assertEquals([], $refreshedCase->evidence_photos);
+
+        $docketData = $refreshedCase->docket_data;
+        $this->assertEquals('', $docketData['mugshot_front'] ?? null);
+        $this->assertEquals([], $docketData['evidence_photos'] ?? null);
+        $this->assertEquals([], $docketData['seizures'][0]['evidence_photos'] ?? null);
+
+        $editResponse = $this->actingAs($user)->get('/cases/' . $case->case_number . '/edit');
+        $editResponse->assertStatus(200);
+        $editHtml = $editResponse->getContent();
+
+        $this->assertStringNotContainsString('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', $editHtml);
+        $this->assertStringNotContainsString('https://example.com/photo1.jpg', $editHtml);
+    }
+
+    #[Test]
+    public function associate_lab_dossier_filters_out_primary_and_co_suspect_names()
+    {
+        $user = User::factory()->head()->create();
+
+        $docketData = [
+            'suspects' => [
+                ['suspect_name' => 'ERIC ADDO', 'association_role' => 'Primary Suspect', 'is_associate' => false],
+                ['suspect_name' => 'LINDA ATTA', 'association_role' => 'Co-Suspect', 'is_associate' => true],
+            ],
+            'seizures' => [
+                ['category' => 'Drugs', 'seizure_name_drug' => 'Cocaine', 'associated_person' => 'ERIC ADDO, LINDA ATTA']
+            ]
+        ];
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-9901',
+            'title' => 'State vs Eric Addo, Linda Atta',
+            'suspect_name' => 'ERIC ADDO, LINDA ATTA',
+            'unit_name' => 'Lab Analysis',
+            'docket_data' => $docketData,
+        ]);
+
+        $reviewResponse = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review');
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+
+        // The review page must not render an erroneous separate ASSOCIATE DOSSIER card
+        $this->assertStringNotContainsString('ASSOCIATE DOSSIER', $reviewHtml);
+        $this->assertStringNotContainsString('ASSOCIATE EXHIBIT VERIFIED', $reviewHtml);
+    }
+
+    #[Test]
+    public function lab_result_section_omitted_when_no_completed_lab_exam_submitted_for_exhibit()
+    {
+        $user = User::factory()->head()->create();
+
+        $docketData = [
+            'suspects' => [
+                ['suspect_name' => 'Primary Suspect', 'association_role' => 'Primary Suspect', 'is_associate' => false],
+                ['suspect_name' => 'Atta Budo', 'association_role' => 'Mastermind', 'is_associate' => true, 'associate_id' => 'ASC-001'],
+                ['suspect_name' => 'Wakanda Asiedu', 'association_role' => 'Accomplice', 'is_associate' => true, 'associate_id' => 'ASC-004'],
+            ],
+            'seizures' => [
+                ['category' => 'Drugs', 'seizure_name_drug' => 'Cocaine Slabs', 'associated_person' => 'Primary Suspect', 'is_associate' => false, 'has_saved_lab' => true],
+                ['category' => 'Drugs', 'seizure_name_drug' => 'Tramadol Tablets', 'associated_person' => 'Atta Budo', 'is_associate' => true, 'associate_id' => 'ASC-001', 'has_saved_lab' => true],
+                ['category' => 'Weapons', 'seizure_name' => 'AK-47 Rifle', 'associated_person' => 'Wakanda Asiedu', 'is_associate' => true, 'associate_id' => 'ASC-004', 'has_saved_lab' => false],
+            ],
+            'associate_lab_examinations' => [
+                'Atta Budo' => [
+                    'exhibit_owner_name' => 'Atta Budo',
+                    'substance_identification' => 'Tramadol Hydrochloride',
+                    'presumptive_result' => 'YES (Presence of: Tramadol - Purity/Percentage: 100%)',
+                    'confirmatory_result' => 'YES',
+                    'has_saved' => true,
+                ]
+            ],
+            'lab_examination' => [
+                'has_saved' => true,
+                'exhibit_owner_name' => 'Primary Suspect',
+                'substance_identification' => 'Cocaine Hydrochloride',
+                'presumptive_result' => 'YES (Presence of: Cocaine - Purity/Percentage: 85%)',
+                'confirmatory_result' => 'YES',
+            ]
+        ];
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-9902',
+            'title' => 'State vs Primary Suspect, Atta Budo & Wakanda Asiedu',
+            'suspect_name' => 'Primary Suspect, Atta Budo',
+            'unit_name' => 'Lab Analysis',
+            'docket_data' => $docketData,
+        ]);
+
+        $reviewResponse = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review');
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+
+        // Atta Budo has a completed drug lab exam, so Atta Budo's lab result dossier MUST render in web review
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — ATTA BUDO', $reviewHtml);
+
+        // Wakanda Asiedu has a weapon exhibit with no saved lab exam, so no lab result dossier should render for Wakanda in web review
+        $this->assertStringNotContainsString('LABORATORY EXAMINATION RESULT — WAKANDA ASIEDU', $reviewHtml);
+
+        $pdfResponse = $this->actingAs($user)->get('/cases/' . $case->case_number . '/pdf');
+        $pdfResponse->assertStatus(200);
+        $pdfHtml = $pdfResponse->getContent();
+
+        // Atta Budo's completed drug lab exam MUST render in PDF report
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — ATTA BUDO', $pdfHtml);
+
+        // Wakanda Asiedu's weapon exhibit MUST be omitted in PDF report
+        $this->assertStringNotContainsString('LABORATORY EXAMINATION RESULT — WAKANDA ASIEDU', $pdfHtml);
+    }
+
+    #[Test]
+    public function lab_result_page_displays_all_cases_in_unified_directory()
+    {
+        $user = User::factory()->head()->create();
+
+        // 1. Create a drug-related case with suspect
+        $drugCase = ForensicCase::create([
+            'case_number' => 'CSS-2026-DRUG01',
+            'title' => 'Republic vs Eric Mensah',
+            'suspect_name' => 'Eric Mensah',
+            'unit_name' => 'Crime Scene Support',
+            'exhibit_category' => 'Drugs',
+            'seizure_name_drug' => 'Cocaine Powder',
+            'gross_weight' => '5.2 kg',
+            'status' => 'Under Multi-Unit Processing',
+        ]);
+
+        // 2. Create a non-drug case (weapons)
+        $weaponCase = ForensicCase::create([
+            'case_number' => 'CSS-2026-GUN01',
+            'title' => 'Republic vs James Bond',
+            'suspect_name' => 'James Bond',
+            'unit_name' => 'Crime Scene Support',
+            'exhibit_category' => 'Weapons & Firearm',
+            'seizure_name' => 'AK-47 Rifle',
+            'status' => 'Under Multi-Unit Processing',
+        ]);
+
+        $response = $this->actingAs($user)->get('/lab-result');
+        $response->assertStatus(200);
+        $html = $response->getContent();
+
+        // Must display drug-related case reference & suspect
+        $this->assertStringContainsString('CSS-2026-DRUG01', $html);
+        $this->assertStringContainsString('Eric Mensah', $html);
+
+        // Unified directory also displays non-drug weapon case
+        $this->assertStringContainsString('CSS-2026-GUN01', $html);
+        $this->assertStringContainsString('James Bond', $html);
+    }
+
+    #[Test]
+    public function lab_analysis_new_suspect_creation_with_lab_result_updates_status_in_view_docket()
+    {
+        $analystUser = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // 1. Submit a new case with suspect biodata and lab examination information simultaneously
+        $caseData = [
+            'case_number'                           => 'LAB-2026-TEST01',
+            'title'                                 => 'Republic vs Kwabena Darko',
+            'unit_name'                             => 'Lab Analysis',
+            'commanding_officer'                    => 'Samuel Atta',
+            'submitting_officer'                    => $analystUser->fullname,
+            'suspect_name'                          => 'Kwabena Darko',
+            'ghana_card'                            => 'GHA-11223344-9',
+            'arrest_date'                           => date('Y-m-d'),
+            'arrest_time'                           => '10:30 AM',
+            'offense_description'                   => 'Illicit Drug Trafficking',
+            'exhibit_category'                      => 'Drugs',
+            'seizure_name_drug'                     => 'Heroin White Powder',
+            'seizure_weight'                        => '12.5',
+            'seizure_unit'                          => 'kg',
+            'laboratory_number'                     => 'LAB-REF-2026-88',
+            'presumptive_reaction_result_input'     => 'YES (Positive Colorimetric Reaction)',
+            'confirmatory_test_result'              => 'YES',
+            'sample_weight_description'             => 'Heroin Powder',
+            'sample_weight_gross'                   => '12.5 kg',
+            'sample_weight_taken'                   => '150 g',
+            'sample_weight_reserved'                => '12.35 kg',
+            'confirmatory_substance_identification' => 'Diacetylmorphine (Heroin)',
+            'confirmatory_test_methods'             => 'Gas Chromatography-Mass Spectrometry (GC-MS)',
+        ];
+
+        $response = $this->actingAs($analystUser)->post('/cases', $caseData);
+        $response->assertStatus(302);
+
+        $this->assertDatabaseHas('single_suspect_cases', [
+            'case_number'  => 'LAB-2026-TEST01',
+            'suspect_name' => 'Kwabena Darko',
+        ]);
+        $this->assertDatabaseHas('laboratory_examination_results', [
+            'confirmatory_result' => 'YES',
+        ]);
+
+        // 2. Open View Docket for Kwabena Darko
+        $reviewResponse = $this->actingAs($analystUser)->get('/cases/LAB-2026-TEST01/review?from=Lab+Analysis');
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+
+        // Must display ✓ LAB COMPLETED badge instead of ⭕ LAB PENDING
+        $this->assertStringContainsString('✓ LAB COMPLETED', $reviewHtml);
+        $this->assertStringNotContainsString('LABORATORY EXAMINATION: PENDING', $reviewHtml);
+        $this->assertStringContainsString('Diacetylmorphine (Heroin)', $reviewHtml);
+        $this->assertStringContainsString('Gas Chromatography-Mass Spectrometry (GC-MS)', $reviewHtml);
+    }
 }
+

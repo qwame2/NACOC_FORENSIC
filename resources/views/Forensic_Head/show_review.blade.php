@@ -1,5 +1,6 @@
 @php
     $authUser = auth()->user();
+    $activeSuspectHasSavedResult = false;
     $isHof = ($authUser && $authUser->is_head && (
         $authUser->unit === 'Forensic Directorate' ||
         $authUser->unit === 'Forensic Head' ||
@@ -14,32 +15,60 @@
     $reqFrom = request()->query('from') ?? request()->query('unit') ?? request()->query('source');
     $userUnit = $authUser->unit ?? session('user_unit') ?? '';
     $referer = request()->header('referer') ?? '';
-    $isLabContext = str_contains(strtolower($reqFrom ?? ''), 'lab') 
-                    || str_contains(strtolower($userUnit), 'lab') 
-                    || str_contains(strtolower($referer), 'lab');
-    $isForensicHeadContext = request()->is('Forensic_Head*') || session('user_role') === 'HOF';
+
+    if (!empty($reqFrom)) {
+        if (str_contains(strtolower($reqFrom), 'crime') || str_contains(strtolower($reqFrom), 'field')) {
+            $activeUnitContext = 'Crime Scene Support';
+        } elseif (str_contains(strtolower($reqFrom), 'lab')) {
+            $activeUnitContext = 'Lab Analysis';
+        } elseif (str_contains(strtolower($reqFrom), 'evidence')) {
+            $activeUnitContext = 'Evidence Management';
+        } elseif (str_contains(strtolower($reqFrom), 'digital') || str_contains(strtolower($reqFrom), 'physical')) {
+            $activeUnitContext = 'Digital & Physical Forensics';
+        } else {
+            $activeUnitContext = $reqFrom;
+        }
+    } elseif (request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*')) {
+        $activeUnitContext = 'Lab Analysis';
+    } elseif (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*')) {
+        $activeUnitContext = 'Crime Scene Support';
+    } elseif (!empty($userUnit)) {
+        $activeUnitContext = $userUnit;
+    } else {
+        $activeUnitContext = 'Crime Scene Support';
+    }
+
+    $isLabContext = str_contains(strtolower($activeUnitContext), 'lab');
+    $isForensicHeadContext = request()->is('Forensic_Head*') || session('user_role') === 'HOF' || str_contains(strtolower($reqFrom ?? ''), 'forensic');
     
     $status = $case->status ?? 'Awaiting Sign-off';
     $priority = strtoupper($case->priority ?? 'NORMAL');
     
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     
+    $primarySuspectName = strtolower(trim($case->suspect_name ?? ''));
+
     $allAssocPhotos = [];
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $szItem) {
-            $cat = strtolower($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''));
-            $pCat = strtolower($case->exhibit_category ?? '');
-            $sNameSz = strtolower($szItem['seizure_name'] ?? '');
-            $pName = strtolower($case->seizure_name ?? '');
+            $assocPerson = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? '')));
+            $assocRole   = strtolower(trim($szItem['association_role'] ?? ($szItem['role'] ?? '')));
+            $isExplicitAssoc = !empty($szItem['is_associate']);
 
-            $isAssocSz = !empty($szItem['is_associate']) 
-                || !empty($szItem['associated_person']) 
-                || (!empty($szItem['association_role']) && str_contains(strtolower($szItem['association_role']), 'associate'))
-                || (($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit'));
+            $isPrimaryOwner = empty($assocPerson) 
+                || (!empty($primarySuspectName) && $assocPerson === $primarySuspectName)
+                || $assocPerson === 'primary suspect'
+                || $assocPerson === 'primary'
+                || str_contains($assocPerson, 'all suspect')
+                || str_contains($assocPerson, 'joint');
+
+            $isAssocRole = !empty($assocRole) && str_contains($assocRole, 'associate');
+            $isAssocSz = ($isExplicitAssoc || $isAssocRole || (!$isPrimaryOwner && !empty($assocPerson))) && !$isPrimaryOwner;
 
             if ($isAssocSz) {
-                if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
-                    foreach ($szItem['photos'] as $ap) {
+                $aPhotos = $szItem['evidence_photos'] ?? ($szItem['photos'] ?? []);
+                if (is_array($aPhotos)) {
+                    foreach ($aPhotos as $ap) {
                         if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
                     }
                 }
@@ -52,8 +81,9 @@
     }
     if (!empty($docketData['associated_seizures']) && is_array($docketData['associated_seizures'])) {
         foreach ($docketData['associated_seizures'] as $aEx) {
-            if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
-                foreach ($aEx['photos'] as $ap) {
+            $aPhotos = $aEx['evidence_photos'] ?? ($aEx['photos'] ?? []);
+            if (is_array($aPhotos)) {
+                foreach ($aPhotos as $ap) {
                     if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
                 }
             }
@@ -65,8 +95,9 @@
     }
     if (!empty($docketData['associate_exhibits']) && is_array($docketData['associate_exhibits'])) {
         foreach ($docketData['associate_exhibits'] as $aEx) {
-            if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
-                foreach ($aEx['photos'] as $ap) {
+            $aPhotos = $aEx['evidence_photos'] ?? ($aEx['photos'] ?? []);
+            if (is_array($aPhotos)) {
+                foreach ($aPhotos as $ap) {
                     if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
                 }
             }
@@ -83,19 +114,24 @@
     $primaryPhotos = [];
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $szItem) {
-            $cat = strtolower($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''));
-            $pCat = strtolower($case->exhibit_category ?? '');
-            $sNameSz = strtolower($szItem['seizure_name'] ?? '');
-            $pName = strtolower($case->seizure_name ?? '');
+            $assocPerson = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? '')));
+            $assocRole   = strtolower(trim($szItem['association_role'] ?? ($szItem['role'] ?? '')));
+            $isExplicitAssoc = !empty($szItem['is_associate']);
 
-            $isAssocSz = !empty($szItem['is_associate']) 
-                || !empty($szItem['associated_person']) 
-                || (!empty($szItem['association_role']) && str_contains(strtolower($szItem['association_role']), 'associate'))
-                || (($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit'));
+            $isPrimaryOwner = empty($assocPerson) 
+                || (!empty($primarySuspectName) && $assocPerson === $primarySuspectName)
+                || $assocPerson === 'primary suspect'
+                || $assocPerson === 'primary'
+                || str_contains($assocPerson, 'all suspect')
+                || str_contains($assocPerson, 'joint');
+
+            $isAssocRole = !empty($assocRole) && str_contains($assocRole, 'associate');
+            $isAssocSz = ($isExplicitAssoc || $isAssocRole || (!$isPrimaryOwner && !empty($assocPerson))) && !$isPrimaryOwner;
 
             if (!$isAssocSz) {
-                if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
-                    foreach ($szItem['photos'] as $p) {
+                $pPhotos = $szItem['evidence_photos'] ?? ($szItem['photos'] ?? []);
+                if (is_array($pPhotos)) {
+                    foreach ($pPhotos as $p) {
                         if ($p && !in_array($p, $primaryPhotos) && !in_array($p, $allAssocPhotos)) {
                             $primaryPhotos[] = $p;
                         }
@@ -210,31 +246,86 @@
             }
         }
     }
-    $isDrugCase = $isPrimaryDrugCase || $isAnyDrugCase;
+    $isDrugCase = $case->isDrugCase();
 
-    $unitsList = [
-        'Crime Scene Support',
-        'Evidence Management',
-    ];
-    if ($isDrugCase) {
-        $unitsList[] = 'Lab Analysis';
-    }
-    $unitsList[] = 'Digital & Physical Forensics';
-
+    // $unitsList is built exclusively from exhibit categories — no unit_name heuristics.
+    $unitsList = $case->getWorkflowUnits();
     $totalUnitsCount = count($unitsList);
 
-    $unitProgress = $docketData['unit_progress'] ?? [
-        'Crime Scene Support' => ['status' => 'COMPLETED', 'officer' => $case->commanding_officer ?? 'Crime Scene Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
-        'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-        'Lab Analysis' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-        'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-    ];
+    // Determine whether a saved lab result already exists for this case
+    $hasSavedLabResult = !empty($docketData['lab_examination']['has_saved'])
+        || count(array_filter($docketData['lab_examinations_list'] ?? [], fn($l) => !empty($l['has_saved']))) > 0
+        || count(array_filter($docketData['associate_lab_examinations'] ?? [], fn($l) => !empty($l['has_saved']))) > 0;
+
+    // Build default progress per unit:
+    //   Crime Scene Support  → COMPLETED  (if it's in the pipeline, an exhibit mandated it
+    //                          and the case has already been physically submitted)
+    //   Lab Analysis         → COMPLETED  only when a saved lab result exists
+    //   All others           → PENDING
+    $defaultProgress = [];
+    foreach ($unitsList as $uKey) {
+        if ($uKey === 'Crime Scene Support') {
+            $defaultProgress[$uKey] = [
+                'status'     => 'COMPLETED',
+                'officer'    => $case->commanding_officer ?? ($case->submitting_officer ?? null),
+                'updated_at' => optional($case->created_at)->toDateTimeString(),
+            ];
+        } elseif ($uKey === 'Lab Analysis') {
+            $defaultProgress[$uKey] = [
+                'status'     => $hasSavedLabResult ? 'COMPLETED' : 'PENDING',
+                'officer'    => $hasSavedLabResult ? ($docketData['lab_examination']['analyst'] ?? null) : null,
+                'updated_at' => $hasSavedLabResult ? (optional($case->updated_at)->toDateTimeString()) : null,
+            ];
+        } else {
+            $defaultProgress[$uKey] = [
+                'status'     => 'PENDING',
+                'officer'    => null,
+                'updated_at' => null,
+            ];
+        }
+    }
+
+
+
+    $rawProgress = $docketData['unit_progress'] ?? $defaultProgress;
+    $unitProgress = [];
+    foreach ($unitsList as $uKey) {
+        if (isset($rawProgress[$uKey])) {
+            $unitProgress[$uKey] = $rawProgress[$uKey];
+        } else {
+            $unitProgress[$uKey] = $defaultProgress[$uKey] ?? ['status' => 'PENDING', 'officer' => null, 'updated_at' => null];
+        }
+    }
+
     $completedUnitsCount = 0;
     foreach ($unitsList as $uKey) {
         if (isset($unitProgress[$uKey]['status']) && strtoupper($unitProgress[$uKey]['status']) === 'COMPLETED') {
             $completedUnitsCount++;
         }
     }
+
+    $primarySuspectNamesList = [];
+    $coSuspectNamesList = [];
+    $associateSuspectNamesList = [];
+    if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
+        foreach ($docketData['suspects'] as $sp) {
+            $role = strtolower($sp['association_role'] ?? ($sp['role'] ?? ''));
+            $spIsAssoc = !empty($sp['is_associate']) || (!empty($role) && $role !== 'primary suspect');
+            $spIsCo = $spIsAssoc && (
+                (!empty($sp['association_role']) && (str_contains(strtolower($sp['association_role']), 'co-suspect') || str_contains(strtolower($sp['association_role']), 'co suspect')))
+                || (!empty($sp['role']) && (str_contains(strtolower($sp['role']), 'co-suspect') || str_contains(strtolower($sp['role']), 'co suspect')))
+                || (!empty($sp['suspect_role']) && (str_contains(strtolower($sp['suspect_role']), 'co-suspect') || str_contains(strtolower($sp['suspect_role']), 'co suspect')))
+            );
+            if (!$spIsAssoc && !empty($sp['suspect_name'])) {
+                $primarySuspectNamesList[] = $sp['suspect_name'];
+            } elseif ($spIsCo && !empty($sp['suspect_name'])) {
+                $coSuspectNamesList[] = $sp['suspect_name'];
+            } elseif ($spIsAssoc && !empty($sp['suspect_name'])) {
+                $associateSuspectNamesList[] = $sp['suspect_name'];
+            }
+        }
+    }
+    $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
 
     $labExam = $docketData['lab_examination'] ?? [];
     if (empty($labExam['has_saved']) && empty($labExam['presumptive_result'])) {
@@ -281,35 +372,58 @@
             }
         }
     }
-    if (empty($labExam['has_saved']) && empty($labExam['presumptive_result'])) {
-        $dbSavedExam = \App\Models\AssociateLabExamination::where('case_id', $case->id)->where('has_saved', true)->first();
-        if ($dbSavedExam) {
-            $labExam = array_merge($labExam, [
-                'exhibit_owner_name'  => $dbSavedExam->suspect_name,
-                'laboratory_number'   => $dbSavedExam->laboratory_number,
-                'exam_reference'      => $dbSavedExam->exam_reference,
-                'exhibit_number'      => $dbSavedExam->exhibit_number,
-                'analyst'             => $dbSavedExam->analyst,
-                'date_received'       => is_object($dbSavedExam->date_received) ? $dbSavedExam->date_received->format('Y-m-d') : substr($dbSavedExam->date_received, 0, 10),
-                'date_started'        => is_object($dbSavedExam->date_started) ? $dbSavedExam->date_started->format('Y-m-d') : substr($dbSavedExam->date_started, 0, 10),
-                'date_completed'      => is_object($dbSavedExam->date_completed) ? $dbSavedExam->date_completed->format('Y-m-d') : substr($dbSavedExam->date_completed, 0, 10),
-                'presumptive_result'  => $dbSavedExam->presumptive_result,
-                'confirmatory_result' => $dbSavedExam->confirmatory_result,
-                'sample_weight'       => [
-                    'description'      => $dbSavedExam->sample_weight_description,
-                    'units_packaging'  => $dbSavedExam->sample_weight_units,
-                    'gross_weight'     => $dbSavedExam->sample_weight_gross,
-                    'sample_taken'     => $dbSavedExam->sample_weight_taken,
-                    'reserved_samples' => $dbSavedExam->sample_weight_reserved,
-                ],
-                'substance_identification' => $dbSavedExam->substance_identification,
-                'detected_substances'      => $dbSavedExam->detected_substances,
-                'test_methods'             => $dbSavedExam->test_methods,
-                'specifications'           => $dbSavedExam->specifications,
-                'findings'                 => $dbSavedExam->findings,
-                'has_saved'                => true,
-            ]);
-        }
+    $dbPrimaryLabExam = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
+            $q->where('single_suspect_case_id', $case->id)
+              ->orWhere('multiple_suspect_case_id', $case->id);
+        })->where('has_saved', true)->latest('id')->first();
+
+    if (!$dbPrimaryLabExam) {
+        $dbPrimaryLabExam = \App\Models\AssociateLabExamination::where('case_id', $case->id)
+            ->where('has_saved', true)
+            ->get()
+            ->first(function($aRec) use ($primaryAndCoNamesList) {
+                $aName = strtolower(trim($aRec->suspect_name ?? ''));
+                if (empty($aName) || $aName === 'primary suspect' || str_contains($aName, 'primary')) {
+                    return true;
+                }
+                if (!empty($primaryAndCoNamesList)) {
+                    foreach ($primaryAndCoNamesList as $pn) {
+                        $pnLow = strtolower(trim($pn));
+                        if ($aName === $pnLow || str_contains($aName, $pnLow) || str_contains($pnLow, $aName)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+    }
+
+    if ($dbPrimaryLabExam) {
+        $labExam = array_merge($labExam, [
+            'exhibit_owner_name'  => $dbPrimaryLabExam->suspect_name,
+            'laboratory_number'   => $dbPrimaryLabExam->laboratory_number,
+            'exam_reference'      => $dbPrimaryLabExam->exam_reference,
+            'exhibit_number'      => $dbPrimaryLabExam->exhibit_number,
+            'analyst'             => $dbPrimaryLabExam->analyst,
+            'date_received'       => is_object($dbPrimaryLabExam->date_received) ? $dbPrimaryLabExam->date_received->format('Y-m-d') : substr($dbPrimaryLabExam->date_received, 0, 10),
+            'date_started'        => is_object($dbPrimaryLabExam->date_started) ? $dbPrimaryLabExam->date_started->format('Y-m-d') : substr($dbPrimaryLabExam->date_started, 0, 10),
+            'date_completed'      => is_object($dbPrimaryLabExam->date_completed) ? $dbPrimaryLabExam->date_completed->format('Y-m-d') : substr($dbPrimaryLabExam->date_completed, 0, 10),
+            'presumptive_result'  => $dbPrimaryLabExam->presumptive_result,
+            'confirmatory_result' => $dbPrimaryLabExam->confirmatory_result,
+            'sample_weight'       => [
+                'description'      => $dbPrimaryLabExam->sample_weight_description,
+                'units_packaging'  => $dbPrimaryLabExam->sample_weight_units,
+                'gross_weight'     => $dbPrimaryLabExam->sample_weight_gross,
+                'sample_taken'     => $dbPrimaryLabExam->sample_weight_taken,
+                'reserved_samples' => $dbPrimaryLabExam->sample_weight_reserved,
+            ],
+            'substance_identification' => $dbPrimaryLabExam->substance_identification,
+            'detected_substances'      => $dbPrimaryLabExam->detected_substances,
+            'test_methods'             => $dbPrimaryLabExam->test_methods,
+            'specifications'           => $dbPrimaryLabExam->specifications,
+            'findings'                 => $dbPrimaryLabExam->findings,
+            'has_saved'                => true,
+        ]);
     }
 
     $rawLabExamRef = $labExam['exam_reference'] ?? ($labExam['lab_exam_reference'] ?? ($case->lab_exam_reference ?? ($case->exam_reference ?? null)));
@@ -348,11 +462,12 @@
     $labUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : (!empty($unitProgress['Lab Analysis']['unit']) ? $unitProgress['Lab Analysis']['unit'] : 'Chemistry & Narcotics Unit');
     $currentLoggedInName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? '');
     $labAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : (!empty($unitProgress['Lab Analysis']['officer']) ? $unitProgress['Lab Analysis']['officer'] : (!empty($currentLoggedInName) ? $currentLoggedInName : $defaultLabHeadName));
-    $labDateReceived = !empty($labExam['date_received']) ? $labExam['date_received'] : 'N/A';
-    $labDateStarted = !empty($labExam['date_started']) ? $labExam['date_started'] : 'N/A';
-    $labDateCompleted = !empty($labExam['date_completed']) ? $labExam['date_completed'] : 'N/A';
+    $labDateReceived = (!empty($labExam['date_received']) && $labExam['date_received'] !== 'N/A') ? $labExam['date_received'] : (!empty($docketData['lab_examination']['date_received']) && $docketData['lab_examination']['date_received'] !== 'N/A' ? $docketData['lab_examination']['date_received'] : (!empty($docketData['seizures'][0]['date_received']) && $docketData['seizures'][0]['date_received'] !== 'N/A' ? $docketData['seizures'][0]['date_received'] : (!empty($docketData['seizures'][0]['seizure_date']) && $docketData['seizures'][0]['seizure_date'] !== 'N/A' ? $docketData['seizures'][0]['seizure_date'] : (!empty($case->incident_date) ? substr((string)$case->incident_date, 0, 10) : (is_object($case->created_at) ? $case->created_at->format('Y-m-d') : substr((string)$case->created_at, 0, 10))))));
+    $labDateStarted = (!empty($labExam['date_started']) && $labExam['date_started'] !== 'N/A') ? $labExam['date_started'] : (!empty($docketData['lab_examination']['date_started']) && $docketData['lab_examination']['date_started'] !== 'N/A' ? $docketData['lab_examination']['date_started'] : (!empty($docketData['seizures'][0]['date_started']) && $docketData['seizures'][0]['date_started'] !== 'N/A' ? $docketData['seizures'][0]['date_started'] : $labDateReceived));
+    $labDateCompleted = (!empty($labExam['date_completed']) && $labExam['date_completed'] !== 'N/A') ? $labExam['date_completed'] : (!empty($docketData['lab_examination']['date_completed']) && $docketData['lab_examination']['date_completed'] !== 'N/A' ? $docketData['lab_examination']['date_completed'] : (!empty($docketData['seizures'][0]['date_completed']) && $docketData['seizures'][0]['date_completed'] !== 'N/A' ? $docketData['seizures'][0]['date_completed'] : $labDateStarted));
     $labPresumptive = !empty($labExam['presumptive_result']) ? $labExam['presumptive_result'] : (!empty($case->presumptive_test_result) ? $case->presumptive_test_result : 'N/A');
-    $labConfirmatory = !empty($labExam['confirmatory_result']) ? $labExam['confirmatory_result'] : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'N/A');
+    $rawConfVal = !empty($labExam['confirmatory_result']) ? $labExam['confirmatory_result'] : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'YES');
+    $labConfirmatory = (strtoupper(trim((string)$rawConfVal)) === 'NO') ? 'NO' : 'YES';
     $labSampleWeight = $labExam['sample_weight'] ?? [];
     
     // Extract top drug exhibits first
@@ -466,7 +581,8 @@
         || \App\Models\AssociateLabExamination::where('case_id', $case->id)->where('has_saved', true)->exists()
         || (!empty($docketData['associate_lab_examinations']) && count(array_filter($docketData['associate_lab_examinations'], fn($v) => !empty($v['has_saved']))) > 0)
         || (!empty($docketData['lab_examinations_list']) && count(array_filter($docketData['lab_examinations_list'], fn($v) => !empty($v['has_saved']))) > 0)
-        || (!empty($docketData['seizures']) && count(array_filter($docketData['seizures'], fn($s) => !empty($s['has_saved_lab']))) > 0);
+        || (!empty($docketData['seizures']) && count(array_filter($docketData['seizures'], fn($s) => !empty($s['has_saved_lab']))) > 0)
+        || (!empty($case->presumptive_test_result) || !empty($case->confirmatory_test_result) || !empty($case->confirmatory_substance_identification));
 
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $idxCheck => $szItemCheck) {
@@ -528,8 +644,13 @@
         }
     }
 
-    if ($hasUnexaminedDrugExhibit) {
-        $labStatus = 'PENDING';
+    $savedLabStatus = strtoupper($unitProgress['Lab Analysis']['status'] ?? ($case->lab_status ?? ($docketData['lab_examination']['status'] ?? 'PENDING')));
+
+    if ($savedLabStatus === 'COMPLETED') {
+        $labStatus = 'COMPLETED';
+        $hasSavedLabData = true;
+    } elseif ($hasUnexaminedDrugExhibit) {
+        $labStatus = $hasAnySavedLabExam ? 'IN_PROGRESS' : ($savedLabStatus !== 'PENDING' ? $savedLabStatus : 'PENDING');
         $hasSavedLabData = $hasAnySavedLabExam;
 
         $pendName = !empty($firstPendingSeizure) ? $firstPendingSeizure['name'] : $defaultDrugName;
@@ -543,27 +664,27 @@
 
         if (!$hasAnySavedLabExam) {
             $labSampleDesc = $pendName;
-            $labSubstanceId = $pendName;
+            $labSubstanceId = !empty($savedLabSubstanceId) ? $savedLabSubstanceId : (!empty($case->confirmatory_substance_identification) ? $case->confirmatory_substance_identification : $pendName);
             $labSampleUnits = !empty($pendQty) ? trim($pendQty . ' ' . ($pendPkg ?? '')) : '';
             $labSampleGross = !empty($pendWeight) ? trim($pendWeight . ' ' . ($pendUnit ?? '')) : ($labSampleUnits ?: '');
             if (!empty($pendUnit)) {
                 $labSampleUnit = $pendUnit;
             }
 
-            $labPresumptive = 'N/A';
-            $labConfirmatory = 'NO';
-            $labSampleTaken = '';
-            $labSampleReserved = '';
-            $labFindings = '';
-            $labTestMethods = '';
-            $labSpecifications = '';
-            $labDetectedSubstances = [];
+            $labPresumptive = !empty($savedLabPresumptive) ? $savedLabPresumptive : (!empty($case->presumptive_test_result) ? $case->presumptive_test_result : 'N/A');
+            $labConfirmatory = !empty($savedLabConfirmatory) ? $savedLabConfirmatory : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'YES');
+            $labSampleTaken = !empty($savedLabSampleTaken) ? $savedLabSampleTaken : '';
+            $labSampleReserved = !empty($savedLabSampleReserved) ? $savedLabSampleReserved : '';
+            $labFindings = !empty($savedLabFindings) ? $savedLabFindings : '';
+            $labTestMethods = !empty($savedLabTestMethods) ? $savedLabTestMethods : (!empty($case->confirmatory_test_methods) ? $case->confirmatory_test_methods : '');
+            $labSpecifications = !empty($savedLabSpecifications) ? $savedLabSpecifications : (!empty($case->confirmatory_specifications) ? $case->confirmatory_specifications : '');
+            $labDetectedSubstances = !empty($savedLabDetectedSubstances) ? $savedLabDetectedSubstances : [];
             $labDateReceived = date('Y-m-d');
             $labDateStarted = date('Y-m-d');
             $labDateCompleted = date('Y-m-d');
         }
     } else {
-        $labStatus = strtoupper($unitProgress['Lab Analysis']['status'] ?? ($case->lab_status ?? ($docketData['lab_examination']['status'] ?? 'PENDING')));
+        $labStatus = $hasAnySavedLabExam ? 'COMPLETED' : $savedLabStatus;
         $hasSavedLabData = $isDrugCase && (
             $hasAnySavedLabExam
             || $labStatus === 'COMPLETED' 
@@ -571,31 +692,25 @@
         );
     }
 
-    if (empty($primaryPhotos) && ($case->has_seizures || !empty($case->seizure_name) || !empty($case->exhibits_summary) || !empty($case->exhibit_category) || !empty($case->seizure_name_drug))) {
-        $cat = strtolower($case->exhibit_category ?? '');
-        $sName = strtolower(($case->seizure_name ?: ($case->seizure_name_drug ?: $case->exhibits_summary)) ?? '');
-        
-        if (str_contains($cat, 'money') || str_contains($sName, 'cedi') || str_contains($sName, 'dollar') || str_contains($sName, 'cash') || str_contains($sName, 'naira')) {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1561414927-6d86591d0c4f?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=800&auto=format&fit=crop'
-            ];
-        } elseif (str_contains($cat, 'gold') || str_contains($sName, 'gold') || str_contains($sName, 'bullion')) {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1610375461246-83df859d849d?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1605792657660-596af9009e82?q=80&w=800&auto=format&fit=crop'
-            ];
-        } elseif (str_contains($cat, 'vehicle') || str_contains($sName, 'car') || str_contains($sName, 'truck') || !empty($case->veh_make)) {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=800&auto=format&fit=crop'
-            ];
-        } else {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1584467735871-8e85353a8413?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop'
-            ];
+    if (isset($unitProgress['Lab Analysis'])) {
+        $unitProgress['Lab Analysis']['status'] = $labStatus;
+        if (empty($unitProgress['Lab Analysis']['officer']) && !empty($labAnalyst)) {
+            $unitProgress['Lab Analysis']['officer'] = $labAnalyst;
         }
+        if (empty($unitProgress['Lab Analysis']['notes']) && !empty($labFindings)) {
+            $unitProgress['Lab Analysis']['notes'] = $labFindings;
+        }
+    }
+
+    $completedUnitsCount = 0;
+    foreach ($unitsList as $uKey) {
+        if (isset($unitProgress[$uKey]['status']) && strtoupper($unitProgress[$uKey]['status']) === 'COMPLETED') {
+            $completedUnitsCount++;
+        }
+    }
+
+    if (empty($primaryPhotos)) {
+        $primaryPhotos = [];
     }
 
     $evidenceGalleryItems = [];
@@ -761,14 +876,14 @@
                         Back to Case Register
                     </a>
                 @elseif($isLabContext)
-                    <a href="/cases?unit=Lab+Analysis" class="btn-back">
+                    <a href="/cases?from=Lab+Analysis" class="btn-back">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                         </svg>
                         Back to Case Directory
                     </a>
                 @else
-                    <a href="/cases" class="btn-back">
+                    <a href="/cases?from={{ urlencode($activeUnitContext) }}" class="btn-back">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                         </svg>
@@ -980,6 +1095,10 @@
 
                     <!-- QUICK ACTIONS IN HERO -->
                     <div class="flex items-center gap-3 shrink-0">
+                        <a href="/cases/{{ $case->case_number }}/edit" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
+                            <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            <span>Edit Case &amp; Correct Mistakes</span>
+                        </a>
                         <a href="/cases/{{ $case->case_number }}/pdf" target="_blank" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline">
                             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                             <span>Print Case PDF</span>
@@ -989,89 +1108,255 @@
             </div>
 
             <!-- INTER-UNIT WORKFLOW & PROGRESS TRACKER -->
-            <div class="dossier-card p-6 border border-slate-300 bg-white rounded-2xl shadow-xs space-y-6">
-                <div class="flex flex-col lg:flex-row lg:items-center justify-between pb-5 border-b border-slate-200 gap-4">
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+            <div class="dossier-card border border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden" style="box-shadow: 0 1px 8px 0 rgba(0,0,0,0.06);">
+
+                {{-- ── HEADER ── --}}
+                <div class="px-6 pt-5 pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                     style="background: linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);">
+                    <div class="space-y-0.5">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-widest font-mono-code bg-indigo-900 text-indigo-100 border border-indigo-800 shadow-sm">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-6m0 6H5m4 0h4m4-6v6m0 0h-4m4 0h2M9 11V7m6 4V7"/></svg>
                                 MULTI-UNIT CASE TRACKER
                             </span>
-                            <span id="unitCompletedCountBadge" class="text-xs font-extrabold text-emerald-800 font-mono-code bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-300">
-                                {{ $completedUnitsCount }}/4 Units Completed
+                            <span id="unitCompletedCountBadge"
+                                  class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-extrabold font-mono-code border
+                                  {{ $completedUnitsCount >= $totalUnitsCount ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-amber-50 text-amber-800 border-amber-300' }}">
+                                {{ $completedUnitsCount }}/{{ $totalUnitsCount }} Units Completed
                             </span>
                         </div>
-                        <h2 class="text-lg font-black text-slate-900 tracking-tight">{{ $totalUnitsCount }}-Unit Directorate Progress &amp; Inter-Unit Workflow</h2>
-                        <p class="text-xs text-slate-600 font-medium">All {{ $totalUnitsCount }} units build on this case. HOF approval triggers once all {{ $totalUnitsCount }} units complete their analysis.</p>
+                        <h2 class="text-base font-black text-slate-900 tracking-tight mt-1">
+                            {{ $totalUnitsCount }}-Unit Directorate Progress &amp; Inter-Unit Workflow
+                        </h2>
+                        <p class="text-[11px] text-slate-500 font-medium leading-snug">
+                            All {{ $totalUnitsCount }} units build on this case. HOF approval triggers once all units complete their analysis.
+                        </p>
                     </div>
 
-                    <!-- PROGRESS BAR -->
-                    <div class="w-48 sm:w-64 bg-slate-200/90 rounded-xl h-8 p-1 border border-slate-300 shadow-inner relative overflow-hidden flex items-center shrink-0">
-                        <div id="unitProgressBar" class="bg-emerald-600 h-full rounded-lg transition-all duration-500 flex items-center justify-center text-xs font-mono-code font-extrabold text-white shadow-xs" style="width: {{ max(18, ($completedUnitsCount / $totalUnitsCount) * 100) }}%;">
-                            {{ round(($completedUnitsCount / $totalUnitsCount) * 100) }}%
+                    {{-- Progress pill --}}
+                    <div class="flex flex-col items-end gap-1.5 shrink-0">
+                        <div class="text-right text-[10px] font-mono-code font-bold text-slate-400 uppercase tracking-wider">Overall Progress</div>
+                        <div class="w-52 bg-slate-200 rounded-full h-5 border border-slate-300 overflow-hidden relative" style="box-shadow:inset 0 1px 3px rgba(0,0,0,0.1);">
+                            <div id="unitProgressBar"
+                                 class="h-full rounded-full flex items-center justify-end pr-2 text-[10px] font-mono-code font-extrabold text-white transition-all duration-700"
+                                 style="width:{{ max(12, ($completedUnitsCount / max($totalUnitsCount,1)) * 100) }}%;
+                                        background: linear-gradient(90deg, #059669, #10b981);">
+                                {{ round(($completedUnitsCount / max($totalUnitsCount,1)) * 100) }}%
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- UNITS CARDS GRID -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{{ $totalUnitsCount }} gap-4" id="unitsGridContainer">
-                    @foreach($unitsList as $unitNameKey)
-                        @php
-                            $uData = $unitProgress[$unitNameKey] ?? ['status' => 'PENDING'];
-                            $uStatus = strtoupper($uData['status'] ?? 'PENDING');
-                            $uSlug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $unitNameKey));
-                        @endphp
-                        <div id="unitCard-{{ $uSlug }}" class="p-4 rounded-xl border transition-all flex flex-col justify-between {{ $uStatus === 'COMPLETED' ? 'bg-slate-50 border-slate-200 shadow-xs' : ($uStatus === 'IN_PROGRESS' ? 'bg-slate-50 border-slate-200 shadow-xs' : 'bg-slate-50 border-slate-200') }}">
-                            <div>
-                                <div class="flex items-center justify-between mb-2">
-                                    <span id="unitBadge-{{ $uSlug }}" class="text-[9px] font-extrabold font-mono-code uppercase px-2 py-0.5 rounded-md border {{ $uStatus === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800 border-slate-200' : ($uStatus === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 border-slate-200' : 'bg-slate-200 text-slate-700 border-slate-200') }}">
-                                        {{ $uStatus === 'COMPLETED' ? '✓ COMPLETED' : ($uStatus === 'IN_PROGRESS' ? '⏳ IN PROGRESS' : '⭕ PENDING') }}
-                                    </span>
-                                    <span class="text-[9px] font-mono-code font-bold text-slate-400">UNIT {{ $loop->iteration }}</span>
-                                </div>
-                                <div class="font-extrabold text-slate-900 text-xs leading-snug">{{ $unitNameKey }}</div>
-                                
-                                <div id="unitOfficerBox-{{ $uSlug }}">
-                                    @if(!empty($uData['officer']))
-                                        <div class="text-[11px] font-medium text-slate-600 mt-2">Officer: <span class="font-bold text-slate-900">{{ $uData['officer'] }}</span></div>
-                                    @endif
-                                </div>
+                {{-- ── PIPELINE FLOW ── --}}
+                <div class="px-6 py-5">
+                    {{-- Horizontal scrollable pipeline --}}
+                    <div class="overflow-x-auto pb-1">
+                        <div class="flex items-stretch gap-0 min-w-max" id="unitsGridContainer">
 
-                                <div id="unitNotesBox-{{ $uSlug }}">
-                                    @if(!empty($uData['notes']))
-                                        <div class="text-[11px] text-slate-700 mt-2 p-2.5 bg-white/90 rounded-lg border border-slate-200/80 leading-relaxed">
-                                            <span class="font-bold text-[10px] text-slate-400 block font-mono-code uppercase mb-0.5">Unit Findings:</span>
-                                            "{{ $uData['notes'] }}"
+                            @foreach($unitsList as $unitNameKey)
+                                @php
+                                    $uData   = $unitProgress[$unitNameKey] ?? ['status' => 'PENDING'];
+                                    $uStatus = strtoupper($uData['status'] ?? 'PENDING');
+                                    $uSlug   = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $unitNameKey));
+                                    $isCompleted  = $uStatus === 'COMPLETED';
+                                    $isInProgress = $uStatus === 'IN_PROGRESS';
+                                    $isPending    = !$isCompleted && !$isInProgress;
+
+                                    // Card style variants
+                                    if ($isCompleted) {
+                                        $cardBg      = 'background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#bbf7d0;';
+                                        $iconBg      = '#059669'; $iconText = '#fff';
+                                        $icon        = '✓';
+                                        $badgeCls    = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                                        $badgeLabel  = '✓ COMPLETED';
+                                        $numRing     = '#059669';
+                                        $titleColor  = 'text-slate-900';
+                                    } elseif ($isInProgress) {
+                                        $cardBg      = 'background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fcd34d;';
+                                        $iconBg      = '#d97706'; $iconText = '#fff';
+                                        $icon        = '⏳';
+                                        $badgeCls    = 'bg-amber-100 text-amber-800 border-amber-300';
+                                        $badgeLabel  = '⏳ IN PROGRESS';
+                                        $numRing     = '#d97706';
+                                        $titleColor  = 'text-slate-900';
+                                    } else {
+                                        $cardBg      = 'background:#f8fafc;border-color:#e2e8f0;';
+                                        $iconBg      = '#cbd5e1'; $iconText = '#64748b';
+                                        $icon        = '⭕';
+                                        $badgeCls    = 'bg-slate-100 text-slate-500 border-slate-300';
+                                        $badgeLabel  = '⭕ PENDING';
+                                        $numRing     = '#94a3b8';
+                                        $titleColor  = 'text-slate-500';
+                                    }
+                                @endphp
+
+                                {{-- Unit card --}}
+                                <div class="flex items-stretch gap-0">
+                                    <div id="unitCard-{{ $uSlug }}"
+                                         class="w-52 flex flex-col rounded-2xl border-2 transition-all duration-300 overflow-hidden"
+                                         style="{{ $cardBg }}">
+
+                                        {{-- Card header stripe --}}
+                                        <div class="px-3.5 pt-3.5 pb-2.5 border-b border-white/60 flex items-center justify-between gap-2"
+                                             style="background:rgba(255,255,255,0.55);">
+                                            <span class="text-[9px] font-mono-code font-extrabold uppercase tracking-widest text-slate-400">
+                                                UNIT {{ $loop->iteration }}
+                                            </span>
+                                            <span id="unitBadge-{{ $uSlug }}"
+                                                  class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold font-mono-code uppercase border {{ $badgeCls }}">
+                                                {{ $badgeLabel }}
+                                            </span>
+                                        </div>
+
+                                        {{-- Card body --}}
+                                        <div class="flex-1 px-3.5 py-3 space-y-2">
+                                            {{-- Unit name --}}
+                                            <div class="{{ $titleColor }} font-extrabold text-[12px] leading-snug">{{ $unitNameKey }}</div>
+
+                                            {{-- Officer --}}
+                                            <div id="unitOfficerBox-{{ $uSlug }}">
+                                                @if(!empty($uData['officer']))
+                                                    <div class="flex items-center gap-1.5 mt-1">
+                                                        <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A8 8 0 1118.88 6.196M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                        <span class="text-[11px] text-slate-600">Officer: <span class="font-bold text-slate-800">{{ $uData['officer'] }}</span></span>
+                                                    </div>
+                                                @else
+                                                    <div class="flex items-center gap-1.5 mt-1">
+                                                        <svg class="w-3 h-3 text-slate-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A8 8 0 1118.88 6.196M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                        <span class="text-[11px] text-slate-400 italic">No officer assigned</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+
+                                            {{-- Notes snippet --}}
+                                            <div id="unitNotesBox-{{ $uSlug }}">
+                                                @if(!empty($uData['notes']))
+                                                    <div class="text-[10px] text-slate-600 mt-1.5 p-2 rounded-lg border border-white/80 leading-relaxed italic line-clamp-2"
+                                                         style="background:rgba(255,255,255,0.7);">
+                                                        "{{ Str::limit($uData['notes'], 90) }}"
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        {{-- Card footer: timestamp --}}
+                                        <div id="unitUpdatedBox-{{ $uSlug }}" class="px-3.5 py-2 border-t border-white/60" style="background:rgba(255,255,255,0.4);">
+                                            @if(!empty($uData['updated_at']))
+                                                <div class="text-[9.5px] font-mono-code text-slate-400">
+                                                    Updated: {{ \Carbon\Carbon::parse($uData['updated_at'])->format('M d, Y @ H:i') }}
+                                                </div>
+                                            @else
+                                                <div class="text-[9.5px] font-mono-code text-slate-300 italic">Awaiting submission</div>
+                                            @endif
+                                        </div>
+                                    </div>
+
+                                    {{-- Arrow connector (not after last unit) --}}
+                                    @if(!$loop->last)
+                                        <div class="flex items-center justify-center w-8 shrink-0 select-none">
+                                            <div class="flex flex-col items-center">
+                                                <div class="w-6 border-t-2 border-dashed {{ $isCompleted ? 'border-emerald-400' : 'border-slate-300' }}"></div>
+                                                <svg class="w-3.5 h-3.5 -ml-1 {{ $isCompleted ? 'text-emerald-500' : 'text-slate-300' }}" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                                </svg>
+                                            </div>
                                         </div>
                                     @endif
                                 </div>
-                            </div>
-                            <div id="unitUpdatedBox-{{ $uSlug }}">
-                                @if(!empty($uData['updated_at']))
-                                    <div class="text-[10px] font-mono-code text-slate-400 mt-3 pt-2 border-t border-slate-200/60">
-                                        Updated: {{ \Carbon\Carbon::parse($uData['updated_at'])->format('M d, Y @ H:i') }}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
+                            @endforeach
 
-                <!-- UNITS COMPLETED NOTICE BANNER -->
-                <div id="completedUnitsBanner" class="p-5 bg-slate-900 text-white rounded-2xl border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg {{ $completedUnitsCount < $totalUnitsCount ? 'hidden' : '' }}">
+                            {{-- ── HOF Final Approval node ── --}}
+                            @php
+                                $hofDone = $completedUnitsCount >= $totalUnitsCount;
+                            @endphp
+                            <div class="flex items-stretch gap-0">
+                                {{-- Arrow into HOF --}}
+                                <div class="flex items-center justify-center w-8 shrink-0 select-none">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-6 border-t-2 border-dashed {{ $hofDone ? 'border-emerald-400' : 'border-slate-300' }}"></div>
+                                        <svg class="w-3.5 h-3.5 -ml-1 {{ $hofDone ? 'text-emerald-500' : 'text-slate-300' }}" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                {{-- HOF card --}}
+                                <div class="w-52 flex flex-col rounded-2xl border-2 overflow-hidden transition-all duration-300"
+                                     style="{{ $hofDone
+                                         ? 'background:linear-gradient(135deg,#0f172a,#1e293b);border-color:#334155;'
+                                         : 'background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-color:#e2e8f0;' }}">
+
+                                    <div class="px-3.5 pt-3.5 pb-2.5 border-b flex items-center justify-between gap-2"
+                                         style="{{ $hofDone ? 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);' : 'border-color:rgba(0,0,0,0.06);background:rgba(255,255,255,0.6);' }}">
+                                        <span class="text-[9px] font-mono-code font-extrabold uppercase tracking-widest {{ $hofDone ? 'text-slate-400' : 'text-slate-400' }}">
+                                            FINAL STEP
+                                        </span>
+                                        @if($hofDone)
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold font-mono-code uppercase border bg-emerald-900/60 text-emerald-300 border-emerald-700">
+                                                🔓 UNLOCKED
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold font-mono-code uppercase border bg-slate-100 text-slate-400 border-slate-300">
+                                                🔒 LOCKED
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <div class="flex-1 px-3.5 py-3 space-y-1.5">
+                                        <div class="font-extrabold text-[12px] leading-snug {{ $hofDone ? 'text-white' : 'text-slate-400' }}">
+                                            Head of Forensic Directorate
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <svg class="w-3 h-3 {{ $hofDone ? 'text-emerald-400' : 'text-slate-300' }} shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                            <span class="text-[11px] {{ $hofDone ? 'text-emerald-300' : 'text-slate-400' }}">Executive Sign-off &amp; Approval</span>
+                                        </div>
+                                        @if(!$hofDone)
+                                            <div class="text-[10px] text-slate-400 italic mt-1">Awaiting all units to complete</div>
+                                        @else
+                                            <div class="text-[10px] text-emerald-400 font-bold mt-1">✓ All units submitted — ready for sign-off</div>
+                                        @endif
+                                    </div>
+
+                                    <div class="px-3.5 py-2 border-t"
+                                         style="{{ $hofDone ? 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);' : 'border-color:rgba(0,0,0,0.06);background:rgba(255,255,255,0.4);' }}">
+                                        <div class="text-[9.5px] font-mono-code {{ $hofDone ? 'text-emerald-400' : 'text-slate-300 italic' }}">
+                                            {{ $hofDone ? 'Docket ready for HOF review' : 'Pending unit completions' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>{{-- end flex pipeline --}}
+                    </div>{{-- end overflow wrapper --}}
+                </div>{{-- end px-6 py-5 --}}
+
+                {{-- ── ALL COMPLETE BANNER ── --}}
+                <div id="completedUnitsBanner"
+                     class="mx-6 mb-6 p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-500
+                            {{ $completedUnitsCount < $totalUnitsCount ? 'hidden' : '' }}"
+                     style="background:linear-gradient(135deg,#0f172a,#1e293b);border-color:#334155;">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-black text-base shrink-0 shadow-2xs">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shrink-0"
+                             style="background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">
                             ✓
                         </div>
                         <div>
-                            <h4 class="text-xs font-black text-white uppercase tracking-wider font-mono-code">Multi-Unit Directorate Processing Complete ({{ $completedUnitsCount }}/{{ $totalUnitsCount }} Units)</h4>
-                            <p class="text-[11px] text-slate-300">All {{ $totalUnitsCount }} specialized units have completed their findings and saved their case sections. Docket is submitted for HOF executive sign-off.</p>
+                            <h4 class="text-xs font-black text-white uppercase tracking-wider font-mono-code">
+                                Multi-Unit Directorate Processing Complete
+                                <span class="ml-1 text-emerald-400">({{ $completedUnitsCount }}/{{ $totalUnitsCount }} Units)</span>
+                            </h4>
+                            <p class="text-[11px] text-slate-400 mt-0.5">
+                                All {{ $totalUnitsCount }} specialized units have completed and saved their findings. Docket is submitted for HOF executive sign-off.
+                            </p>
                         </div>
                     </div>
-                    <span class="px-3 py-1 rounded-full text-[10px] font-mono-code font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider shrink-0">
+                    <span class="px-3 py-1.5 rounded-full text-[10px] font-mono-code font-extrabold uppercase tracking-wider shrink-0"
+                          style="background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">
                         AWAITING HOF SIGN-OFF
                     </span>
                 </div>
-            </div>
+
+            </div>{{-- end dossier-card --}}
 
             <!-- SECTION 1: MASTER CASE TITLE & CLASSIFICATION -->
             <div class="dossier-card p-6 border border-slate-200">
@@ -1105,7 +1390,102 @@
             </div>
 
             @php
-                $suspectsList = !empty($docketData['suspects']) && is_array($docketData['suspects']) ? array_values(array_filter($docketData['suspects'], fn($s) => !empty($s['suspect_name']))) : [];
+                $rawSuspects = !empty($docketData['suspects']) && is_array($docketData['suspects']) ? array_values(array_filter($docketData['suspects'], fn($s) => !empty($s['suspect_name']) && trim($s['suspect_name']) !== 'Unnamed Suspect' && trim($s['suspect_name']) !== 'Unknown')) : [];
+
+                $primaryAndCoNamesArray = [];
+                if (!empty($rawSuspects)) {
+                    foreach ($rawSuspects as $s) {
+                        $role = strtolower($s['association_role'] ?? ($s['role'] ?? ''));
+                        $isAssoc = !empty($s['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
+                        if (!$isAssoc && !empty($s['suspect_name'])) {
+                            $pParts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', strtolower($s['suspect_name']))));
+                            foreach ($pParts as $pp) {
+                                if (!in_array($pp, $primaryAndCoNamesArray)) {
+                                    $primaryAndCoNamesArray[] = $pp;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (empty($primaryAndCoNamesArray) && !empty($case->suspect_name)) {
+                    $pParts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', strtolower($case->suspect_name))));
+                    if (!empty($pParts)) {
+                        $primaryAndCoNamesArray[] = $pParts[0];
+                    }
+                }
+
+                $namesMatchFuzzy = function($name1, $name2) {
+                    if (empty($name1) || empty($name2)) return false;
+                    $n1 = strtolower(trim($name1));
+                    $n2 = strtolower(trim($name2));
+                    if ($n1 === $n2) return true;
+                    if (str_contains($n1, $n2) || str_contains($n2, $n1)) return true;
+
+                    $w1 = array_values(array_filter(explode(' ', preg_replace('/[^a-z0-9]/', ' ', $n1)), fn($w) => strlen($w) >= 2));
+                    $w2 = array_values(array_filter(explode(' ', preg_replace('/[^a-z0-9]/', ' ', $n2)), fn($w) => strlen($w) >= 2));
+
+                    if (empty($w1) || empty($w2)) return false;
+
+                    if (count($w1) >= 2 && count($w2) >= 2) {
+                        $last1 = end($w1);
+                        $last2 = end($w2);
+                        if ($last1 === $last2) {
+                            $first1 = $w1[0];
+                            $first2 = $w2[0];
+                            if ($first1 === $first2 || str_starts_with($first1, substr($first2, 0, 3)) || str_starts_with($first2, substr($first1, 0, 3))) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                };
+
+                $isDuplicatePrimaryCoEntry = function($nameToCheck) use ($primaryAndCoNamesArray, $namesMatchFuzzy) {
+                    if (empty($nameToCheck) || empty($primaryAndCoNamesArray)) return false;
+                    $clean = strtolower(trim($nameToCheck));
+                    
+                    $parts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', $clean)));
+                    if (empty($parts)) return false;
+
+                    if (count($parts) > 1) {
+                        $allMatch = true;
+                        foreach ($parts as $p) {
+                            $found = false;
+                            foreach ($primaryAndCoNamesArray as $pName) {
+                                if ($namesMatchFuzzy($p, $pName)) {
+                                    $found = true;
+                                    break;
+                                }
+                            }
+                            if (!$found) {
+                                $allMatch = false;
+                                break;
+                            }
+                        }
+                        if ($allMatch) return true;
+                    }
+
+                    foreach ($primaryAndCoNamesArray as $pName) {
+                        if ($namesMatchFuzzy($clean, $pName)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                };
+
+                $suspectsList = [];
+                if (!empty($rawSuspects)) {
+                    foreach ($rawSuspects as $s) {
+                        $role = strtolower($s['association_role'] ?? ($s['role'] ?? ''));
+                        $isAssoc = !empty($s['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
+                        if ($isAssoc && !empty($s['suspect_name']) && $isDuplicatePrimaryCoEntry($s['suspect_name'])) {
+                            continue;
+                        }
+                        $suspectsList[] = $s;
+                    }
+                }
+
                 if (empty($suspectsList)) {
                     $suspectsList = [[
                         'suspect_number'   => 1,
@@ -1143,29 +1523,54 @@
                 $primarySuspectNamesList = [];
                 $coSuspectNamesList = [];
                 $associateSuspectNamesList = [];
-                foreach ($suspectsList as $sp) {
+                foreach ($suspectsList as $spIdx => $sp) {
                     $spIsAssoc = !empty($sp['is_associate']) || (!empty($sp['association_role']) && strtolower($sp['association_role']) !== 'primary suspect') || (!empty($sp['role']) && strtolower($sp['role']) !== 'primary suspect');
                     $spIsCo = $spIsAssoc && (
                         (!empty($sp['association_role']) && (str_contains(strtolower($sp['association_role']), 'co-suspect') || str_contains(strtolower($sp['association_role']), 'co suspect')))
                         || (!empty($sp['role']) && (str_contains(strtolower($sp['role']), 'co-suspect') || str_contains(strtolower($sp['role']), 'co suspect')))
                         || (!empty($sp['suspect_role']) && (str_contains(strtolower($sp['suspect_role']), 'co-suspect') || str_contains(strtolower($sp['suspect_role']), 'co suspect')))
                     );
-                    if (!$spIsAssoc && !empty($sp['suspect_name'])) {
-                        $primarySuspectNamesList[] = $sp['suspect_name'];
-                    } elseif ($spIsCo && !empty($sp['suspect_name'])) {
-                        $coSuspectNamesList[] = $sp['suspect_name'];
-                    } elseif ($spIsAssoc && !empty($sp['suspect_name'])) {
-                        $associateSuspectNamesList[] = $sp['suspect_name'];
+                    $spNameRaw = $sp['suspect_name'] ?? '';
+                    if (str_contains($spNameRaw, ',')) {
+                        $spParts = array_map('trim', explode(',', $spNameRaw));
+                        $spNameClean = $spParts[$spIdx] ?? ($spParts[0] ?? $spNameRaw);
+                    } else {
+                        $spNameClean = $spNameRaw;
                     }
-                }
-                if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
-                    foreach ($docketData['seizures'] as $sz) {
-                        if (!empty($sz['associated_person']) && strtolower($sz['associated_person']) !== 'associate suspect' && !in_array($sz['associated_person'], $associateSuspectNamesList)) {
-                            $associateSuspectNamesList[] = $sz['associated_person'];
-                        }
+                    if (!$spIsAssoc && !empty($spNameClean)) {
+                        $primarySuspectNamesList[] = $spNameClean;
+                    } elseif ($spIsCo && !empty($spNameClean)) {
+                        $coSuspectNamesList[] = $spNameClean;
+                    } elseif ($spIsAssoc && !empty($spNameClean)) {
+                        $associateSuspectNamesList[] = $spNameClean;
                     }
                 }
                 $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
+                if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+                    foreach ($docketData['seizures'] as $sz) {
+                        $assocPerson = $sz['associated_person'] ?? null;
+                        if (!empty($assocPerson) && strtolower(trim($assocPerson)) !== 'associate suspect' && strtolower(trim($assocPerson)) !== 'primary suspect' && strtolower(trim($assocPerson)) !== 'all suspects') {
+                            $parts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', strtolower($assocPerson))));
+                            $isPrimaryOrCo = true;
+                            foreach ($parts as $p) {
+                                $found = false;
+                                foreach ($primaryAndCoNamesList as $pName) {
+                                    if (strtolower(trim($pName)) === $p || str_contains(strtolower(trim($pName)), $p) || str_contains($p, strtolower(trim($pName)))) {
+                                        $found = true;
+                                        break;
+                                    }
+                                }
+                                if (!$found) {
+                                    $isPrimaryOrCo = false;
+                                    break;
+                                }
+                            }
+                            if (!$isPrimaryOrCo && !in_array($assocPerson, $associateSuspectNamesList)) {
+                                $associateSuspectNamesList[] = $assocPerson;
+                            }
+                        }
+                    }
+                }
                 $primarySuspectsCombinedNames = !empty($primaryAndCoNamesList) ? implode(', ', $primaryAndCoNamesList) : (!empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Eric Addo'));
                 $associateSuspectsCombinedNames = !empty($associateSuspectNamesList) ? implode(', ', array_unique($associateSuspectNamesList)) : 'Atta Budo';
                 $renderedPrimaryExhibit = false;
@@ -1174,7 +1579,13 @@
             @foreach($suspectsList as $sIdx => $sItem)
                 @php
                     $sNum   = $sItem['suspect_number'] ?? ($sIdx + 1);
-                    $sName  = $sItem['suspect_name'] ?? ('Suspect #' . $sNum);
+                    $rawSName = $sItem['suspect_name'] ?? ('Suspect #' . $sNum);
+                    if (str_contains($rawSName, ',')) {
+                        $sNameParts = array_map('trim', explode(',', $rawSName));
+                        $sName = $sNameParts[$sIdx] ?? ($sNameParts[0] ?? $rawSName);
+                    } else {
+                        $sName = $rawSName;
+                    }
                     $sAlias = $sItem['suspect_alias'] ?? ($sNum == 1 ? ($case->suspect_alias ?? ($docketData['alias'] ?? 'N/A')) : 'N/A');
                     $sCard  = $sItem['ghana_card'] ?? ($sNum == 1 ? ($case->ghana_card ?? ($docketData['id_card'] ?? 'N/A')) : 'N/A');
                     $sGender= $sItem['gender'] ?? ($sNum == 1 ? ($case->gender ?? ($docketData['gender'] ?? 'N/A')) : 'N/A');
@@ -1704,7 +2115,7 @@
                                 </div>
                                 <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Seizing Officer</div>
-                                    <div class="font-bold text-slate-900 text-xs mt-0.5">{{ $case->seizure_officer ?: 'Davel Addo (43543)' }}</div>
+                                    <div class="font-bold text-slate-900 text-xs mt-0.5">{{ $case->seizure_officer ?: (($case->submitting_officer && $case->submitting_officer !== 'Field Arrest Officer') ? $case->submitting_officer : ($case->commanding_officer ?: 'N/A')) }}</div>
                                 </div>
                             </div>
 
@@ -1733,10 +2144,12 @@
 
                             <!-- PRIMARY EXHIBIT PHOTOS GALLERY -->
                             @php
-                                if (empty($primaryPhotos) && !empty($evidencePhotos)) {
-                                    $primaryPhotos = array_values(array_filter($evidencePhotos, function($p) use ($allAssocPhotos) {
-                                        return !in_array($p, $allAssocPhotos);
-                                    }));
+                                if (empty($primaryPhotos)) {
+                                    if (!empty($rawPhotos)) {
+                                        $primaryPhotos = $rawPhotos;
+                                    } elseif (!empty($docketData['seizures'][0]['evidence_photos'])) {
+                                        $primaryPhotos = is_array($docketData['seizures'][0]['evidence_photos']) ? $docketData['seizures'][0]['evidence_photos'] : (json_decode($docketData['seizures'][0]['evidence_photos'], true) ?: []);
+                                    }
                                 }
                             @endphp
                             @if(!empty($primaryPhotos) && count($primaryPhotos) > 0)
@@ -1798,14 +2211,32 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                     <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Concealment &amp; Packaging Notes</div>
-                        <div class="font-bold text-slate-900 text-sm mt-0.5">{{ $case->seizure_concealment ?: 'N/A' }}</div>
+                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Seizure Date &amp; Time</div>
+                        @php
+                            $szDate = $case->seizure_date ?: ($case->incident_date ?: ($case->arrest_date ?? null));
+                            $szTime = $case->seizure_time ?: ($case->arrest_time ?? null);
+                        @endphp
+                        <div class="font-bold text-slate-900 text-sm mt-0.5">
+                            @if($szDate)
+                                {{ \Carbon\Carbon::parse($szDate)->format('M d, Y') }}{{ $szTime ? ' @ ' . $szTime : '' }}
+                            @else
+                                N/A
+                            @endif
+                        </div>
                     </div>
                     <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                         <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Seizing Officer &amp; Location</div>
-                        <div class="font-bold text-slate-900 text-sm mt-0.5">{{ $case->seizure_officer ?: 'N/A' }} {{ $case->seizure_location ? "({$case->seizure_location})" : '' }}</div>
+                        <div class="font-bold text-slate-900 text-sm mt-0.5">{{ $case->seizure_officer ?: (($case->submitting_officer && $case->submitting_officer !== 'Field Arrest Officer') ? $case->submitting_officer : ($case->commanding_officer ?: 'N/A')) }} {{ ($case->seizure_location ?: ($case->raid_location ?? null)) ? '(' . ($case->seizure_location ?: $case->raid_location) . ')' : '' }}</div>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Reason / Authority</div>
+                        <div class="font-bold text-slate-900 text-sm mt-0.5">{{ $case->seizure_reason ?: (($case->operation_code_name && $case->operation_code_name !== 'Raid') ? $case->operation_code_name : ($case->offense_description ?: 'N/A')) }}</div>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 md:col-span-3">
+                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Concealment &amp; Packaging Notes</div>
+                        <div class="font-bold text-slate-900 text-sm mt-0.5">{{ $case->seizure_concealment ?: 'N/A' }}</div>
                     </div>
                 </div>
 
@@ -2005,8 +2436,600 @@
             <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
             @if($isDrugCase)
             <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl" id="section5LabExamination">
-                <!-- SECTION HEADER -->
+                @php
+                    // GATHER ALL SUSPECTS IN THIS CASE FOR SUSPECT WORKSPACE SELECTOR TABS
+                    $allSuspectsInCase = [];
+                    if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
+                        foreach ($docketData['suspects'] as $sIndex => $sp) {
+                            if (!empty($sp['suspect_name'])) {
+                                $spRole = $sp['association_role'] ?? ($sp['role'] ?? ($sIndex === 0 ? 'Primary Suspect' : 'Associate'));
+                                $isPrimary = ($sIndex === 0) || (strtolower($spRole) === 'primary suspect');
+                                $allSuspectsInCase[] = [
+                                    'name'         => trim($sp['suspect_name']),
+                                    'alias'        => $sp['suspect_alias'] ?? 'N/A',
+                                    'role'         => $spRole,
+                                    'is_primary'   => $isPrimary,
+                                    'is_associate' => !$isPrimary,
+                                ];
+                            }
+                        }
+                    }
+                    if (empty($allSuspectsInCase)) {
+                        $allSuspectsInCase[] = [
+                            'name'         => trim($case->suspect_name ?? 'Primary Suspect'),
+                            'alias'        => $case->suspect_alias ?? 'N/A',
+                            'role'         => 'Primary Suspect',
+                            'is_primary'   => true,
+                            'is_associate' => false,
+                        ];
+                    }
+
+                    // RESOLVE ACTIVE SUSPECT FROM QUERY PARAMETERS
+                    $reqSuspectParam = request()->query('suspect');
+                    $activeSuspectItem = $allSuspectsInCase[0];
+                    if (!empty($reqSuspectParam)) {
+                        foreach ($allSuspectsInCase as $sCandidate) {
+                            if (strtolower(trim($sCandidate['name'])) === strtolower(trim($reqSuspectParam))) {
+                                $activeSuspectItem = $sCandidate;
+                                break;
+                            }
+                        }
+                    }
+                    $activeSuspectName = $activeSuspectItem['name'];
+                    $activeSuspectNameLower = strtolower(trim($activeSuspectName));
+
+                    // STRICT CROSS-SUSPECT ISOLATION LOOKUP FOR ACTIVE SUSPECT
+                    $activeSuspectLabExam = null;
+
+                    // 1. Check AssociateLabExamination model strictly matching active suspect name
+                    $dbActiveLabExam = \App\Models\AssociateLabExamination::where('case_id', $case->id)
+                        ->where('has_saved', true)
+                        ->get()
+                        ->first(function($aRec) use ($activeSuspectNameLower) {
+                            $aName = strtolower(trim($aRec->suspect_name ?? ''));
+                            return !empty($aName) && ($aName === $activeSuspectNameLower || str_contains($aName, $activeSuspectNameLower) || str_contains($activeSuspectNameLower, $aName));
+                        });
+
+                    if ($dbActiveLabExam) {
+                        $activeSuspectLabExam = [
+                            'exhibit_owner_name'  => $dbActiveLabExam->suspect_name,
+                            'laboratory_number'   => $dbActiveLabExam->laboratory_number,
+                            'exam_reference'      => $dbActiveLabExam->exam_reference,
+                            'exhibit_number'      => $dbActiveLabExam->exhibit_number,
+                            'analyst'             => $dbActiveLabExam->analyst,
+                            'date_received'       => is_object($dbActiveLabExam->date_received) ? $dbActiveLabExam->date_received->format('Y-m-d') : substr($dbActiveLabExam->date_received, 0, 10),
+                            'date_started'        => is_object($dbActiveLabExam->date_started) ? $dbActiveLabExam->date_started->format('Y-m-d') : substr($dbActiveLabExam->date_started, 0, 10),
+                            'date_completed'      => is_object($dbActiveLabExam->date_completed) ? $dbActiveLabExam->date_completed->format('Y-m-d') : substr($dbActiveLabExam->date_completed, 0, 10),
+                            'presumptive_result'  => $dbActiveLabExam->presumptive_result,
+                            'confirmatory_result' => $dbActiveLabExam->confirmatory_result,
+                            'sample_weight'       => [
+                                'description'      => $dbActiveLabExam->sample_weight_description,
+                                'units_packaging'  => $dbActiveLabExam->sample_weight_units,
+                                'gross_weight'     => $dbActiveLabExam->sample_weight_gross,
+                                'sample_taken'     => $dbActiveLabExam->sample_weight_taken,
+                                'reserved_samples' => $dbActiveLabExam->sample_weight_reserved,
+                            ],
+                            'substance_identification' => $dbActiveLabExam->substance_identification,
+                            'detected_substances'      => $dbActiveLabExam->detected_substances,
+                            'test_methods'             => $dbActiveLabExam->test_methods,
+                            'specifications'           => $dbActiveLabExam->specifications,
+                            'findings'                 => $dbActiveLabExam->findings,
+                            'has_saved'                => true,
+                        ];
+                    }
+
+                    // 2. Check lab_examinations_list strictly matching active suspect name
+                    if (!$activeSuspectLabExam && !empty($docketData['lab_examinations_list']) && is_array($docketData['lab_examinations_list'])) {
+                        foreach ($docketData['lab_examinations_list'] as $lItem) {
+                            $lOwner = strtolower(trim($lItem['exhibit_owner_name'] ?? ''));
+                            if (!empty($lItem['has_saved']) && ($lOwner === $activeSuspectNameLower || str_contains($lOwner, $activeSuspectNameLower) || str_contains($activeSuspectNameLower, $lOwner))) {
+                                $activeSuspectLabExam = $lItem;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 3. Check seizures matching active suspect name
+                    if (!$activeSuspectLabExam && !empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+                        foreach ($docketData['seizures'] as $szItem) {
+                            $szOwner = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? ($szItem['owner_name'] ?? ''))));
+                            if ((!empty($szItem['has_saved_lab']) || !empty($szItem['presumptive_result'])) && ($szOwner === $activeSuspectNameLower || str_contains($szOwner, $activeSuspectNameLower) || str_contains($activeSuspectNameLower, $szOwner))) {
+                                $activeSuspectLabExam = [
+                                    'exhibit_owner_name'  => $activeSuspectName,
+                                    'laboratory_number'   => $szItem['laboratory_number'] ?? null,
+                                    'exam_reference'      => $szItem['exam_reference'] ?? null,
+                                    'exhibit_number'      => $szItem['exhibit_number'] ?? null,
+                                    'analyst'             => $szItem['analyst'] ?? null,
+                                    'date_received'       => $szItem['date_received'] ?? null,
+                                    'date_started'        => $szItem['date_started'] ?? null,
+                                    'date_completed'      => $szItem['date_completed'] ?? null,
+                                    'presumptive_result'  => $szItem['presumptive_result'] ?? null,
+                                    'confirmatory_result' => $szItem['confirmatory_result'] ?? null,
+                                    'sample_weight'       => [
+                                        'description'      => $szItem['sample_description'] ?? null,
+                                        'units_packaging'  => $szItem['sample_units'] ?? null,
+                                        'gross_weight'     => $szItem['sample_gross'] ?? null,
+                                        'sample_taken'     => $szItem['sample_taken'] ?? null,
+                                        'reserved_samples' => $szItem['sample_reserved'] ?? null,
+                                    ],
+                                    'substance_identification' => $szItem['substance_identification'] ?? null,
+                                    'detected_substances'      => $szItem['detected_substances'] ?? [],
+                                    'test_methods'             => $szItem['test_methods'] ?? null,
+                                    'specifications'           => $szItem['specifications'] ?? null,
+                                    'findings'                 => $szItem['findings'] ?? null,
+                                    'has_saved'                => true,
+                                ];
+                                break;
+                            }
+                        }
+                    }
+
+                    // 4. Check primary lab_examination if active suspect is primary
+                    if (!$activeSuspectLabExam && $activeSuspectItem['is_primary']) {
+                        if (!empty($dbPrimaryLabExam) && $dbPrimaryLabExam->has_saved) {
+                            $activeSuspectLabExam = [
+                                'exhibit_owner_name'  => $dbPrimaryLabExam->suspect_name ?: $activeSuspectName,
+                                'laboratory_number'   => $dbPrimaryLabExam->laboratory_number ?: ($case->laboratory_number ?? null),
+                                'exam_reference'      => $dbPrimaryLabExam->exam_reference ?: ('EXAM-LAB-' . date('Ymd', strtotime($case->created_at ?? 'now')) . '-' . sprintf('%03d', $case->id)),
+                                'exhibit_number'      => $dbPrimaryLabExam->exhibit_number ?: ('EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . sprintf('%03d', $case->id)),
+                                'analyst'             => $dbPrimaryLabExam->analyst ?: ($case->submitting_officer ?: 'Lab Analyst'),
+                                'date_received'       => is_object($dbPrimaryLabExam->date_received) ? $dbPrimaryLabExam->date_received->format('Y-m-d') : (substr((string)$dbPrimaryLabExam->date_received, 0, 10) ?: date('Y-m-d')),
+                                'date_started'        => is_object($dbPrimaryLabExam->date_started) ? $dbPrimaryLabExam->date_started->format('Y-m-d') : (substr((string)$dbPrimaryLabExam->date_started, 0, 10) ?: date('Y-m-d')),
+                                'date_completed'      => is_object($dbPrimaryLabExam->date_completed) ? $dbPrimaryLabExam->date_completed->format('Y-m-d') : (substr((string)$dbPrimaryLabExam->date_completed, 0, 10) ?: date('Y-m-d')),
+                                'presumptive_result'  => $dbPrimaryLabExam->presumptive_result ?: ($case->presumptive_test_result ?? null),
+                                'confirmatory_result' => $dbPrimaryLabExam->confirmatory_result ?: ($case->confirmatory_test_result ?: 'YES'),
+                                'sample_weight'       => [
+                                    'description'      => $dbPrimaryLabExam->sample_weight_description ?: ($case->sample_weight_description ?? null),
+                                    'units_packaging'  => $dbPrimaryLabExam->sample_weight_units ?: ($case->sample_weight_units ?? null),
+                                    'gross_weight'     => $dbPrimaryLabExam->sample_weight_gross ?: ($case->sample_weight_gross ?? null),
+                                    'sample_taken'     => $dbPrimaryLabExam->sample_weight_taken ?: ($case->sample_weight_taken ?? null),
+                                    'reserved_samples' => $dbPrimaryLabExam->sample_weight_reserved ?: ($case->sample_weight_reserved ?? null),
+                                ],
+                                'substance_identification' => $dbPrimaryLabExam->substance_identification ?: ($case->confirmatory_substance_identification ?? null),
+                                'detected_substances'      => $dbPrimaryLabExam->detected_substances ?: ($case->detected_substances ?? []),
+                                'test_methods'             => $dbPrimaryLabExam->test_methods ?: ($case->confirmatory_test_methods ?? null),
+                                'specifications'           => $dbPrimaryLabExam->specifications ?: ($case->confirmatory_specifications ?? null),
+                                'findings'                 => $dbPrimaryLabExam->findings ?: ($case->laboratory_analytical_findings ?? null),
+                                'has_saved'                => true,
+                            ];
+                        } elseif (!empty($docketData['lab_examination']['has_saved']) || !empty($docketData['lab_examination']['presumptive_result'])) {
+                            $pOwner = strtolower(trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''));
+                            if (empty($pOwner) || $pOwner === 'primary suspect' || $pOwner === $activeSuspectNameLower || str_contains($pOwner, $activeSuspectNameLower) || str_contains($activeSuspectNameLower, $pOwner)) {
+                                $activeSuspectLabExam = $docketData['lab_examination'];
+                            }
+                        } elseif (!empty($case->presumptive_test_result) || !empty($case->confirmatory_test_result) || !empty($case->confirmatory_substance_identification)) {
+                            $activeSuspectLabExam = [
+                                'exhibit_owner_name'  => $activeSuspectName,
+                                'laboratory_number'   => $case->laboratory_number,
+                                'exam_reference'      => 'EXAM-LAB-' . date('Ymd', strtotime($case->created_at ?? 'now')) . '-' . sprintf('%03d', $case->id),
+                                'exhibit_number'      => 'EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . sprintf('%03d', $case->id),
+                                'analyst'             => $case->submitting_officer ?: 'Lab Analyst',
+                                'date_received'       => $case->incident_date ? substr((string)$case->incident_date, 0, 10) : date('Y-m-d'),
+                                'date_started'        => date('Y-m-d'),
+                                'date_completed'      => date('Y-m-d'),
+                                'presumptive_result'  => $case->presumptive_test_result,
+                                'confirmatory_result' => $case->confirmatory_test_result ?: 'YES',
+                                'sample_weight'       => [
+                                    'description'      => $case->sample_weight_description,
+                                    'units_packaging'  => $case->sample_weight_units,
+                                    'gross_weight'     => $case->sample_weight_gross,
+                                    'sample_taken'     => $case->sample_weight_taken,
+                                    'reserved_samples' => $case->sample_weight_reserved,
+                                ],
+                                'substance_identification' => $case->confirmatory_substance_identification,
+                                'detected_substances'      => $case->detected_substances ?? [],
+                                'test_methods'             => $case->confirmatory_test_methods,
+                                'specifications'           => $case->confirmatory_specifications,
+                                'findings'                 => $case->laboratory_analytical_findings,
+                                'has_saved'                => true,
+                            ];
+                        }
+                    }
+
+                    $activeSuspectHasSavedResult = !empty($activeSuspectLabExam) && !empty($activeSuspectLabExam['has_saved']);
+
+                    if ($activeSuspectHasSavedResult && !empty($activeSuspectLabExam)) {
+                        $labOwnerName = $activeSuspectLabExam['exhibit_owner_name'] ?? $activeSuspectName;
+                        if (!empty($activeSuspectLabExam['exam_reference'])) $savedLabExamRef = $activeSuspectLabExam['exam_reference'];
+                        if (!empty($activeSuspectLabExam['exhibit_number'])) $savedLabExhibitNo = $activeSuspectLabExam['exhibit_number'];
+                        if (!empty($activeSuspectLabExam['laboratory_number'])) $savedLabNumber = $activeSuspectLabExam['laboratory_number'];
+                        if (!empty($activeSuspectLabExam['analyst'])) $savedLabAnalyst = $activeSuspectLabExam['analyst'];
+                        if (!empty($activeSuspectLabExam['date_received'])) $savedLabDateReceived = $activeSuspectLabExam['date_received'];
+                        if (!empty($activeSuspectLabExam['date_started'])) $savedLabDateStarted = $activeSuspectLabExam['date_started'];
+                        if (!empty($activeSuspectLabExam['date_completed'])) $savedLabDateCompleted = $activeSuspectLabExam['date_completed'];
+                        if (!empty($activeSuspectLabExam['presumptive_result'])) $savedLabPresumptive = $activeSuspectLabExam['presumptive_result'];
+                        if (!empty($activeSuspectLabExam['confirmatory_result'])) $savedLabConfirmatory = $activeSuspectLabExam['confirmatory_result'];
+
+                        $swActive = $activeSuspectLabExam['sample_weight'] ?? [];
+                        if (isset($swActive['description']) && $swActive['description'] !== null && $swActive['description'] !== '') $savedLabSampleDesc = $swActive['description'];
+                        if (isset($swActive['units_packaging']) && $swActive['units_packaging'] !== null && $swActive['units_packaging'] !== '') $savedLabSampleUnits = $swActive['units_packaging'];
+                        if (isset($swActive['gross_weight']) && $swActive['gross_weight'] !== null && $swActive['gross_weight'] !== '') $savedLabSampleGross = $swActive['gross_weight'];
+
+                        $activeTaken = $swActive['sample_taken'] ?? ($swActive['sample_weight_taken'] ?? ($activeSuspectLabExam['sample_taken'] ?? ($activeSuspectLabExam['sample_weight_taken'] ?? null)));
+                        if (isset($activeTaken) && $activeTaken !== null && $activeTaken !== '') $savedLabSampleTaken = $activeTaken;
+
+                        $activeReserved = $swActive['reserved_samples'] ?? ($swActive['sample_weight_reserved'] ?? ($activeSuspectLabExam['sample_reserved'] ?? ($activeSuspectLabExam['sample_weight_reserved'] ?? null)));
+                        if (isset($activeReserved) && $activeReserved !== null && $activeReserved !== '') $savedLabSampleReserved = $activeReserved;
+
+                        if (!empty($activeSuspectLabExam['substance_identification'])) $savedLabSubstanceId = $activeSuspectLabExam['substance_identification'];
+                        if (!empty($activeSuspectLabExam['detected_substances'])) $savedLabDetectedSubstances = $activeSuspectLabExam['detected_substances'];
+                        if (!empty($activeSuspectLabExam['test_methods'])) $savedLabTestMethods = $activeSuspectLabExam['test_methods'];
+                        if (!empty($activeSuspectLabExam['specifications'])) $savedLabSpecifications = $activeSuspectLabExam['specifications'];
+                        if (!empty($activeSuspectLabExam['findings'])) $savedLabFindings = $activeSuspectLabExam['findings'];
+                    }
+
+                    $allDrugExhibitsList = [];
+                    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+                        foreach ($docketData['seizures'] as $idx => $sz) {
+                            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+                            $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
+                            $szOwner = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
+                            $szIsAssoc = !empty($sz['is_associate']) || !empty($szOwner) || (!empty($sz['association_role']) && str_contains(strtolower($sz['association_role']), 'associate'));
+                            $exOwner = !empty($szOwner) ? $szOwner : ($szIsAssoc ? 'Associate Suspect' : ($case->suspect_name ?? 'Primary Suspect'));
+
+                            $isDrugEx = !empty($sz['seizure_name_drug']);
+                            if (!$isDrugEx) {
+                                foreach ($drugKeywords as $kw) {
+                                    if (str_contains($cat, $kw) || str_contains(strtolower($sName), $kw)) {
+                                        $isDrugEx = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if ($isDrugEx) {
+                                $allDrugExhibitsList[] = [
+                                    'index' => $idx + 1,
+                                    'name'  => $sName ?: 'Drug Exhibit',
+                                    'cat'   => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
+                                    'qty'   => $sz['seizure_quantity'] ?? null,
+                                    'weight'=> $sz['seizure_weight'] ?? null,
+                                    'unit'  => $sz['seizure_unit'] ?? null,
+                                    'owner' => $exOwner,
+                                    'is_associate' => $szIsAssoc,
+                                    'has_saved_lab' => !empty($sz['has_saved_lab']),
+                                    'confirmatory_result' => $sz['confirmatory_result'] ?? ($labDataFromDocket['confirmatory_result'] ?? ($case->confirmatory_test_result ?? 'YES')),
+                                    'substance_identification' => $sz['substance_identification'] ?? ($labDataFromDocket['substance_identification'] ?? ($case->confirmatory_substance_identification ?? $sName)),
+                                    'test_methods' => $sz['test_methods'] ?? ($labDataFromDocket['test_methods'] ?? ($case->confirmatory_test_methods ?? '')),
+                                    'specifications' => $sz['specifications'] ?? ($labDataFromDocket['specifications'] ?? ($case->confirmatory_specifications ?? '')),
+                                    'sample_taken' => $sz['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? ($case->sample_weight_taken ?? '')),
+                                    'sample_reserved' => $sz['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? ($case->sample_weight_reserved ?? '')),
+                                    'findings' => $sz['findings'] ?? ($labDataFromDocket['findings'] ?? ($case->laboratory_analytical_findings ?? '')),
+                                ];
+                            }
+                        }
+                    }
+                    if (empty($allDrugExhibitsList) && $isDrugCase) {
+                        $allDrugExhibitsList[] = [
+                            'index' => 1,
+                            'name'  => $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibits_summary ?: 'Drug Exhibit')),
+                            'cat'   => $case->exhibit_category ?: 'Drugs',
+                            'qty'   => $case->seizure_quantity,
+                            'weight'=> $case->seizure_weight,
+                            'unit'  => $case->seizure_unit,
+                            'owner' => $activeSuspectName,
+                            'is_associate' => false,
+                            'has_saved_lab' => $activeSuspectHasSavedResult,
+                            'confirmatory_result' => $savedLabConfirmatory ?: ($case->confirmatory_test_result ?: 'YES'),
+                            'substance_identification' => $savedLabSubstanceId ?: ($case->confirmatory_substance_identification ?: null),
+                            'test_methods' => $savedLabTestMethods ?: ($case->confirmatory_test_methods ?: null),
+                            'specifications' => $savedLabSpecifications ?: ($case->confirmatory_specifications ?: null),
+                            'sample_taken' => $savedLabSampleTaken ?: ($case->sample_weight_taken ?: null),
+                            'sample_reserved' => $savedLabSampleReserved ?: ($case->sample_weight_reserved ?: null),
+                            'findings' => $savedLabFindings ?: ($case->laboratory_analytical_findings ?: null),
+                        ];
+                    }
+
+                    $pendingDrugExhibits = array_values(array_filter($allDrugExhibitsList, function($e) {
+                        return empty($e['has_saved_lab']);
+                    }));
+                    $drugExhibits = !empty($pendingDrugExhibits) ? $pendingDrugExhibits : $allDrugExhibitsList;
+                    $initialSelectedEx = !empty($drugExhibits) ? $drugExhibits[0] : null;
+                    $initialHasSaved = $activeSuspectHasSavedResult;
+                    $initialLabDesc = !empty($initialSelectedEx) ? $initialSelectedEx['name'] : ($case->seizure_name_drug ?: ($isDrugCase ? ($case->exhibits_summary ?: $case->seizure_name) : 'No drug exhibit saved yet'));
+
+                    $labIsAssoc = false;
+                    $savedLabOwnerName = $docketData['lab_examination']['exhibit_owner_name'] ?? null;
+                    if (!empty($savedLabOwnerName) && strtoupper(trim($savedLabOwnerName)) !== 'PRIMARY SUSPECT') {
+                        $labOwnerName = $savedLabOwnerName;
+                    } elseif (!empty($allDrugExhibitsList[0]['owner']) && strtoupper(trim($allDrugExhibitsList[0]['owner'])) !== 'PRIMARY SUSPECT') {
+                        $labOwnerName = $allDrugExhibitsList[0]['owner'];
+                    } else {
+                        $labOwnerName = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : ($case->suspect_name ?? 'Primary Suspect');
+                    }
+
+                    $labOwnerLower = strtolower(trim($labOwnerName));
+                    $isJointLabOwner = str_contains($labOwnerLower, ',') || str_contains($labOwnerLower, '&') || str_contains($labOwnerLower, 'all suspect') || str_contains($labOwnerLower, 'all suspects');
+                    if (!$isJointLabOwner && !empty($docketData['suspects']) && count($docketData['suspects']) > 1) {
+                        $mCount = 0;
+                        foreach ($docketData['suspects'] as $sp) {
+                            if (!empty($sp['suspect_name']) && str_contains($labOwnerLower, strtolower(trim($sp['suspect_name'])))) {
+                                $mCount++;
+                            }
+                        }
+                        if ($mCount > 1) {
+                            $isJointLabOwner = true;
+                        }
+                    }
+
+                    if ($isJointLabOwner) {
+                        $labDossierBadge = 'PRIMARY & CO-SUSPECT DOSSIER';
+                        $labBadgeBg = 'bg-indigo-600';
+                    } else {
+                        $labDossierBadge = 'PRIMARY SUSPECT DOSSIER';
+                        $labBadgeBg = 'bg-emerald-600';
+                    }
+                @endphp
+
+                <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
+                <div id="section5ReadOnlyDisplay" class="space-y-4 {{ !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
+                    <!-- TOP VERIFICATION BANNER -->
+                    <div class="p-4 bg-emerald-50/90 border-emerald-300 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl {{ $labBadgeBg }} text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <div>
+                                <div class="text-[10px] font-mono-code font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="{{ $labBadgeBg }} text-white px-1.5 py-0.5 rounded text-[9px]">{{ $labDossierBadge }}</span>
+                                    <span>&bull;</span>
+                                    <span>SUSPECT: {{ strtoupper($labOwnerName) }}</span>
+                                </div>
+                                <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($labOwnerName) }}</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- STRUCTURED READ-ONLY LABORATORY EXAMINATION TABLE -->
+                    <table class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
+                        <tbody>
+                            <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">Analysis Reference:</td>
+                                <td class="p-3 font-black text-emerald-900 font-mono-code text-sm border-r border-slate-300 w-3/10 bg-white" id="displayLabExamRef">{{ $savedLabExamRef }}</td>
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">Exhibit Number:</td>
+                                <td class="p-3 font-black text-emerald-900 font-mono-code text-sm bg-white" id="displayLabExhibitNo">{{ $savedLabExhibitNo ?: $labExhibitNo }}</td>
+                            </tr>
+                            <tr class="border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Case Reference:</td>
+                                <td class="p-3 font-black text-blue-900 font-mono-code border-r border-slate-300 bg-white" id="displayLabCaseRef">{{ $savedLabCaseRef }}</td>
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Laboratory Number:</td>
+                                <td class="p-3 font-black text-slate-900 font-mono-code bg-white" id="section5LabUnitDisplay">{{ $savedLabNumber }}</td>
+                            </tr>
+                            <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Analyst / Examiner:</td>
+                                <td class="p-3 font-black text-slate-900 border-r border-slate-300 bg-white" id="section5AnalystDisplay">{{ $savedLabAnalyst }}</td>
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Examination Timeline:</td>
+                                <td class="p-2 bg-white">
+                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                                        <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
+                                            <tr class="border-b border-slate-300">
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Received</th>
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Started</th>
+                                                <th class="px-2 py-1 text-left bg-slate-200/70">Completed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white font-bold font-mono-code text-slate-900">
+                                            <tr>
+                                                <td class="px-2 py-1 border-r border-slate-300 text-blue-900" id="section5DateReceivedDisplay">{{ $savedLabDateReceived }}</td>
+                                                <td class="px-2 py-1 border-r border-slate-300 text-amber-900" id="section5DateStartedDisplay">{{ $savedLabDateStarted }}</td>
+                                                <td class="px-2 py-1 text-emerald-900" id="section5DateCompletedDisplay">{{ $savedLabDateCompleted }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Presumptive Reaction:</td>
+                                <td class="p-2 border-r border-slate-300 bg-white" id="section5PresumptiveDisplay">
+                                    @php
+                                        $pRaw = trim($savedLabPresumptive ?? '');
+                                        $pRows = [];
+                                        if (!empty($pRaw) && $pRaw !== 'N/A') {
+                                            $overallResult = 'N/A';
+                                            if (preg_match('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i', $pRaw, $mRes)) {
+                                                $overallResult = strtoupper($mRes[1]);
+                                                if ($overallResult === 'POS' || $overallResult === 'POSITIVE') $overallResult = 'YES';
+                                                if ($overallResult === 'NEG' || $overallResult === 'NEGATIVE') $overallResult = 'NO';
+                                            }
+
+                                            $cleanP = $pRaw;
+                                            if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRaw, $mP)) {
+                                                $cleanP = $mP[1];
+                                            }
+
+                                            $segments = preg_split('/;\s*(?=\[\d+\]|Presence of:)/i', $cleanP);
+                                            if (empty($segments)) $segments = [$cleanP];
+
+                                            foreach ($segments as $seg) {
+                                                $seg = trim($seg);
+                                                if (empty($seg)) continue;
+
+                                                $presence = 'N/A';
+                                                $purity = 'N/A';
+
+                                                if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                                    $presence = trim($mPres[1]);
+                                                } elseif (preg_match('/^\[\d+\]\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                                    $presence = trim($mPres[1]);
+                                                } elseif (!empty($seg) && !str_contains($seg, 'Purity')) {
+                                                    $presence = trim($seg);
+                                                }
+
+                                                if ($presence === 'YES' || $presence === 'NO' || $presence === 'POS' || $presence === 'NEG') {
+                                                    $presence = 'N/A';
+                                                }
+
+                                                if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $seg, $mPur)) {
+                                                    $purity = trim($mPur[1]);
+                                                }
+
+                                                if ($presence !== 'N/A' || $purity !== 'N/A' || count($segments) === 1) {
+                                                    $pRows[] = [
+                                                        'result'   => $overallResult,
+                                                        'presence' => $presence,
+                                                        'purity'   => $purity,
+                                                    ];
+                                                }
+                                            }
+                                        }
+                                        if (empty($pRows)) {
+                                            $pRows[] = ['result' => 'N/A', 'presence' => 'N/A', 'purity' => 'N/A'];
+                                        }
+                                    @endphp
+                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                                        <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
+                                            <tr class="border-b border-slate-300">
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Presence of</th>
+                                                <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white">
+                                            @foreach($pRows as $pRow)
+                                            <tr class="border-b border-slate-200 last:border-b-0">
+                                                <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pRow['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pRow['result'] }}</td>
+                                                <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $pRow['presence'] }}</td>
+                                                <td class="px-2 py-1 font-bold text-slate-900">{{ $pRow['purity'] }}</td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </td>
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Confirmatory Test:</td>
+                                @php
+                                    $isDisplayConfNo = strtoupper(trim((string)($savedLabConfirmatory ?: ($case->confirmatory_test_result ?: 'YES')))) === 'NO';
+                                    $displayConfText = $isDisplayConfNo ? 'NO' : 'YES';
+                                @endphp
+                                <td class="p-3 font-black bg-white {{ !$isDisplayConfNo ? 'text-emerald-950' : 'text-red-950' }}" id="section5ConfirmatoryDisplay">
+                                    <span class="inline-flex items-center space-x-1.5">
+                                        <span class="w-2.5 h-2.5 rounded-full {{ !$isDisplayConfNo ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
+                                        <span class="font-extrabold">{{ $displayConfText }}</span>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Sample Metrology:</td>
+                                <td class="p-3 bg-white" colspan="3">
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        <div class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Description</div>
+                                            <div class="font-bold text-slate-950 text-xs mt-0.5" id="section5SampleDescDisplay">{{ $savedLabSampleDesc ?: 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Number of Units</div>
+                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleUnitsDisplay">{{ $savedLabSampleUnits ?: 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Gross Weight</div>
+                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleGrossDisplay">{{ $savedLabSampleGross ?: 'N/A' }}</div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Mass Taken</div>
+                                            @php
+                                                if (!empty($savedLabSampleTaken) && $savedLabSampleTaken !== 'N/A') {
+                                                    if (preg_match('/(kg|g|mg|lbs|grams|kilograms)/i', (string)$savedLabSampleTaken)) {
+                                                        $displaySampleTaken = $savedLabSampleTaken;
+                                                    } else {
+                                                        $displaySampleTaken = trim($savedLabSampleTaken . ' ' . ($savedLabSampleUnit ?? ''));
+                                                    }
+                                                    $displaySampleTakenLabel = null;
+                                                } else {
+                                                    $displaySampleTaken = '—';
+                                                    $displaySampleTakenLabel = 'Not Recorded';
+                                                }
+                                            @endphp
+                                            <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5" id="section5SampleTakenDisplay">
+                                                {{ $displaySampleTaken }}
+                                                @if(!empty($displaySampleTakenLabel))
+                                                    <span class="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">{{ $displaySampleTakenLabel }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Reserved Samples</div>
+                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleReservedDisplay">
+                                                @if(!empty($savedLabSampleReserved))
+                                                    {{ $savedLabSampleReserved }}
+                                                @else
+                                                    —<span class="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">Not Recorded</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Substance Identified:</td>
+                                <td class="p-3 font-black text-slate-950 bg-white border-r border-slate-300" id="section5SubstanceIdDisplay">{{ $savedLabSubstanceId ?: 'N/A' }}</td>
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Test Specifications:</td>
+                                <td class="p-3 font-bold text-slate-900 bg-white" id="section5SpecsDisplay">{{ $savedLabSpecifications ?: 'N/A' }}</td>
+                            </tr>
+                            <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Detected Compounds:</td>
+                                <td class="p-3 bg-white font-bold text-slate-900 text-xs" colspan="3" id="section5DetectedSubstancesDisplay">
+                                    @php 
+                                        $detList = []; 
+                                        $rawDetList = $savedLabDetectedSubstances ?? [];
+                                        if (is_string($rawDetList)) {
+                                            $rawDetList = json_decode($rawDetList, true) ?: [];
+                                        }
+                                        if (is_array($rawDetList)) {
+                                            foreach ($rawDetList as $subItem) {
+                                                if (is_array($subItem)) {
+                                                    $sName = $subItem['substance'] ?? ($subItem['name'] ?? ($subItem['compound'] ?? ($subItem['drug_name'] ?? '')));
+                                                    $sPct  = $subItem['percentage'] ?? ($subItem['purity'] ?? ($subItem['pct'] ?? ''));
+                                                    if (!empty($sName)) {
+                                                        $detList[] = $sName . (!empty($sPct) ? ' (' . rtrim(trim($sPct), '%') . '%)' : '');
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (empty($detList)) {
+                                            $pText = $savedLabPresumptive ?? '';
+                                            if (!empty($pText) && (str_contains($pText, 'Presence of:') || str_contains($pText, 'YES'))) {
+                                                $cleanP = preg_replace('/^YES\s*\((.*)\)$/i', '$1', trim($pText));
+                                                $pSegs = explode(';', $cleanP);
+                                                foreach ($pSegs as $pSeg) {
+                                                    $pSeg = trim($pSeg);
+                                                    $pName = ''; $pPur = '';
+                                                    if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)) {
+                                                        $pName = trim($mP[1]);
+                                                    }
+                                                    if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $pSeg, $mPur)) {
+                                                        $pPur = trim($mPur[1]);
+                                                    }
+                                                    if (!empty($pName)) {
+                                                        $detList[] = $pName . (!empty($pPur) ? ' (' . rtrim(trim($pPur), '%') . '%)' : '');
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (empty($detList) && !empty($savedLabSubstanceId) && $savedLabSubstanceId !== 'N/A') {
+                                            $detList[] = $savedLabSubstanceId;
+                                        }
+                                    @endphp
+                                    @if(count($detList) > 0)
+                                        <span>{{ implode(', ', $detList) }}</span>
+                                    @else
+                                        <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr class="border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Test Methods:</td>
+                                <td class="p-3 font-mono-code font-black text-slate-900 bg-white" colspan="3" id="section5TestMethodsDisplay">{{ $savedLabTestMethods ?: 'N/A' }}</td>
+                            </tr>
+                            <tr class="bg-slate-900 text-white">
+                                <td class="p-3 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">Analytical Findings:</td>
+                                <td class="p-3 font-medium text-slate-100 leading-relaxed bg-slate-900" colspan="3" id="section5FindingsDisplay">{{ $savedLabFindings ?: 'No specific laboratory analytical findings logged yet.' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
                     <div class="flex items-center space-x-3">
                         <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2030,108 +3053,6 @@
                     </div>
                 </div>
 
-                @if($isLabContext)
-                @php
-                    $allDrugExhibitsList = [];
-                    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
-                        foreach ($docketData['seizures'] as $idx => $sz) {
-                            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
-                            $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
-                            $szOwner = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
-                            $szIsAssoc = !empty($sz['is_associate']) || !empty($szOwner) || (!empty($sz['association_role']) && str_contains(strtolower($sz['association_role']), 'associate'));
-                            $szId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
-                            $matchedOwner = null;
-                            if (!empty($szId) && !empty($docketData['suspects'])) {
-                                foreach ($docketData['suspects'] as $sp) {
-                                    $spId = $sp['associate_id'] ?? ($sp['suspect_id'] ?? null);
-                                    if (!empty($spId) && strtolower(trim($spId)) === strtolower(trim($szId))) {
-                                        $matchedOwner = $sp['suspect_name'] ?? null;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (!empty($szOwner) && strtoupper(trim($szOwner)) !== 'ASSOCIATE SUSPECT' && strtoupper(trim($szOwner)) !== 'PRIMARY SUSPECT') {
-                                $exOwner = $szOwner;
-                            } elseif (!empty($matchedOwner)) {
-                                $exOwner = $matchedOwner;
-                            } else {
-                                if ($szIsAssoc) {
-                                    $firstAssoc = array_values(array_filter($docketData['suspects'] ?? [], function($s) {
-                                        return !empty($s['suspect_name']) && (!empty($s['is_associate']) || (!empty($s['association_role']) && strtolower($s['association_role']) !== 'primary suspect'));
-                                    }));
-                                    $exOwner = !empty($firstAssoc) ? ($firstAssoc[0]['suspect_name'] ?? 'Associate Suspect') : 'Associate Suspect';
-                                } else {
-                                    $exOwner = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : 'Primary Suspect';
-                                }
-                            }
-
-                            $isDrugEx = !empty($sz['seizure_name_drug']);
-                            if (!$isDrugEx) {
-                                foreach ($drugKeywords as $kw) {
-                                    if (str_contains($cat, $kw) || str_contains(strtolower($sName), $kw)) {
-                                        $isDrugEx = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if ($isDrugEx) {
-                                $exNo = $sz['exhibit_number'] ?? '';
-                                $savedLabOwnerName = $docketData['lab_examination']['exhibit_owner_name'] ?? null;
-                                $savedLabIsAssoc = !empty($docketData['lab_examination']['exhibit_is_associate']);
-
-                                $hasSavedForThis = !empty($sz['has_saved_lab']) 
-                                    || (!empty($docketData['lab_examination']['has_saved']) && (
-                                        (!empty($savedLabExhibitNo) && $exNo === $savedLabExhibitNo)
-                                        || (!empty($savedLabSampleDesc) && strtolower(trim($sName)) === strtolower(trim($savedLabSampleDesc)))
-                                        || (!empty($savedLabSubstanceId) && strtolower(trim($sName)) === strtolower(trim($savedLabSubstanceId)))
-                                        || (!empty($savedLabOwnerName) && strtolower(trim($exOwner)) === strtolower(trim($savedLabOwnerName)))
-                                    ));
-
-                                $allDrugExhibitsList[] = [
-                                    'index' => $idx + 1,
-                                    'name'  => $sName ?: 'Drug Exhibit',
-                                    'cat'   => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
-                                    'qty'   => $sz['seizure_quantity'] ?? null,
-                                    'weight'=> $sz['seizure_weight'] ?? null,
-                                    'unit'  => $sz['seizure_unit'] ?? null,
-                                    'owner' => $exOwner,
-                                    'is_associate' => $szIsAssoc,
-                                    'has_saved_lab' => $hasSavedForThis,
-                                ];
-                            }
-                        }
-                    }
-                    if (empty($allDrugExhibitsList) && $isDrugCase) {
-                        $allDrugExhibitsList[] = [
-                            'index' => 1,
-                            'name'  => $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibits_summary ?: 'Drug Exhibit')),
-                            'cat'   => $case->exhibit_category ?: 'Drugs',
-                            'qty'   => $case->seizure_quantity,
-                            'weight'=> $case->seizure_weight,
-                            'unit'  => $case->seizure_unit,
-                            'owner' => $primarySuspectsCombinedNames,
-                            'is_associate' => false,
-                            'has_saved_lab' => $hasAnySavedLabExam || !empty($docketData['lab_examination']['has_saved']),
-                        ];
-                    }
-
-                    $pendingDrugExhibits = array_values(array_filter($allDrugExhibitsList, function($e) {
-                        return empty($e['has_saved_lab']);
-                    }));
-
-                    $drugExhibits = $hasUnexaminedDrugExhibit ? $pendingDrugExhibits : (!empty($pendingDrugExhibits) ? $pendingDrugExhibits : $allDrugExhibitsList);
-                    $initialSelectedEx = !empty($drugExhibits) ? $drugExhibits[0] : null;
-                    $initialHasSaved = !empty($initialSelectedEx['has_saved_lab']);
-                    $initialLabDesc = !empty($initialSelectedEx) ? $initialSelectedEx['name'] : ($case->seizure_name_drug ?: ($isDrugCase ? ($case->exhibits_summary ?: $case->seizure_name) : 'No drug exhibit saved yet'));
-                    if (!$initialHasSaved) {
-                        $labPresumptive = 'N/A';
-                        $pIsYes = false;
-                        $labConfirmatory = 'N/A';
-                        $labSampleTaken = '';
-                        $labSampleReserved = '';
-                    }
-                @endphp
                 <form id="section5LabForm" onsubmit="submitSection5LabExam(event)" class="space-y-5 {{ $hasSavedLabData ? 'hidden' : '' }}">
                     <!-- EXHIBIT SELECTOR CARD FROM SECTION 4 MANIFEST -->
                     <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-2.5 shadow-2xs">
@@ -2153,7 +3074,7 @@
                             >
                                 @if(!empty($drugExhibits))
                                     @foreach($drugExhibits as $dEx)
-                                        <option value="{{ $dEx['index'] }}" data-name="{{ $dEx['name'] }}" data-owner="{{ $dEx['owner'] }}" data-qty="{{ $dEx['qty'] ?? '' }}" data-weight="{{ $dEx['weight'] ?? '' }}" data-unit="{{ $dEx['unit'] ?? '' }}" data-is-associate="{{ $dEx['is_associate'] ? '1' : '0' }}" data-has-saved="{{ !empty($dEx['has_saved_lab']) ? 'true' : 'false' }}" {{ $loop->first ? 'selected' : '' }}>Exhibit #{{ $dEx['index'] }}: {{ $dEx['name'] }} (Owner: {{ $dEx['owner'] }})</option>
+                                        <option value="{{ $dEx['index'] }}" data-name="{{ $dEx['name'] }}" data-owner="{{ $dEx['owner'] }}" data-qty="{{ $dEx['qty'] ?? '' }}" data-weight="{{ $dEx['weight'] ?? '' }}" data-unit="{{ $dEx['unit'] ?? '' }}" data-is-associate="{{ $dEx['is_associate'] ? '1' : '0' }}" data-has-saved="{{ !empty($dEx['has_saved_lab']) ? 'true' : 'false' }}" data-confirmatory="{{ $dEx['confirmatory_result'] ?? 'YES' }}" data-substance-id="{{ $dEx['substance_identification'] ?? '' }}" data-test-methods="{{ $dEx['test_methods'] ?? '' }}" data-specifications="{{ $dEx['specifications'] ?? '' }}" data-sample-taken="{{ $dEx['sample_taken'] ?? '' }}" data-sample-reserved="{{ $dEx['sample_reserved'] ?? '' }}" data-findings="{{ $dEx['findings'] ?? '' }}" {{ $loop->first ? 'selected' : '' }}>Exhibit #{{ $dEx['index'] }}: {{ $dEx['name'] }} (Owner: {{ $dEx['owner'] }})</option>
                                     @endforeach
                                 @else
                                     <option value="">No drug exhibit saved yet</option>
@@ -2468,15 +3389,20 @@
                                 Confirmatory Test Conducted <span class="text-red-600 font-bold">*</span>
                             </label>
 
+                            @php
+                                $rawCurConf = !empty($savedLabConfirmatory) ? $savedLabConfirmatory : (!empty($labConfirmatory) ? $labConfirmatory : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'YES'));
+                                $isConfNo = strtoupper(trim((string)$rawCurConf)) === 'NO';
+                                $isConfYes = !$isConfNo;
+                            @endphp
                             <div class="flex items-center space-x-3">
                                 <!-- YES RADIO -->
-                                <label id="labelConfirmatoryYesReview" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ ($initialHasSaved && $labConfirmatory === 'YES') ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
+                                <label id="labelConfirmatoryYesReview" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $isConfYes ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
                                     <input 
                                         type="radio" 
                                         id="confirmatoryTestYesReview"
                                         name="form_confirmatory_radio" 
                                         value="YES"
-                                        {{ ($initialHasSaved && $labConfirmatory === 'YES') ? 'checked' : '' }}
+                                        {{ $isConfYes ? 'checked' : '' }}
                                         onchange="toggleConfirmatoryTestReview('YES')"
                                         class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer"
                                     >
@@ -2487,13 +3413,13 @@
                                 </label>
 
                                 <!-- NO RADIO -->
-                                <label id="labelConfirmatoryNoReview" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ ($initialHasSaved && $labConfirmatory === 'NO') ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
+                                <label id="labelConfirmatoryNoReview" class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $isConfNo ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
                                     <input 
                                         type="radio" 
                                         id="confirmatoryTestNoReview"
                                         name="form_confirmatory_radio" 
                                         value="NO"
-                                        {{ ($initialHasSaved && $labConfirmatory === 'NO') ? 'checked' : '' }}
+                                        {{ $isConfNo ? 'checked' : '' }}
                                         onchange="toggleConfirmatoryTestReview('NO')"
                                         class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer"
                                     >
@@ -2505,7 +3431,7 @@
                             </div>
 
                             <!-- SAMPLE WEIGHT GROUP INPUT CONTAINER (DYNAMICALLY SHOWN WHEN CONFIRMATORY TEST IS YES) -->
-                            <div id="sampleWeightContainerReview" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 {{ ($initialHasSaved && $labConfirmatory === 'YES') ? '' : 'hidden' }}">
+                            <div id="sampleWeightContainerReview" class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 {{ $isConfYes ? '' : 'hidden' }}">
                                 <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
                                     <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
                                         <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2641,7 +3567,7 @@
                                                     type="text" 
                                                     id="confirmatorySubstanceIdentificationReview" 
                                                     name="confirmatory_substance_identification" 
-                                                    value="{{ $labSubstanceId }}"
+                                                    value="{{ $savedLabSubstanceId ?: ($labSubstanceId ?: ($case->confirmatory_substance_identification ?: '')) }}"
                                                     readonly
                                                     placeholder="Fetched from drug manifest"
                                                     class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
@@ -2677,7 +3603,7 @@
                                                     type="text" 
                                                     id="confirmatoryTestMethodsReview" 
                                                     name="confirmatory_test_methods" 
-                                                    value="{{ $labTestMethods }}"
+                                                    value="{{ $savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: '')) }}"
                                                     placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
                                                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400"
                                                 >
@@ -2694,7 +3620,7 @@
                                                     rows="3" 
                                                     placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
                                                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
-                                                >{{ $labSpecifications }}</textarea>
+                                                >{{ $savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: '')) }}</textarea>
                                             </div>
                                         </div>
                                     </div>
@@ -2723,7 +3649,6 @@
                         </button>
                     </div>
                 </form>
-                @endif
 
                 @php
                     $labOwnerName = $docketData['lab_examination']['exhibit_owner_name'] ?? null;
@@ -2795,222 +3720,96 @@
                     }
                 @endphp
 
-                <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
-                <div id="section5ReadOnlyDisplay" class="space-y-4 {{ (!$hasSavedLabData && !$hasAnySavedLabExam) ? 'hidden' : '' }}">
-                    <!-- TOP VERIFICATION BANNER -->
-                    <div class="p-4 bg-emerald-50/90 border-emerald-300 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 rounded-xl {{ $labBadgeBg }} text-white flex items-center justify-center font-bold shadow-md shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            </div>
-                            <div>
-                                <div class="text-[10px] font-mono-code font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                                    <span class="{{ $labBadgeBg }} text-white px-1.5 py-0.5 rounded text-[9px]">{{ $labDossierBadge }}</span>
-                                    <span>&bull;</span>
-                                    <span>SUSPECT: {{ strtoupper($labOwnerName) }}</span>
-                                </div>
-                                <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($labOwnerName) }}</div>
-                            </div>
-                        </div>
+                <!-- ASSOCIATE SUSPECT LABORATORY EXAMINATION RESULT DOSSIERS -->
 
-                    </div>
-
-                    <!-- STRUCTURED READ-ONLY LABORATORY EXAMINATION TABLE -->
-                    <table class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
-                        <tbody>
-                            <tr class="bg-slate-100/90 border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">Analysis Reference:</td>
-                                <td class="p-3 font-black text-emerald-900 font-mono-code text-sm border-r border-slate-300 w-3/10 bg-white" id="displayLabExamRef">{{ $savedLabExamRef }}</td>
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">Exhibit Number:</td>
-                                <td class="p-3 font-black text-emerald-900 font-mono-code text-sm bg-white" id="displayLabExhibitNo">{{ $savedLabExhibitNo ?: $labExhibitNo }}</td>
-                            </tr>
-                            <tr class="border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Case Reference:</td>
-                                <td class="p-3 font-black text-blue-900 font-mono-code border-r border-slate-300 bg-white" id="displayLabCaseRef">{{ $savedLabCaseRef }}</td>
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Laboratory Number:</td>
-                                <td class="p-3 font-black text-slate-900 font-mono-code bg-white" id="section5LabUnitDisplay">{{ $savedLabNumber }}</td>
-                            </tr>
-                            <tr class="bg-slate-100/90 border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Analyst / Examiner:</td>
-                                <td class="p-3 font-black text-slate-900 border-r border-slate-300 bg-white" id="section5AnalystDisplay">{{ $savedLabAnalyst }}</td>
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Examination Timeline:</td>
-                                <td class="p-2 bg-white">
-                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                                        <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                            <tr class="border-b border-slate-300">
-                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Received</th>
-                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Started</th>
-                                                <th class="px-2 py-1 text-left bg-slate-200/70">Completed</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white font-bold font-mono-code text-slate-900">
-                                            <tr>
-                                                <td class="px-2 py-1 border-r border-slate-300 text-blue-900" id="section5DateReceivedDisplay">{{ $savedLabDateReceived }}</td>
-                                                <td class="px-2 py-1 border-r border-slate-300 text-amber-900" id="section5DateStartedDisplay">{{ $savedLabDateStarted }}</td>
-                                                <td class="px-2 py-1 text-emerald-900" id="section5DateCompletedDisplay">{{ $savedLabDateCompleted }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                            </tr>
-                            <tr class="border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Presumptive Reaction:</td>
-                                <td class="p-2 border-r border-slate-300 bg-white" id="section5PresumptiveDisplay">
-                                    @php
-                                        $pRaw = trim($savedLabPresumptive ?? '');
-                                        $pResult = 'N/A';
-                                        $pPresence = 'N/A';
-                                        $pPurity = 'N/A';
-
-                                        if (!empty($pRaw)) {
-                                            if (str_starts_with(strtoupper($pRaw), 'YES') || str_starts_with(strtoupper($pRaw), 'POS')) {
-                                                $pResult = 'YES';
-                                            } elseif (str_starts_with(strtoupper($pRaw), 'NO') || str_starts_with(strtoupper($pRaw), 'NEG')) {
-                                                $pResult = 'NO';
-                                            } else {
-                                                $pResult = strtok($pRaw, ' (');
-                                            }
-
-                                            if (preg_match('/Presence of:\s*([^-\)]+)/i', $pRaw, $mPresence)) {
-                                                $pPresence = trim($mPresence[1]);
-                                            } elseif (preg_match('/\(([^-\)]+)\)/', $pRaw, $mPresence)) {
-                                                $pPresence = trim($mPresence[1]);
-                                            }
-
-                                            if (preg_match('/Purity\/Percentage:\s*([^\)]+)/i', $pRaw, $mPurity)) {
-                                                $pPurity = trim($mPurity[1]);
-                                            }
-                                        }
-                                    @endphp
-                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                                        <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                            <tr class="border-b border-slate-300">
-                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
-                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Presence of</th>
-                                                <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white">
-                                            <tr>
-                                                <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pResult === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pResult }}</td>
-                                                <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $pPresence }}</td>
-                                                <td class="px-2 py-1 font-bold text-slate-900">{{ $pPurity }}</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </td>
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Confirmatory Test:</td>
-                                <td class="p-3 font-black bg-white {{ $savedLabConfirmatory === 'YES' ? 'text-emerald-950' : 'text-slate-950' }}" id="section5ConfirmatoryDisplay">
-                                    <span class="inline-flex items-center space-x-1.5">
-                                        <span class="w-2.5 h-2.5 rounded-full {{ $savedLabConfirmatory === 'YES' ? 'bg-emerald-600' : 'bg-slate-600' }}"></span>
-                                        <span>{{ $savedLabConfirmatory === 'YES' ? 'YES' : 'NO' }}</span>
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr class="bg-slate-100/90 border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Sample Metrology:</td>
-                                <td class="p-3 bg-white" colspan="3">
-                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                        <div class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Description</div>
-                                            <div class="font-bold text-slate-950 text-xs mt-0.5" id="section5SampleDescDisplay">{{ $savedLabSampleDesc ?: 'N/A' }}</div>
-                                        </div>
-                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Number of Units</div>
-                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleUnitsDisplay">{{ $savedLabSampleUnits ?: 'N/A' }}</div>
-                                        </div>
-                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Gross Weight</div>
-                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleGrossDisplay">{{ $savedLabSampleGross ?: 'N/A' }}</div>
-                                        </div>
-                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Mass Taken</div>
-                                            <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5" id="section5SampleTakenDisplay">{{ $savedLabSampleTaken ? $savedLabSampleTaken . ' ' . $savedLabSampleUnit : 'N/A' }}</div>
-                                        </div>
-                                        <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Reserved Samples</div>
-                                            <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleReservedDisplay">{{ $savedLabSampleReserved ?: 'N/A' }}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr class="border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Substance Identified:</td>
-                                <td class="p-3 font-black text-slate-950 bg-white border-r border-slate-300" id="section5SubstanceIdDisplay">{{ $savedLabSubstanceId ?: 'N/A' }}</td>
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Test Specifications:</td>
-                                <td class="p-3 font-bold text-slate-900 bg-white" id="section5SpecsDisplay">{{ $savedLabSpecifications ?: 'N/A' }}</td>
-                            </tr>
-                            <tr class="bg-slate-100/90 border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Detected Compounds:</td>
-                                <td class="p-3 bg-white font-bold text-slate-900 text-xs" colspan="3" id="section5DetectedSubstancesDisplay">
-                                    @php $detList = []; @endphp
-                                    @foreach($savedLabDetectedSubstances as $subItem)
-                                        @if(!empty($subItem['substance']))
-                                            @php 
-                                                $detList[] = $subItem['substance'] . (!empty($subItem['percentage']) ? ' (' . $subItem['percentage'] . ')' : ''); 
-                                            @endphp
-                                        @endif
-                                    @endforeach
-                                    @if(count($detList) > 0)
-                                        <span>{{ implode(', ', $detList) }}</span>
-                                    @else
-                                        <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr class="border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Test Methods:</td>
-                                <td class="p-3 font-mono-code font-black text-slate-900 bg-white" colspan="3" id="section5TestMethodsDisplay">{{ $savedLabTestMethods ?: 'N/A' }}</td>
-                            </tr>
-                            <tr class="bg-slate-900 text-white">
-                                <td class="p-3 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">Analytical Findings:</td>
-                                <td class="p-3 font-medium text-slate-100 leading-relaxed bg-slate-900" colspan="3" id="section5FindingsDisplay">{{ $savedLabFindings ?: 'No specific laboratory analytical findings logged yet.' }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <!-- ASSOCIATE SUSPECT LABORATORY EXAMINATION RESULT DOSSIERS -->
                     @php
                         $primaryNameStr = strtolower(trim($primarySuspectsCombinedNames ?? ($case->suspect_name ?? '')));
-                        $primaryNamesArray = array_filter(array_map('trim', explode(',', strtolower($primaryNameStr))));
+                        $primarySuspectNamesArray = [];
+                        if (!empty($primaryAndCoNamesList) && is_array($primaryAndCoNamesList)) {
+                            foreach ($primaryAndCoNamesList as $pn) {
+                                if (!empty($pn)) $primarySuspectNamesArray[] = strtolower(trim($pn));
+                            }
+                        }
+                        if (!empty($suspectsList) && is_array($suspectsList)) {
+                            foreach ($suspectsList as $sItem) {
+                                $role = strtolower($sItem['association_role'] ?? ($sItem['role'] ?? ''));
+                                $isAssoc = !empty($sItem['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
+                                if (!$isAssoc && !empty($sItem['suspect_name'])) {
+                                    $spNameClean = strtolower(trim($sItem['suspect_name']));
+                                    if (!in_array($spNameClean, $primarySuspectNamesArray)) {
+                                        $primarySuspectNamesArray[] = $spNameClean;
+                                    }
+                                }
+                            }
+                        }
+
+                        $isPrimaryOrCoSuspectName = function($nameToCheck) use ($primarySuspectNamesArray) {
+                            if (empty($nameToCheck)) return true;
+                            $clean = strtolower(trim($nameToCheck));
+                            if ($clean === 'primary suspect' || $clean === 'associate suspect' || $clean === 'all suspects') return true;
+
+                            foreach ($primarySuspectNamesArray as $pName) {
+                                if ($clean === $pName || str_contains($clean, $pName) || str_contains($pName, $clean)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
+
+                        $checkIsDrugExhibit = function($ex) {
+                            if (empty($ex) || !is_array($ex)) return false;
+                            $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? ($ex['seizure_category'] ?? ($ex['type'] ?? '')))));
+                            $name = strtolower(trim($ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))));
+                            $type = strtolower(trim($ex['seizure_type'] ?? ($ex['exhibit_type'] ?? '')));
+                            
+                            $nonDrugKws = ['weapon', 'firearm', 'pistol', 'rifle', 'shotgun', 'ammunition', 'vehicle', 'truck', 'car', 'cash', 'currency', 'usd', 'ghs', 'laptop', 'phone', 'electronics', 'document'];
+                            foreach ($nonDrugKws as $kw) {
+                                if (str_contains($cat, $kw) || str_contains($name, $kw) || str_contains($type, $kw)) {
+                                    return false;
+                                }
+                            }
+                            if ($cat === 'drugs' || $cat === 'narcotics' || $cat === 'drug' || !empty($ex['seizure_name_drug'])) {
+                                return true;
+                            }
+                            if (!empty($cat) && in_array($cat, ['weapons', 'weapon', 'vehicles', 'vehicle', 'cash', 'currency', 'firearm', 'firearms'])) {
+                                return false;
+                            }
+                            return true;
+                        };
 
                         $associateSuspectsForLab = [];
                         if (!empty($suspectsList) && is_array($suspectsList)) {
                             foreach ($suspectsList as $sIdx => $sItem) {
-                                $spIsAssoc = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect');
+                                $role = strtolower($sItem['association_role'] ?? ($sItem['role'] ?? ''));
+                                $spIsAssoc = !empty($sItem['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
                                 $spName = $sItem['suspect_name'] ?? null;
-                                if ($spIsAssoc && !empty($spName)) {
-                                    $spNameLower = strtolower(trim($spName));
-                                    if (!in_array($spNameLower, $primaryNamesArray) && $spNameLower !== $primaryNameStr) {
-                                        $associateSuspectsForLab[] = [
-                                            'index' => $sItem['suspect_number'] ?? ($sIdx + 1),
-                                            'name'  => $spName,
-                                            'item'  => $sItem
-                                        ];
-                                    }
+                                if ($spIsAssoc && !empty($spName) && !$isPrimaryOrCoSuspectName($spName)) {
+                                    $associateSuspectsForLab[] = [
+                                        'index' => $sItem['suspect_number'] ?? ($sIdx + 1),
+                                        'name'  => $spName,
+                                        'item'  => $sItem
+                                    ];
                                 }
                             }
                         }
                         if (!empty($docketData['associated_suspects']) && is_array($docketData['associated_suspects'])) {
                             foreach ($docketData['associated_suspects'] as $aIdx => $aSp) {
                                 $aName = $aSp['suspect_name'] ?? ($aSp['name'] ?? null);
-                                if ($aName) {
+                                if ($aName && !$isPrimaryOrCoSuspectName($aName)) {
                                     $aNameLower = strtolower(trim($aName));
-                                    if (!in_array($aNameLower, $primaryNamesArray) && $aNameLower !== $primaryNameStr) {
-                                        $alreadyAdded = false;
-                                        foreach ($associateSuspectsForLab as $existingAssoc) {
-                                            if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
-                                                $alreadyAdded = true;
-                                                break;
-                                            }
+                                    $alreadyAdded = false;
+                                    foreach ($associateSuspectsForLab as $existingAssoc) {
+                                        if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
+                                            $alreadyAdded = true;
+                                            break;
                                         }
-                                        if (!$alreadyAdded) {
-                                            $associateSuspectsForLab[] = [
-                                                'index' => count($suspectsList) + $aIdx + 1,
-                                                'name'  => $aName,
-                                                'item'  => $aSp
-                                            ];
-                                        }
+                                    }
+                                    if (!$alreadyAdded) {
+                                        $associateSuspectsForLab[] = [
+                                            'index' => count($suspectsList) + $aIdx + 1,
+                                            'name'  => $aName,
+                                            'item'  => $aSp
+                                        ];
                                     }
                                 }
                             }
@@ -3018,23 +3817,21 @@
                         if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
                             foreach ($docketData['seizures'] as $szItem) {
                                 $assocP = $szItem['associated_person'] ?? null;
-                                if (!empty($assocP)) {
+                                if (!empty($assocP) && !$isPrimaryOrCoSuspectName($assocP) && $checkIsDrugExhibit($szItem)) {
                                     $aNameLower = strtolower(trim($assocP));
-                                    if (!in_array($aNameLower, $primaryNamesArray) && $aNameLower !== $primaryNameStr) {
-                                        $alreadyAdded = false;
-                                        foreach ($associateSuspectsForLab as $existingAssoc) {
-                                            if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
-                                                $alreadyAdded = true;
-                                                break;
-                                            }
+                                    $alreadyAdded = false;
+                                    foreach ($associateSuspectsForLab as $existingAssoc) {
+                                        if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
+                                            $alreadyAdded = true;
+                                            break;
                                         }
-                                        if (!$alreadyAdded) {
-                                            $associateSuspectsForLab[] = [
-                                                'index' => count($associateSuspectsForLab) + 2,
-                                                'name'  => $assocP,
-                                                'item'  => ['suspect_name' => $assocP, 'is_associate' => true]
-                                            ];
-                                        }
+                                    }
+                                    if (!$alreadyAdded) {
+                                        $associateSuspectsForLab[] = [
+                                            'index' => count($associateSuspectsForLab) + 2,
+                                            'name'  => $assocP,
+                                            'item'  => ['suspect_name' => $assocP, 'is_associate' => true]
+                                        ];
                                     }
                                 }
                             }
@@ -3058,13 +3855,19 @@
                                 }
                             }
 
-                            // Filter associate exhibits for this person
-                            $assocExhibitsList = array_filter($docketData['seizures'] ?? [], function($sz) use ($aSpName, $aSpId) {
+                            // Filter associate exhibits for this person (must be drug exhibits)
+                            $assocExhibitsList = array_filter($docketData['seizures'] ?? [], function($sz) use ($aSpName, $aSpId, $checkIsDrugExhibit) {
+                                if (!$checkIsDrugExhibit($sz)) {
+                                    return false;
+                                }
                                 $szOwnerName = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
                                 if (!empty($szOwnerName) && strtolower(trim($szOwnerName)) !== 'associate suspect' && strtolower(trim($szOwnerName)) !== 'primary suspect') {
-                                    if (strtolower(trim($szOwnerName)) === strtolower(trim($aSpName)) || str_contains(strtolower($szOwnerName), strtolower(trim($aSpName)))) {
+                                    $ownerLow = strtolower(trim($szOwnerName));
+                                    $aNameLow = strtolower(trim($aSpName));
+                                    if ($ownerLow === $aNameLow || str_contains($ownerLow, $aNameLow) || str_contains($aNameLow, $ownerLow)) {
                                         return true;
                                     }
+                                    return false;
                                 }
                                 $szAssocId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
                                 if (!empty($szAssocId) && !empty($aSpId)) {
@@ -3092,7 +3895,9 @@
                                 $hasThisAssocSavedLab = true;
                             } elseif ($docketAssocExam && !empty($docketAssocExam['has_saved'])) {
                                 $hasThisAssocSavedLab = true;
-                            } elseif (!empty($firstAssocEx['has_saved_lab']) || (!empty($assocLabExam) && !empty($assocLabExam['has_saved']))) {
+                            } elseif (!empty($firstAssocEx) && $checkIsDrugExhibit($firstAssocEx) && !empty($firstAssocEx['has_saved_lab'])) {
+                                $hasThisAssocSavedLab = true;
+                            } elseif (!empty($assocLabExam) && !empty($assocLabExam['has_saved'])) {
                                 $hasThisAssocSavedLab = true;
                             }
 
@@ -3104,11 +3909,11 @@
 
                             $assocAnalyst = $dbAssocExam && !empty($dbAssocExam->analyst) ? $dbAssocExam->analyst : (!empty($docketAssocExam['analyst']) ? $docketAssocExam['analyst'] : (!empty($assocLabExam['analyst']) ? $assocLabExam['analyst'] : (!empty($firstAssocEx['analyst']) ? $firstAssocEx['analyst'] : 'N/A')));
 
-                            $assocDateReceived = $dbAssocExam && !empty($dbAssocExam->date_received) ? (is_object($dbAssocExam->date_received) ? $dbAssocExam->date_received->format('Y-m-d') : substr($dbAssocExam->date_received, 0, 10)) : (!empty($docketAssocExam['date_received']) ? $docketAssocExam['date_received'] : (!empty($assocLabExam['date_received']) ? $assocLabExam['date_received'] : (!empty($firstAssocEx['date_received']) ? $firstAssocEx['date_received'] : 'N/A')));
+                            $assocDateReceived = ($dbAssocExam && !empty($dbAssocExam->date_received) && $dbAssocExam->date_received !== 'N/A') ? (is_object($dbAssocExam->date_received) ? $dbAssocExam->date_received->format('Y-m-d') : substr((string)$dbAssocExam->date_received, 0, 10)) : (!empty($docketAssocExam['date_received']) && $docketAssocExam['date_received'] !== 'N/A' ? $docketAssocExam['date_received'] : (!empty($assocLabExam['date_received']) && $assocLabExam['date_received'] !== 'N/A' ? $assocLabExam['date_received'] : (!empty($firstAssocEx['date_received']) && $firstAssocEx['date_received'] !== 'N/A' ? $firstAssocEx['date_received'] : (!empty($firstAssocEx['seizure_date']) && $firstAssocEx['seizure_date'] !== 'N/A' ? $firstAssocEx['seizure_date'] : $labDateReceived))));
 
-                            $assocDateStarted = $dbAssocExam && !empty($dbAssocExam->date_started) ? (is_object($dbAssocExam->date_started) ? $dbAssocExam->date_started->format('Y-m-d') : substr($dbAssocExam->date_started, 0, 10)) : (!empty($docketAssocExam['date_started']) ? $docketAssocExam['date_started'] : (!empty($assocLabExam['date_started']) ? $assocLabExam['date_started'] : (!empty($firstAssocEx['date_started']) ? $firstAssocEx['date_started'] : 'N/A')));
+                            $assocDateStarted = ($dbAssocExam && !empty($dbAssocExam->date_started) && $dbAssocExam->date_started !== 'N/A') ? (is_object($dbAssocExam->date_started) ? $dbAssocExam->date_started->format('Y-m-d') : substr((string)$dbAssocExam->date_started, 0, 10)) : (!empty($docketAssocExam['date_started']) && $docketAssocExam['date_started'] !== 'N/A' ? $docketAssocExam['date_started'] : (!empty($assocLabExam['date_started']) && $assocLabExam['date_started'] !== 'N/A' ? $assocLabExam['date_started'] : (!empty($firstAssocEx['date_started']) && $firstAssocEx['date_started'] !== 'N/A' ? $firstAssocEx['date_started'] : (!empty($labDateStarted) && $labDateStarted !== 'N/A' ? $labDateStarted : $assocDateReceived))));
 
-                            $assocDateCompleted = $dbAssocExam && !empty($dbAssocExam->date_completed) ? (is_object($dbAssocExam->date_completed) ? $dbAssocExam->date_completed->format('Y-m-d') : substr($dbAssocExam->date_completed, 0, 10)) : (!empty($docketAssocExam['date_completed']) ? $docketAssocExam['date_completed'] : (!empty($assocLabExam['date_completed']) ? $assocLabExam['date_completed'] : (!empty($firstAssocEx['date_completed']) ? $firstAssocEx['date_completed'] : 'N/A')));
+                            $assocDateCompleted = ($dbAssocExam && !empty($dbAssocExam->date_completed) && $dbAssocExam->date_completed !== 'N/A') ? (is_object($dbAssocExam->date_completed) ? $dbAssocExam->date_completed->format('Y-m-d') : substr((string)$dbAssocExam->date_completed, 0, 10)) : (!empty($docketAssocExam['date_completed']) && $docketAssocExam['date_completed'] !== 'N/A' ? $docketAssocExam['date_completed'] : (!empty($assocLabExam['date_completed']) && $assocLabExam['date_completed'] !== 'N/A' ? $assocLabExam['date_completed'] : (!empty($firstAssocEx['date_completed']) && $firstAssocEx['date_completed'] !== 'N/A' ? $firstAssocEx['date_completed'] : (!empty($labDateCompleted) && $labDateCompleted !== 'N/A' ? $labDateCompleted : $assocDateStarted))));
 
                             $assocDrugName = $dbAssocExam ? $dbAssocExam->sample_weight_description : (!empty($docketAssocExam['sample_weight']['description']) ? $docketAssocExam['sample_weight']['description'] : (!empty($firstAssocEx['seizure_name_drug']) ? $firstAssocEx['seizure_name_drug'] : (!empty($firstAssocEx['seizure_name']) ? $firstAssocEx['seizure_name'] : (!empty($assocLabExam['substance_identification']) ? $assocLabExam['substance_identification'] : (!empty($assocLabExam['sample_weight']['description']) ? $assocLabExam['sample_weight']['description'] : ($firstDrugFound ?: 'Drug Exhibit'))))));
 
@@ -3242,6 +4047,61 @@
                                     <tr class="border-b border-amber-200">
                                         <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-amber-200 bg-amber-50/70">Presumptive Reaction:</td>
                                         <td class="p-2 border-r border-amber-200 bg-white">
+                                            @php
+                                                $pRawAssoc = trim($assocPresumptiveText ?? '');
+                                                $pRowsAssoc = [];
+                                                if (!empty($pRawAssoc) && $pRawAssoc !== 'N/A') {
+                                                    $overallResultAssoc = 'N/A';
+                                                    if (preg_match('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i', $pRawAssoc, $mRes)) {
+                                                        $overallResultAssoc = strtoupper($mRes[1]);
+                                                        if ($overallResultAssoc === 'POS' || $overallResultAssoc === 'POSITIVE') $overallResultAssoc = 'YES';
+                                                        if ($overallResultAssoc === 'NEG' || $overallResultAssoc === 'NEGATIVE') $overallResultAssoc = 'NO';
+                                                    }
+
+                                                    $cleanPAssoc = $pRawAssoc;
+                                                    if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRawAssoc, $mP)) {
+                                                        $cleanPAssoc = $mP[1];
+                                                    }
+
+                                                    $segmentsAssoc = preg_split('/;\s*(?=\[\d+\]|Presence of:)/i', $cleanPAssoc);
+                                                    if (empty($segmentsAssoc)) $segmentsAssoc = [$cleanPAssoc];
+
+                                                    foreach ($segmentsAssoc as $seg) {
+                                                        $seg = trim($seg);
+                                                        if (empty($seg)) continue;
+
+                                                        $presence = 'N/A';
+                                                        $purity = 'N/A';
+
+                                                        if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                                            $presence = trim($mPres[1]);
+                                                        } elseif (preg_match('/^\[\d+\]\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                                            $presence = trim($mPres[1]);
+                                                        } elseif (!empty($seg) && !str_contains($seg, 'Purity')) {
+                                                            $presence = trim($seg);
+                                                        }
+
+                                                        if ($presence === 'YES' || $presence === 'NO' || $presence === 'POS' || $presence === 'NEG') {
+                                                            $presence = 'N/A';
+                                                        }
+
+                                                        if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $seg, $mPur)) {
+                                                            $purity = trim($mPur[1]);
+                                                        }
+
+                                                        if ($presence !== 'N/A' || $purity !== 'N/A' || count($segmentsAssoc) === 1) {
+                                                            $pRowsAssoc[] = [
+                                                                'result'   => $overallResultAssoc,
+                                                                'presence' => $presence,
+                                                                'purity'   => $purity,
+                                                            ];
+                                                        }
+                                                    }
+                                                }
+                                                if (empty($pRowsAssoc)) {
+                                                    $pRowsAssoc[] = ['result' => 'N/A', 'presence' => 'N/A', 'purity' => 'N/A'];
+                                                }
+                                            @endphp
                                             <table class="w-full text-xs border border-amber-200 rounded overflow-hidden">
                                                 <thead class="bg-amber-100/80 text-amber-950 font-mono-code uppercase font-black text-[10px]">
                                                     <tr class="border-b border-amber-200">
@@ -3251,11 +4111,13 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody class="bg-white">
-                                                    <tr>
-                                                        <td class="px-2 py-1 border-r border-amber-200 font-extrabold {{ $pResultAssoc === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pResultAssoc }}</td>
-                                                        <td class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">{{ $pPresenceAssoc }}</td>
-                                                        <td class="px-2 py-1 font-bold text-slate-900">{{ $pPurityAssoc }}</td>
+                                                    @foreach($pRowsAssoc as $pRowAssoc)
+                                                    <tr class="border-b border-amber-100 last:border-b-0">
+                                                        <td class="px-2 py-1 border-r border-amber-200 font-extrabold {{ $pRowAssoc['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pRowAssoc['result'] }}</td>
+                                                        <td class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">{{ $pRowAssoc['presence'] }}</td>
+                                                        <td class="px-2 py-1 font-bold text-slate-900">{{ $pRowAssoc['purity'] }}</td>
                                                     </tr>
+                                                    @endforeach
                                                 </tbody>
                                             </table>
                                         </td>
@@ -3306,16 +4168,44 @@
                                             @php 
                                                 $detListAssoc = []; 
                                                 $assocDetSubs = $dbAssocExam && !empty($dbAssocExam->detected_substances) ? $dbAssocExam->detected_substances : (!empty($docketAssocExam['detected_substances']) ? $docketAssocExam['detected_substances'] : (!empty($assocLabExam['detected_substances']) ? $assocLabExam['detected_substances'] : (!empty($firstAssocEx['detected_substances']) ? $firstAssocEx['detected_substances'] : [])));
+                                                if (is_string($assocDetSubs)) {
+                                                    $assocDetSubs = json_decode($assocDetSubs, true) ?: [];
+                                                }
+                                                if (is_array($assocDetSubs)) {
+                                                    foreach ($assocDetSubs as $subItem) {
+                                                        if (is_array($subItem)) {
+                                                            $sName = $subItem['substance'] ?? ($subItem['name'] ?? ($subItem['compound'] ?? ($subItem['drug_name'] ?? '')));
+                                                            $sPct  = $subItem['percentage'] ?? ($subItem['purity'] ?? ($subItem['pct'] ?? ''));
+                                                            if (!empty($sName)) {
+                                                                $detListAssoc[] = $sName . (!empty($sPct) ? ' (' . rtrim(trim($sPct), '%') . '%)' : '');
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                if (empty($detListAssoc)) {
+                                                    $pText = $assocPresumptiveText ?? '';
+                                                    if (!empty($pText) && (str_contains($pText, 'Presence of:') || str_contains($pText, 'YES'))) {
+                                                        $cleanP = preg_replace('/^YES\s*\((.*)\)$/i', '$1', trim($pText));
+                                                        $pSegs = explode(';', $cleanP);
+                                                        foreach ($pSegs as $pSeg) {
+                                                            $pSeg = trim($pSeg);
+                                                            $pName = ''; $pPur = '';
+                                                            if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)) {
+                                                                $pName = trim($mP[1]);
+                                                            }
+                                                            if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $pSeg, $mPur)) {
+                                                                $pPur = trim($mPur[1]);
+                                                            }
+                                                            if (!empty($pName)) {
+                                                                $detListAssoc[] = $pName . (!empty($pPur) ? ' (' . rtrim(trim($pPur), '%') . '%)' : '');
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                if (empty($detListAssoc) && !empty($assocSubstanceIdVal) && $assocSubstanceIdVal !== 'N/A') {
+                                                    $detListAssoc[] = $assocSubstanceIdVal;
+                                                }
                                             @endphp
-                                            @if(!empty($assocDetSubs))
-                                                @foreach($assocDetSubs as $subItem)
-                                                    @if(!empty($subItem['substance']))
-                                                        @php 
-                                                            $detListAssoc[] = $subItem['substance'] . (!empty($subItem['percentage']) ? ' (' . $subItem['percentage'] . ')' : ''); 
-                                                        @endphp
-                                                    @endif
-                                                @endforeach
-                                            @endif
                                             @if(count($detListAssoc) > 0)
                                                 <span>{{ implode(', ', $detListAssoc) }}</span>
                                             @else
@@ -3392,6 +4282,13 @@
         const weightVal = opt.getAttribute('data-weight') || '';
         const unitVal = opt.getAttribute('data-unit') || '';
         const hasSaved = opt.getAttribute('data-has-saved');
+        const savedConfirmatory = opt.getAttribute('data-confirmatory') || 'YES';
+        const savedSubstanceId = opt.getAttribute('data-substance-id') || nameVal;
+        const savedTestMethods = opt.getAttribute('data-test-methods') || '';
+        const savedSpecifications = opt.getAttribute('data-specifications') || '';
+        const savedSampleTaken = opt.getAttribute('data-sample-taken') || '';
+        const savedSampleReserved = opt.getAttribute('data-sample-reserved') || '';
+        const savedFindings = opt.getAttribute('data-findings') || '';
 
         const exhNoInput = document.getElementById('labExhibitNumberInput');
         const descInput = document.getElementById('labExhibitDescriptionInput');
@@ -3403,19 +4300,32 @@
         const reservedInput = document.getElementById('sampleWeightReservedReview');
         const notesInput = document.getElementById('formLabNotes');
         const unitAddon = document.getElementById('sampleWeightTakenUnitAddonReview');
+        const confMethods = document.getElementById('confirmatoryTestMethodsReview');
+        const confSpecs = document.getElementById('confirmatorySpecificationsReview');
 
         if (exhNoInput && exhVal) exhNoInput.value = 'EXH-0' + exhVal;
         if (descInput) descInput.value = nameVal;
-        if (subIdInput) subIdInput.value = nameVal;
+        if (subIdInput) subIdInput.value = savedSubstanceId || nameVal;
         if (sampleDescInput) sampleDescInput.value = nameVal;
         if (unitsInput) unitsInput.value = qtyVal;
         if (grossInput) grossInput.value = weightVal ? (weightVal + (unitVal ? ' ' + unitVal : '')) : qtyVal;
         if (unitAddon && unitVal) unitAddon.textContent = unitVal;
 
-        if (hasSaved !== 'true' && hasSaved !== '1') {
+        if (hasSaved === 'true' || hasSaved === '1') {
+            if (takenInput) takenInput.value = savedSampleTaken;
+            if (reservedInput) reservedInput.value = savedSampleReserved;
+            if (notesInput) notesInput.value = savedFindings;
+            if (confMethods) confMethods.value = savedTestMethods;
+            if (confSpecs) confSpecs.value = savedSpecifications;
+            if (typeof toggleConfirmatoryTestReview === 'function') {
+                toggleConfirmatoryTestReview(savedConfirmatory === 'NO' ? 'NO' : 'YES');
+            }
+        } else {
             if (takenInput) takenInput.value = '';
             if (reservedInput) reservedInput.value = '';
             if (notesInput) notesInput.value = '';
+            if (confMethods) confMethods.value = '';
+            if (confSpecs) confSpecs.value = '';
 
             // Reset Presumptive Test
             const presRadios = document.querySelectorAll('input[name="form_presumptive_radio"]');
@@ -3447,25 +4357,12 @@
             const presDetailsContainer = document.getElementById('presumptiveReactionDetailsContainerReview');
             if (presDetailsContainer) presDetailsContainer.classList.add('hidden');
 
-            // Reset Confirmatory Test
-            const confRadios = document.querySelectorAll('input[name="form_confirmatory_radio"]');
-            confRadios.forEach(r => r.checked = false);
-
-            const lblConfYes = document.getElementById('labelConfirmatoryYesReview');
-            const lblConfNo = document.getElementById('labelConfirmatoryNoReview');
-            if (lblConfYes) lblConfYes.className = 'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
-            if (lblConfNo) lblConfNo.className = 'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
-
             const detectedContainer = document.getElementById('detectedSubstancesListContainerReview');
             if (detectedContainer) detectedContainer.innerHTML = '';
 
-            const confMethods = document.getElementById('confirmatoryTestMethodsReview');
-            const confSpecs = document.getElementById('confirmatorySpecificationsReview');
-            if (confMethods) confMethods.value = '';
-            if (confSpecs) confSpecs.value = '';
-
-            const sampleWeightContainer = document.getElementById('sampleWeightContainerReview');
-            if (sampleWeightContainer) sampleWeightContainer.classList.add('hidden');
+            if (typeof toggleConfirmatoryTestReview === 'function') {
+                toggleConfirmatoryTestReview('YES');
+            }
 
             // Reset Lab Status Badges
             const badgeStatus = document.getElementById('section5BadgeStatus') || document.getElementById('badgeStatus');
@@ -3848,11 +4745,15 @@
     function toggleConfirmatoryTestReview(val) {
         const lblYes = document.getElementById('labelConfirmatoryYesReview');
         const lblNo = document.getElementById('labelConfirmatoryNoReview');
+        const radYes = document.getElementById('confirmatoryTestYesReview');
+        const radNo = document.getElementById('confirmatoryTestNoReview');
         const container = document.getElementById('sampleWeightContainerReview');
         const descInput = document.getElementById('sampleWeightDescriptionReview');
         const grossInput = document.getElementById('sampleWeightGrossReview');
 
         if (val === 'YES') {
+            if (radYes) radYes.checked = true;
+            if (radNo) radNo.checked = false;
             if (lblYes) lblYes.className = 'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20';
             if (lblNo) lblNo.className = 'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
             if (container) container.classList.remove('hidden');
@@ -3872,6 +4773,8 @@
             }
             if (typeof updateReservedWeightReview === 'function') updateReservedWeightReview();
         } else {
+            if (radYes) radYes.checked = false;
+            if (radNo) radNo.checked = true;
             if (lblYes) lblYes.className = 'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
             if (lblNo) lblNo.className = 'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-red-500 bg-red-50/80 ring-2 ring-red-500/20';
             if (container) container.classList.add('hidden');
@@ -4156,19 +5059,67 @@
                 const uPresumptiveEl = document.getElementById('section5PresumptiveDisplay');
                 if (uPresumptiveEl) {
                     const str = String(presumptive || '').trim();
-                    let pRes = 'N/A', pPres = 'N/A', pPur = 'N/A';
-                    if (str) {
+                    let overallResult = 'N/A';
+                    if (str && str !== 'N/A') {
                         const up = str.toUpperCase();
-                        if (up.startsWith('YES') || up.startsWith('POS')) pRes = 'YES';
-                        else if (up.startsWith('NO') || up.startsWith('NEG')) pRes = 'NO';
-                        else pRes = str.split(/[\s\(]/)[0] || 'N/A';
-
-                        const mPres = str.match(/Presence of:\s*([^-\)]+)/i) || str.match(/\(([^-\)]+)\)/);
-                        if (mPres) pPres = mPres[1].trim();
-
-                        const mPur = str.match(/Purity\/Percentage:\s*([^\)]+)/i);
-                        if (mPur) pPur = mPur[1].trim();
+                        if (up.startsWith('YES') || up.startsWith('POS')) overallResult = 'YES';
+                        else if (up.startsWith('NO') || up.startsWith('NEG')) overallResult = 'NO';
                     }
+
+                    let cleanP = str;
+                    const mP = str.match(/^[A-Z]+\s*\((.*)\)$/i);
+                    if (mP) cleanP = mP[1];
+
+                    const segments = cleanP.split(/;\s*(?=\[\d+\]|Presence of:)/i);
+                    const pRowsJS = [];
+
+                    for (let seg of segments) {
+                        seg = seg.trim();
+                        if (!seg) continue;
+
+                        let presence = 'N/A';
+                        let purity = 'N/A';
+
+                        const mPres = seg.match(/Presence of:\s*([^\-\;\)]+)/i) || seg.match(/^\[\d+\]\s*([^\-\;\)]+)/i);
+                        if (mPres) {
+                            presence = mPres[1].trim();
+                        } else if (seg && !seg.includes('Purity')) {
+                            presence = seg.trim();
+                        }
+
+                        if (presence === 'YES' || presence === 'NO' || presence === 'POS' || presence === 'NEG') {
+                            presence = 'N/A';
+                        }
+
+                        const mPur = seg.match(/Purity\/Percentage:\s*([^\;\)]+)/i);
+                        if (mPur) {
+                            purity = mPur[1].trim();
+                        }
+
+                        if (presence !== 'N/A' || purity !== 'N/A' || segments.length === 1) {
+                            pRowsJS.push({
+                                result: overallResult,
+                                presence: presence,
+                                purity: purity
+                            });
+                        }
+                    }
+
+                    if (pRowsJS.length === 0) {
+                        pRowsJS.push({ result: 'N/A', presence: 'N/A', purity: 'N/A' });
+                    }
+
+                    let rowsHtml = '';
+                    for (let r of pRowsJS) {
+                        rowsHtml += `
+                            <tr class="border-b border-slate-200 last:border-b-0">
+                                <td class="px-2 py-1 border-r border-slate-300 font-extrabold ${r.result === 'YES' ? 'text-emerald-800' : 'text-slate-900'}">${escapeHtml(r.result)}</td>
+                                <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">${escapeHtml(r.presence)}</td>
+                                <td class="px-2 py-1 font-bold text-slate-900">${escapeHtml(r.purity)}</td>
+                            </tr>
+                        `;
+                    }
+
                     uPresumptiveEl.innerHTML = `
                         <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
                             <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
@@ -4179,11 +5130,7 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white">
-                                <tr>
-                                    <td class="px-2 py-1 border-r border-slate-300 font-extrabold ${pRes === 'YES' ? 'text-emerald-800' : 'text-slate-900'}">${escapeHtml(pRes)}</td>
-                                    <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">${escapeHtml(pPres)}</td>
-                                    <td class="px-2 py-1 font-bold text-slate-900">${escapeHtml(pPur)}</td>
-                                </tr>
+                                ${rowsHtml}
                             </tbody>
                         </table>
                     `;
@@ -4741,6 +5688,14 @@
             lockSection5Form();
         }
 
+        window.toggleSection5LabForm = function() {
+            const form = document.getElementById('section5LabForm');
+            if (form) {
+                form.classList.remove('hidden');
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        };
+
         if (window.location.search.includes('from=Lab+Analysis') || window.location.search.includes('unit=Lab+Analysis') || window.location.search.includes('edit=true') || window.location.search.includes('edit=1') || @json($isLabContext)) {
             if (typeof toggleLabFormEditMode === 'function') {
                 const form = document.getElementById('section5LabForm');
@@ -4754,7 +5709,47 @@
             }, 300);
         }
     });
+
+    function openMugshotModal(imgSrc, titleText) {
+        const modal = document.getElementById('reviewMugshotLightboxModal');
+        const modalImg = document.getElementById('reviewMugshotModalImage');
+        const modalTitle = document.getElementById('reviewMugshotModalTitle');
+        if (modal && modalImg) {
+            modalImg.src = imgSrc;
+            if (modalTitle) modalTitle.innerText = titleText || 'High-Resolution Visual Preview';
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeMugshotModal() {
+        const modal = document.getElementById('reviewMugshotLightboxModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
+    }
 </script>
+
+<!-- REVIEW MUGSHOT / EXHIBIT LIGHTBOX MODAL -->
+<div id="reviewMugshotLightboxModal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4" onclick="closeMugshotModal()">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 relative border border-slate-200" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+            <h4 id="reviewMugshotModalTitle" class="text-xs font-black font-mono-code uppercase text-slate-900 tracking-wider">High-Resolution Visual Preview</h4>
+            <button type="button" onclick="closeMugshotModal()" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold border border-slate-300 transition-colors cursor-pointer">
+                Close
+            </button>
+        </div>
+        <div class="flex items-center justify-center bg-slate-900 rounded-xl p-3 min-h-[350px] max-h-[70vh] overflow-hidden">
+            <img id="reviewMugshotModalImage" src="" alt="Full Exhibit View" class="max-h-[65vh] max-w-full object-contain rounded-lg shadow-lg">
+        </div>
+        <div class="flex justify-end pt-2">
+            <button type="button" onclick="closeMugshotModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer">
+                Close Preview
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- BOOTSTRAP-STYLE POPOVER SUCCESS MODAL -->
 <div id="saveSuccessPopoverModal" class="hidden fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -4776,5 +5771,10 @@
         </div>
     </div>
 </div>
+
+</body>
+</html>
+
+
 
 

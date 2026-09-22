@@ -1,22 +1,30 @@
 @php
     $sidebarUser = auth()->user();
     $reqUnit = request()->query('unit') ?? request()->query('from');
-    $isLabContext = (
-        (isset($isLabAnalysis) && $isLabAnalysis) 
-        || request()->is('Lab_Analysis*') 
-        || request()->is('lab-analysis*') 
-        || str_contains(strtolower($reqUnit ?? ''), 'lab')
-        || (session('user_unit') === 'Lab Analysis')
-        || ($sidebarUser && str_contains(strtolower($sidebarUser->unit ?? ''), 'lab'))
-    );
 
-    if ($isLabContext) {
+    if (!empty($reqUnit)) {
+        if (str_contains(strtolower($reqUnit), 'crime') || str_contains(strtolower($reqUnit), 'field')) {
+            $sidebarUnit = 'Crime Scene Support';
+        } elseif (str_contains(strtolower($reqUnit), 'lab')) {
+            $sidebarUnit = 'Lab Analysis';
+        } elseif (str_contains(strtolower($reqUnit), 'evidence')) {
+            $sidebarUnit = 'Evidence Management';
+        } elseif (str_contains(strtolower($reqUnit), 'digital') || str_contains(strtolower($reqUnit), 'physical')) {
+            $sidebarUnit = 'Digital & Physical Forensics';
+        } else {
+            $sidebarUnit = $reqUnit;
+        }
+    } elseif (request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*') || (isset($isLabAnalysis) && $isLabAnalysis)) {
         $sidebarUnit = 'Lab Analysis';
-    } elseif ($sidebarUser && $sidebarUser->unit) {
+    } elseif (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*')) {
+        $sidebarUnit = 'Crime Scene Support';
+    } elseif ($sidebarUser && !empty($sidebarUser->unit)) {
         $sidebarUnit = $sidebarUser->unit;
     } else {
         $sidebarUnit = session('user_unit') ?? 'Crime Scene Support';
     }
+
+    $isLabContext = str_contains(strtolower($sidebarUnit), 'lab');
 
     $sidebarUnitUpper = strtoupper(str_replace([' Unit', ' unit'], '', $sidebarUnit));
     if (!str_contains($sidebarUnitUpper, 'UNIT')) {
@@ -26,8 +34,8 @@
     $headDashboardBase = ($sidebarUser && $sidebarUser->is_head && str_contains(strtolower($sidebarUser->unit ?? ''), 'forensic')) 
         ? url('/Forensic_Head') 
         : url('/Crime_Scene_Support/head');
-    $headDashboardUrl = $headDashboardBase . ($isLabContext ? '?from=Lab+Analysis' : '');
-    $caseDirectoryUrl = url('/cases') . ($isLabContext ? '?unit=Lab+Analysis' : '');
+    $headDashboardUrl = $headDashboardBase . ($isLabContext ? '?from=Lab+Analysis' : '?from=' . urlencode($sidebarUnit));
+    $caseDirectoryUrl = url('/cases') . '?from=' . urlencode($sidebarUnit);
     $newCaseUrl = $isLabContext ? url('/Lab_Analysis/examination') : url('/arrest-person');
 @endphp
 <!-- LEFT UNIT COMMAND SIDEBAR (EXECUTIVE GRAY THEME WITH SHADOW) -->
@@ -83,17 +91,7 @@
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('arrest-person*') || request()->is('Lab_Analysis*') || request()->is('lab-analysis*') ? 'text-white' : 'text-red-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
                     <span class="truncate">{{ $isLabContext ? 'Examination Log (Lab Case)' : 'Arrest & Seizure (New Case)' }}</span>
                 </a>
-                <a href="#" class="flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors">
-                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ request()->is('track-case*') ? 'text-white' : 'text-cyan-600' }}"
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        aria-hidden="true">
-                        <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
-                        <circle cx="14" cy="13" r="3"/>
-                        <path d="M16 15l2 2"/>
-                    </svg>
-                    <span class="truncate">Track Case</span>
-                </a>
+                
                 <a href="{{ url('/Report') }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->is('Report*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Report*') ? 'text-white' : 'text-cyan-600' }}"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24"

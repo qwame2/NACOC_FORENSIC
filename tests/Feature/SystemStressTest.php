@@ -55,7 +55,7 @@ class SystemStressTest extends TestCase
 
         $elapsedTime = microtime(true) - $startTime;
 
-        $this->assertDatabaseCount('cases', $caseCount);
+        $this->assertDatabaseCount('single_suspect_cases', $caseCount);
         $this->assertLessThan(2.0, $elapsedTime, "Bulk insert of 500 cases took too long: {$elapsedTime}s.");
     }
 
@@ -86,7 +86,7 @@ class SystemStressTest extends TestCase
         $elapsedTime = microtime(true) - $startTime;
 
         $response->assertStatus(302);
-        $this->assertDatabaseMissing('cases', ['status' => 'Awaiting Sign-off']);
+        $this->assertDatabaseMissing('single_suspect_cases', ['status' => 'Awaiting Sign-off']);
         $this->assertLessThan(1.0, $elapsedTime, "Batch approval took {$elapsedTime}s.");
     }
 }

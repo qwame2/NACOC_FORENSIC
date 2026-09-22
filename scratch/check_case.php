@@ -4,23 +4,14 @@ $app = require_once __DIR__ . '/../bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-$c = \App\Models\ForensicCase::where('case_number', 'CSS-2026-2209')->first();
-if ($c) {
-    echo "=== LAB EXAMINATION ===\n";
-    $lab = $c->docket_data['lab_examination'] ?? [];
-    echo "analyst: " . ($lab['analyst'] ?? '') . "\n";
-    echo "confirmatory_result: " . ($lab['confirmatory_result'] ?? '') . "\n";
-    echo "presumptive_result: " . ($lab['presumptive_result'] ?? '') . "\n";
-    echo "substance_identification: " . ($lab['substance_identification'] ?? '') . "\n";
-    echo "sample_weight: " . json_encode($lab['sample_weight'] ?? []) . "\n";
-
-    echo "\n=== SEIZURES ===\n";
-    foreach ($c->docket_data['seizures'] ?? [] as $i => $sz) {
-        echo "#" . ($i+1) . " Name: " . ($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '')) 
-            . " | Cat: " . ($sz['category'] ?? '') 
-            . " | Owner: " . ($sz['suspect_name'] ?? ($sz['owner'] ?? ($sz['seizure_owner'] ?? 'N/A'))) 
-            . " | has_saved_lab: " . json_encode($sz['has_saved_lab'] ?? null)
-            . " | presumptive_result: " . json_encode($sz['presumptive_result'] ?? null)
-            . "\n";
-    }
+$case = App\Models\ForensicCase::where('case_number', 'CSS-2026-5584')->first();
+echo "Case number: " . $case->case_number . "\n";
+echo "case->suspect_name: " . $case->suspect_name . "\n";
+$d = is_array($case->docket_data) ? $case->docket_data : json_decode($case->docket_data ?? '{}', true);
+foreach ($d['suspects'] ?? [] as $i => $s) {
+    echo "--- Suspect $i ---\n";
+    echo "suspect_number: " . ($s['suspect_number'] ?? 'N/A') . "\n";
+    echo "suspect_name: " . ($s['suspect_name'] ?? 'N/A') . "\n";
+    echo "association_role: " . ($s['association_role'] ?? 'N/A') . "\n";
+    echo "role: " . ($s['role'] ?? 'N/A') . "\n";
 }

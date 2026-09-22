@@ -257,6 +257,7 @@
                                 <!-- TOGGLE SWITCH BUTTON -->
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" id="isStaffToggle" name="is_staff" checked onchange="toggleStaffStatus(this)" class="sr-only peer">
+                                    <input type="hidden" id="userRoleInput" name="role" value="staff">
                                     <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                                 </label>
                             </div>
@@ -324,21 +325,27 @@
                                                 </div>
                                             </div>
 
-                                            <!-- Option List (Fetched dynamically from database) -->
-                                            <div class="max-h-48 overflow-y-auto divide-y divide-slate-100 py-1" id="select2OptionsList">
-                                                @if(isset($units) && count($units) > 0)
-                                                    @foreach($units as $u)
-                                                        <div onclick="selectUnitOption('{{ $u->name }}')" class="select2-option px-3.5 py-2.5 hover:bg-emerald-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
-                                                            <span>{{ $u->name }}</span>
-                                                            <span class="text-[10px] text-emerald-600 font-mono-code font-bold">{{ $u->category }}</span>
-                                                        </div>
-                                                    @endforeach
-                                                @else
-                                                    <div onclick="selectUnitOption('Crime Scene Support')" class="select2-option px-3.5 py-2.5 hover:bg-emerald-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
-                                                        <span>Crime Scene Support</span>
-                                                        <span class="text-[10px] text-emerald-600 font-mono-code font-bold">FIELD OPS</span>
+                                            <!-- Option List (Fetched dynamically from database or fallback) -->
+                                            <div class="max-h-56 overflow-y-auto divide-y divide-slate-100 py-1" id="select2OptionsList">
+                                                @php
+                                                    $officialUnits = [
+                                                        ['name' => 'Crime Scene Support', 'category' => 'FIELD OPS'],
+                                                        ['name' => 'Lab Analysis', 'category' => 'LAB ANALYSIS'],
+                                                        ['name' => 'Evidence Management', 'category' => 'CUSTODY & VAULT'],
+                                                        ['name' => 'Digital & Physical Forensic Unit', 'category' => 'CYBER & TECH'],
+                                                    ];
+                                                    $allUnitsList = (isset($units) && count($units) > 0) ? $units : $officialUnits;
+                                                @endphp
+                                                @foreach($allUnitsList as $u)
+                                                    @php
+                                                        $uName = is_object($u) ? $u->name : $u['name'];
+                                                        $uCat  = is_object($u) ? $u->category : $u['category'];
+                                                    @endphp
+                                                    <div onclick="selectUnitOption('{{ $uName }}')" class="select2-option px-3.5 py-2.5 hover:bg-emerald-50 text-xs font-semibold text-slate-800 cursor-pointer flex items-center justify-between">
+                                                        <span>{{ $uName }}</span>
+                                                        <span class="text-[10px] text-emerald-600 font-mono-code font-bold">{{ $uCat }}</span>
                                                     </div>
-                                                @endif
+                                                @endforeach
                                             </div>
 
                                         </div>
@@ -685,6 +692,10 @@
 
         // Staff Toggle Change Handler
         function toggleStaffStatus(checkbox) {
+            const roleInput = document.getElementById('userRoleInput');
+            if (roleInput) {
+                roleInput.value = checkbox.checked ? 'staff' : 'head';
+            }
             updateUnitHeadDisplay();
         }
 

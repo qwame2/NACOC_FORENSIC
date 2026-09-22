@@ -647,7 +647,7 @@
                             : `<span id="status-${c.case_number}" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Awaiting Sign-off</span>`;
 
                         const actionBtns = isApproved
-                            ? `<button onclick="viewHeadDetails('${c.case_number}')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold">Inspect</button> <a href="/cases/${c.case_number}/review" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[10px] font-bold inline-block">Review</a>`
+                            ? `<button onclick="viewHeadDetails('${c.case_number}')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold">Inspect</button> <a href="/cases/${c.case_number}/review?from=${encodeURIComponent(@json($userUnit))}" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[10px] font-bold inline-block">Review</a>`
                             : `<button onclick="viewHeadDetails('${c.case_number}')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold">Inspect</button> <button onclick="approveHeadDossier('${c.case_number}')" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[10px] font-bold">Approve</button>`;
 
                         const rowText = `${c.case_number} ${c.title} ${c.location} ${c.submitting_officer}`.toLowerCase();

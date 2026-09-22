@@ -1548,7 +1548,7 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div>
-                        <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Place of Birth / Hometown <span class="text-red-600">*</span></label>
+                        <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Place of Birth <span class="text-red-600">*</span></label>
                         <input type="text" name="associated_persons[${personCounter}][place_of_birth]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kumasi, Ashanti Region">
                     </div>
                     <div>
@@ -3154,13 +3154,15 @@
                     if (noBox) noBox.checked = false;
                     if (container) container.classList.remove('hidden');
                 } else {
+                    if (noBox) noBox.checked = true;
                     if (container) container.classList.add('hidden');
                 }
             } else if (choice === 'NO') {
                 if (noBox && noBox.checked) {
                     if (yesBox) yesBox.checked = false;
                     if (container) container.classList.add('hidden');
-                } else if (yesBox && yesBox.checked) {
+                } else {
+                    if (yesBox) yesBox.checked = true;
                     if (container) container.classList.remove('hidden');
                 }
             }

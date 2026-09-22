@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('associate_lab_examinations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('case_id')->constrained('cases')->onDelete('cascade');
+            $table->unsignedBigInteger('case_id');
             $table->string('suspect_name');
             $table->string('associate_id')->nullable();
             $table->string('exhibit_number')->nullable();

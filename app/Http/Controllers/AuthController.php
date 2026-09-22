@@ -13,15 +13,61 @@ use App\Models\Unit;
 class AuthController extends Controller
 {
     /**
+     * Get the appropriate dashboard URL for a user based on role & unit.
+     */
+    public static function getDashboardUrl($user)
+    {
+        if (!$user) {
+            return '/login';
+        }
+
+        $unit = $user->unit ?? '';
+
+        $isForensicHead = $user->is_head && (
+            $unit === 'Forensic Directorate' ||
+            $unit === 'Forensic Head' ||
+            $unit === 'Directorate Head' ||
+            str_contains($unit, 'Forensic Directorate')
+        );
+
+        if ($isForensicHead) {
+            return '/Forensic_Head';
+        }
+
+        $unitLower = strtolower($unit);
+
+        if (str_contains($unitLower, 'crime') || str_contains($unitLower, 'field') || str_contains($unitLower, 'cssu')) {
+            return $user->is_head ? '/Crime_Scene_Support/head' : '/Crime_Scene_Support/staff';
+        }
+
+        if (str_contains($unitLower, 'lab') || str_contains($unitLower, 'cflu')) {
+            return '/Lab_Analysis/examination';
+        }
+
+        if (str_contains($unitLower, 'evidence') || str_contains($unitLower, 'emu')) {
+            return '/cases?unit=Evidence+Management';
+        }
+
+        if (str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical') || str_contains($unitLower, 'dpfu')) {
+            return '/cases?unit=Digital+%26+Physical+Forensics';
+        }
+
+        return $user->is_head ? '/Crime_Scene_Support/head' : '/cases';
+    }
+
+    /**
      * Show the login form.
      */
     public function showLogin()
     {
+        if (Auth::check()) {
+            return redirect(self::getDashboardUrl(Auth::user()));
+        }
         return view('auth.login');
     }
 
     /**
-     * Handle an authentication attempt against PostgreSQL database.
+     * Handle an authentication attempt against database.
      */
     public function login(Request $request)
     {
@@ -33,10 +79,10 @@ class AuthController extends Controller
         $loginId = trim($credentials['login_id']);
         $password = $credentials['password'];
 
-        // Find user by service_id, username, or email
-        $user = User::where('service_id', $loginId)
-            ->orWhere('username', $loginId)
-            ->orWhere('email', $loginId)
+        // Case-insensitive lookup by service_id, username, or email
+        $user = User::whereRaw('LOWER(service_id) = ?', [strtolower($loginId)])
+            ->orWhereRaw('LOWER(username) = ?', [strtolower($loginId)])
+            ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
             ->first();
 
         $isJsonReq = $request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json');
@@ -65,14 +111,7 @@ class AuthController extends Controller
             Auth::login($user, $request->has('remember'));
             $request->session()->regenerate();
 
-            $redirectUrl = '/cases';
-            if ($isForensicHead) {
-                $redirectUrl = '/Forensic_Head';
-            } else if ($user->is_head) {
-                $redirectUrl = '/Crime_Scene_Support/head';
-            } else if ($user->is_staff) {
-                $redirectUrl = '/Crime_Scene_Support/staff';
-            }
+            $redirectUrl = self::getDashboardUrl($user);
 
             if ($isJsonReq) {
                 return response()->json([
@@ -91,6 +130,16 @@ class AuthController extends Controller
                         'is_approved' => (bool) $user->is_approved,
                     ]
                 ], 200);
+            }
+
+            // Clean up intended URL if it points back to login / root / register page to prevent redirect loops
+            $intended = session()->get('url.intended');
+            if ($intended) {
+                $intendedPath = parse_url($intended, PHP_URL_PATH) ?? $intended;
+                $cleanedPath = rtrim($intendedPath, '/');
+                if (in_array($cleanedPath, ['', '/login', '/register', '/api/login', '/api/logout'])) {
+                    session()->forget('url.intended');
+                }
             }
 
             return redirect()->intended($redirectUrl)->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate.');
@@ -114,6 +163,21 @@ class AuthController extends Controller
      */
     public function showRegister()
     {
+        if (Auth::check()) {
+            return redirect(self::getDashboardUrl(Auth::user()));
+        }
+
+        if (Unit::count() === 0) {
+            $unitsData = [
+                ['name' => 'Crime Scene Support', 'code' => 'CSSU', 'category' => 'FIELD OPS'],
+                ['name' => 'Evidence Management', 'code' => 'EMU', 'category' => 'CUSTODY'],
+                ['name' => 'Lab Analysis', 'code' => 'CFLU', 'category' => 'LAB'],
+                ['name' => 'Digital & Physical Forensic Unit', 'code' => 'DPFU', 'category' => 'CYBER & TECH'],
+            ];
+            foreach ($unitsData as $data) {
+                Unit::firstOrCreate(['name' => $data['name']], $data);
+            }
+        }
         $units = Unit::all();
         $registeredHeads = User::where('is_head', true)->pluck('fullname', 'unit')->toArray();
 
@@ -208,7 +272,18 @@ class AuthController extends Controller
             }
         }
 
-        $isStaff = !$forensicHeadExists ? false : $request->has('is_staff');
+        if (!$forensicHeadExists) {
+            $isStaff = false;
+        } else {
+            $roleInput = strtolower(trim($request->input('role', '')));
+            if ($roleInput === 'head' || $roleInput === 'unit_head') {
+                $isStaff = false;
+            } elseif ($roleInput === 'staff' || $roleInput === 'officer') {
+                $isStaff = true;
+            } else {
+                $isStaff = $request->has('is_staff') ? $request->boolean('is_staff') : true;
+            }
+        }
         $isHead = !$isStaff;
         // Unit Heads require Head of Forensic Directorate approval first before logging in
         $isApproved = !$forensicHeadExists ? true : ($isHead ? false : true);

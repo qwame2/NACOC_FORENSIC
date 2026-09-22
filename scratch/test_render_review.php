@@ -1,37 +1,23 @@
 <?php
-require 'vendor/autoload.php';
-$app = require_once 'bootstrap/app.php';
+require __DIR__ . '/../vendor/autoload.php';
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 $kernel->bootstrap();
 
-$case = App\Models\ForensicCase::where('case_number', 'CSS-2026-2209')->first();
-if (!$case) { echo "Case not found\n"; exit; }
+$case = App\Models\ForensicCase::where('case_number', 'CSS-2026-5584')->first();
+$html = view('Forensic_Head.show_review', ['case' => $case])->render();
 
-// Render view
-try {
-    $html = view('Forensic_Head.show_review', [
-        'case' => $case,
-        'from' => 'Lab Analysis'
-    ])->render();
+// Check for "Biometric Mugshots"
+preg_match_all('/([^\n>]+)\s*—\s*Biometric Mugshots/', $html, $m1);
+echo "Biometric Mugshots headers:\n";
+print_r($m1[0] ?? []);
 
-    file_put_contents(__DIR__ . '/review_output.html', $html);
-    echo "Rendered review HTML, saved to review_output.html. Length: " . strlen($html) . "\n";
+// Check for "Personal Booking Details"
+preg_match_all('/([^\n>]+)\s*—\s*Personal Booking Details/', $html, $m2);
+echo "\nPersonal Booking Details headers:\n";
+print_r($m2[0] ?? []);
 
-    // Extract LABORATORY EXAMINATION RESULT sections
-    preg_match_all('/LABORATORY EXAMINATION RESULT.*?(?=<\/div>\s*<\/div>\s*<\/div>|LABORATORY EXAMINATION RESULT|$)/s', $html, $matches);
-    echo "Found " . count($matches[0]) . " matching header snippets:\n";
-    
-    // Find headers containing LABORATORY EXAMINATION RESULT
-    $dom = new DOMDocument();
-    @$dom->loadHTML($html);
-    $xpath = new DOMXPath($dom);
-    
-    $cards = $xpath->query("//*[contains(text(), 'LABORATORY EXAMINATION RESULT')]");
-    echo "XPATH count: " . $cards->length . "\n";
-    foreach ($cards as $card) {
-        echo "Card header text: " . trim($card->nodeValue) . "\n";
-    }
-
-} catch (\Throwable $e) {
-    echo "Error rendering view: " . $e->getMessage() . "\n" . $e->getTraceAsString();
-}
+// Check for Suspect Full Name in the output
+preg_match_all('/Suspect Full Name<\/div>\s*<div[^>]*>([^<]+)<\/div>/', $html, $m3);
+echo "\nSuspect Full Name values:\n";
+print_r($m3[1] ?? []);

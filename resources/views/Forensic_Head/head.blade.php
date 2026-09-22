@@ -962,6 +962,7 @@
                                     </td>
                                     <td>
                                         <div class="font-extrabold text-slate-900 text-xs">{{ $case->title }}</div>
+                                        <div class="text-[10px] text-blue-600 font-mono-code font-semibold mt-0.5">{{ $case->unit_name ?? 'Forensic Directorate' }}</div>
                                         <div class="text-[11px] text-slate-600 font-medium">{{ $case->exhibits_summary ?? 'Director Authorized Case' }}</div>
                                     </td>
                                     <td>
@@ -992,12 +993,12 @@
                                     </td>
                                     <td class="text-right">
                                         @if($case->status === 'Approved' || $case->status === 'Authorized')
-                                            <a href="/cases/{{ $case->case_number }}/review" class="btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600" id="btn-{{ $case->case_number }}">
+                                            <a href="/cases/{{ $case->case_number }}/review?from=Forensic+Head" class="btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600" id="btn-{{ $case->case_number }}">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                 Preview
                                             </a>
                                         @else
-                                            <a href="/cases/{{ $case->case_number }}/review" class="btn-review" id="btn-{{ $case->case_number }}">
+                                            <a href="/cases/{{ $case->case_number }}/review?from=Forensic+Head" class="btn-review" id="btn-{{ $case->case_number }}">
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                 Review
                                             </a>
@@ -1605,7 +1606,7 @@
                         </span>
                     </td>
                     <td class="text-right">
-                        <a href="/cases/${data.case.case_number}/review" class="btn-review">
+                        <a href="/cases/${data.case.case_number}/review?from=Forensic+Head" class="btn-review">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             Review
                         </a>
@@ -1730,12 +1731,12 @@
 
                     let actionBtn = '';
                     if (c.status === 'Approved' || c.status === 'Authorized') {
-                        actionBtn = `<a href="/cases/${c.case_number}/review" class="btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600" id="btn-${c.case_number}">
+                        actionBtn = `<a href="/cases/${c.case_number}/review?from=Forensic+Head" class="btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600" id="btn-${c.case_number}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             Preview
                         </a>`;
                     } else {
-                        actionBtn = `<a href="/cases/${c.case_number}/review" class="btn-review" id="btn-${c.case_number}">
+                        actionBtn = `<a href="/cases/${c.case_number}/review?from=Forensic+Head" class="btn-review" id="btn-${c.case_number}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             Review
                         </a>`;

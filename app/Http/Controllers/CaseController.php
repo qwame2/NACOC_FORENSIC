@@ -15,6 +15,27 @@ class CaseController extends Controller
     public function index()
     {
         $cases = ForensicCase::with(['user', 'unit'])->orderBy('created_at', 'desc')->get();
+
+        // Append real-time workflow progress fields to each case so the
+        // client-side table always shows the correct Multi-Unit (X/Y) count.
+        $cases = $cases->map(function ($case) {
+            $units      = $case->getWorkflowUnits();
+            $docket     = is_array($case->docket_data)
+                ? $case->docket_data
+                : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            $unitProg   = $docket['unit_progress'] ?? [];
+            $completed  = 0;
+            foreach ($units as $u) {
+                if (isset($unitProg[$u]['status']) && strtoupper($unitProg[$u]['status']) === 'COMPLETED') {
+                    $completed++;
+                }
+            }
+            $case->workflow_units     = $units;
+            $case->workflow_total     = count($units);
+            $case->workflow_completed = $completed;
+            return $case;
+        });
+
         return response()->json($cases);
     }
 
@@ -215,6 +236,17 @@ class CaseController extends Controller
             : $allNames[0];
 
         // -----------------------------------------------------------------------
+        // Smart Duplicate Case Detection (Server-side validation)
+        // -----------------------------------------------------------------------
+        if (!$request->boolean('confirm_duplicate') && !$request->boolean('ignore_duplicate')) {
+            $detector = new \App\Services\CaseDuplicateDetector();
+            $dupAnalysis = $detector->checkCaseDuplicate($validated, $allSuspects);
+            if (!empty($dupAnalysis['duplicate_detected'])) {
+                return response()->json($dupAnalysis, 409);
+            }
+        }
+
+        // -----------------------------------------------------------------------
         // Auto-generate unique case reference number
         // -----------------------------------------------------------------------
         if ($request->filled('case_number')) {
@@ -249,9 +281,10 @@ class CaseController extends Controller
                 : 'Logged Exhibits & Dossier');
 
         // Ensure docket_data array includes full suspects array and count
-        $docketData = is_array($validated['docket_data'] ?? null)
-            ? $validated['docket_data']
-            : (json_decode($validated['docket_data'] ?? '{}', true) ?: []);
+        $rawDocket = $request->input('docket_data');
+        $docketData = is_array($rawDocket)
+            ? $rawDocket
+            : (json_decode($rawDocket ?? '{}', true) ?: []);
         $docketData['suspects'] = $allSuspects;
         $docketData['suspects_count'] = count($allSuspects);
         $docketData['full_name'] = $jointSuspectNameLabel;
@@ -342,9 +375,8 @@ class CaseController extends Controller
             'exhibits_summary'         => $exhibitsSummary,
             'presumptive_test_result'  => $validated['presumptive_test_result'] ?? ($request->input('presumptive_reaction_result_input') ?? null),
             'laboratory_number'        => $request->input('laboratory_number') ?? ($request->input('lab_number') ?? null),
-            'confirmatory_test_result' => $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? null),
+            'confirmatory_test_result' => $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? 'YES'),
             'sample_weight_description'=> $request->input('sample_weight_description') ?? null,
-            'sample_weight_units'      => $request->input('sample_weight_units') ?? null,
             'sample_weight_gross'      => $request->input('sample_weight_gross') ?? null,
             'sample_weight_taken'      => $request->input('sample_weight_taken') ?? null,
             'sample_weight_reserved'   => $request->input('sample_weight_reserved') ?? null,
@@ -354,6 +386,10 @@ class CaseController extends Controller
             'confirmatory_specifications' => $request->input('confirmatory_specifications') ?? null,
             'incident_date'            => $validated['arrest_date'] ?? now(),
         ];
+
+        if (\Schema::hasColumn('cases', 'sample_weight_units')) {
+            $sharedFields['sample_weight_units'] = $request->input('sample_weight_units') ?? null;
+        }
 
         // -----------------------------------------------------------------------
         // Helper closure: map a suspect array to personal-detail DB columns
@@ -408,11 +444,6 @@ class CaseController extends Controller
         $primarySuspect = $allSuspects[0];
         $primaryPersonalFields = $suspectFields($primarySuspect);
 
-        // On a joint case, set suspect_name on the row to the combined label
-        if (count($allNames) > 1) {
-            $primaryPersonalFields['suspect_name'] = $jointSuspectNameLabel;
-        }
-
         $case = ForensicCase::create(array_merge($sharedFields, $primaryPersonalFields, [
             'case_number'    => $caseRef,
             'suspect_number' => 1,
@@ -424,27 +455,219 @@ class CaseController extends Controller
         ]));
 
         // -----------------------------------------------------------------------
-        // Initialize unit_progress in docket_data for the 4 specialized units
+        // Initialize unit_progress & laboratory examination in docket_data
         // -----------------------------------------------------------------------
-        $unitProgressBlock = [
-            'Crime Scene Support' => [
-                'status'     => 'COMPLETED',
-                'officer'    => $case->submitting_officer ?: 'Field Officer',
-                'updated_at' => now()->toDateTimeString(),
-            ],
-            'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-            'Lab Analysis'        => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-            'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-        ];
+        $hasSubmittedLabData = !empty($validated['presumptive_test_result'])
+            || !empty($request->input('presumptive_reaction_result_input'))
+            || !empty($validated['confirmatory_test_result'])
+            || !empty($request->input('confirmatory_test_result'))
+            || !empty($request->input('confirmatory_substance_identification'))
+            || !empty($request->input('sample_weight_gross'));
+
+        $labStatus = $hasSubmittedLabData ? 'COMPLETED' : 'PENDING';
+        $labOfficer = $hasSubmittedLabData ? ($user ? $user->fullname : ($case->submitting_officer ?: 'Lab Analyst')) : null;
+        $labUpdatedAt = $hasSubmittedLabData ? now()->toDateTimeString() : null;
+
+        $isLabCreatedCaseStore = !empty($case->unit_name) && (
+            strtolower(trim($case->unit_name)) === 'lab analysis' ||
+            str_contains(strtolower($case->unit_name), 'lab analysis') ||
+            str_contains(strtolower($case->unit_name), 'laboratory')
+        );
+
+        $exCatStore = strtolower($validated['exhibit_category'] ?? ($request->input('exhibit_category') ?? ($case->exhibit_category ?? '')));
+        $sDrugStore = $validated['seizure_name_drug'] ?? ($request->input('seizure_name_drug') ?? ($case->seizure_name_drug ?? ''));
+        $sNameStore = strtolower($validated['seizure_name'] ?? ($request->input('seizure_name') ?? ($case->seizure_name ?? '')));
+
+        $isDrugStore = !empty($sDrugStore) ||
+            str_contains($exCatStore, 'drug') || str_contains($exCatStore, 'narcotic') || str_contains($exCatStore, 'substance') || str_contains($exCatStore, 'cannabis') || str_contains($exCatStore, 'cocaine') || str_contains($exCatStore, 'heroin') || str_contains($exCatStore, 'meth') || str_contains($exCatStore, 'tramadol') ||
+            str_contains($sNameStore, 'cocaine') || str_contains($sNameStore, 'heroin') || str_contains($sNameStore, 'cannabis') || str_contains($sNameStore, 'weed') || str_contains($sNameStore, 'meth') || str_contains($sNameStore, 'tramadol') || str_contains($sNameStore, 'drug') || str_contains($sNameStore, 'narcotic');
+
+        $isDrugStore = $case->isDrugCase();
+
+        if ($isDrugStore) {
+            $unitProgressBlock = [
+                'Lab Analysis' => [
+                    'status'     => $labStatus,
+                    'officer'    => $labOfficer,
+                    'updated_at' => $labUpdatedAt,
+                ],
+                'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+            ];
+        } elseif ($isLabCreatedCaseStore) {
+            $unitProgressBlock = [
+                'Evidence Management' => [
+                    'status'     => 'COMPLETED',
+                    'officer'    => $case->submitting_officer ?: 'Evidence Officer',
+                    'updated_at' => now()->toDateTimeString(),
+                ],
+            ];
+        } else {
+            $unitProgressBlock = [
+                'Crime Scene Support' => [
+                    'status'     => 'COMPLETED',
+                    'officer'    => $case->submitting_officer ?: 'Field Officer',
+                    'updated_at' => now()->toDateTimeString(),
+                ],
+                'Evidence Management'          => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+                'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+            ];
+        }
+
 
         $caseDocketData = is_array($case->docket_data)
             ? $case->docket_data
             : (json_decode($case->docket_data ?? '[]', true) ?: []);
-        if (!isset($caseDocketData['unit_progress'])) {
-            $caseDocketData['unit_progress'] = $unitProgressBlock;
-            $case->docket_data = $caseDocketData;
-            $case->save();
+
+        $caseDocketData['unit_progress'] = $unitProgressBlock;
+
+        if ($hasSubmittedLabData) {
+            $presumptiveVal  = $validated['presumptive_test_result'] ?? ($request->input('presumptive_reaction_result_input') ?? null);
+            $confirmatoryVal = $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? 'YES');
+            $labNum          = $request->input('laboratory_number') ?? ($request->input('lab_number') ?? ('LAB-' . date('Y') . '-' . sprintf('%04d', $case->id)));
+            $labExamRef      = 'EXAM-LAB-' . date('Ymd') . '-' . sprintf('%03d', $case->id);
+            $labExhNo        = 'EXH-' . date('Y') . '-' . sprintf('%03d', $case->id);
+            $substanceId     = $request->input('confirmatory_substance_identification');
+            $sampleDesc      = $request->input('sample_weight_description');
+            $sampleUnits     = $request->input('sample_weight_units');
+            $sampleGross     = $request->input('sample_weight_gross');
+            $sampleTaken     = $request->input('sample_weight_taken');
+            $sampleReserved  = $request->input('sample_weight_reserved');
+
+            // Auto-derive weight fields from the primary exhibit when the form did not submit them
+            // (happens when JS didn't pre-populate the read-only manifest-synced fields)
+            if (empty($sampleDesc) || empty($sampleGross) || empty($sampleUnits)) {
+                $primaryExhForWeight = \App\Models\Exhibit::where(function($q) use ($case) {
+                    if ($case->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
+                        $q->where('single_suspect_case_id', $case->id);
+                    } else {
+                        $q->where('multiple_suspect_case_id', $case->id);
+                    }
+                })->whereNotNull('seizure_weight')->first()
+                ?? \App\Models\Exhibit::where(function($q) use ($case) {
+                    if ($case->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
+                        $q->where('single_suspect_case_id', $case->id);
+                    } else {
+                        $q->where('multiple_suspect_case_id', $case->id);
+                    }
+                })->first();
+
+                if ($primaryExhForWeight) {
+                    if (empty($sampleDesc)) {
+                        $sampleDesc = $primaryExhForWeight->commodity_name ?? null;
+                    }
+                    if (empty($sampleUnits)) {
+                        $sampleUnits = trim(($primaryExhForWeight->seizure_quantity ?? '') . ' ' . ($primaryExhForWeight->seizure_packaging ?? '')) ?: null;
+                    }
+                    if (empty($sampleGross)) {
+                        $sampleGross = trim(($primaryExhForWeight->seizure_weight ?? '') . ' ' . ($primaryExhForWeight->seizure_unit ?? '')) ?: null;
+                    }
+                }
+            }
+            $detSubs         = $request->input('detected_substances');
+            if (is_string($detSubs)) {
+                $detSubs = json_decode($detSubs, true) ?: [];
+            }
+            if (!is_array($detSubs)) {
+                $detSubs = [];
+            }
+            $testMethods = $request->input('confirmatory_test_methods');
+            $specs       = $request->input('confirmatory_specifications');
+            $officer     = $labOfficer;
+
+            $primarySuspectName = $primarySuspect['suspect_name'] ?? $case->suspect_name;
+
+            $labExamRecord = [
+                'exhibit_owner_name'       => $primarySuspectName,
+                'exhibit_is_associate'     => false,
+                'laboratory_number'        => $labNum,
+                'exam_reference'           => $labExamRef,
+                'exhibit_number'           => $labExhNo,
+                'lab_unit'                 => 'Chemistry & Narcotics Unit',
+                'analyst'                  => $officer,
+                'date_received'            => $validated['arrest_date'] ?? date('Y-m-d'),
+                'date_started'             => date('Y-m-d'),
+                'date_completed'           => date('Y-m-d'),
+                'presumptive_result'       => $presumptiveVal,
+                'confirmatory_result'      => $confirmatoryVal,
+                'sample_weight'            => [
+                    'description'     => $sampleDesc,
+                    'units_packaging' => $sampleUnits,
+                    'gross_weight'    => $sampleGross,
+                    'sample_taken'    => $sampleTaken,
+                    'reserved_samples' => $sampleReserved,
+                ],
+                'substance_identification' => $substanceId,
+                'detected_substances'      => $detSubs,
+                'test_methods'             => $testMethods,
+                'specifications'           => $specs,
+                'findings'                 => 'Submitted via Laboratory Analysis & Case Registration Workspace',
+                'has_saved'                => true,
+            ];
+
+            $caseDocketData['lab_examination'] = $labExamRecord;
+            $caseDocketData['lab_examinations_list'] = [$labExamRecord];
+
+            if (empty($caseDocketData['seizures']) || !is_array($caseDocketData['seizures'])) {
+                $caseDocketData['seizures'] = [[]];
+            }
+            $caseDocketData['seizures'][0]['has_saved_lab'] = true;
+            $caseDocketData['seizures'][0]['presumptive_result'] = $presumptiveVal;
+            $caseDocketData['seizures'][0]['confirmatory_result'] = $confirmatoryVal;
+            $caseDocketData['seizures'][0]['substance_identification'] = $substanceId;
+            $caseDocketData['seizures'][0]['sample_description'] = $sampleDesc;
+            $caseDocketData['seizures'][0]['sample_units'] = $sampleUnits;
+            $caseDocketData['seizures'][0]['sample_gross'] = $sampleGross;
+            $caseDocketData['seizures'][0]['sample_taken'] = $sampleTaken;
+            $caseDocketData['seizures'][0]['sample_reserved'] = $sampleReserved;
+            $caseDocketData['seizures'][0]['laboratory_number'] = $labNum;
+            $caseDocketData['seizures'][0]['exam_reference'] = $labExamRef;
+            $caseDocketData['seizures'][0]['exhibit_number'] = $labExhNo;
+            $caseDocketData['seizures'][0]['analyst'] = $officer;
+            $caseDocketData['seizures'][0]['date_received'] = $validated['arrest_date'] ?? date('Y-m-d');
+            $caseDocketData['seizures'][0]['date_started'] = date('Y-m-d');
+            $caseDocketData['seizures'][0]['date_completed'] = date('Y-m-d');
+
+            $primaryExhModel = \App\Models\Exhibit::where('single_suspect_case_id', $case->id)
+                ->orWhere('multiple_suspect_case_id', $case->id)
+                ->first();
+
+            \App\Models\LaboratoryExaminationResult::updateOrCreate(
+                [
+                    'single_suspect_case_id'  => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                    'multiple_suspect_case_id' => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                ],
+                [
+                    'case_type'               => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? 'MULTIPLE' : 'SINGLE',
+                    'single_suspect_case_id'  => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                    'multiple_suspect_case_id'=> $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                    'exhibit_id'              => $primaryExhModel ? $primaryExhModel->id : null,
+                    'laboratory_number'       => $labNum,
+                    'presumptive_result'      => $presumptiveVal,
+                    'confirmatory_result'     => $confirmatoryVal,
+                    'sample_weight_description'=> $sampleDesc,
+                    'sample_weight_units'     => $sampleUnits,
+                    'sample_weight_gross'     => $sampleGross,
+                    'sample_weight_taken'     => $sampleTaken,
+                    'sample_weight_reserved'  => $sampleReserved,
+                    'substance_identification'=> $substanceId,
+                    'detected_substances'     => $detSubs,
+                    'test_methods'            => $testMethods,
+                    'specifications'          => $specs,
+                    'findings'                => 'Submitted via Laboratory Analysis & Case Registration Workspace',
+                    'analyst'                 => $officer,
+                    'has_saved'               => true,
+                ]
+            );
+
+            \App\Models\AssociateLabExamination::where('case_id', $case->id)
+                ->where(function($q) use ($primarySuspectName) {
+                    $q->where('suspect_name', $primarySuspectName)
+                      ->orWhere('suspect_name', 'Primary Suspect');
+                })->delete();
         }
+
+        $case->docket_data = $caseDocketData;
+        $case->save();
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -456,6 +679,799 @@ class CaseController extends Controller
         }
 
         return back()->with('status', "Case {$case->case_number} created and saved to database successfully.");
+    }
+
+    /**
+     * Display dedicated full-page editor for updating case record & correcting data.
+     */
+    public function showEdit($id)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            return redirect('/cases')->with('error', 'Case file not found.');
+        }
+        $this->repairExhibitAssociations($case);
+        return view('cases.edit', compact('case'));
+    }
+
+    /**
+     * Update case data and correct mistakes with strict Unit RBAC permission guards.
+     */
+    public function updateCase($id, Request $request)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Case not found.'], 404);
+            }
+            return redirect('/cases')->with('error', 'Case not found.');
+        }
+
+        $user = Auth::user();
+        $userUnit = strtolower(trim($user->unit ?? ''));
+        $isHead = !empty($user->is_head);
+
+        $isCrimeSceneUnit = $isHead || str_contains($userUnit, 'crime') || str_contains($userUnit, 'scene') || str_contains($userUnit, 'support') || empty($userUnit);
+        $isLabUnit = $isHead || str_contains($userUnit, 'lab') || str_contains($userUnit, 'chemistry') || str_contains($userUnit, 'narcotics');
+
+        $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+
+        // Reject unauthorized cross-unit edits
+        if (!$isLabUnit && ($request->filled('confirmatory_test_result') || $request->filled('confirmatory_substance_identification'))) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access Denied: Crime Scene Support officers cannot modify Laboratory Analysis examination results.'
+                ], 403);
+            }
+            return back()->with('error', 'Access Denied: Crime Scene Support officers cannot modify Laboratory Analysis examination results.');
+        }
+
+        if (!$isCrimeSceneUnit && ($request->filled('suspect_name') || $request->filled('arrest_date') || $request->filled('seizure_name_drug'))) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access Denied: Laboratory Analysts cannot modify Crime Scene arrest and seizure records.'
+                ], 403);
+            }
+            return back()->with('error', 'Access Denied: Laboratory Analysts cannot modify Crime Scene arrest and seizure records.');
+        }
+
+        // Snapshot existing suspect names before modifications
+        $oldSuspectNamesMap = [];
+        $rawSuspectsCount = !empty($docketData['suspects']) && is_array($docketData['suspects']) ? count($docketData['suspects']) : 0;
+        if ($rawSuspectsCount > 0) {
+            foreach ($docketData['suspects'] as $idx => $s) {
+                if (!empty($s['suspect_name'])) {
+                    $nVal = trim($s['suspect_name']);
+                    if (str_contains($nVal, ',') && $rawSuspectsCount > 1) {
+                        $nVal = trim(explode(',', $nVal)[0]);
+                    }
+                    $oldSuspectNamesMap[$idx] = $nVal;
+                }
+            }
+        }
+        $rawPrimary = trim($case->suspect_name ?? ($oldSuspectNamesMap[0] ?? ''));
+        if (str_contains($rawPrimary, ',') && $rawSuspectsCount > 1) {
+            $rawPrimary = trim(explode(',', $rawPrimary)[0]);
+        }
+        $oldPrimaryName = $rawPrimary ?: ($oldSuspectNamesMap[0] ?? '');
+
+        // 1. CRIME SCENE SUPPORT FIELDS
+        if ($isCrimeSceneUnit) {
+            if ($request->filled('title')) $case->title = trim($request->input('title'));
+            if ($request->filled('priority')) $case->priority = trim($request->input('priority'));
+            if ($request->filled('location')) $case->location = trim($request->input('location'));
+            if ($request->filled('operation_type')) {
+                $opVal = trim($request->input('operation_type'));
+                $case->operation_type = $opVal;
+                $case->operation_code_name = $opVal;
+                $case->operation_code = $opVal;
+                $docketData['operation_type'] = $opVal;
+            }
+            if ($request->filled('commanding_officer')) $case->commanding_officer = trim($request->input('commanding_officer'));
+            if ($request->filled('submitting_officer')) $case->submitting_officer = trim($request->input('submitting_officer'));
+
+            if ($request->has('suspect_name')) {
+                $newSingleName = trim($request->input('suspect_name'));
+                if (!empty($oldPrimaryName) && !empty($newSingleName) && $oldPrimaryName !== $newSingleName) {
+                    $curTitle = $case->title ?? '';
+                    if (!empty($curTitle)) {
+                        $pattern = '/\b' . preg_quote($oldPrimaryName, '/') . '\b/u';
+                        if (preg_match($pattern, $curTitle)) {
+                            $curTitle = preg_replace($pattern, $newSingleName, $curTitle);
+                        } elseif (str_contains($curTitle, $oldPrimaryName)) {
+                            $curTitle = str_replace($oldPrimaryName, $newSingleName, $curTitle);
+                        }
+                        $case->title = $curTitle;
+                    }
+                }
+                $case->suspect_name = $newSingleName;
+                if (!isset($docketData['suspects'][0])) $docketData['suspects'][0] = [];
+                $docketData['suspects'][0]['suspect_name'] = $newSingleName;
+            }
+            if ($request->has('suspect_alias')) $case->suspect_alias = $request->input('suspect_alias');
+            if ($request->has('ghana_card')) $case->ghana_card = $request->input('ghana_card');
+            if ($request->has('gender')) $case->gender = $request->input('gender');
+            if ($request->has('age')) $case->age = $request->input('age') !== '' ? (int)$request->input('age') : null;
+            if ($request->has('phone')) $case->phone = $request->input('phone');
+            if ($request->has('address')) $case->address = $request->input('address');
+            if ($request->has('offense_description')) $case->offense_description = $request->input('offense_description');
+            if ($request->has('arrest_date')) $case->arrest_date = $request->input('arrest_date');
+            if ($request->has('arrest_time')) $case->arrest_time = $request->input('arrest_time');
+            if ($request->has('raid_location')) $case->raid_location = $request->input('raid_location');
+            if ($request->has('holding_facility')) $case->holding_facility = $request->input('holding_facility');
+
+            // Handle extended suspect attributes & DOB auto-calculation
+            if ($request->has('dob')) {
+                $dobInputVal = trim($request->input('dob'));
+                $case->dob = $dobInputVal;
+                $docketData['suspects'][0]['dob'] = $dobInputVal;
+                $docketData['dob'] = $dobInputVal;
+
+                $calcAgeFromDob = null;
+                if (!empty($dobInputVal)) {
+                    try {
+                        $calcAgeFromDob = \Carbon\Carbon::parse($dobInputVal)->age;
+                    } catch (\Exception $e) {
+                        $calcAgeFromDob = null;
+                    }
+                }
+                if ($calcAgeFromDob !== null) {
+                    $case->age = $calcAgeFromDob;
+                    $docketData['suspects'][0]['age'] = $calcAgeFromDob;
+                    $docketData['age'] = $calcAgeFromDob;
+                }
+            }
+            if ($request->has('height')) {
+                $case->height = $request->input('height');
+                $docketData['suspects'][0]['height'] = $request->input('height');
+            }
+            if ($request->has('height_unit')) {
+                $case->height_unit = $request->input('height_unit');
+                $docketData['suspects'][0]['height_unit'] = $request->input('height_unit');
+            }
+            if ($request->has('eye_color')) {
+                $case->eye_color = $request->input('eye_color');
+                $docketData['suspects'][0]['eye_color'] = $request->input('eye_color');
+            }
+            if ($request->has('nationality')) {
+                $case->nationality = $request->input('nationality');
+                $docketData['suspects'][0]['nationality'] = $request->input('nationality');
+            }
+            if ($request->has('place_of_birth')) {
+                $pob = $request->input('place_of_birth');
+                $case->place_of_birth = $pob;
+                $case->pob = $pob;
+                $docketData['suspects'][0]['place_of_birth'] = $pob;
+                $docketData['suspects'][0]['pob'] = $pob;
+                $docketData['place_of_birth'] = $pob;
+                $docketData['pob'] = $pob;
+            }
+            if ($request->has('hometown')) {
+                $ht = $request->input('hometown');
+                $case->hometown = $ht;
+                $docketData['suspects'][0]['hometown'] = $ht;
+                $docketData['hometown'] = $ht;
+            }
+            if ($request->has('marital_status')) {
+                $case->marital_status = $request->input('marital_status');
+                $docketData['suspects'][0]['marital_status'] = $request->input('marital_status');
+            }
+            if ($request->has('children_count')) {
+                $case->children_count = $request->input('children_count');
+                $docketData['suspects'][0]['children_count'] = $request->input('children_count');
+            }
+
+            // Handle Mugshots
+            $mugshotsObj = [];
+            if ($request->has('mugshot_front')) {
+                $mFront = $request->input('mugshot_front');
+                $mugshotsObj['front'] = $mFront;
+                $mugshotsObj['front-profile'] = $mFront;
+                $case->mugshot_front = $mFront;
+            }
+            if ($request->has('mugshot_left')) {
+                $mLeft = $request->input('mugshot_left');
+                $mugshotsObj['left'] = $mLeft;
+                $mugshotsObj['left-profile'] = $mLeft;
+                $case->mugshot_left = $mLeft;
+            }
+            if ($request->has('mugshot_right')) {
+                $mRight = $request->input('mugshot_right');
+                $mugshotsObj['right'] = $mRight;
+                $mugshotsObj['right-profile'] = $mRight;
+                $case->mugshot_right = $mRight;
+            }
+            if ($request->has('mugshot_front') || $request->has('mugshot_left') || $request->has('mugshot_right')) {
+                $docketData['mugshots'] = array_merge($docketData['mugshots'] ?? [], $mugshotsObj);
+                if (empty($docketData['suspects'])) {
+                    $docketData['suspects'] = [['suspect_name' => $case->suspect_name]];
+                }
+                $docketData['suspects'][0]['mugshots'] = array_merge($docketData['suspects'][0]['mugshots'] ?? [], $mugshotsObj);
+                if ($request->has('mugshot_front')) {
+                    $docketData['mugshots']['front'] = $mugshotsObj['front'];
+                    $docketData['mugshots']['front-profile'] = $mugshotsObj['front'];
+                    $docketData['mugshot_front'] = $mugshotsObj['front'];
+                    $docketData['suspects'][0]['mugshots']['front'] = $mugshotsObj['front'];
+                    $docketData['suspects'][0]['mugshots']['front-profile'] = $mugshotsObj['front'];
+                    $docketData['suspects'][0]['mugshot_front'] = $mugshotsObj['front'];
+                }
+                if ($request->has('mugshot_left')) {
+                    $docketData['mugshots']['left'] = $mugshotsObj['left'];
+                    $docketData['mugshots']['left-profile'] = $mugshotsObj['left'];
+                    $docketData['mugshot_left'] = $mugshotsObj['left'];
+                    $docketData['suspects'][0]['mugshots']['left'] = $mugshotsObj['left'];
+                    $docketData['suspects'][0]['mugshots']['left-profile'] = $mugshotsObj['left'];
+                    $docketData['suspects'][0]['mugshot_left'] = $mugshotsObj['left'];
+                }
+                if ($request->has('mugshot_right')) {
+                    $docketData['mugshots']['right'] = $mugshotsObj['right'];
+                    $docketData['mugshots']['right-profile'] = $mugshotsObj['right'];
+                    $docketData['mugshot_right'] = $mugshotsObj['right'];
+                    $docketData['suspects'][0]['mugshots']['right'] = $mugshotsObj['right'];
+                    $docketData['suspects'][0]['mugshots']['right-profile'] = $mugshotsObj['right'];
+                    $docketData['suspects'][0]['mugshot_right'] = $mugshotsObj['right'];
+                }
+            }
+
+            if ($request->has('evidence_photos')) {
+                $evPhotos = $request->input('evidence_photos');
+                if (is_string($evPhotos)) {
+                    $evPhotos = json_decode($evPhotos, true) ?: [];
+                }
+                if (!is_array($evPhotos)) $evPhotos = [];
+                $case->evidence_photos = array_values($evPhotos);
+                $docketData['evidence_photos'] = array_values($evPhotos);
+                if (!empty($docketData['seizures'][0])) {
+                    $docketData['seizures'][0]['evidence_photos'] = array_values($evPhotos);
+                }
+            }
+
+            if ($request->has('seizure_name_drug')) $case->seizure_name_drug = $request->input('seizure_name_drug');
+            if ($request->has('seizure_name')) $case->seizure_name = $request->input('seizure_name');
+            if ($request->has('exhibit_category')) $case->exhibit_category = $request->input('exhibit_category');
+            if ($request->has('seizure_quantity')) $case->seizure_quantity = $request->input('seizure_quantity');
+            if ($request->has('seizure_weight')) $case->seizure_weight = $request->input('seizure_weight');
+            if ($request->has('seizure_unit')) $case->seizure_unit = $request->input('seizure_unit');
+            if ($request->has('seizure_packaging')) $case->seizure_packaging = $request->input('seizure_packaging');
+            if ($request->has('seizure_reason')) $case->seizure_reason = $request->input('seizure_reason');
+
+            // Sync docket_data
+            if (empty($docketData['suspects']) || !is_array($docketData['suspects'])) {
+                $docketData['suspects'] = [['suspect_name' => $case->suspect_name]];
+            }
+            if ($request->has('suspect_name')) $docketData['suspects'][0]['suspect_name'] = $case->suspect_name;
+            if ($request->has('suspect_alias')) $docketData['suspects'][0]['suspect_alias'] = $request->input('suspect_alias');
+            if ($request->has('ghana_card')) $docketData['suspects'][0]['ghana_card'] = $request->input('ghana_card');
+            if ($request->has('phone')) $docketData['suspects'][0]['phone'] = $request->input('phone');
+            if ($request->has('address')) $docketData['suspects'][0]['address'] = $request->input('address');
+            if ($request->has('offense_description')) $docketData['suspects'][0]['offense'] = $request->input('offense_description');
+            if ($request->has('arrest_date')) $docketData['suspects'][0]['date_of_arrest'] = $request->input('arrest_date');
+            if ($request->has('arrest_time')) $docketData['suspects'][0]['time_of_arrest'] = $request->input('arrest_time');
+
+            if (empty($docketData['seizures']) || !is_array($docketData['seizures'])) {
+                $docketData['seizures'] = [[]];
+            }
+            $szDrugName = $case->seizure_name_drug ?: $case->seizure_name;
+            if (!empty($szDrugName)) {
+                $docketData['seizures'][0]['seizure_name'] = $szDrugName;
+                $docketData['seizures'][0]['seizure_name_drug'] = $szDrugName;
+            }
+            if ($request->has('exhibit_category')) $docketData['seizures'][0]['category'] = $request->input('exhibit_category');
+            if ($request->has('seizure_quantity')) $docketData['seizures'][0]['seizure_quantity'] = $request->input('seizure_quantity');
+            if ($request->has('seizure_weight')) $docketData['seizures'][0]['seizure_weight'] = $request->input('seizure_weight');
+            if ($request->has('seizure_unit')) $docketData['seizures'][0]['seizure_unit'] = $request->input('seizure_unit');
+            if ($request->has('presumptive_result')) {
+                $case->presumptive_test_result = $request->input('presumptive_result');
+                $docketData['seizures'][0]['presumptive_result'] = $request->input('presumptive_result');
+            }
+        }
+
+        // 2. LAB ANALYSIS FIELDS
+        if ($isLabUnit || $request->has('confirmatory_test_result') || $request->has('confirmatory_result') || $request->has('laboratory_number') || $request->has('confirmatory_substance_identification')) {
+            if ($request->has('laboratory_number')) $case->laboratory_number = $request->input('laboratory_number');
+            if ($request->has('presumptive_result')) $case->presumptive_test_result = $request->input('presumptive_result');
+            if ($request->has('confirmatory_test_result') || $request->has('confirmatory_result')) {
+                $cVal = $request->input('confirmatory_test_result') ?? $request->input('confirmatory_result');
+                if (!empty($cVal)) {
+                    $case->confirmatory_test_result = $cVal;
+                }
+            }
+            if ($request->has('sample_weight_description')) $case->sample_weight_description = $request->input('sample_weight_description');
+            if ($request->has('sample_weight_units') && \Schema::hasColumn('cases', 'sample_weight_units')) {
+                $case->sample_weight_units = $request->input('sample_weight_units');
+            }
+            if ($request->has('sample_weight_gross')) $case->sample_weight_gross = $request->input('sample_weight_gross');
+            if ($request->has('sample_weight_taken')) $case->sample_weight_taken = $request->input('sample_weight_taken');
+            if ($request->has('sample_weight_reserved')) $case->sample_weight_reserved = $request->input('sample_weight_reserved');
+            if ($request->has('confirmatory_substance_identification')) $case->confirmatory_substance_identification = $request->input('confirmatory_substance_identification');
+            if ($request->has('confirmatory_test_methods')) $case->confirmatory_test_methods = $request->input('confirmatory_test_methods');
+            if ($request->has('confirmatory_specifications')) $case->confirmatory_specifications = $request->input('confirmatory_specifications');
+            if ($request->has('findings') || $request->has('notes')) {
+                $f = $request->input('findings') ?? $request->input('notes');
+                $case->laboratory_analytical_findings = $f;
+            }
+
+            if (!isset($docketData['lab_examination'])) $docketData['lab_examination'] = [];
+            if ($request->has('laboratory_number')) $docketData['lab_examination']['laboratory_number'] = $request->input('laboratory_number');
+            if ($request->has('presumptive_result')) $docketData['lab_examination']['presumptive_result'] = $request->input('presumptive_result');
+            if ($request->has('confirmatory_test_result') || $request->has('confirmatory_result')) {
+                $cVal = $request->input('confirmatory_test_result') ?? $request->input('confirmatory_result');
+                if (!empty($cVal)) {
+                    $docketData['lab_examination']['confirmatory_result'] = $cVal;
+                    if (isset($docketData['seizures']) && is_array($docketData['seizures'])) {
+                        foreach ($docketData['seizures'] as &$sz) {
+                            $sz['confirmatory_result'] = $cVal;
+                        }
+                    }
+                }
+            }
+            if ($request->has('sample_weight_description')) $docketData['lab_examination']['sample_weight']['description'] = $request->input('sample_weight_description');
+            if ($request->has('sample_weight_units')) $docketData['lab_examination']['sample_weight']['units_packaging'] = $request->input('sample_weight_units');
+            if ($request->has('sample_weight_gross')) $docketData['lab_examination']['sample_weight']['gross_weight'] = $request->input('sample_weight_gross');
+            if ($request->has('sample_weight_taken')) $docketData['lab_examination']['sample_weight']['sample_taken'] = $request->input('sample_weight_taken');
+            if ($request->has('sample_weight_reserved')) $docketData['lab_examination']['sample_weight']['reserved_samples'] = $request->input('sample_weight_reserved');
+            if ($request->has('confirmatory_substance_identification')) $docketData['lab_examination']['substance_identification'] = $request->input('confirmatory_substance_identification');
+            if ($request->has('confirmatory_test_methods')) $docketData['lab_examination']['test_methods'] = $request->input('confirmatory_test_methods');
+            if ($request->has('confirmatory_specifications')) $docketData['lab_examination']['specifications'] = $request->input('confirmatory_specifications');
+            if ($request->has('findings') || $request->has('notes')) {
+                $docketData['lab_examination']['findings'] = $request->input('findings') ?? $request->input('notes');
+            }
+        }
+
+        // 3. MULTI-SUSPECT DATA SYNC
+        if ($request->filled('suspects_data_json')) {
+            $payload = json_decode($request->input('suspects_data_json'), true);
+            $suspectsArray = isset($payload['suspects']) ? $payload['suspects'] : (is_array($payload) ? $payload : []);
+            $exhibitsArray = $payload['exhibits'] ?? [];
+            $labsArray     = $payload['labs'] ?? [];
+
+            if (empty($docketData['suspects']) || !is_array($docketData['suspects'])) {
+                $docketData['suspects'] = [];
+            }
+            if (empty($docketData['seizures']) || !is_array($docketData['seizures'])) {
+                $docketData['seizures'] = [];
+            }
+            if (empty($docketData['lab_examinations_list']) || !is_array($docketData['lab_examinations_list'])) {
+                $docketData['lab_examinations_list'] = [];
+            }
+
+            // A. Update Suspect Personal Records (Crime Scene Support)
+            if ($isCrimeSceneUnit && !empty($suspectsArray)) {
+                $curTitle = $request->filled('title') ? trim($request->input('title')) : trim($case->title ?? '');
+                foreach ($suspectsArray as $sIdx => $spData) {
+                    $sName = trim($spData['suspect_name'] ?? '');
+                    if (empty($sName)) continue;
+
+                    $oldSName = $oldSuspectNamesMap[$sIdx] ?? ($sIdx === 0 ? $oldPrimaryName : '');
+                    if (str_contains($oldSName, ',') && count($suspectsArray) > 1) {
+                        $oldSName = trim(explode(',', $oldSName)[0]);
+                    }
+
+                    if (!isset($docketData['suspects'][$sIdx])) {
+                        $docketData['suspects'][$sIdx] = [];
+                    }
+
+                    // Synchronize case title if suspect name changed
+                    if (!empty($oldSName) && $oldSName !== $sName && !empty($curTitle)) {
+                        $pattern = '/\b' . preg_quote($oldSName, '/') . '\b/u';
+                        if (preg_match($pattern, $curTitle)) {
+                            $curTitle = preg_replace($pattern, $sName, $curTitle);
+                        }
+                        $case->title = $curTitle;
+                    }
+
+                    $docketData['suspects'][$sIdx]['suspect_name']        = $sName;
+                    $docketData['suspects'][$sIdx]['suspect_alias']       = $spData['suspect_alias'] ?? '';
+                    $docketData['suspects'][$sIdx]['alias']               = $spData['suspect_alias'] ?? '';
+                    $docketData['suspects'][$sIdx]['ghana_card']           = $spData['ghana_card'] ?? '';
+                    $docketData['suspects'][$sIdx]['gender']               = $spData['gender'] ?? 'Male';
+                    $docketData['suspects'][$sIdx]['age']                  = $spData['age'] ?? '';
+                    $docketData['suspects'][$sIdx]['phone']                = $spData['phone'] ?? '';
+                    $docketData['suspects'][$sIdx]['address']              = $spData['address'] ?? '';
+                    $docketData['suspects'][$sIdx]['offense']              = $spData['offense_description'] ?? '';
+                    $docketData['suspects'][$sIdx]['date_of_arrest']      = $spData['arrest_date'] ?? '';
+                    $docketData['suspects'][$sIdx]['time_of_arrest']      = $spData['arrest_time'] ?? '';
+                    $docketData['suspects'][$sIdx]['location_of_arrest']   = $spData['raid_location'] ?? '';
+                    $docketData['suspects'][$sIdx]['holding_facility']     = $spData['holding_facility'] ?? '';
+                    $spDob = trim($spData['dob'] ?? '');
+                    $spCalcAge = null;
+                    if (!empty($spDob)) {
+                        try {
+                            $spCalcAge = \Carbon\Carbon::parse($spDob)->age;
+                        } catch (\Exception $e) {
+                            $spCalcAge = null;
+                        }
+                    }
+                    if ($spCalcAge === null && isset($spData['age']) && $spData['age'] !== '') {
+                        $spCalcAge = (int)$spData['age'];
+                    }
+
+                    $docketData['suspects'][$sIdx]['dob']                  = $spDob;
+                    $docketData['suspects'][$sIdx]['age']                  = $spCalcAge !== null ? $spCalcAge : ($spData['age'] ?? '');
+                    $docketData['suspects'][$sIdx]['height']               = $spData['height'] ?? '';
+                    $docketData['suspects'][$sIdx]['height_unit']          = $spData['height_unit'] ?? 'CM';
+                    $docketData['suspects'][$sIdx]['eye_color']            = $spData['eye_color'] ?? '';
+                    $docketData['suspects'][$sIdx]['nationality']          = $spData['nationality'] ?? '';
+                    $docketData['suspects'][$sIdx]['place_of_birth']       = $spData['place_of_birth'] ?? ($spData['pob'] ?? '');
+                    $docketData['suspects'][$sIdx]['pob']                  = $spData['place_of_birth'] ?? ($spData['pob'] ?? '');
+                    $docketData['suspects'][$sIdx]['hometown']             = $spData['hometown'] ?? '';
+                    $docketData['suspects'][$sIdx]['marital_status']       = $spData['marital_status'] ?? '';
+                    $docketData['suspects'][$sIdx]['children_count']       = $spData['children_count'] ?? '';
+                    $docketData['suspects'][$sIdx]['has_children']          = !empty($spData['has_children']) || ((int)($spData['children_count'] ?? 0) > 0);
+                    $docketData['suspects'][$sIdx]['spouse_name']           = $spData['spouse_name'] ?? ($spData['partner_name'] ?? '');
+                    $docketData['suspects'][$sIdx]['spouse_phone']          = $spData['spouse_phone'] ?? ($spData['partner_phone'] ?? '');
+                    $docketData['suspects'][$sIdx]['spouse_info']           = $spData['spouse_info'] ?? ($spData['partner_info'] ?? '');
+                    $docketData['suspects'][$sIdx]['spouse_summary']        = $spData['spouse_summary'] ?? '';
+                    if (isset($spData['mugshots']) || isset($spData['mugshot_front'])) {
+                        $mFront = $spData['mugshots']['front'] ?? ($spData['mugshots']['front-profile'] ?? ($spData['mugshot_front'] ?? ''));
+                        $mLeft  = $spData['mugshots']['left-profile'] ?? ($spData['mugshots']['left'] ?? ($spData['mugshot_left'] ?? ''));
+                        $mRight = $spData['mugshots']['right-profile'] ?? ($spData['mugshots']['right'] ?? ($spData['mugshot_right'] ?? ''));
+
+                        $docketData['suspects'][$sIdx]['mugshots'] = [
+                            'front'         => $mFront,
+                            'front-profile' => $mFront,
+                            'left'          => $mLeft,
+                            'left-profile'  => $mLeft,
+                            'right'         => $mRight,
+                            'right-profile' => $mRight,
+                        ];
+                        $docketData['suspects'][$sIdx]['mugshot_front'] = $mFront;
+                        $docketData['suspects'][$sIdx]['mugshot_left']  = $mLeft;
+                        $docketData['suspects'][$sIdx]['mugshot_right'] = $mRight;
+
+                        if ($sIdx === 0) {
+                            $case->mugshot_front = $mFront;
+                            $case->mugshot_left  = $mLeft;
+                            $case->mugshot_right = $mRight;
+
+                            $docketData['mugshots'] = $docketData['suspects'][0]['mugshots'];
+                            $docketData['mugshot_front'] = $mFront;
+                            $docketData['mugshot_left']  = $mLeft;
+                            $docketData['mugshot_right'] = $mRight;
+                        }
+                    }
+
+                    if ($sIdx === 0) {
+                        $case->suspect_name = $sName;
+                        if (isset($spData['suspect_alias'])) $case->suspect_alias = $spData['suspect_alias'];
+                        if (isset($spData['ghana_card'])) $case->ghana_card = $spData['ghana_card'];
+                        if (isset($spData['gender'])) $case->gender = $spData['gender'];
+
+                        if (!empty($spDob)) {
+                            $case->dob = $spDob;
+                            $docketData['dob'] = $spDob;
+                        }
+                        if ($spCalcAge !== null) {
+                            $case->age = $spCalcAge;
+                            $docketData['age'] = $spCalcAge;
+                        }
+
+                        if (isset($spData['height'])) $case->height = $spData['height'];
+                        if (isset($spData['height_unit'])) $case->height_unit = $spData['height_unit'];
+                        if (isset($spData['eye_color'])) $case->eye_color = $spData['eye_color'];
+                        if (isset($spData['nationality'])) $case->nationality = $spData['nationality'];
+                        if (isset($spData['place_of_birth'])) {
+                            $case->place_of_birth = $spData['place_of_birth'];
+                            $case->pob = $spData['place_of_birth'];
+                        }
+                        if (isset($spData['marital_status'])) $case->marital_status = $spData['marital_status'];
+                        if (isset($spData['children_count'])) $case->children_count = $spData['children_count'];
+                        if (isset($spData['spouse_name'])) {
+                            $case->spouse_name = $spData['spouse_name'];
+                            $case->partner_name = $spData['spouse_name'];
+                            $docketData['spouse_name'] = $spData['spouse_name'];
+                        }
+                        if (isset($spData['spouse_phone'])) {
+                            $case->spouse_phone = $spData['spouse_phone'];
+                            $case->partner_phone = $spData['spouse_phone'];
+                            $docketData['spouse_phone'] = $spData['spouse_phone'];
+                        }
+                        if (isset($spData['spouse_info'])) {
+                            $case->spouse_info = $spData['spouse_info'];
+                            $case->partner_info = $spData['spouse_info'];
+                            $docketData['spouse_info'] = $spData['spouse_info'];
+                        }
+                        if (isset($spData['dependents'])) {
+                            $case->dependents = $spData['dependents'];
+                            $docketData['dependents'] = $spData['dependents'];
+                        }
+
+                        if (isset($spData['phone'])) $case->phone = $spData['phone'];
+                        if (isset($spData['address'])) $case->address = $spData['address'];
+                        if (isset($spData['offense_description'])) $case->offense_description = $spData['offense_description'];
+                        if (isset($spData['arrest_date'])) $case->arrest_date = $spData['arrest_date'];
+                        if (isset($spData['arrest_time'])) $case->arrest_time = $spData['arrest_time'];
+                        if (isset($spData['raid_location'])) $case->raid_location = $spData['raid_location'];
+                        if (isset($spData['holding_facility'])) $case->holding_facility = $spData['holding_facility'];
+                    }
+
+                    if ($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                        $existingSuspects = $case->underlyingRecord->suspects()->orderBy('suspect_number')->get();
+                        if (isset($existingSuspects[$sIdx])) {
+                            $existingSuspects[$sIdx]->update([
+                                'suspect_name'        => $sName,
+                                'suspect_alias'       => $spData['suspect_alias'] ?? $existingSuspects[$sIdx]->suspect_alias,
+                                'ghana_card'          => $spData['ghana_card'] ?? $existingSuspects[$sIdx]->ghana_card,
+                                'gender'              => $spData['gender'] ?? $existingSuspects[$sIdx]->gender,
+                                'dob'                 => $spDob ?: $existingSuspects[$sIdx]->dob,
+                                'age'                 => $spCalcAge !== null ? $spCalcAge : $existingSuspects[$sIdx]->age,
+                                'height'              => $spData['height'] ?? $existingSuspects[$sIdx]->height,
+                                'height_unit'         => $spData['height_unit'] ?? $existingSuspects[$sIdx]->height_unit,
+                                'eye_color'           => $spData['eye_color'] ?? $existingSuspects[$sIdx]->eye_color,
+                                'nationality'         => $spData['nationality'] ?? $existingSuspects[$sIdx]->nationality,
+                                'pob'                 => $spData['place_of_birth'] ?? ($spData['pob'] ?? $existingSuspects[$sIdx]->pob),
+                                'phone'               => $spData['phone'] ?? $existingSuspects[$sIdx]->phone,
+                                'address'             => $spData['address'] ?? $existingSuspects[$sIdx]->address,
+                                'marital_status'      => $spData['marital_status'] ?? $existingSuspects[$sIdx]->marital_status,
+                                'children_count'      => $spData['children_count'] ?? $existingSuspects[$sIdx]->children_count,
+                                'has_children'        => !empty($spData['has_children']) || ((int)($spData['children_count'] ?? 0) > 0),
+                                'spouse_name'         => $spData['spouse_name'] ?? $existingSuspects[$sIdx]->spouse_name,
+                                'spouse_phone'        => $spData['spouse_phone'] ?? $existingSuspects[$sIdx]->spouse_phone,
+                                'spouse_info'         => $spData['spouse_info'] ?? $existingSuspects[$sIdx]->spouse_info,
+                                'holding_facility'    => $spData['holding_facility'] ?? $existingSuspects[$sIdx]->holding_facility,
+                                'raid_location'       => $spData['raid_location'] ?? $existingSuspects[$sIdx]->raid_location,
+                                'offense_description' => $spData['offense_description'] ?? $existingSuspects[$sIdx]->offense_description,
+                                'arrest_date'         => $spData['arrest_date'] ?? $existingSuspects[$sIdx]->arrest_date,
+                                'arrest_time'         => $spData['arrest_time'] ?? $existingSuspects[$sIdx]->arrest_time,
+                                'mugshot_front'       => $mFront ?? $existingSuspects[$sIdx]->mugshot_front,
+                                'mugshot_left'        => $mLeft ?? $existingSuspects[$sIdx]->mugshot_left,
+                                'mugshot_right'       => $mRight ?? $existingSuspects[$sIdx]->mugshot_right,
+                            ]);
+                        }
+                    }
+                }
+
+                $allCurrentSuspectNames = array_values(array_filter(array_map(function($s) {
+                    return trim($s['suspect_name'] ?? '');
+                }, $docketData['suspects'])));
+
+                if (!empty($allCurrentSuspectNames)) {
+                    $docketData['full_name'] = implode(', ', $allCurrentSuspectNames);
+                    if ($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                        $case->underlyingRecord->update(['title' => 'Republic vs ' . implode(', ', $allCurrentSuspectNames)]);
+                    }
+                }
+            }
+
+            // B. Update Exhibits Manifest (Crime Scene Support)
+            if ($isCrimeSceneUnit) {
+                if (empty($exhibitsArray) && !empty($suspectsArray)) {
+                    foreach ($suspectsArray as $spData) {
+                        if (!empty($spData['exhibit'])) {
+                            $exIdx = $spData['exhibit_index'] ?? count($exhibitsArray);
+                            $exhibitsArray[$exIdx] = $spData['exhibit'];
+                        }
+                    }
+                }
+
+                if (!empty($exhibitsArray)) {
+                    foreach ($exhibitsArray as $eIdx => $exObj) {
+                        $szName = $exObj['seizure_name_drug'] ?? ($exObj['seizure_name'] ?? '');
+                        if (!isset($docketData['seizures'][$eIdx])) {
+                            $docketData['seizures'][$eIdx] = [];
+                        }
+
+                        if (!empty($szName)) {
+                            $docketData['seizures'][$eIdx]['seizure_name']      = $szName;
+                            $docketData['seizures'][$eIdx]['seizure_name_drug'] = $szName;
+                        }
+                        if (isset($exObj['associated_person'])) $docketData['seizures'][$eIdx]['associated_person'] = $exObj['associated_person'];
+                        if (isset($exObj['exhibit_category']))  $docketData['seizures'][$eIdx]['category']          = $exObj['exhibit_category'];
+                        if (isset($exObj['seizure_quantity']))  $docketData['seizures'][$eIdx]['seizure_quantity']  = $exObj['seizure_quantity'];
+                        if (isset($exObj['seizure_weight']))    $docketData['seizures'][$eIdx]['seizure_weight']    = $exObj['seizure_weight'];
+                        if (isset($exObj['seizure_unit']))      $docketData['seizures'][$eIdx]['seizure_unit']      = $exObj['seizure_unit'];
+                        if (isset($exObj['seizure_packaging'])) $docketData['seizures'][$eIdx]['seizure_packaging'] = $exObj['seizure_packaging'];
+                        if (isset($exObj['seizure_reason']))    $docketData['seizures'][$eIdx]['seizure_reason']    = $exObj['seizure_reason'];
+                        if (isset($exObj['presumptive_result'])) $docketData['seizures'][$eIdx]['presumptive_result'] = $exObj['presumptive_result'];
+                        if (isset($exObj['evidence_photos']))   $docketData['seizures'][$eIdx]['evidence_photos']   = is_array($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : [];
+
+                        if ($eIdx === 0) {
+                            if (!empty($szName)) $case->seizure_name_drug = $szName;
+                            if (isset($exObj['exhibit_category'])) $case->exhibit_category = $exObj['exhibit_category'];
+                            if (isset($exObj['seizure_quantity'])) $case->seizure_quantity = $exObj['seizure_quantity'];
+                            if (isset($exObj['seizure_weight'])) $case->seizure_weight = $exObj['seizure_weight'];
+                            if (isset($exObj['seizure_unit'])) $case->seizure_unit = $exObj['seizure_unit'];
+                            if (isset($exObj['seizure_packaging'])) $case->seizure_packaging = $exObj['seizure_packaging'];
+                            if (isset($exObj['seizure_reason'])) $case->seizure_reason = $exObj['seizure_reason'];
+                            if (isset($exObj['evidence_photos'])) {
+                                $case->evidence_photos = $docketData['seizures'][$eIdx]['evidence_photos'];
+                                $docketData['evidence_photos'] = $docketData['seizures'][$eIdx]['evidence_photos'];
+                            }
+                        }
+
+                        $exRecord = \App\Models\Exhibit::where('single_suspect_case_id', $case->id)
+                            ->orWhere('multiple_suspect_case_id', $case->id)
+                            ->first();
+                        if ($exRecord) {
+                            $exRecord->update(array_filter([
+                                'commodity_name'    => $szName ?: null,
+                                'exhibit_category'   => $exObj['exhibit_category'] ?? null,
+                                'seizure_quantity'   => $exObj['seizure_quantity'] ?? null,
+                                'seizure_weight'     => $exObj['seizure_weight'] ?? null,
+                                'seizure_unit'       => $exObj['seizure_unit'] ?? null,
+                                'seizure_packaging'  => $exObj['seizure_packaging'] ?? null,
+                                'seizure_reason'     => $exObj['seizure_reason'] ?? null,
+                                'evidence_photos'    => !empty($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : null,
+                            ], fn($v) => !is_null($v)));
+                        }
+                    }
+                }
+            }
+
+            // C. Update Laboratory Examinations (Lab Unit)
+            if ($isLabUnit) {
+                if (empty($labsArray) && !empty($suspectsArray)) {
+                    foreach ($suspectsArray as $spData) {
+                        if (!empty($spData['lab'])) {
+                            $labIdx = $spData['lab_index'] ?? count($labsArray);
+                            $labsArray[$labIdx] = $spData['lab'];
+                        }
+                    }
+                }
+
+                if (!empty($labsArray)) {
+                    foreach ($labsArray as $lIdx => $labObj) {
+                        $labExamRecord = [
+                            'laboratory_number'         => $labObj['laboratory_number'] ?? '',
+                            'presumptive_result'        => $labObj['presumptive_result'] ?? '',
+                            'confirmatory_result'       => $labObj['confirmatory_test_result'] ?? 'YES',
+                            'sample_weight'             => [
+                                'description'      => $labObj['sample_weight_description'] ?? '',
+                                'units_packaging'  => $labObj['sample_weight_units'] ?? '',
+                                'gross_weight'     => $labObj['sample_weight_gross'] ?? '',
+                                'sample_taken'     => $labObj['sample_weight_taken'] ?? '',
+                                'reserved_samples' => $labObj['sample_weight_reserved'] ?? '',
+                            ],
+                            'substance_identification'  => $labObj['confirmatory_substance_identification'] ?? ($labObj['substance_identification'] ?? ''),
+                            'detected_substances'       => $labObj['detected_substances'] ?? [],
+                            'test_methods'              => $labObj['confirmatory_test_methods'] ?? ($labObj['test_methods'] ?? ''),
+                            'specifications'            => $labObj['confirmatory_specifications'] ?? ($labObj['specifications'] ?? ''),
+                            'findings'                  => $labObj['laboratory_analytical_findings'] ?? ($labObj['findings'] ?? ''),
+                            'has_saved'                 => 1,
+                        ];
+
+                        if (!isset($docketData['lab_examinations_list'][$lIdx])) {
+                            $docketData['lab_examinations_list'][$lIdx] = [];
+                        }
+                        $docketData['lab_examinations_list'][$lIdx] = array_merge($docketData['lab_examinations_list'][$lIdx], $labExamRecord);
+
+                        if ($lIdx === 0) {
+                            $docketData['lab_examination'] = $labExamRecord;
+                            $docketData['confirmatory_detected_substances'] = $labObj['detected_substances'] ?? [];
+
+                            if (!empty($labObj['laboratory_number'])) $case->laboratory_number = $labObj['laboratory_number'];
+                            if (!empty($labObj['presumptive_result'])) $case->presumptive_test_result = $labObj['presumptive_result'];
+                            if (!empty($labObj['confirmatory_test_result'])) $case->confirmatory_test_result = $labObj['confirmatory_test_result'];
+                            if (isset($labObj['sample_weight_description'])) $case->sample_weight_description = $labObj['sample_weight_description'];
+                            if (isset($labObj['sample_weight_units']) && \Schema::hasColumn('cases', 'sample_weight_units')) $case->sample_weight_units = $labObj['sample_weight_units'];
+                            if (isset($labObj['sample_weight_gross'])) $case->sample_weight_gross = $labObj['sample_weight_gross'];
+                            if (isset($labObj['sample_weight_taken'])) $case->sample_weight_taken = $labObj['sample_weight_taken'];
+                            if (isset($labObj['sample_weight_reserved'])) $case->sample_weight_reserved = $labObj['sample_weight_reserved'];
+                            if (isset($labObj['substance_identification'])) $case->confirmatory_substance_identification = $labObj['substance_identification'];
+                            if (isset($labObj['test_methods'])) $case->confirmatory_test_methods = $labObj['test_methods'];
+                            if (isset($labObj['specifications'])) $case->confirmatory_specifications = $labObj['specifications'];
+                            if (isset($labObj['findings'])) $case->laboratory_analytical_findings = $labObj['findings'];
+                        }
+
+                        // AssociateLabExamination table sync for associate/extra lab exams
+                        $ownerName = $labObj['exhibit_owner_name'] ?? ($docketData['lab_examinations_list'][$lIdx]['exhibit_owner_name'] ?? null);
+                        if (!$ownerName && !empty($suspectsArray)) {
+                            foreach ($suspectsArray as $sCandidate) {
+                                if (($sCandidate['lab_index'] ?? null) == $lIdx) {
+                                    $ownerName = $sCandidate['suspect_name'] ?? null;
+                                    break;
+                                }
+                            }
+                        }
+
+                        $isPrimaryOwner = ($lIdx === 0) || (
+                            !empty($ownerName) && (
+                                strtolower(trim($ownerName)) === 'primary suspect' ||
+                                strtolower(trim($ownerName)) === strtolower(trim($case->suspect_name ?? '')) ||
+                                (!empty($primarySuspectName) && strtolower(trim($ownerName)) === strtolower(trim($primarySuspectName)))
+                            )
+                        );
+
+                        if ($isPrimaryOwner) {
+                            $primaryExh = \App\Models\Exhibit::where('single_suspect_case_id', $case->id)
+                                ->orWhere('multiple_suspect_case_id', $case->id)
+                                ->first();
+
+                            \App\Models\LaboratoryExaminationResult::updateOrCreate(
+                                [
+                                    'single_suspect_case_id'  => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                                    'multiple_suspect_case_id' => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                                ],
+                                [
+                                    'case_type'               => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? 'MULTIPLE' : 'SINGLE',
+                                    'single_suspect_case_id'  => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                                    'multiple_suspect_case_id'=> $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                                    'exhibit_id'              => $primaryExh ? $primaryExh->id : null,
+                                    'laboratory_number'       => $labObj['laboratory_number'] ?? ($case->laboratory_number ?? null),
+                                    'presumptive_result'      => $labObj['presumptive_result'] ?? null,
+                                    'confirmatory_result'     => $labObj['confirmatory_test_result'] ?? ($labObj['confirmatory_result'] ?? 'YES'),
+                                    'sample_weight_description'=> $labObj['sample_weight_description'] ?? ($labObj['sample_weight']['description'] ?? null),
+                                    'sample_weight_units'     => $labObj['sample_weight_units'] ?? ($labObj['sample_weight']['units_packaging'] ?? null),
+                                    'sample_weight_gross'     => $labObj['sample_weight_gross'] ?? ($labObj['sample_weight']['gross_weight'] ?? null),
+                                    'sample_weight_taken'     => $labObj['sample_weight_taken'] ?? ($labObj['sample_taken'] ?? ($labObj['sample_weight']['sample_taken'] ?? null)),
+                                    'sample_weight_reserved'  => $labObj['sample_weight_reserved'] ?? ($labObj['sample_reserved'] ?? ($labObj['sample_weight']['reserved_samples'] ?? null)),
+                                    'substance_identification'=> $labObj['substance_identification'] ?? null,
+                                    'detected_substances'     => $labObj['detected_substances'] ?? [],
+                                    'test_methods'            => $labObj['test_methods'] ?? null,
+                                    'specifications'          => $labObj['specifications'] ?? null,
+                                    'findings'                => $labObj['findings'] ?? null,
+                                    'has_saved'               => true,
+                                ]
+                            );
+
+                            if ($case->underlyingRecord) {
+                                $case->underlyingRecord->update([
+                                    'sample_weight_taken' => $labObj['sample_weight_taken'] ?? ($labObj['sample_taken'] ?? ($labObj['sample_weight']['sample_taken'] ?? null)),
+                                    'sample_weight_reserved' => $labObj['sample_weight_reserved'] ?? ($labObj['sample_reserved'] ?? ($labObj['sample_weight']['reserved_samples'] ?? null)),
+                                    'confirmatory_test_result' => $labObj['confirmatory_test_result'] ?? ($labObj['confirmatory_result'] ?? 'YES'),
+                                    'confirmatory_substance_identification' => $labObj['substance_identification'] ?? null,
+                                    'confirmatory_test_methods' => $labObj['test_methods'] ?? null,
+                                    'confirmatory_specifications' => $labObj['specifications'] ?? null,
+                                ]);
+                            }
+
+                            if ($ownerName) {
+                                \App\Models\AssociateLabExamination::where('case_id', $case->id)
+                                    ->where(function($q) use ($ownerName) {
+                                        $q->where('suspect_name', $ownerName)
+                                          ->orWhere('suspect_name', 'Primary Suspect');
+                                    })->delete();
+                            }
+                        } else {
+                            $dbLabObj = \App\Models\AssociateLabExamination::where('case_id', $case->id)
+                                ->where(function($q) use ($lIdx, $ownerName) {
+                                    if ($ownerName) $q->where('suspect_name', $ownerName);
+                                })->first();
+
+                            \App\Models\AssociateLabExamination::updateOrCreate(
+                                [
+                                    'id'      => $dbLabObj ? $dbLabObj->id : null,
+                                    'case_id' => $case->id,
+                                ],
+                                [
+                                    'case_id'                   => $case->id,
+                                    'suspect_name'              => $ownerName ?: 'Associate Suspect',
+                                    'laboratory_number'         => $labObj['laboratory_number'] ?? null,
+                                    'presumptive_result'        => $labObj['presumptive_result'] ?? null,
+                                    'confirmatory_result'       => $labObj['confirmatory_test_result'] ?? ($labObj['confirmatory_result'] ?? 'YES'),
+                                    'sample_weight_description' => $labObj['sample_weight_description'] ?? null,
+                                    'sample_weight_units'       => $labObj['sample_weight_units'] ?? null,
+                                    'sample_weight_gross'       => $labObj['sample_weight_gross'] ?? null,
+                                    'sample_weight_taken'       => $labObj['sample_weight_taken'] ?? null,
+                                    'sample_weight_reserved'    => $labObj['sample_weight_reserved'] ?? null,
+                                    'substance_identification'  => $labObj['substance_identification'] ?? null,
+                                    'detected_substances'       => $labObj['detected_substances'] ?? [],
+                                    'test_methods'              => $labObj['test_methods'] ?? null,
+                                    'specifications'            => $labObj['specifications'] ?? null,
+                                    'findings'                  => $labObj['findings'] ?? null,
+                                    'has_saved'                 => true,
+                                ]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        $case->docket_data = $docketData;
+        $case->save();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Case {$case->case_number} details updated successfully.",
+                'case'    => $case,
+            ]);
+        }
+
+        return redirect()->route('cases.review', $case->case_number)->with('status', "Case {$case->case_number} details updated successfully.");
     }
 
     /**
@@ -499,12 +1515,19 @@ class CaseController extends Controller
         }
         
         if (!isset($docketData['unit_progress'])) {
-            $docketData['unit_progress'] = [
-                'Crime Scene Support'          => ['status' => 'COMPLETED', 'officer' => 'Initial Field Officer', 'updated_at' => $case->created_at ? $case->created_at->toDateTimeString() : now()->toDateTimeString()],
-                'Evidence Management'          => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-                'Lab Analysis'                 => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-                'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-            ];
+            $reqUnits = $case->getWorkflowUnits();
+            $initProg = [];
+            foreach ($reqUnits as $rU) {
+                $initProg[$rU] = ['status' => 'PENDING', 'officer' => null, 'updated_at' => null];
+            }
+            if (isset($initProg['Crime Scene Support'])) {
+                $initProg['Crime Scene Support'] = [
+                    'status'     => 'COMPLETED',
+                    'officer'    => $case->commanding_officer ?? 'Initial Field Officer',
+                    'updated_at' => $case->created_at ? $case->created_at->toDateTimeString() : now()->toDateTimeString(),
+                ];
+            }
+            $docketData['unit_progress'] = $initProg;
         }
 
         $docketData['unit_progress'][$unitNameKey] = [
@@ -513,6 +1536,10 @@ class CaseController extends Controller
             'notes'      => $unitNotes,
             'updated_at' => now()->toDateTimeString(),
         ];
+
+        if ($unitNameKey === 'Lab Analysis') {
+            $case->lab_status = $unitStatus;
+        }
 
         if ($unitNameKey === 'Lab Analysis' || $request->has('lab_unit') || $request->has('presumptive_result')) {
             $isAssoc = $request->boolean('exhibit_is_associate');
@@ -557,13 +1584,8 @@ class CaseController extends Controller
                 $case->presumptive_test_result = $presumptiveVal;
             }
 
-            $confirmatoryVal = null;
-            if ($request->has('confirmatory_test_result') || $request->has('confirmatory_result')) {
-                $confirmatoryVal = $request->input('confirmatory_test_result') ?? $request->input('confirmatory_result');
-                if ($confirmatoryVal !== null && $confirmatoryVal !== '') {
-                    $case->confirmatory_test_result = $confirmatoryVal;
-                }
-            }
+            $confirmatoryVal = $request->input('confirmatory_test_result') ?? ($request->input('confirmatory_result') ?? ($case->confirmatory_test_result ?: 'YES'));
+            $case->confirmatory_test_result = $confirmatoryVal;
 
             $sampleDesc = $request->input('sample_weight_description');
             if ($sampleDesc !== null && $sampleDesc !== '') {
@@ -588,7 +1610,7 @@ class CaseController extends Controller
                 $case->sample_weight_reserved = $sampleReserved;
             }
 
-            $substanceId = $request->input('confirmatory_substance_identification');
+            $substanceId = $request->input('confirmatory_substance_identification') ?? $request->input('substance_identification');
             if ($substanceId !== null && $substanceId !== '') {
                 $case->confirmatory_substance_identification = $substanceId;
             }
@@ -609,14 +1631,25 @@ class CaseController extends Controller
                 }
             }
 
-            $testMethods = $request->input('confirmatory_test_methods');
+            $testMethods = $request->input('confirmatory_test_methods') ?? $request->input('test_methods');
             if ($testMethods !== null && $testMethods !== '') {
                 $case->confirmatory_test_methods = $testMethods;
             }
 
-            $specs = $request->input('confirmatory_specifications');
+            $specs = $request->input('confirmatory_specifications') ?? $request->input('specifications');
             if ($specs !== null && $specs !== '') {
                 $case->confirmatory_specifications = $specs;
+            }
+
+            $seizVal = $request->input('seizure_value') ?? $request->input('valuation');
+            if ($seizVal !== null && $seizVal !== '') {
+                $case->seizure_value = $seizVal;
+                $case->valuation = $seizVal;
+            }
+
+            $seizPkg = $request->input('seizure_packaging') ?? $request->input('packaging_type');
+            if ($seizPkg !== null && $seizPkg !== '') {
+                $case->seizure_packaging = $seizPkg;
             }
 
             if (!empty($unitNotes)) {
@@ -831,10 +1864,83 @@ class CaseController extends Controller
                 if ($specs !== null && $specs !== '') {
                     $docketData['lab_examination']['specifications'] = $specs;
                 }
-                if (!empty($unitNotes)) {
-                    $docketData['lab_examination']['findings'] = $unitNotes;
-                }
                 $docketData['lab_examination']['has_saved'] = true;
+            }
+
+            // Sync LaboratoryExaminationResult model so exhibit relationship finds it
+            $matchedExh = null;
+            if (!empty($labExhNo) || !empty($exOwnerName) || !empty($sampleDesc)) {
+                $matchedExh = \App\Models\Exhibit::where(function($q) use ($case) {
+                    $q->where('multiple_suspect_case_id', $case->id)
+                      ->orWhere('single_suspect_case_id', $case->id);
+                })->where(function($q) use ($labExhNo, $exOwnerName, $sampleDesc) {
+                    if ($labExhNo) {
+                        $q->where('exhibit_number', $labExhNo);
+                    } elseif ($exOwnerName) {
+                        $q->whereHas('suspect', function($sq) use ($exOwnerName) {
+                            $sq->where('suspect_name', $exOwnerName);
+                        });
+                    } elseif ($sampleDesc) {
+                        $q->where('commodity_name', $sampleDesc);
+                    }
+                })->first();
+            }
+
+            if (!$isAssoc || $matchedExh) {
+                $labMatchKey = $matchedExh ? ['exhibit_id' => $matchedExh->id] : [
+                    'single_suspect_case_id'  => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                    'multiple_suspect_case_id' => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                ];
+
+                \App\Models\LaboratoryExaminationResult::updateOrCreate(
+                    $labMatchKey,
+                    [
+                        'case_type'               => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? 'MULTIPLE' : 'SINGLE',
+                        'single_suspect_case_id'  => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                        'multiple_suspect_case_id'=> $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                        'suspect_id'              => $matchedExh ? $matchedExh->suspect_id : null,
+                        'exhibit_id'              => $matchedExh ? $matchedExh->id : null,
+                        'laboratory_number'       => $labNum,
+                        'analyst'                 => $officer,
+                        'date_received'            => $request->input('lab_date_received'),
+                        'date_started'             => $request->input('lab_date_started'),
+                        'date_completed'           => $request->input('lab_date_completed'),
+                        'presumptive_result'      => $presumptiveVal,
+                        'confirmatory_result'     => $confirmatoryVal ?: 'YES',
+                        'sample_weight_description'=> $sampleDesc,
+                        'sample_weight_units'      => $sampleUnits,
+                        'sample_weight_gross'      => $sampleGross,
+                        'sample_weight_taken'      => $sampleTaken,
+                        'sample_weight_reserved'   => $sampleReserved,
+                        'substance_identification' => $substanceId,
+                        'detected_substances'      => $detSubs,
+                        'test_methods'             => $testMethods,
+                        'specifications'           => $specs,
+                        'findings'                 => $unitNotes,
+                        'has_saved'                => true,
+                    ]
+                );
+
+                if (!$isAssoc) {
+                    if ($case->underlyingRecord) {
+                        $case->underlyingRecord->update([
+                            'sample_weight_taken' => $sampleTaken,
+                            'sample_weight_reserved' => $sampleReserved,
+                            'confirmatory_test_result' => $confirmatoryVal ?: 'YES',
+                            'confirmatory_substance_identification' => $substanceId,
+                            'confirmatory_test_methods' => $testMethods,
+                            'confirmatory_specifications' => $specs,
+                        ]);
+                    }
+                    $delName = $exOwnerName ?: $case->suspect_name;
+                    if (!empty($delName)) {
+                        \App\Models\AssociateLabExamination::where('case_id', $case->id)
+                            ->where(function($q) use ($delName) {
+                                $q->where('suspect_name', $delName)
+                                  ->orWhere('suspect_name', 'Primary Suspect');
+                            })->delete();
+                    }
+                }
             }
         }
 
@@ -849,8 +1955,40 @@ class CaseController extends Controller
             ];
         }
 
-        // Check if all 4 units have completed processing
-        $units = ['Crime Scene Support', 'Evidence Management', 'Lab Analysis', 'Digital & Physical Forensics'];
+        // Dynamically determine relevant units for this case
+        $isLabCreatedCase = !empty($case->unit_name) && (
+            strtolower(trim($case->unit_name)) === 'lab analysis' ||
+            str_contains(strtolower($case->unit_name), 'lab analysis') ||
+            str_contains(strtolower($case->unit_name), 'laboratory')
+        );
+
+        $exCatProg = strtolower($case->exhibit_category ?? '');
+        $sDrugProg = $case->seizure_name_drug ?? '';
+        $sNameProg = strtolower($case->seizure_name ?? '');
+        $exSumProg = strtolower($case->exhibits_summary ?? '');
+        $isDrugProg = (!empty($sDrugProg) || 
+            str_contains($exCatProg, 'drug') || str_contains($exCatProg, 'narcotic') || str_contains($exCatProg, 'substance') || str_contains($exCatProg, 'cannabis') || str_contains($exCatProg, 'cocaine') || str_contains($exCatProg, 'heroin') || str_contains($exCatProg, 'meth') || str_contains($exCatProg, 'tramadol') ||
+            str_contains($sNameProg, 'cocaine') || str_contains($sNameProg, 'heroin') || str_contains($sNameProg, 'cannabis') || str_contains($sNameProg, 'weed') || str_contains($sNameProg, 'meth') || str_contains($sNameProg, 'tramadol') || str_contains($sNameProg, 'drug') || str_contains($sNameProg, 'narcotic') ||
+            str_contains($exSumProg, 'cocaine') || str_contains($exSumProg, 'heroin') || str_contains($exSumProg, 'cannabis') || str_contains($exSumProg, 'weed') || str_contains($exSumProg, 'meth') || str_contains($exSumProg, 'tramadol') || str_contains($exSumProg, 'drug') || str_contains($exSumProg, 'narcotic')
+        );
+        if (!$isDrugProg) {
+            $dSeizuresProg = $docketData['seizures'] ?? [];
+            if (is_array($dSeizuresProg) && count($dSeizuresProg) > 0) {
+                foreach ($dSeizuresProg as $szP) {
+                    $catP = strtolower($szP['category'] ?? ($szP['exhibit_category'] ?? ''));
+                    $dNameP = $szP['seizure_name_drug'] ?? '';
+                    $szNameP = strtolower($szP['seizure_name'] ?? '');
+                    if (!empty($dNameP) || str_contains($catP, 'drug') || str_contains($catP, 'narcotic') || str_contains($szNameP, 'cocaine') || str_contains($szNameP, 'heroin') || str_contains($szNameP, 'cannabis') || str_contains($szNameP, 'drug') || str_contains($szNameP, 'narcotic')) {
+                        $isDrugProg = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        $units = $case->getWorkflowUnits();
+
+        $totalUnits = count($units);
         $completedCount = 0;
         foreach ($units as $u) {
             if (isset($docketData['unit_progress'][$u]) && strtoupper($docketData['unit_progress'][$u]['status'] ?? '') === 'COMPLETED') {
@@ -858,12 +1996,12 @@ class CaseController extends Controller
             }
         }
 
-        if ($completedCount >= 4) {
+        if ($completedCount >= $totalUnits) {
             $case->status = 'Awaiting Sign-off';
-            $msg = "All 4 specialized units have completed processing! Case {$case->case_number} has been forwarded to Head of Forensic Directorate for final sign-off.";
+            $msg = "All {$totalUnits} specialized units have completed processing! Case {$case->case_number} has been forwarded to Head of Forensic Directorate for final sign-off.";
         } else {
             $case->status = 'Under Multi-Unit Processing';
-            $msg = "{$unitNameKey} progress updated for Case {$case->case_number}. Currently {$completedCount}/4 units completed.";
+            $msg = "{$unitNameKey} progress updated for Case {$case->case_number}. Currently {$completedCount}/{$totalUnits} units completed.";
         }
 
         $case->docket_data = $docketData;
@@ -873,7 +2011,7 @@ class CaseController extends Controller
             'success'         => true,
             'message'         => $msg,
             'completed_count' => $completedCount,
-            'total_units'     => 4,
+            'total_units'     => $totalUnits,
             'unit_name'       => $unitNameKey,
             'unit_progress'   => $docketData['unit_progress'],
             'status'          => $case->status,
@@ -1084,10 +2222,6 @@ class CaseController extends Controller
             return response()->json(['success' => false, 'message' => 'Case not found.'], 404);
         }
 
-        $docketData = is_array($case->docket_data)
-            ? $case->docket_data
-            : (json_decode($case->docket_data ?? '[]', true) ?: []);
-
         $newPersons = $request->input('associated_persons', []);
         if (is_string($newPersons)) {
             $newPersons = json_decode($newPersons, true) ?: [];
@@ -1098,100 +2232,185 @@ class CaseController extends Controller
             $newExhibits = json_decode($newExhibits, true) ?: [];
         }
 
+        // 1. If single suspect case, promote to MultipleSuspectCase
+        if ($case->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
+            $single = $case->underlyingRecord;
+            $multi = \App\Models\MultipleSuspectCase::create([
+                'case_number'          => $single->case_number,
+                'laboratory_number'    => $single->laboratory_number,
+                'title'                => $single->title,
+                'unit_name'            => $single->unit_name,
+                'unit_id'              => $single->unit_id,
+                'user_id'              => $single->user_id,
+                'commanding_officer'   => $single->commanding_officer,
+                'submitting_officer'   => $single->submitting_officer,
+                'operation_code'       => $single->operation_code,
+                'operation_code_name'  => $single->operation_code_name,
+                'raid_location'        => $single->raid_location,
+                'offense_description'  => $single->offense_description,
+                'incident_date'        => $single->incident_date,
+                'priority'             => $single->priority ?? 'NORMAL',
+                'status'               => $single->status ?? 'Approved',
+                'hash_log'             => $single->hash_log,
+            ]);
+
+            $primarySuspectModel = \App\Models\CaseSuspect::create([
+                'multiple_suspect_case_id' => $multi->id,
+                'suspect_number'           => 1,
+                'role'                     => 'Primary Suspect',
+                'associate_id'             => null,
+                'suspect_name'             => $single->suspect_name,
+                'suspect_alias'            => $single->suspect_alias,
+                'ghana_card'               => $single->ghana_card,
+                'gender'                   => $single->gender,
+                'dob'                      => $single->dob,
+                'age'                      => $single->age,
+                'height'                   => $single->height,
+                'height_unit'              => $single->height_unit ?? 'CM',
+                'eye_color'                => $single->eye_color,
+                'nationality'              => $single->nationality,
+                'pob'                      => $single->pob,
+                'phone'                    => $single->phone,
+                'address'                  => $single->address,
+                'marital_status'           => $single->marital_status,
+                'has_children'             => $single->has_children ?? false,
+                'children_count'           => $single->children_count ?? '0',
+                'spouse_info'              => $single->spouse_info,
+                'spouse_name'              => $single->spouse_name,
+                'spouse_phone'             => $single->spouse_phone,
+                'partner_name'             => $single->partner_name,
+                'partner_phone'            => $single->partner_phone,
+                'partner_info'             => $single->partner_info,
+                'dependents'               => $single->dependents,
+                'holding_facility'         => $single->holding_facility,
+                'raid_location'            => $single->raid_location,
+                'offense_description'      => $single->offense_description,
+                'arrest_date'              => $single->arrest_date,
+                'arrest_time'              => $single->arrest_time,
+                'mugshot_front'            => $single->mugshot_front,
+                'mugshot_left'             => $single->mugshot_left,
+                'mugshot_right'            => $single->mugshot_right,
+            ]);
+
+            \App\Models\Exhibit::where('single_suspect_case_id', $single->id)->update([
+                'case_type'                => 'MULTIPLE',
+                'single_suspect_case_id'   => null,
+                'multiple_suspect_case_id' => $multi->id,
+                'suspect_id'               => $primarySuspectModel->id,
+            ]);
+
+            \App\Models\LaboratoryExaminationResult::where('single_suspect_case_id', $single->id)->update([
+                'case_type'                => 'MULTIPLE',
+                'single_suspect_case_id'   => null,
+                'multiple_suspect_case_id' => $multi->id,
+                'suspect_id'               => $primarySuspectModel->id,
+            ]);
+
+            $single->update(['status' => 'Promoted']);
+            $case->underlyingRecord = $multi;
+        }
+
+        $multiCase = $case->underlyingRecord;
         $addedPersonsCount = 0;
         $addedExhibitsCount = 0;
 
-        // Process new associated persons/suspects
+        $currentSuspectsCount = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->count();
+        $currentAssocCount = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->where('role', 'LIKE', '%associate%')->count();
+
+        // 2. Process new associated persons
         if (!empty($newPersons) && is_array($newPersons)) {
-            if (!isset($docketData['suspects']) || !is_array($docketData['suspects'])) {
-                $docketData['suspects'] = [];
-            }
-            $totalSuspects = count($docketData['suspects']);
-            $assocCount = count(array_filter($docketData['suspects'], function($s) {
-                return !empty($s['is_associate']);
-            }));
             foreach ($newPersons as $person) {
                 if (empty($person['suspect_name'])) continue;
 
-                $totalSuspects++;
-                $assocCount++;
-                $assocId  = $person['associate_id'] ?? ($person['suspect_id'] ?? ('ASC-' . str_pad($assocCount, 3, '0', STR_PAD_LEFT)));
+                $currentSuspectsCount++;
+                $currentAssocCount++;
+
+                $assocId  = $person['associate_id'] ?? ($person['suspect_id'] ?? ('ASC-' . str_pad($currentAssocCount, 3, '0', STR_PAD_LEFT)));
                 $pobVal   = $person['place_of_birth'] ?? ($person['hometown'] ?? ($person['pob'] ?? null));
                 $phoneVal = $person['phone_number'] ?? ($person['contact_phone'] ?? ($person['phone'] ?? null));
                 $addrVal  = $person['residential_address'] ?? ($person['address'] ?? null);
                 $roleVal  = $person['association_role'] ?? ($person['role'] ?? 'ASSOCIATE');
 
-                $docketData['suspects'][] = [
-                    'associate_id'        => $assocId,
-                    'suspect_id'          => $assocId,
-                    'suspect_number'      => $totalSuspects,
-                    'suspect_name'        => $person['suspect_name'],
-                    'suspect_alias'       => $person['suspect_alias'] ?? null,
-                    'ghana_card'          => $person['ghana_card'] ?? null,
-                    'gender'              => $person['gender'] ?? null,
-                    'dob'                 => $person['dob'] ?? ($person['date_of_birth'] ?? null),
-                    'age'                 => isset($person['age']) && $person['age'] !== '' ? (int)$person['age'] : null,
-                    'height'              => $person['height'] ?? null,
-                    'eye_color'           => $person['eye_color'] ?? ($person['eye'] ?? null),
-                    'nationality'         => $person['nationality'] ?? null,
-                    'place_of_birth'      => $pobVal,
-                    'hometown'            => $pobVal,
-                    'pob'                 => $pobVal,
-                    'phone_number'        => $phoneVal,
-                    'contact_phone'       => $phoneVal,
-                    'phone'               => $phoneVal,
-                    'residential_address' => $addrVal,
-                    'address'             => $addrVal,
-                    'marital_status'      => $person['marital_status'] ?? null,
-                    'spouse_name'         => $person['spouse_name'] ?? null,
-                    'spouse_phone'        => $person['spouse_phone'] ?? null,
-                    'spouse_info'         => $person['spouse_info'] ?? null,
-                    'partner_name'        => $person['spouse_name'] ?? null,
-                    'partner_phone'       => $person['spouse_phone'] ?? null,
-                    'partner_info'        => $person['spouse_info'] ?? null,
-                    'dependents'          => $person['dependents'] ?? null,
-                    'raid_location'       => $person['raid_location'] ?? ($person['location'] ?? null),
-                    'date_of_arrest'      => $person['date_of_arrest'] ?? ($person['arrest_date'] ?? null),
-                    'time_of_arrest'      => $person['time_of_arrest'] ?? ($person['arrest_time'] ?? null),
-                    'offense'             => $person['offense'] ?? ($person['offense_description'] ?? null),
-                    'mugshot_front'       => $person['mugshot_front'] ?? null,
-                    'mugshot_left'        => $person['mugshot_left'] ?? null,
-                    'mugshot_right'       => $person['mugshot_right'] ?? null,
-                    'is_associate'        => true,
-                    'association_role'    => $roleVal,
-                    'role'                => $roleVal,
-                    'arresting_officer'    => $person['arresting_officer'] ?? ($person['arresting_officers'] ?? null),
-                    'arresting_officer_id' => $person['arresting_officer_id'] ?? ($person['arresting_officers_id'] ?? null),
-                    'seizing_officer'      => $person['seizing_officer'] ?? ($person['seizure_officer'] ?? null),
-                    'seizure_officer'      => $person['seizing_officer'] ?? ($person['seizure_officer'] ?? null),
-                    'seizing_officer_id'   => $person['seizing_officer_id'] ?? ($person['seizure_officer_id'] ?? null),
-                    'seizure_officer_id'   => $person['seizing_officer_id'] ?? ($person['seizure_officer_id'] ?? null),
-                    'holding_facility'     => $person['holding_facility'] ?? null,
-                    'notes'                => $person['notes'] ?? null,
-                ];
-                $addedPersonsCount++;
-            }
+                \App\Models\CaseSuspect::create([
+                    'multiple_suspect_case_id' => $multiCase->id,
+                    'suspect_number'           => $currentSuspectsCount,
+                    'role'                     => $roleVal,
+                    'associate_id'             => $assocId,
+                    'suspect_name'             => $person['suspect_name'],
+                    'suspect_alias'            => $person['suspect_alias'] ?? null,
+                    'ghana_card'               => $person['ghana_card'] ?? null,
+                    'gender'                   => $person['gender'] ?? null,
+                    'dob'                      => $person['dob'] ?? ($person['date_of_birth'] ?? null),
+                    'age'                      => isset($person['age']) && $person['age'] !== '' ? (int)$person['age'] : null,
+                    'height'                   => $person['height'] ?? null,
+                    'eye_color'                => $person['eye_color'] ?? ($person['eye'] ?? null),
+                    'nationality'              => $person['nationality'] ?? null,
+                    'pob'                      => $pobVal,
+                    'phone'                    => $phoneVal,
+                    'address'                  => $addrVal,
+                    'marital_status'           => $person['marital_status'] ?? null,
+                    'spouse_info'              => $person['spouse_info'] ?? null,
+                    'spouse_name'              => $person['spouse_name'] ?? null,
+                    'spouse_phone'             => $person['spouse_phone'] ?? null,
+                    'partner_name'             => $person['spouse_name'] ?? null,
+                    'partner_phone'            => $person['spouse_phone'] ?? null,
+                    'partner_info'             => $person['spouse_info'] ?? null,
+                    'dependents'               => $person['dependents'] ?? null,
+                    'holding_facility'         => $person['holding_facility'] ?? null,
+                    'raid_location'            => $person['raid_location'] ?? ($person['location'] ?? null),
+                    'offense_description'      => $person['offense'] ?? ($person['offense_description'] ?? null),
+                    'arrest_date'              => $person['date_of_arrest'] ?? ($person['arrest_date'] ?? null),
+                    'arrest_time'              => $person['time_of_arrest'] ?? ($person['arrest_time'] ?? null),
+                    'mugshot_front'            => $person['mugshot_front'] ?? null,
+                    'mugshot_left'             => $person['mugshot_left'] ?? null,
+                    'mugshot_right'            => $person['mugshot_right'] ?? null,
+                ]);
 
-            $docketData['suspects_count'] = count($docketData['suspects']);
-            $allNames = array_values(array_filter(array_column($docketData['suspects'], 'suspect_name')));
-            if (!empty($allNames)) {
-                $jointSuspectNameLabel = count($allNames) > 1 ? implode(', ', $allNames) : $allNames[0];
-                $docketData['full_name'] = $jointSuspectNameLabel;
-                $case->suspect_name = $jointSuspectNameLabel;
-                $case->title = 'Republic vs ' . $jointSuspectNameLabel;
+                $addedPersonsCount++;
             }
         }
 
-        // Process new associated exhibits
-        if (!empty($newExhibits) && is_array($newExhibits)) {
-            if (!isset($docketData['seizures']) || !is_array($docketData['seizures'])) {
-                $docketData['seizures'] = [];
-            }
+        // 3. Process new associated exhibits
+        $allSuspectsInCase = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->get();
+        $currentExhibitsCount = \App\Models\Exhibit::where('multiple_suspect_case_id', $multiCase->id)->count();
 
-            $exhibitSummaries = [];
+        if (!empty($newExhibits) && is_array($newExhibits)) {
             foreach ($newExhibits as $exIdx => $exhibit) {
                 $exName = $exhibit['seizure_name'] ?? ($exhibit['name'] ?? null);
                 if (empty($exName)) continue;
+
+                $currentExhibitsCount++;
+
+                $assocPersonName = !empty($exhibit['associated_person'])
+                    ? $exhibit['associated_person']
+                    : (!empty($exhibit['suspect_name'])
+                        ? $exhibit['suspect_name']
+                        : (!empty($exhibit['associated_suspect'])
+                            ? $exhibit['associated_suspect']
+                            : (!empty($newPersons[$exIdx]['suspect_name'])
+                                ? $newPersons[$exIdx]['suspect_name']
+                                : null)));
+
+                $targetSuspectId = null;
+                if ($assocPersonName) {
+                    foreach ($allSuspectsInCase as $sp) {
+                        if (strtolower(trim($sp->suspect_name)) === strtolower(trim($assocPersonName))) {
+                            $targetSuspectId = $sp->id;
+                            break;
+                        }
+                    }
+                }
+                if (!$targetSuspectId && !empty($exhibit['associate_id'])) {
+                    foreach ($allSuspectsInCase as $sp) {
+                        if ($sp->associate_id === $exhibit['associate_id']) {
+                            $targetSuspectId = $sp->id;
+                            break;
+                        }
+                    }
+                }
+                if (!$targetSuspectId && isset($allSuspectsInCase[$exIdx + 1])) {
+                    $targetSuspectId = $allSuspectsInCase[$exIdx + 1]->id;
+                }
 
                 $photosList = [];
                 if (!empty($exhibit['photos']) && is_array($exhibit['photos'])) {
@@ -1202,159 +2421,36 @@ class CaseController extends Controller
                     $photosList = [$exhibit['exhibit_photo']];
                 }
 
-                $mainPhoto = !empty($photosList) ? $photosList[0] : null;
-
-                $assocPersonName = !empty($exhibit['associated_person'])
-                    ? $exhibit['associated_person']
-                    : (!empty($exhibit['suspect_name'])
-                        ? $exhibit['suspect_name']
-                        : (!empty($exhibit['associated_suspect'])
-                            ? $exhibit['associated_suspect']
-                            : (!empty($newPersons[$exIdx]['suspect_name'])
-                                ? $newPersons[$exIdx]['suspect_name']
-                                : ((!empty($newPersons) && is_array($newPersons) && !empty($newPersons[0]['suspect_name']))
-                                    ? $newPersons[0]['suspect_name']
-                                    : null))));
-
-                $assocId = !empty($exhibit['associate_id'])
-                    ? $exhibit['associate_id']
-                    : (!empty($exhibit['suspect_id'])
-                        ? $exhibit['suspect_id']
-                        : null);
-
-                if (empty($assocId) && !empty($assocPersonName) && !empty($docketData['suspects'])) {
-                    foreach ($docketData['suspects'] as $sp) {
-                        if (!empty($sp['suspect_name']) && strtolower(trim($sp['suspect_name'])) === strtolower(trim($assocPersonName))) {
-                            $assocId = $sp['associate_id'] ?? ($sp['suspect_id'] ?? null);
-                            break;
-                        }
-                    }
-                }
-
-                if (empty($assocId) && !empty($newPersons[$exIdx])) {
-                    $assocId = $newPersons[$exIdx]['associate_id'] ?? ($newPersons[$exIdx]['suspect_id'] ?? null);
-                }
-
-                $seizOfficer   = $exhibit['seizure_officer'] ?? ($exhibit['seizing_officer'] ?? null);
-                $seizOfficerId = $exhibit['seizure_officer_id'] ?? ($exhibit['seizing_officer_id'] ?? null);
-
-                $docketData['seizures'][] = array_merge($exhibit, [
-                    'category'           => $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit'),
-                    'seizure_name'       => $exName,
-                    'seizure_quantity'   => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
-                    'seizure_weight'     => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
-                    'seizure_unit'       => $exhibit['seizure_unit'] ?? ($exhibit['unit'] ?? null),
-                    'seizure_packaging'  => $exhibit['seizure_packaging'] ?? ($exhibit['packaging'] ?? null),
-                    'seizure_value'      => $exhibit['seizure_value'] ?? ($exhibit['value'] ?? null),
-                    'seizure_officer'    => $seizOfficer,
-                    'seizing_officer'    => $seizOfficer,
-                    'seizure_officer_id' => $seizOfficerId,
-                    'seizing_officer_id' => $seizOfficerId,
-                    'photo'              => $mainPhoto,
-                    'exhibit_photo'     => $mainPhoto,
-                    'photos'            => $photosList,
-                    'notes'             => $exhibit['notes'] ?? null,
-                    'added_at'          => now()->toDateTimeString(),
-                    'is_associate'      => true,
-                    'associate_id'      => $assocId,
-                    'suspect_id'        => $assocId,
-                    'associated_person' => $assocPersonName,
+                \App\Models\Exhibit::create([
+                    'case_type'                => 'MULTIPLE',
+                    'multiple_suspect_case_id' => $multiCase->id,
+                    'suspect_id'               => $targetSuspectId,
+                    'exhibit_number'           => $exhibit['exhibit_number'] ?? ('EXH-' . sprintf('%02d', $currentExhibitsCount)),
+                    'exhibit_category'         => $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit'),
+                    'commodity_name'           => $exName,
+                    'seizure_quantity'         => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
+                    'seizure_packaging'        => $exhibit['seizure_packaging'] ?? ($exhibit['packaging'] ?? null),
+                    'seizure_weight'           => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
+                    'seizure_unit'             => $exhibit['seizure_unit'] ?? ($exhibit['unit'] ?? null),
+                    'seizure_value'            => $exhibit['seizure_value'] ?? ($exhibit['value'] ?? null),
+                    'seizure_officer'          => $exhibit['seizure_officer'] ?? ($exhibit['seizing_officer'] ?? null),
+                    'evidence_photos'          => $photosList,
                 ]);
+
                 $addedExhibitsCount++;
-
-                if (!empty($photosList)) {
-                    if (!isset($docketData['evidence_photos']) || !is_array($docketData['evidence_photos'])) {
-                        $docketData['evidence_photos'] = [];
-                    }
-                    foreach ($photosList as $pUrl) {
-                        if (!in_array($pUrl, $docketData['evidence_photos'])) {
-                            $docketData['evidence_photos'][] = $pUrl;
-                        }
-                    }
-                }
-
-                $qty = $exhibit['seizure_quantity'] ?? '';
-                $unit = $exhibit['seizure_unit'] ?? '';
-                $exhibitSummaries[] = trim("{$qty} {$unit} {$exName}");
-
-                // Update case model exhibit metadata if primary fields are empty
-                $cat = $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit');
-                if (empty($case->exhibit_category) || $case->exhibit_category === 'General Exhibit') {
-                    $case->exhibit_category = $cat;
-                }
-                if (empty($case->seizure_name)) {
-                    $case->seizure_name = $exName;
-                }
-                $case->has_seizures = true;
-
-                $catLower = strtolower($cat);
-                $exNameLower = strtolower($exName);
-                if (
-                    str_contains($catLower, 'drug') || str_contains($catLower, 'narcotic') || str_contains($catLower, 'substance') ||
-                    str_contains($exNameLower, 'cocaine') || str_contains($exNameLower, 'heroin') || str_contains($exNameLower, 'cannabis') ||
-                    str_contains($exNameLower, 'weed') || str_contains($exNameLower, 'meth') || str_contains($exNameLower, 'tramadol') ||
-                    str_contains($exNameLower, 'drug') || str_contains($exNameLower, 'narcotic')
-                ) {
-                    if (empty($case->seizure_name_drug)) {
-                        $case->seizure_name_drug = $exName;
-                    }
-                }
-            }
-
-            if (!empty($exhibitSummaries)) {
-                $newExText = implode(', ', array_filter($exhibitSummaries));
-                if (!empty($case->exhibits_summary)) {
-                    $case->exhibits_summary = $case->exhibits_summary . " | Associated: " . $newExText;
-                } else {
-                    $case->exhibits_summary = "Associated: " . $newExText;
-                }
-            }
-
-            if (!empty($docketData['evidence_photos'])) {
-                $case->evidence_photos = $docketData['evidence_photos'];
             }
         }
 
-        // Merge lab analysis & confirmatory findings input into docket_data
-        $labInputs = $request->only([
-            'lab_exam_reference',
-            'lab_case_reference',
-            'lab_exhibit_number',
-            'lab_exhibit_description',
-            'laboratory_number',
-            'lab_analyst',
-            'lab_date_received',
-            'lab_date_started',
-            'lab_date_completed',
-            'presumptive_test_yes',
-            'presumptive_test_no',
-            'presumptive_reaction_result_input',
-            'confirmatory_test_yes',
-            'confirmatory_test_no',
-            'confirmatory_test_result',
-            'sample_weight_description',
-            'sample_weight_units',
-            'sample_weight_gross',
-            'sample_weight_taken',
-            'sample_weight_reserved',
-            'confirmatory_substance_identification',
-            'detected_substances',
-            'confirmatory_test_methods',
-            'confirmatory_specifications',
+        // Update counts & title on MultipleSuspectCase
+        $allNames = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->pluck('suspect_name')->toArray();
+        $jointSuspectNameLabel = !empty($allNames) ? implode(', ', $allNames) : $multiCase->title;
+        $multiCase->update([
+            'total_suspects_count' => count($allNames),
+            'total_exhibits_count' => $currentExhibitsCount,
+            'title'                => 'Republic vs ' . $jointSuspectNameLabel,
         ]);
-        
-        foreach ($labInputs as $lKey => $lVal) {
-            if ($lVal !== null) {
-                $docketData[$lKey] = $lVal;
-            }
-        }
-        if (!isset($docketData['lab_analysis']) || !is_array($docketData['lab_analysis'])) {
-            $docketData['lab_analysis'] = [];
-        }
-        $docketData['lab_analysis'] = array_merge($docketData['lab_analysis'], array_filter($labInputs, function($v) { return $v !== null; }));
 
-        $case->docket_data = $docketData;
-        $case->save();
+        $refreshedCase = \App\Models\ForensicCase::wrapRecord($multiCase->fresh(['suspects', 'exhibits', 'labResults']));
 
         $fromUnit = $request->input('from_unit') ?? $request->input('unit') ?? $request->query('unit') ?? $request->query('from') ?? '';
         $userUnit = auth()->user()->unit ?? session('user_unit') ?? '';
@@ -1366,13 +2462,13 @@ class CaseController extends Controller
 
         $redirectUrl = url('/cases') . ($isLab ? '?unit=Lab+Analysis' : '');
 
-        $msg = "Successfully associated {$addedPersonsCount} person(s) and {$addedExhibitsCount} exhibit(s) with Case {$case->case_number}.";
+        $msg = "Successfully associated {$addedPersonsCount} person(s) and {$addedExhibitsCount} exhibit(s) with Case {$refreshedCase->case_number}.";
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success'  => true,
                 'message'  => $msg,
-                'case'     => $case,
+                'case'     => $refreshedCase,
                 'redirect' => $redirectUrl,
             ]);
         }
@@ -1621,6 +2717,31 @@ class CaseController extends Controller
                 }
             }
         }
+
+        // Backfill exhibit seizure_officer and seizure_reason from docket_data if missing in DB
+        if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+            $exList = \App\Models\Exhibit::where(function($q) use ($case) {
+                if ($case->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
+                    $q->where('single_suspect_case_id', $case->id);
+                } else {
+                    $q->where('multiple_suspect_case_id', $case->id);
+                }
+            })->get();
+
+            foreach ($exList as $idx => $exItem) {
+                $szDoc = $docketData['seizures'][$idx] ?? ($docketData['seizures'][0] ?? []);
+                $exUpdates = [];
+                if (empty($exItem->seizure_officer) && !empty($szDoc['seizure_officer'])) {
+                    $exUpdates['seizure_officer'] = $szDoc['seizure_officer'];
+                }
+                if (empty($exItem->seizure_reason) && !empty($szDoc['seizure_reason'])) {
+                    $exUpdates['seizure_reason'] = $szDoc['seizure_reason'];
+                }
+                if (!empty($exUpdates)) {
+                    $exItem->update($exUpdates);
+                }
+            }
+        }
     }
 
     /**
@@ -1650,5 +2771,49 @@ class CaseController extends Controller
         }
         $this->repairExhibitAssociations($case);
         return view('Forensic_Head.case_pdf', compact('case'));
+    }
+
+    /**
+     * API endpoint to check suspect biodata duplicate before submission.
+     */
+    public function checkDuplicateSuspect(Request $request)
+    {
+        $detector = new \App\Services\CaseDuplicateDetector();
+        $result = $detector->checkSuspectBiodata($request->all());
+        return response()->json($result);
+    }
+
+    /**
+     * API endpoint to check case duplicate before submission.
+     */
+    public function checkDuplicateCase(Request $request)
+    {
+        $rawDocketInput = $request->input('docket_data');
+        $inputDocket = is_array($rawDocketInput)
+            ? $rawDocketInput
+            : (json_decode($rawDocketInput ?? '{}', true) ?: []);
+
+        $allSuspects = (isset($inputDocket['suspects']) && is_array($inputDocket['suspects']))
+            ? array_values(array_filter($inputDocket['suspects'], function($s) {
+                $n = trim($s['suspect_name'] ?? '');
+                return !empty($n) && $n !== 'Unnamed Suspect' && $n !== 'Unknown';
+            }))
+            : [];
+
+        if (empty($allSuspects) && $request->filled('suspect_name')) {
+            $allSuspects = [[
+                'suspect_name' => $request->input('suspect_name'),
+                'ghana_card'   => $request->input('ghana_card'),
+                'dob'          => $request->input('dob'),
+                'gender'       => $request->input('gender'),
+                'nationality'  => $request->input('nationality'),
+                'phone'        => $request->input('phone'),
+                'address'      => $request->input('address'),
+            ]];
+        }
+
+        $detector = new \App\Services\CaseDuplicateDetector();
+        $result = $detector->checkCaseDuplicate($request->all(), $allSuspects);
+        return response()->json($result);
     }
 }

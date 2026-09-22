@@ -83,7 +83,7 @@ class CaseValidationTest extends TestCase
             ->post('/cases', $validCaseData);
 
         $response->assertStatus(302);
-        $this->assertDatabaseHas('cases', [
+        $this->assertDatabaseHas('single_suspect_cases', [
             'case_number' => 'CSS-2026-8888',
             'suspect_name' => 'Kwame Mensah',
         ]);

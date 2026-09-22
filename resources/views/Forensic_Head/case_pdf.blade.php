@@ -8,22 +8,29 @@
     
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     
+    $primarySuspectName = strtolower(trim($case->suspect_name ?? ''));
+
     $allAssocPhotos = [];
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $szItem) {
-            $cat = strtolower($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''));
-            $pCat = strtolower($case->exhibit_category ?? '');
-            $sNameSz = strtolower($szItem['seizure_name'] ?? '');
-            $pName = strtolower($case->seizure_name ?? '');
+            $assocPerson = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? '')));
+            $assocRole   = strtolower(trim($szItem['association_role'] ?? ($szItem['role'] ?? '')));
+            $isExplicitAssoc = !empty($szItem['is_associate']);
 
-            $isAssocSz = !empty($szItem['is_associate']) 
-                || !empty($szItem['associated_person']) 
-                || (!empty($szItem['association_role']) && str_contains(strtolower($szItem['association_role']), 'associate'))
-                || (($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit'));
+            $isPrimaryOwner = empty($assocPerson) 
+                || (!empty($primarySuspectName) && $assocPerson === $primarySuspectName)
+                || $assocPerson === 'primary suspect'
+                || $assocPerson === 'primary'
+                || str_contains($assocPerson, 'all suspect')
+                || str_contains($assocPerson, 'joint');
+
+            $isAssocRole = !empty($assocRole) && str_contains($assocRole, 'associate');
+            $isAssocSz = ($isExplicitAssoc || $isAssocRole || (!$isPrimaryOwner && !empty($assocPerson))) && !$isPrimaryOwner;
 
             if ($isAssocSz) {
-                if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
-                    foreach ($szItem['photos'] as $ap) {
+                $aPhotos = $szItem['evidence_photos'] ?? ($szItem['photos'] ?? []);
+                if (is_array($aPhotos)) {
+                    foreach ($aPhotos as $ap) {
                         if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
                     }
                 }
@@ -36,8 +43,9 @@
     }
     if (!empty($docketData['associated_seizures']) && is_array($docketData['associated_seizures'])) {
         foreach ($docketData['associated_seizures'] as $aEx) {
-            if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
-                foreach ($aEx['photos'] as $ap) {
+            $aPhotos = $aEx['evidence_photos'] ?? ($aEx['photos'] ?? []);
+            if (is_array($aPhotos)) {
+                foreach ($aPhotos as $ap) {
                     if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
                 }
             }
@@ -49,8 +57,9 @@
     }
     if (!empty($docketData['associate_exhibits']) && is_array($docketData['associate_exhibits'])) {
         foreach ($docketData['associate_exhibits'] as $aEx) {
-            if (!empty($aEx['photos']) && is_array($aEx['photos'])) {
-                foreach ($aEx['photos'] as $ap) {
+            $aPhotos = $aEx['evidence_photos'] ?? ($aEx['photos'] ?? []);
+            if (is_array($aPhotos)) {
+                foreach ($aPhotos as $ap) {
                     if ($ap && !in_array($ap, $allAssocPhotos)) $allAssocPhotos[] = $ap;
                 }
             }
@@ -67,19 +76,24 @@
     $primaryPhotos = [];
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $szItem) {
-            $cat = strtolower($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''));
-            $pCat = strtolower($case->exhibit_category ?? '');
-            $sNameSz = strtolower($szItem['seizure_name'] ?? '');
-            $pName = strtolower($case->seizure_name ?? '');
+            $assocPerson = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? '')));
+            $assocRole   = strtolower(trim($szItem['association_role'] ?? ($szItem['role'] ?? '')));
+            $isExplicitAssoc = !empty($szItem['is_associate']);
 
-            $isAssocSz = !empty($szItem['is_associate']) 
-                || !empty($szItem['associated_person']) 
-                || (!empty($szItem['association_role']) && str_contains(strtolower($szItem['association_role']), 'associate'))
-                || (($cat !== $pCat || $sNameSz !== $pName) && ($cat !== 'general exhibit'));
+            $isPrimaryOwner = empty($assocPerson) 
+                || (!empty($primarySuspectName) && $assocPerson === $primarySuspectName)
+                || $assocPerson === 'primary suspect'
+                || $assocPerson === 'primary'
+                || str_contains($assocPerson, 'all suspect')
+                || str_contains($assocPerson, 'joint');
+
+            $isAssocRole = !empty($assocRole) && str_contains($assocRole, 'associate');
+            $isAssocSz = ($isExplicitAssoc || $isAssocRole || (!$isPrimaryOwner && !empty($assocPerson))) && !$isPrimaryOwner;
 
             if (!$isAssocSz) {
-                if (!empty($szItem['photos']) && is_array($szItem['photos'])) {
-                    foreach ($szItem['photos'] as $p) {
+                $pPhotos = $szItem['evidence_photos'] ?? ($szItem['photos'] ?? []);
+                if (is_array($pPhotos)) {
+                    foreach ($pPhotos as $p) {
                         if ($p && !in_array($p, $primaryPhotos) && !in_array($p, $allAssocPhotos)) {
                             $primaryPhotos[] = $p;
                         }
@@ -87,7 +101,7 @@
                 }
                 $singleP = $szItem['photo'] ?? ($szItem['exhibit_photo'] ?? null);
                 if ($singleP && !in_array($singleP, $primaryPhotos) && !in_array($singleP, $allAssocPhotos)) {
-                    $primaryPhotos[] = $singleP;
+                    $singleP && !in_array($singleP, $primaryPhotos) && $primaryPhotos[] = $singleP;
                 }
             }
         }
@@ -110,31 +124,8 @@
         return !in_array($p, $allAssocPhotos);
     }));
 
-    if (empty($primaryPhotos) && ($case->has_seizures || !empty($case->seizure_name) || !empty($case->exhibits_summary) || !empty($case->exhibit_category) || !empty($case->seizure_name_drug))) {
-        $cat = strtolower($case->exhibit_category ?? '');
-        $sName = strtolower(($case->seizure_name ?: ($case->seizure_name_drug ?: $case->exhibits_summary)) ?? '');
-        
-        if (str_contains($cat, 'money') || str_contains($sName, 'cedi') || str_contains($sName, 'dollar') || str_contains($sName, 'cash') || str_contains($sName, 'naira')) {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1561414927-6d86591d0c4f?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=800&auto=format&fit=crop'
-            ];
-        } elseif (str_contains($cat, 'gold') || str_contains($sName, 'gold') || str_contains($sName, 'bullion')) {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1610375461246-83df859d849d?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1605792657660-596af9009e82?q=80&w=800&auto=format&fit=crop'
-            ];
-        } elseif (str_contains($cat, 'vehicle') || str_contains($sName, 'car') || str_contains($sName, 'truck') || !empty($case->veh_make)) {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=800&auto=format&fit=crop'
-            ];
-        } else {
-            $primaryPhotos = [
-                'https://images.unsplash.com/photo-1584467735871-8e85353a8413?q=80&w=800&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop'
-            ];
-        }
+    if (empty($primaryPhotos)) {
+        $primaryPhotos = [];
     }
 
     $evidenceGalleryItems = [];
@@ -251,23 +242,42 @@
     }
     $isDrugCase = $isPrimaryDrugCase || $isAnyDrugCasePdf;
 
-    $unitsList = [
-        'Crime Scene Support',
-        'Evidence Management',
-    ];
-    if ($isDrugCase) {
-        $unitsList[] = 'Lab Analysis';
-    }
-    $unitsList[] = 'Digital & Physical Forensics';
+    $isLabCreatedCasePdf = !empty($case->unit_name) && (
+        strtolower(trim($case->unit_name)) === 'lab analysis' ||
+        str_contains(strtolower($case->unit_name), 'lab analysis') ||
+        str_contains(strtolower($case->unit_name), 'laboratory')
+    );
 
+    $unitsList = $case->getWorkflowUnits();
     $totalUnitsCount = count($unitsList);
 
-    $unitProgress = $docketData['unit_progress'] ?? [
-        'Crime Scene Support' => ['status' => 'COMPLETED', 'officer' => $case->commanding_officer ?? 'Crime Scene Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
-        'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-        'Lab Analysis' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-        'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
-    ];
+    if ($isDrugCase) {
+        $defaultProgress = [
+            'Lab Analysis'        => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+            'Evidence Management' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+        ];
+    } elseif ($isLabCreatedCasePdf) {
+        $defaultProgress = [
+            'Evidence Management' => ['status' => 'COMPLETED', 'officer' => $case->submitting_officer ?? ($case->commanding_officer ?? 'Evidence Officer'), 'updated_at' => optional($case->created_at)->toDateTimeString()],
+        ];
+    } else {
+        $defaultProgress = [
+            'Crime Scene Support'          => ['status' => 'COMPLETED', 'officer' => $case->commanding_officer ?? 'Crime Scene Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
+            'Evidence Management'          => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+            'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
+        ];
+    }
+
+
+    $rawProgress = $docketData['unit_progress'] ?? $defaultProgress;
+    $unitProgress = [];
+    foreach ($unitsList as $uKey) {
+        if (isset($rawProgress[$uKey])) {
+            $unitProgress[$uKey] = $rawProgress[$uKey];
+        } else {
+            $unitProgress[$uKey] = $defaultProgress[$uKey] ?? ['status' => 'PENDING', 'officer' => null, 'updated_at' => null];
+        }
+    }
     $completedUnitsCount = 0;
     foreach ($unitsList as $uKey) {
         if (isset($unitProgress[$uKey]['status']) && strtoupper($unitProgress[$uKey]['status']) === 'COMPLETED') {
@@ -276,7 +286,153 @@
     }
 
 
+    $primarySuspectNamesList = [];
+    $coSuspectNamesList = [];
+    $associateSuspectNamesList = [];
+    if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
+        foreach ($docketData['suspects'] as $sp) {
+            $role = strtolower($sp['association_role'] ?? ($sp['role'] ?? ''));
+            $spIsAssoc = !empty($sp['is_associate']) || (!empty($role) && $role !== 'primary suspect');
+            $spIsCo = $spIsAssoc && (
+                (!empty($sp['association_role']) && (str_contains(strtolower($sp['association_role']), 'co-suspect') || str_contains(strtolower($sp['association_role']), 'co suspect')))
+                || (!empty($sp['role']) && (str_contains(strtolower($sp['role']), 'co-suspect') || str_contains(strtolower($sp['role']), 'co suspect')))
+                || (!empty($sp['suspect_role']) && (str_contains(strtolower($sp['suspect_role']), 'co-suspect') || str_contains(strtolower($sp['suspect_role']), 'co suspect')))
+            );
+            if (!$spIsAssoc && !empty($sp['suspect_name'])) {
+                $primarySuspectNamesList[] = $sp['suspect_name'];
+            } elseif ($spIsCo && !empty($sp['suspect_name'])) {
+                $coSuspectNamesList[] = $sp['suspect_name'];
+            } elseif ($spIsAssoc && !empty($sp['suspect_name'])) {
+                $associateSuspectNamesList[] = $sp['suspect_name'];
+            }
+        }
+    }
+    $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
+
     $labExam = $docketData['lab_examination'] ?? [];
+
+    if (empty($labExam['has_saved']) && empty($labExam['presumptive_result'])) {
+        if (!empty($docketData['lab_examinations_list']) && is_array($docketData['lab_examinations_list'])) {
+            foreach ($docketData['lab_examinations_list'] as $lItem) {
+                if (!empty($lItem['has_saved']) || !empty($lItem['presumptive_result'])) {
+                    $lOwner = strtolower(trim($lItem['exhibit_owner_name'] ?? ''));
+                    $isPrimaryOrCo = false;
+                    if (empty($lOwner) || $lOwner === 'primary suspect' || str_contains($lOwner, 'primary')) {
+                        $isPrimaryOrCo = true;
+                    } elseif (!empty($primaryAndCoNamesList)) {
+                        foreach ($primaryAndCoNamesList as $pn) {
+                            $pnLow = strtolower(trim($pn));
+                            if ($lOwner === $pnLow || str_contains($lOwner, $pnLow) || str_contains($pnLow, $lOwner)) {
+                                $isPrimaryOrCo = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        $isPrimaryOrCo = true;
+                    }
+
+                    if ($isPrimaryOrCo) {
+                        $labExam = array_merge($labExam, $lItem);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (empty($labExam['has_saved']) && empty($labExam['presumptive_result'])) {
+        if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
+            foreach ($docketData['seizures'] as $szItem) {
+                if (!empty($szItem['has_saved_lab']) || !empty($szItem['presumptive_result'])) {
+                    $szOwner = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? ($szItem['owner_name'] ?? ''))));
+                    $szIsAssoc = !empty($szItem['is_associate']) || (!empty($szItem['association_role']) && str_contains(strtolower($szItem['association_role']), 'associate'));
+                    if (!$szIsAssoc) {
+                        $labExam = array_merge($labExam, [
+                            'exhibit_owner_name'  => $szItem['associated_person'] ?? ($szItem['suspect_name'] ?? ($szItem['owner_name'] ?? null)),
+                            'laboratory_number'   => $szItem['laboratory_number'] ?? null,
+                            'exam_reference'      => $szItem['exam_reference'] ?? null,
+                            'exhibit_number'      => $szItem['exhibit_number'] ?? null,
+                            'analyst'             => $szItem['analyst'] ?? null,
+                            'date_received'       => $szItem['date_received'] ?? null,
+                            'date_started'        => $szItem['date_started'] ?? null,
+                            'date_completed'      => $szItem['date_completed'] ?? null,
+                            'presumptive_result'  => $szItem['presumptive_result'] ?? null,
+                            'confirmatory_result' => $szItem['confirmatory_result'] ?? null,
+                            'sample_weight'       => [
+                                'description'      => $szItem['sample_description'] ?? null,
+                                'units_packaging'  => $szItem['sample_units'] ?? null,
+                                'gross_weight'     => $szItem['sample_gross'] ?? null,
+                                'sample_taken'     => $szItem['sample_taken'] ?? null,
+                                'reserved_samples' => $szItem['sample_reserved'] ?? null,
+                            ],
+                            'substance_identification' => $szItem['substance_identification'] ?? null,
+                            'detected_substances'      => $szItem['detected_substances'] ?? [],
+                            'test_methods'             => $szItem['test_methods'] ?? null,
+                            'specifications'           => $szItem['specifications'] ?? null,
+                            'findings'                 => $szItem['findings'] ?? null,
+                            'has_saved'                => true,
+                        ]);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    $dbPrimaryLabExamPdf = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
+            $q->where('single_suspect_case_id', $case->id)
+              ->orWhere('multiple_suspect_case_id', $case->id);
+        })->where('has_saved', true)->latest('id')->first();
+
+    if (!$dbPrimaryLabExamPdf) {
+        $dbPrimaryLabExamPdf = \App\Models\AssociateLabExamination::where('case_id', $case->id)
+            ->where('has_saved', true)
+            ->get()
+            ->first(function($aRec) use ($primaryAndCoNamesList) {
+                $aName = strtolower(trim($aRec->suspect_name ?? ''));
+                if (empty($aName) || $aName === 'primary suspect' || str_contains($aName, 'primary')) {
+                    return true;
+                }
+                if (!empty($primaryAndCoNamesList)) {
+                    foreach ($primaryAndCoNamesList as $pn) {
+                        $pnLow = strtolower(trim($pn));
+                        if ($aName === $pnLow || str_contains($aName, $pnLow) || str_contains($pnLow, $aName)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+    }
+
+    if ($dbPrimaryLabExamPdf) {
+        $labExam = array_merge($labExam, [
+            'exhibit_owner_name'  => $dbPrimaryLabExamPdf->suspect_name,
+            'laboratory_number'   => $dbPrimaryLabExamPdf->laboratory_number,
+            'exam_reference'      => $dbPrimaryLabExamPdf->exam_reference,
+            'exhibit_number'      => $dbPrimaryLabExamPdf->exhibit_number,
+            'analyst'             => $dbPrimaryLabExamPdf->analyst,
+            'date_received'       => is_object($dbPrimaryLabExamPdf->date_received) ? $dbPrimaryLabExamPdf->date_received->format('Y-m-d') : substr((string)$dbPrimaryLabExamPdf->date_received, 0, 10),
+            'date_started'        => is_object($dbPrimaryLabExamPdf->date_started) ? $dbPrimaryLabExamPdf->date_started->format('Y-m-d') : substr((string)$dbPrimaryLabExamPdf->date_started, 0, 10),
+            'date_completed'      => is_object($dbPrimaryLabExamPdf->date_completed) ? $dbPrimaryLabExamPdf->date_completed->format('Y-m-d') : substr((string)$dbPrimaryLabExamPdf->date_completed, 0, 10),
+            'presumptive_result'  => $dbPrimaryLabExamPdf->presumptive_result,
+            'confirmatory_result' => $dbPrimaryLabExamPdf->confirmatory_result,
+            'sample_weight'       => [
+                'description'      => $dbPrimaryLabExamPdf->sample_weight_description,
+                'units_packaging'  => $dbPrimaryLabExamPdf->sample_weight_units,
+                'gross_weight'     => $dbPrimaryLabExamPdf->sample_weight_gross,
+                'sample_taken'     => $dbPrimaryLabExamPdf->sample_weight_taken,
+                'reserved_samples' => $dbPrimaryLabExamPdf->sample_weight_reserved,
+            ],
+            'substance_identification' => $dbPrimaryLabExamPdf->substance_identification,
+            'detected_substances'      => $dbPrimaryLabExamPdf->detected_substances,
+            'test_methods'             => $dbPrimaryLabExamPdf->test_methods,
+            'specifications'           => $dbPrimaryLabExamPdf->specifications,
+            'findings'                 => $dbPrimaryLabExamPdf->findings,
+            'has_saved'                => true,
+        ]);
+    }
+
     $labOwnerNamePdf = $labExam['exhibit_owner_name'] ?? null;
     $labIsAssocPdf = !empty($labExam['exhibit_is_associate']);
 
@@ -353,9 +509,9 @@
     $labUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : (!empty($unitProgress['Lab Analysis']['unit']) ? $unitProgress['Lab Analysis']['unit'] : 'Chemistry & Narcotics Unit');
     $currentLoggedInName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? '');
     $labAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : (!empty($unitProgress['Lab Analysis']['officer']) ? $unitProgress['Lab Analysis']['officer'] : (!empty($currentLoggedInName) ? $currentLoggedInName : $defaultLabHeadName));
-    $labDateReceived = !empty($labExam['date_received']) ? $labExam['date_received'] : 'N/A';
-    $labDateStarted = !empty($labExam['date_started']) ? $labExam['date_started'] : 'N/A';
-    $labDateCompleted = !empty($labExam['date_completed']) ? $labExam['date_completed'] : 'N/A';
+    $labDateReceived = (!empty($labExam['date_received']) && $labExam['date_received'] !== 'N/A') ? $labExam['date_received'] : (!empty($docketData['lab_examination']['date_received']) && $docketData['lab_examination']['date_received'] !== 'N/A' ? $docketData['lab_examination']['date_received'] : (!empty($docketData['seizures'][0]['date_received']) && $docketData['seizures'][0]['date_received'] !== 'N/A' ? $docketData['seizures'][0]['date_received'] : (!empty($docketData['seizures'][0]['seizure_date']) && $docketData['seizures'][0]['seizure_date'] !== 'N/A' ? $docketData['seizures'][0]['seizure_date'] : (!empty($case->incident_date) ? substr((string)$case->incident_date, 0, 10) : (is_object($case->created_at) ? $case->created_at->format('Y-m-d') : substr((string)$case->created_at, 0, 10))))));
+    $labDateStarted = (!empty($labExam['date_started']) && $labExam['date_started'] !== 'N/A') ? $labExam['date_started'] : (!empty($docketData['lab_examination']['date_started']) && $docketData['lab_examination']['date_started'] !== 'N/A' ? $docketData['lab_examination']['date_started'] : (!empty($docketData['seizures'][0]['date_started']) && $docketData['seizures'][0]['date_started'] !== 'N/A' ? $docketData['seizures'][0]['date_started'] : $labDateReceived));
+    $labDateCompleted = (!empty($labExam['date_completed']) && $labExam['date_completed'] !== 'N/A') ? $labExam['date_completed'] : (!empty($docketData['lab_examination']['date_completed']) && $docketData['lab_examination']['date_completed'] !== 'N/A' ? $docketData['lab_examination']['date_completed'] : (!empty($docketData['seizures'][0]['date_completed']) && $docketData['seizures'][0]['date_completed'] !== 'N/A' ? $docketData['seizures'][0]['date_completed'] : $labDateStarted));
     $labPresumptive = !empty($labExam['presumptive_result']) ? $labExam['presumptive_result'] : (!empty($case->presumptive_test_result) ? $case->presumptive_test_result : 'N/A');
     $labConfirmatory = !empty($labExam['confirmatory_result']) ? $labExam['confirmatory_result'] : (!empty($case->confirmatory_test_result) ? $case->confirmatory_test_result : 'N/A');
     $labSampleWeight = $labExam['sample_weight'] ?? [];
@@ -442,10 +598,37 @@
         $labSampleUnit = $uMatch[1];
     }
     $labFindings = !empty($labExam['findings']) ? $labExam['findings'] : (!empty($unitProgress['Lab Analysis']['notes']) ? $unitProgress['Lab Analysis']['notes'] : (!empty($case->laboratory_analytical_findings) ? $case->laboratory_analytical_findings : ''));
+    $checkIsDrugExhibitPdf = function($ex) {
+        if (empty($ex) || !is_array($ex)) return false;
+        $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? ($ex['seizure_category'] ?? ($ex['type'] ?? '')))));
+        $name = strtolower(trim($ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))));
+        $type = strtolower(trim($ex['seizure_type'] ?? ($ex['exhibit_type'] ?? '')));
+        
+        $nonDrugKws = ['weapon', 'firearm', 'pistol', 'rifle', 'shotgun', 'ammunition', 'vehicle', 'truck', 'car', 'cash', 'currency', 'usd', 'ghs', 'laptop', 'phone', 'electronics', 'document'];
+        foreach ($nonDrugKws as $kw) {
+            if (str_contains($cat, $kw) || str_contains($name, $kw) || str_contains($type, $kw)) {
+                return false;
+            }
+        }
+        if ($cat === 'drugs' || $cat === 'narcotics' || $cat === 'drug' || !empty($ex['seizure_name_drug'])) {
+            return true;
+        }
+        if (!empty($cat) && in_array($cat, ['weapons', 'weapon', 'vehicles', 'vehicle', 'cash', 'currency', 'firearm', 'firearms'])) {
+            return false;
+        }
+        return true;
+    };
+
+    $hasAnySavedLabExam = !empty($docketData['lab_examination']['has_saved'])
+        || \App\Models\AssociateLabExamination::where('case_id', $case->id)->where('has_saved', true)->exists()
+        || (!empty($docketData['associate_lab_examinations']) && count(array_filter($docketData['associate_lab_examinations'], fn($v) => !empty($v['has_saved']))) > 0)
+        || (!empty($docketData['lab_examinations_list']) && count(array_filter($docketData['lab_examinations_list'], fn($v) => !empty($v['has_saved']))) > 0)
+        || (!empty($docketData['seizures']) && count(array_filter($docketData['seizures'], fn($s) => $checkIsDrugExhibitPdf($s) && !empty($s['has_saved_lab']))) > 0);
 
     $labStatus = strtoupper($unitProgress['Lab Analysis']['status'] ?? ($case->lab_status ?? ($docketData['lab_examination']['status'] ?? 'PENDING')));
     $hasSavedLabData = $isDrugCase && (
-        $labStatus === 'COMPLETED' 
+        $hasAnySavedLabExam
+        || $labStatus === 'COMPLETED' 
         || (isset($case->lab_status) && strtoupper($case->lab_status) === 'COMPLETED')
         || (!empty($docketData['lab_examination']['has_saved']) && (!empty($case->confirmatory_substance_identification) || !empty($docketData['lab_examination']['confirmatory_result']) || !empty($docketData['lab_examination']['substance_identification'])))
     );
@@ -634,7 +817,102 @@
         </div>
 
         @php
-            $suspectsList = !empty($docketData['suspects']) && is_array($docketData['suspects']) ? array_values(array_filter($docketData['suspects'], fn($s) => !empty($s['suspect_name']))) : [];
+            $rawSuspectsPdf = !empty($docketData['suspects']) && is_array($docketData['suspects']) ? array_values(array_filter($docketData['suspects'], fn($s) => !empty($s['suspect_name']) && trim($s['suspect_name']) !== 'Unnamed Suspect' && trim($s['suspect_name']) !== 'Unknown')) : [];
+
+            $primaryAndCoNamesArrayPdf = [];
+            if (!empty($rawSuspectsPdf)) {
+                foreach ($rawSuspectsPdf as $s) {
+                    $role = strtolower($s['association_role'] ?? ($s['role'] ?? ''));
+                    $isAssoc = !empty($s['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
+                    if (!$isAssoc && !empty($s['suspect_name'])) {
+                        $pParts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', strtolower($s['suspect_name']))));
+                        foreach ($pParts as $pp) {
+                            if (!in_array($pp, $primaryAndCoNamesArrayPdf)) {
+                                $primaryAndCoNamesArrayPdf[] = $pp;
+                            }
+                        }
+                    }
+                }
+            }
+            if (empty($primaryAndCoNamesArrayPdf) && !empty($case->suspect_name)) {
+                $pParts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', strtolower($case->suspect_name))));
+                if (!empty($pParts)) {
+                    $primaryAndCoNamesArrayPdf[] = $pParts[0];
+                }
+            }
+
+            $namesMatchFuzzyPdf = function($name1, $name2) {
+                if (empty($name1) || empty($name2)) return false;
+                $n1 = strtolower(trim($name1));
+                $n2 = strtolower(trim($name2));
+                if ($n1 === $n2) return true;
+                if (str_contains($n1, $n2) || str_contains($n2, $n1)) return true;
+
+                $w1 = array_values(array_filter(explode(' ', preg_replace('/[^a-z0-9]/', ' ', $n1)), fn($w) => strlen($w) >= 2));
+                $w2 = array_values(array_filter(explode(' ', preg_replace('/[^a-z0-9]/', ' ', $n2)), fn($w) => strlen($w) >= 2));
+
+                if (empty($w1) || empty($w2)) return false;
+
+                if (count($w1) >= 2 && count($w2) >= 2) {
+                    $last1 = end($w1);
+                    $last2 = end($w2);
+                    if ($last1 === $last2) {
+                        $first1 = $w1[0];
+                        $first2 = $w2[0];
+                        if ($first1 === $first2 || str_starts_with($first1, substr($first2, 0, 3)) || str_starts_with($first2, substr($first1, 0, 3))) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            };
+
+            $isDuplicatePrimaryCoEntryPdf = function($nameToCheck) use ($primaryAndCoNamesArrayPdf, $namesMatchFuzzyPdf) {
+                if (empty($nameToCheck) || empty($primaryAndCoNamesArrayPdf)) return false;
+                $clean = strtolower(trim($nameToCheck));
+                
+                $parts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', $clean)));
+                if (empty($parts)) return false;
+
+                if (count($parts) > 1) {
+                    $allMatch = true;
+                    foreach ($parts as $p) {
+                        $found = false;
+                        foreach ($primaryAndCoNamesArrayPdf as $pName) {
+                            if ($namesMatchFuzzyPdf($p, $pName)) {
+                                $found = true;
+                                break;
+                            }
+                        }
+                        if (!$found) {
+                            $allMatch = false;
+                            break;
+                        }
+                    }
+                    if ($allMatch) return true;
+                }
+
+                foreach ($primaryAndCoNamesArrayPdf as $pName) {
+                    if ($namesMatchFuzzyPdf($clean, $pName)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            };
+
+            $suspectsList = [];
+            if (!empty($rawSuspectsPdf)) {
+                foreach ($rawSuspectsPdf as $s) {
+                    $role = strtolower($s['association_role'] ?? ($s['role'] ?? ''));
+                    $isAssoc = !empty($s['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
+                    if ($isAssoc && !empty($s['suspect_name']) && $isDuplicatePrimaryCoEntryPdf($s['suspect_name'])) {
+                        continue;
+                    }
+                    $suspectsList[] = $s;
+                }
+            }
+
             if (empty($suspectsList)) {
                 $suspectsList = [[
                     'suspect_number'   => 1,
@@ -689,14 +967,32 @@
                     $associateSuspectNamesList[] = $sp['suspect_name'];
                 }
             }
+            $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
             if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
                 foreach ($docketData['seizures'] as $sz) {
-                    if (!empty($sz['associated_person']) && strtolower($sz['associated_person']) !== 'associate suspect' && !in_array($sz['associated_person'], $associateSuspectNamesList)) {
-                        $associateSuspectNamesList[] = $sz['associated_person'];
+                    $assocPerson = $sz['associated_person'] ?? null;
+                    if (!empty($assocPerson) && strtolower(trim($assocPerson)) !== 'associate suspect' && strtolower(trim($assocPerson)) !== 'primary suspect' && strtolower(trim($assocPerson)) !== 'all suspects') {
+                        $parts = array_filter(array_map('trim', preg_split('/[,&]|\band\b/i', strtolower($assocPerson))));
+                        $isPrimaryOrCo = true;
+                        foreach ($parts as $p) {
+                            $found = false;
+                            foreach ($primaryAndCoNamesList as $pName) {
+                                if (strtolower(trim($pName)) === $p || str_contains(strtolower(trim($pName)), $p) || str_contains($p, strtolower(trim($pName)))) {
+                                    $found = true;
+                                    break;
+                                }
+                            }
+                            if (!$found) {
+                                $isPrimaryOrCo = false;
+                                break;
+                            }
+                        }
+                        if (!$isPrimaryOrCo && !in_array($assocPerson, $associateSuspectNamesList)) {
+                            $associateSuspectNamesList[] = $assocPerson;
+                        }
                     }
                 }
             }
-            $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
             $primarySuspectsCombinedNames = !empty($primaryAndCoNamesList) ? implode(', ', $primaryAndCoNamesList) : (!empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Eric Addo'));
             $associateSuspectsCombinedNames = !empty($associateSuspectNamesList) ? implode(', ', array_unique($associateSuspectNamesList)) : 'Atta Budo';
             $renderedPrimaryExhibit = false;
@@ -975,11 +1271,11 @@
                             'seizure_unit'       => $case->seizure_unit ?? null,
                             'seizure_value'      => $case->seizure_value ?: ($case->valuation ?: null),
                             'seizure_concealment'=> $case->seizure_concealment ?? null,
-                            'seizure_date'       => $case->seizure_date ?? null,
-                            'seizure_time'       => $case->seizure_time ?? null,
-                            'seizure_location'   => $case->seizure_location ?? null,
-                            'seizure_officer'    => $case->seizure_officer ?? null,
-                            'seizure_reason'     => $case->seizure_reason ?? null,
+                            'seizure_date'       => $case->seizure_date ?: ($case->incident_date ?: ($case->arrest_date ?? null)),
+                            'seizure_time'       => $case->seizure_time ?: ($case->arrest_time ?? null),
+                            'seizure_location'   => $case->seizure_location ?: ($case->raid_location ?? null),
+                            'seizure_officer'    => $case->seizure_officer ?: ($case->submitting_officer ?? null),
+                            'seizure_reason'     => $case->seizure_reason ?: ($case->operation_code_name ?: ($case->operation_code ?? null)),
                             'veh_make'           => $case->veh_make ?? null,
                             'veh_model'          => $case->veh_model ?? null,
                             'veh_type'           => $case->veh_type ?? null,
@@ -1011,11 +1307,11 @@
                             $pUnit = $pEx['seizure_unit'] ?? ($pEx['unit'] ?? '');
                             $pVal = $pEx['seizure_value'] ?? ($pEx['value'] ?? ($case->seizure_value ?: ($case->valuation ?: 'N/A')));
                             $pConceal = $pEx['seizure_concealment'] ?? ($pEx['concealment'] ?? ($case->seizure_concealment ?: 'N/A'));
-                            $pDate = $pEx['seizure_date'] ?? ($pEx['date'] ?? ($case->seizure_date ?: null));
-                            $pTime = $pEx['seizure_time'] ?? ($pEx['time'] ?? ($case->seizure_time ?: null));
+                            $pDate = $pEx['seizure_date'] ?? ($pEx['date'] ?? ($case->seizure_date ?: ($case->incident_date ?: ($case->arrest_date ?? null))));
+                            $pTime = $pEx['seizure_time'] ?? ($pEx['time'] ?? ($case->seizure_time ?: ($case->arrest_time ?? null)));
                             $pLoc = $pEx['seizure_location'] ?? ($pEx['location'] ?? ($case->seizure_location ?: ($case->raid_location ?: 'N/A')));
-                            $pOfficer = $pEx['seizure_officer'] ?? ($pEx['seizer'] ?? ($case->seizure_officer ?: 'N/A'));
-                            $pReason = $pEx['seizure_reason'] ?? ($pEx['reason'] ?? ($case->seizure_reason ?: 'N/A'));
+                            $pOfficer = !empty($pEx['seizure_officer']) ? $pEx['seizure_officer'] : (!empty($pEx['seizer']) ? $pEx['seizer'] : (!empty($case->seizure_officer) ? $case->seizure_officer : ((!empty($case->submitting_officer) && $case->submitting_officer !== 'Field Arrest Officer') ? $case->submitting_officer : ($case->commanding_officer ?: 'N/A'))));
+                            $pReason = !empty($pEx['seizure_reason']) ? $pEx['seizure_reason'] : (!empty($pEx['reason']) ? $pEx['reason'] : (!empty($case->seizure_reason) ? $case->seizure_reason : ((!empty($case->operation_code_name) && $case->operation_code_name !== 'Raid') ? $case->operation_code_name : (!empty($case->operation_code) && $case->operation_code !== 'Raid' ? $case->operation_code : ($case->offense_description ?: 'N/A')))));
 
                             // Vehicle Specs
                             $pVehMake = $pEx['veh_make'] ?? ($pEx['make'] ?? null);
@@ -1230,6 +1526,20 @@
                             @endif
 
                             @php
+                                $aRawOfficer = $aEx['seizure_officer'] ?? ($aEx['seizer'] ?? ($case->seizure_officer ?: ($case->submitting_officer ?: null)));
+                                $aOfficer = (!empty($aRawOfficer) && $aRawOfficer !== 'Field Arrest Officer') ? $aRawOfficer : ($case->commanding_officer ?: 'N/A');
+
+                                $aRawReason = $aEx['seizure_reason'] ?? ($aEx['reason'] ?? ($case->seizure_reason ?: ($case->operation_code_name ?: ($case->operation_code ?: null))));
+                                $aReason = (!empty($aRawReason) && $aRawReason !== 'Raid') ? $aRawReason : ($case->offense_description ?: 'N/A');
+                            @endphp
+                            <tr>
+                                <td class="pdf-label-cell">Seizing Officer:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aOfficer }}</td>
+                                <td class="pdf-label-cell">Reason / Authority:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aReason }}</td>
+                            </tr>
+
+                            @php
                                 $catLower = strtolower($aEx['category'] ?? ($aEx['exhibit_category'] ?? ''));
                                 $nameLower = strtolower($aEx['seizure_name'] ?? ($aEx['name'] ?? ''));
                                 $hasWeaponData = !empty($aEx['weapon_model']) || !empty($aEx['weapon_serial_number']) || !empty($aEx['weapon_calibre']) || !empty($aEx['weapon_loaded_status']) || !empty($aEx['weapon_condition_at_recovery']) || !empty($aEx['weapon_location_found']) || !empty($aEx['weapon_distinguishing_marks']);
@@ -1412,28 +1722,57 @@
                         <td class="pdf-value-cell p-1.5">
                             @php
                                 $pRawPdf = trim($labPresumptive ?? '');
-                                $pResPdf = 'N/A';
-                                $pPresPdf = 'N/A';
-                                $pPurPdf = 'N/A';
-
-                                if (!empty($pRawPdf)) {
-                                    if (str_starts_with(strtoupper($pRawPdf), 'YES') || str_starts_with(strtoupper($pRawPdf), 'POS')) {
-                                        $pResPdf = 'YES';
-                                    } elseif (str_starts_with(strtoupper($pRawPdf), 'NO') || str_starts_with(strtoupper($pRawPdf), 'NEG')) {
-                                        $pResPdf = 'NO';
-                                    } else {
-                                        $pResPdf = strtok($pRawPdf, ' (');
+                                $pRowsPdf = [];
+                                if (!empty($pRawPdf) && $pRawPdf !== 'N/A') {
+                                    $overallResultPdf = 'N/A';
+                                    if (preg_match('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i', $pRawPdf, $mRes)) {
+                                        $overallResultPdf = strtoupper($mRes[1]);
+                                        if ($overallResultPdf === 'POS' || $overallResultPdf === 'POSITIVE') $overallResultPdf = 'YES';
+                                        if ($overallResultPdf === 'NEG' || $overallResultPdf === 'NEGATIVE') $overallResultPdf = 'NO';
                                     }
 
-                                    if (preg_match('/Presence of:\s*([^-\)]+)/i', $pRawPdf, $mPresPdf)) {
-                                        $pPresPdf = trim($mPresPdf[1]);
-                                    } elseif (preg_match('/\(([^-\)]+)\)/', $pRawPdf, $mPresPdf)) {
-                                        $pPresPdf = trim($mPresPdf[1]);
+                                    $cleanPPdf = $pRawPdf;
+                                    if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRawPdf, $mP)) {
+                                        $cleanPPdf = $mP[1];
                                     }
 
-                                    if (preg_match('/Purity\/Percentage:\s*([^\)]+)/i', $pRawPdf, $mPurPdf)) {
-                                        $pPurPdf = trim($mPurPdf[1]);
+                                    $segmentsPdf = preg_split('/;\s*(?=\[\d+\]|Presence of:)/i', $cleanPPdf);
+                                    if (empty($segmentsPdf)) $segmentsPdf = [$cleanPPdf];
+
+                                    foreach ($segmentsPdf as $seg) {
+                                        $seg = trim($seg);
+                                        if (empty($seg)) continue;
+
+                                        $presence = 'N/A';
+                                        $purity = 'N/A';
+
+                                        if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                            $presence = trim($mPres[1]);
+                                        } elseif (preg_match('/^\[\d+\]\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                            $presence = trim($mPres[1]);
+                                        } elseif (!empty($seg) && !str_contains($seg, 'Purity')) {
+                                            $presence = trim($seg);
+                                        }
+
+                                        if ($presence === 'YES' || $presence === 'NO' || $presence === 'POS' || $presence === 'NEG') {
+                                            $presence = 'N/A';
+                                        }
+
+                                        if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $seg, $mPur)) {
+                                            $purity = trim($mPur[1]);
+                                        }
+
+                                        if ($presence !== 'N/A' || $purity !== 'N/A' || count($segmentsPdf) === 1) {
+                                            $pRowsPdf[] = [
+                                                'result'   => $overallResultPdf,
+                                                'presence' => $presence,
+                                                'purity'   => $purity,
+                                            ];
+                                        }
                                     }
+                                }
+                                if (empty($pRowsPdf)) {
+                                    $pRowsPdf[] = ['result' => 'N/A', 'presence' => 'N/A', 'purity' => 'N/A'];
                                 }
                             @endphp
                             <table class="w-full text-[10.5px] border border-slate-300 rounded overflow-hidden">
@@ -1445,11 +1784,13 @@
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white">
-                                    <tr>
-                                        <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pResPdf === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pResPdf }}</td>
-                                        <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $pPresPdf }}</td>
-                                        <td class="px-2 py-1 font-bold text-slate-900">{{ $pPurPdf }}</td>
+                                    @foreach($pRowsPdf as $pRowPdf)
+                                    <tr class="border-b border-slate-200 last:border-b-0">
+                                        <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pRowPdf['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pRowPdf['result'] }}</td>
+                                        <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $pRowPdf['presence'] }}</td>
+                                        <td class="px-2 py-1 font-bold text-slate-900">{{ $pRowPdf['purity'] }}</td>
                                     </tr>
+                                    @endforeach
                                 </tbody>
                             </table>
                         </td>
@@ -1476,7 +1817,17 @@
                                 </div>
                                 <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
                                     <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Mass Taken</div>
-                                    <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5">{{ $labSampleTaken ? $labSampleTaken . ' ' . $labSampleUnit : 'N/A' }}</div>
+                                    @php
+                                        $pdfDisplaySampleTaken = 'N/A';
+                                        if (!empty($labSampleTaken) && $labSampleTaken !== 'N/A') {
+                                            if (preg_match('/(kg|g|mg|lbs|grams|kilograms)/i', (string)$labSampleTaken)) {
+                                                $pdfDisplaySampleTaken = $labSampleTaken;
+                                            } else {
+                                                $pdfDisplaySampleTaken = trim($labSampleTaken . ' ' . ($labSampleUnit ?? ''));
+                                            }
+                                        }
+                                    @endphp
+                                    <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5">{{ $pdfDisplaySampleTaken }}</div>
                                 </div>
                                 <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
                                     <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Reserved Samples</div>
@@ -1491,22 +1842,61 @@
                         <td class="pdf-label-cell">Test Specifications:</td>
                         <td class="pdf-value-cell font-bold">{{ $labSpecifications ?: 'N/A' }}</td>
                     </tr>
-                    @if(!empty($labDetectedSubstances))
+                    <tr>
+                        <td class="pdf-label-cell">Test Method(s):</td>
+                        <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $labTestMethods ?: 'N/A' }}</td>
+                    </tr>
                     <tr>
                         <td class="pdf-label-cell">Detected Compounds:</td>
                         <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
-                            @php $pdfDetList = []; @endphp
-                            @foreach($labDetectedSubstances as $subItem)
-                                @if(!empty($subItem['substance']))
-                                    @php 
-                                        $pdfDetList[] = $subItem['substance'] . (!empty($subItem['percentage']) ? ' (' . $subItem['percentage'] . ')' : ''); 
-                                    @endphp
-                                @endif
-                            @endforeach
-                            {{ implode(', ', $pdfDetList) }}
+                            @php 
+                                $pdfDetList = []; 
+                                $rawPdfDetList = $labDetectedSubstances ?? [];
+                                if (is_string($rawPdfDetList)) {
+                                    $rawPdfDetList = json_decode($rawPdfDetList, true) ?: [];
+                                }
+                                if (is_array($rawPdfDetList)) {
+                                    foreach ($rawPdfDetList as $subItem) {
+                                        if (is_array($subItem)) {
+                                            $sName = $subItem['substance'] ?? ($subItem['name'] ?? ($subItem['compound'] ?? ($subItem['drug_name'] ?? '')));
+                                            $sPct  = $subItem['percentage'] ?? ($subItem['purity'] ?? ($subItem['pct'] ?? ''));
+                                            if (!empty($sName)) {
+                                                $pdfDetList[] = $sName . (!empty($sPct) ? ' (' . rtrim(trim($sPct), '%') . '%)' : '');
+                                            }
+                                        }
+                                    }
+                                }
+                                if (empty($pdfDetList)) {
+                                    $pText = $labPresumptive ?? '';
+                                    if (!empty($pText) && (str_contains($pText, 'Presence of:') || str_contains($pText, 'YES'))) {
+                                        $cleanP = preg_replace('/^YES\s*\((.*)\)$/i', '$1', trim($pText));
+                                        $pSegs = explode(';', $cleanP);
+                                        foreach ($pSegs as $pSeg) {
+                                            $pSeg = trim($pSeg);
+                                            $pName = ''; $pPur = '';
+                                            if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)) {
+                                                $pName = trim($mP[1]);
+                                            }
+                                            if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $pSeg, $mPur)) {
+                                                $pPur = trim($mPur[1]);
+                                            }
+                                            if (!empty($pName)) {
+                                                $pdfDetList[] = $pName . (!empty($pPur) ? ' (' . rtrim(trim($pPur), '%') . '%)' : '');
+                                            }
+                                        }
+                                    }
+                                }
+                                if (empty($pdfDetList) && !empty($labSubstanceId) && $labSubstanceId !== 'N/A') {
+                                    $pdfDetList[] = $labSubstanceId;
+                                }
+                            @endphp
+                            @if(count($pdfDetList) > 0)
+                                <span>{{ implode(', ', $pdfDetList) }}</span>
+                            @else
+                                <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                            @endif
                         </td>
                     </tr>
-                    @endif
                     <tr>
                         <td class="pdf-label-cell">Findings Log Summary:</td>
                         <td class="pdf-value-cell font-medium text-slate-900 leading-relaxed" colspan="3">
@@ -1518,48 +1908,93 @@
         </div>
         @endif
 
-        <!-- ASSOCIATE SUSPECT LABORATORY EXAMINATION RESULT TABLES FOR PDF -->
-        @php
-                $primaryNameStrPdf = strtolower(trim($primarySuspectsCombinedNames ?? ($case->suspect_name ?? '')));
-                $primaryNamesArrayPdf = array_filter(array_map('trim', explode(',', strtolower($primaryNameStrPdf))));
+        <!-- ASSOCIATE SUSPECT LABORATORY EXAMINAT        @php
+                $primarySuspectNamesPdf = [];
+                if (!empty($primaryAndCoNamesList) && is_array($primaryAndCoNamesList)) {
+                    foreach ($primaryAndCoNamesList as $pn) {
+                        if (!empty($pn)) $primarySuspectNamesPdf[] = strtolower(trim($pn));
+                    }
+                }
+                if (!empty($suspectsList) && is_array($suspectsList)) {
+                    foreach ($suspectsList as $sItem) {
+                        $role = strtolower($sItem['association_role'] ?? ($sItem['role'] ?? ''));
+                        $isAssoc = !empty($sItem['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
+                        if (!$isAssoc && !empty($sItem['suspect_name'])) {
+                            $spNameClean = strtolower(trim($sItem['suspect_name']));
+                            if (!in_array($spNameClean, $primarySuspectNamesPdf)) {
+                                $primarySuspectNamesPdf[] = $spNameClean;
+                            }
+                        }
+                    }
+                }
+
+                $isPrimaryOrCoSuspectPdfName = function($nameToCheck) use ($primarySuspectNamesPdf) {
+                    if (empty($nameToCheck)) return true;
+                    $clean = strtolower(trim($nameToCheck));
+                    if ($clean === 'primary suspect' || $clean === 'associate suspect' || $clean === 'all suspects') return true;
+
+                    foreach ($primarySuspectNamesPdf as $pName) {
+                        if ($clean === $pName || str_contains($clean, $pName) || str_contains($pName, $clean)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+
+                $checkIsDrugExhibitPdf = function($ex) {
+                    if (empty($ex) || !is_array($ex)) return false;
+                    $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? ($ex['seizure_category'] ?? ($ex['type'] ?? '')))));
+                    $name = strtolower(trim($ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))));
+                    $type = strtolower(trim($ex['seizure_type'] ?? ($ex['exhibit_type'] ?? '')));
+                    
+                    $nonDrugKws = ['weapon', 'firearm', 'pistol', 'rifle', 'shotgun', 'ammunition', 'vehicle', 'truck', 'car', 'cash', 'currency', 'usd', 'ghs', 'laptop', 'phone', 'electronics', 'document'];
+                    foreach ($nonDrugKws as $kw) {
+                        if (str_contains($cat, $kw) || str_contains($name, $kw) || str_contains($type, $kw)) {
+                            return false;
+                        }
+                    }
+                    if ($cat === 'drugs' || $cat === 'narcotics' || $cat === 'drug' || !empty($ex['seizure_name_drug'])) {
+                        return true;
+                    }
+                    if (!empty($cat) && in_array($cat, ['weapons', 'weapon', 'vehicles', 'vehicle', 'cash', 'currency', 'firearm', 'firearms'])) {
+                        return false;
+                    }
+                    return true;
+                };
 
                 $associateSuspectsForPdfLab = [];
                 if (!empty($suspectsList) && is_array($suspectsList)) {
                     foreach ($suspectsList as $sIdx => $sItem) {
-                        $spIsAssoc = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect');
+                        $role = strtolower($sItem['association_role'] ?? ($sItem['role'] ?? ''));
+                        $spIsAssoc = !empty($sItem['is_associate']) || (!empty($role) && $role !== 'primary suspect' && !str_contains($role, 'co-suspect'));
                         $spName = $sItem['suspect_name'] ?? null;
-                        if ($spIsAssoc && !empty($spName)) {
-                            $spNameLower = strtolower(trim($spName));
-                            if (!in_array($spNameLower, $primaryNamesArrayPdf) && $spNameLower !== $primaryNameStrPdf) {
-                                $associateSuspectsForPdfLab[] = [
-                                    'index' => $sItem['suspect_number'] ?? ($sIdx + 1),
-                                    'name'  => $spName,
-                                    'item'  => $sItem
-                                ];
-                            }
+                        if ($spIsAssoc && !empty($spName) && !$isPrimaryOrCoSuspectPdfName($spName)) {
+                            $associateSuspectsForPdfLab[] = [
+                                'index' => $sItem['suspect_number'] ?? ($sIdx + 1),
+                                'name'  => $spName,
+                                'item'  => $sItem
+                            ];
                         }
                     }
                 }
                 if (!empty($docketData['associated_suspects']) && is_array($docketData['associated_suspects'])) {
                     foreach ($docketData['associated_suspects'] as $aIdx => $aSp) {
                         $aName = $aSp['suspect_name'] ?? ($aSp['name'] ?? null);
-                        if ($aName) {
+                        if ($aName && !$isPrimaryOrCoSuspectPdfName($aName)) {
                             $aNameLower = strtolower(trim($aName));
-                            if (!in_array($aNameLower, $primaryNamesArrayPdf) && $aNameLower !== $primaryNameStrPdf) {
-                                $alreadyAdded = false;
-                                foreach ($associateSuspectsForPdfLab as $existingAssoc) {
-                                    if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
-                                        $alreadyAdded = true;
-                                        break;
-                                    }
+                            $alreadyAdded = false;
+                            foreach ($associateSuspectsForPdfLab as $existingAssoc) {
+                                if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
+                                    $alreadyAdded = true;
+                                    break;
                                 }
-                                if (!$alreadyAdded) {
-                                    $associateSuspectsForPdfLab[] = [
-                                        'index' => count($suspectsList) + $aIdx + 1,
-                                        'name'  => $aName,
-                                        'item'  => $aSp
-                                    ];
-                                }
+                            }
+                            if (!$alreadyAdded) {
+                                $associateSuspectsForPdfLab[] = [
+                                    'index' => count($suspectsList) + $aIdx + 1,
+                                    'name'  => $aName,
+                                    'item'  => $aSp
+                                ];
                             }
                         }
                     }
@@ -1567,30 +2002,28 @@
                 if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
                     foreach ($docketData['seizures'] as $szItem) {
                         $assocP = $szItem['associated_person'] ?? null;
-                        if (!empty($assocP)) {
+                        if (!empty($assocP) && !$isPrimaryOrCoSuspectPdfName($assocP) && $checkIsDrugExhibitPdf($szItem)) {
                             $aNameLower = strtolower(trim($assocP));
-                            if (!in_array($aNameLower, $primaryNamesArrayPdf) && $aNameLower !== $primaryNameStrPdf) {
-                                $alreadyAdded = false;
-                                foreach ($associateSuspectsForPdfLab as $existingAssoc) {
-                                    if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
-                                        $alreadyAdded = true;
-                                        break;
-                                    }
+                            $alreadyAdded = false;
+                            foreach ($associateSuspectsForPdfLab as $existingAssoc) {
+                                if (strtolower(trim($existingAssoc['name'])) === $aNameLower) {
+                                    $alreadyAdded = true;
+                                    break;
                                 }
-                                if (!$alreadyAdded) {
-                                    $associateSuspectsForPdfLab[] = [
-                                        'index' => count($associateSuspectsForPdfLab) + 2,
-                                        'name'  => $assocP,
-                                        'item'  => ['suspect_name' => $assocP, 'is_associate' => true]
-                                    ];
-                                }
+                            }
+                            if (!$alreadyAdded) {
+                                $associateSuspectsForPdfLab[] = [
+                                    'index' => count($associateSuspectsForPdfLab) + 2,
+                                    'name'  => $assocP,
+                                    'item'  => ['suspect_name' => $assocP, 'is_associate' => true]
+                                ];
                             }
                         }
                     }
                 }
-            @endphp
+        @endphp
 
-            @foreach($associateSuspectsForPdfLab as $assocLabInfo)
+        @foreach($associateSuspectsForPdfLab as $assocLabInfo)
                 @php
                     $aSpName = $assocLabInfo['name'];
                     $aSpIndex = $assocLabInfo['index'];
@@ -1607,12 +2040,18 @@
                         }
                     }
 
-                    $assocExhibitsList = array_filter($docketData['seizures'] ?? [], function($sz) use ($aSpName, $aSpId) {
+                    $assocExhibitsList = array_filter($docketData['seizures'] ?? [], function($sz) use ($aSpName, $aSpId, $checkIsDrugExhibitPdf) {
+                        if (!$checkIsDrugExhibitPdf($sz)) {
+                            return false;
+                        }
                         $szOwnerName = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
                         if (!empty($szOwnerName) && strtolower(trim($szOwnerName)) !== 'associate suspect' && strtolower(trim($szOwnerName)) !== 'primary suspect') {
-                            if (strtolower(trim($szOwnerName)) === strtolower(trim($aSpName)) || str_contains(strtolower($szOwnerName), strtolower(trim($aSpName)))) {
+                            $ownerLow = strtolower(trim($szOwnerName));
+                            $aNameLow = strtolower(trim($aSpName));
+                            if ($ownerLow === $aNameLow || str_contains($ownerLow, $aNameLow) || str_contains($aNameLow, $ownerLow)) {
                                 return true;
                             }
+                            return false;
                         }
                         $szAssocId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
                         if (!empty($szAssocId) && !empty($aSpId)) {
@@ -1640,7 +2079,9 @@
                         $hasThisAssocSavedLabPdf = true;
                     } elseif ($docketAssocExamPdf && !empty($docketAssocExamPdf['has_saved'])) {
                         $hasThisAssocSavedLabPdf = true;
-                    } elseif (!empty($firstAssocEx['has_saved_lab']) || (!empty($assocLabExamPdf) && !empty($assocLabExamPdf['has_saved']))) {
+                    } elseif (!empty($firstAssocEx) && $checkIsDrugExhibitPdf($firstAssocEx) && !empty($firstAssocEx['has_saved_lab'])) {
+                        $hasThisAssocSavedLabPdf = true;
+                    } elseif (!empty($assocLabExamPdf) && !empty($assocLabExamPdf['has_saved'])) {
                         $hasThisAssocSavedLabPdf = true;
                     }
 
@@ -1652,11 +2093,11 @@
 
                     $assocAnalystPdf = $dbAssocExamPdf && !empty($dbAssocExamPdf->analyst) ? $dbAssocExamPdf->analyst : (!empty($docketAssocExamPdf['analyst']) ? $docketAssocExamPdf['analyst'] : (!empty($assocLabExamPdf['analyst']) ? $assocLabExamPdf['analyst'] : (!empty($firstAssocEx['analyst']) ? $firstAssocEx['analyst'] : 'N/A')));
 
-                    $assocDateReceivedPdf = $dbAssocExamPdf && !empty($dbAssocExamPdf->date_received) ? (is_object($dbAssocExamPdf->date_received) ? $dbAssocExamPdf->date_received->format('Y-m-d') : substr($dbAssocExamPdf->date_received, 0, 10)) : (!empty($docketAssocExamPdf['date_received']) ? $docketAssocExamPdf['date_received'] : (!empty($assocLabExamPdf['date_received']) ? $assocLabExamPdf['date_received'] : (!empty($firstAssocEx['date_received']) ? $firstAssocEx['date_received'] : 'N/A')));
+                    $assocDateReceivedPdf = ($dbAssocExamPdf && !empty($dbAssocExamPdf->date_received) && $dbAssocExamPdf->date_received !== 'N/A') ? (is_object($dbAssocExamPdf->date_received) ? $dbAssocExamPdf->date_received->format('Y-m-d') : substr((string)$dbAssocExamPdf->date_received, 0, 10)) : (!empty($docketAssocExamPdf['date_received']) && $docketAssocExamPdf['date_received'] !== 'N/A' ? $docketAssocExamPdf['date_received'] : (!empty($assocLabExamPdf['date_received']) && $assocLabExamPdf['date_received'] !== 'N/A' ? $assocLabExamPdf['date_received'] : (!empty($firstAssocEx['date_received']) && $firstAssocEx['date_received'] !== 'N/A' ? $firstAssocEx['date_received'] : (!empty($firstAssocEx['seizure_date']) && $firstAssocEx['seizure_date'] !== 'N/A' ? $firstAssocEx['seizure_date'] : $labDateReceived))));
 
-                    $assocDateStartedPdf = $dbAssocExamPdf && !empty($dbAssocExamPdf->date_started) ? (is_object($dbAssocExamPdf->date_started) ? $dbAssocExamPdf->date_started->format('Y-m-d') : substr($dbAssocExamPdf->date_started, 0, 10)) : (!empty($docketAssocExamPdf['date_started']) ? $docketAssocExamPdf['date_started'] : (!empty($assocLabExamPdf['date_started']) ? $assocLabExamPdf['date_started'] : (!empty($firstAssocEx['date_started']) ? $firstAssocEx['date_started'] : 'N/A')));
+                    $assocDateStartedPdf = ($dbAssocExamPdf && !empty($dbAssocExamPdf->date_started) && $dbAssocExamPdf->date_started !== 'N/A') ? (is_object($dbAssocExamPdf->date_started) ? $dbAssocExamPdf->date_started->format('Y-m-d') : substr((string)$dbAssocExamPdf->date_started, 0, 10)) : (!empty($docketAssocExamPdf['date_started']) && $docketAssocExamPdf['date_started'] !== 'N/A' ? $docketAssocExamPdf['date_started'] : (!empty($assocLabExamPdf['date_started']) && $assocLabExamPdf['date_started'] !== 'N/A' ? $assocLabExamPdf['date_started'] : (!empty($firstAssocEx['date_started']) && $firstAssocEx['date_started'] !== 'N/A' ? $firstAssocEx['date_started'] : (!empty($labDateStarted) && $labDateStarted !== 'N/A' ? $labDateStarted : $assocDateReceivedPdf))));
 
-                    $assocDateCompletedPdf = $dbAssocExamPdf && !empty($dbAssocExamPdf->date_completed) ? (is_object($dbAssocExamPdf->date_completed) ? $dbAssocExamPdf->date_completed->format('Y-m-d') : substr($dbAssocExamPdf->date_completed, 0, 10)) : (!empty($docketAssocExamPdf['date_completed']) ? $docketAssocExamPdf['date_completed'] : (!empty($assocLabExamPdf['date_completed']) ? $assocLabExamPdf['date_completed'] : (!empty($firstAssocEx['date_completed']) ? $firstAssocEx['date_completed'] : 'N/A')));
+                    $assocDateCompletedPdf = ($dbAssocExamPdf && !empty($dbAssocExamPdf->date_completed) && $dbAssocExamPdf->date_completed !== 'N/A') ? (is_object($dbAssocExamPdf->date_completed) ? $dbAssocExamPdf->date_completed->format('Y-m-d') : substr((string)$dbAssocExamPdf->date_completed, 0, 10)) : (!empty($docketAssocExamPdf['date_completed']) && $docketAssocExamPdf['date_completed'] !== 'N/A' ? $docketAssocExamPdf['date_completed'] : (!empty($assocLabExamPdf['date_completed']) && $assocLabExamPdf['date_completed'] !== 'N/A' ? $assocLabExamPdf['date_completed'] : (!empty($firstAssocEx['date_completed']) && $firstAssocEx['date_completed'] !== 'N/A' ? $firstAssocEx['date_completed'] : (!empty($labDateCompleted) && $labDateCompleted !== 'N/A' ? $labDateCompleted : $assocDateStartedPdf))));
 
                     $assocDrugName = $dbAssocExamPdf ? $dbAssocExamPdf->sample_weight_description : (!empty($docketAssocExamPdf['sample_weight']['description']) ? $docketAssocExamPdf['sample_weight']['description'] : (!empty($firstAssocEx['seizure_name_drug']) ? $firstAssocEx['seizure_name_drug'] : (!empty($firstAssocEx['seizure_name']) ? $firstAssocEx['seizure_name'] : (!empty($assocLabExamPdf['substance_identification']) ? $assocLabExamPdf['substance_identification'] : (!empty($assocLabExamPdf['sample_weight']['description']) ? $assocLabExamPdf['sample_weight']['description'] : 'Drug Exhibit')))));
 
@@ -1706,8 +2147,7 @@
                     $isCoveredByMainReportPdf = false;
                     if (!empty($savedLabExamOwnerPdf)) {
                         $lOwnerLowPdf = strtolower(trim($savedLabExamOwnerPdf));
-                        $aSpNameLowPdf = strtolower(trim($aSpName));
-                        if (str_contains($lOwnerLowPdf, 'all suspect') || str_contains($lOwnerLowPdf, $aSpNameLowPdf)) {
+                        if (str_contains($lOwnerLowPdf, 'all suspect')) {
                             $isCoveredByMainReportPdf = true;
                         }
                     }
@@ -1770,6 +2210,61 @@
                             <tr>
                                 <td class="pdf-label-cell bg-amber-50">Presumptive Reaction:</td>
                                 <td class="pdf-value-cell p-1.5">
+                                    @php
+                                        $pRawAssocPdf = trim($assocPresumptiveText ?? '');
+                                        $pRowsAssocPdf = [];
+                                        if (!empty($pRawAssocPdf) && $pRawAssocPdf !== 'N/A') {
+                                            $overallResultAssocPdf = 'N/A';
+                                            if (preg_match('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i', $pRawAssocPdf, $mRes)) {
+                                                $overallResultAssocPdf = strtoupper($mRes[1]);
+                                                if ($overallResultAssocPdf === 'POS' || $overallResultAssocPdf === 'POSITIVE') $overallResultAssocPdf = 'YES';
+                                                if ($overallResultAssocPdf === 'NEG' || $overallResultAssocPdf === 'NEGATIVE') $overallResultAssocPdf = 'NO';
+                                            }
+
+                                            $cleanPAssocPdf = $pRawAssocPdf;
+                                            if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRawAssocPdf, $mP)) {
+                                                $cleanPAssocPdf = $mP[1];
+                                            }
+
+                                            $segmentsAssocPdf = preg_split('/;\s*(?=\[\d+\]|Presence of:)/i', $cleanPAssocPdf);
+                                            if (empty($segmentsAssocPdf)) $segmentsAssocPdf = [$cleanPAssocPdf];
+
+                                            foreach ($segmentsAssocPdf as $seg) {
+                                                $seg = trim($seg);
+                                                if (empty($seg)) continue;
+
+                                                $presence = 'N/A';
+                                                $purity = 'N/A';
+
+                                                if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                                    $presence = trim($mPres[1]);
+                                                } elseif (preg_match('/^\[\d+\]\s*([^\-\;\)]+)/i', $seg, $mPres)) {
+                                                    $presence = trim($mPres[1]);
+                                                } elseif (!empty($seg) && !str_contains($seg, 'Purity')) {
+                                                    $presence = trim($seg);
+                                                }
+
+                                                if ($presence === 'YES' || $presence === 'NO' || $presence === 'POS' || $presence === 'NEG') {
+                                                    $presence = 'N/A';
+                                                }
+
+                                                if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $seg, $mPur)) {
+                                                    $purity = trim($mPur[1]);
+                                                }
+
+                                                if ($presence !== 'N/A' || $purity !== 'N/A' || count($segmentsAssocPdf) === 1) {
+                                                    $pRowsAssocPdf[] = [
+                                                        'result'   => $overallResultAssocPdf,
+                                                        'presence' => $presence,
+                                                        'purity'   => $purity,
+                                                    ];
+                                                }
+                                            }
+                                        }
+                                        if (empty($pRowsAssocPdf)) {
+                                            $pRowsAssocPdf[] = ['result' => 'N/A', 'presence' => 'N/A', 'purity' => 'N/A'];
+                                        }
+                                    @endphp
                                     <table class="w-full text-[10.5px] border border-amber-200 rounded overflow-hidden">
                                         <thead class="bg-amber-100 text-amber-950 font-mono-code uppercase font-black text-[9px]">
                                             <tr class="border-b border-amber-200">
@@ -1779,11 +2274,13 @@
                                             </tr>
                                         </thead>
                                         <tbody class="bg-white">
-                                            <tr>
-                                                <td class="px-2 py-1 border-r border-amber-200 font-extrabold {{ $pResultAssocPdf === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pResultAssocPdf }}</td>
-                                                <td class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">{{ $pPresenceAssocPdf }}</td>
-                                                <td class="px-2 py-1 font-bold text-slate-900">{{ $pPurityAssocPdf }}</td>
+                                            @foreach($pRowsAssocPdf as $pRowAssocPdf)
+                                            <tr class="border-b border-amber-100 last:border-b-0">
+                                                <td class="px-2 py-1 border-r border-amber-200 font-extrabold {{ $pRowAssocPdf['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $pRowAssocPdf['result'] }}</td>
+                                                <td class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">{{ $pRowAssocPdf['presence'] }}</td>
+                                                <td class="px-2 py-1 font-bold text-slate-900">{{ $pRowAssocPdf['purity'] }}</td>
                                             </tr>
+                                            @endforeach
                                         </tbody>
                                     </table>
                                 </td>
@@ -1824,21 +2321,53 @@
                                 <td class="pdf-value-cell font-bold">{{ $assocSpecsVal }}</td>
                             </tr>
                             <tr>
+                                <td class="pdf-label-cell bg-amber-50">Test Method(s):</td>
+                                <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $assocMethodsVal ?: 'N/A' }}</td>
+                            </tr>
+                            <tr>
                                 <td class="pdf-label-cell bg-amber-50">Detected Compounds:</td>
                                 <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
                                     @php 
                                         $detListAssocPdf = []; 
                                         $assocDetSubsPdf = $dbAssocExamPdf && !empty($dbAssocExamPdf->detected_substances) ? $dbAssocExamPdf->detected_substances : (!empty($docketAssocExamPdf['detected_substances']) ? $docketAssocExamPdf['detected_substances'] : (!empty($assocLabExamPdf['detected_substances']) ? $assocLabExamPdf['detected_substances'] : (!empty($firstAssocEx['detected_substances']) ? $firstAssocEx['detected_substances'] : [])));
+                                        if (is_string($assocDetSubsPdf)) {
+                                            $assocDetSubsPdf = json_decode($assocDetSubsPdf, true) ?: [];
+                                        }
+                                        if (is_array($assocDetSubsPdf)) {
+                                            foreach ($assocDetSubsPdf as $subItem) {
+                                                if (is_array($subItem)) {
+                                                    $sName = $subItem['substance'] ?? ($subItem['name'] ?? ($subItem['compound'] ?? ($subItem['drug_name'] ?? '')));
+                                                    $sPct  = $subItem['percentage'] ?? ($subItem['purity'] ?? ($subItem['pct'] ?? ''));
+                                                    if (!empty($sName)) {
+                                                        $detListAssocPdf[] = $sName . (!empty($sPct) ? ' (' . rtrim(trim($sPct), '%') . '%)' : '');
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (empty($detListAssocPdf)) {
+                                            $pText = $assocPresumptiveTextPdf ?? ($assocPresumptiveText ?? '');
+                                            if (!empty($pText) && (str_contains($pText, 'Presence of:') || str_contains($pText, 'YES'))) {
+                                                $cleanP = preg_replace('/^YES\s*\((.*)\)$/i', '$1', trim($pText));
+                                                $pSegs = explode(';', $cleanP);
+                                                foreach ($pSegs as $pSeg) {
+                                                    $pSeg = trim($pSeg);
+                                                    $pName = ''; $pPur = '';
+                                                    if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)) {
+                                                        $pName = trim($mP[1]);
+                                                    }
+                                                    if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $pSeg, $mPur)) {
+                                                        $pPur = trim($mPur[1]);
+                                                    }
+                                                    if (!empty($pName)) {
+                                                        $detListAssocPdf[] = $pName . (!empty($pPur) ? ' (' . rtrim(trim($pPur), '%') . '%)' : '');
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (empty($detListAssocPdf) && !empty($assocSubstanceIdVal) && $assocSubstanceIdVal !== 'N/A') {
+                                            $detListAssocPdf[] = $assocSubstanceIdVal;
+                                        }
                                     @endphp
-                                    @if(!empty($assocDetSubsPdf))
-                                        @foreach($assocDetSubsPdf as $subItem)
-                                            @if(!empty($subItem['substance']))
-                                                @php 
-                                                    $detListAssocPdf[] = $subItem['substance'] . (!empty($subItem['percentage']) ? ' (' . $subItem['percentage'] . ')' : ''); 
-                                                @endphp
-                                            @endif
-                                        @endforeach
-                                    @endif
                                     @if(count($detListAssocPdf) > 0)
                                         <span>{{ implode(', ', $detListAssocPdf) }}</span>
                                     @else

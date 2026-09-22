@@ -1,0 +1,72 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class CaseSuspect extends Model
+{
+    use HasFactory;
+
+    protected $table = 'case_suspects';
+
+    protected $fillable = [
+        'multiple_suspect_case_id',
+        'suspect_number',
+        'role',
+        'associate_id',
+        'suspect_name',
+        'suspect_alias',
+        'ghana_card',
+        'gender',
+        'dob',
+        'age',
+        'height',
+        'height_unit',
+        'eye_color',
+        'nationality',
+        'pob',
+        'phone',
+        'address',
+        'marital_status',
+        'has_children',
+        'children_count',
+        'spouse_info',
+        'spouse_name',
+        'spouse_phone',
+        'partner_name',
+        'partner_phone',
+        'partner_info',
+        'dependents',
+        'holding_facility',
+        'raid_location',
+        'offense_description',
+        'arrest_date',
+        'arrest_time',
+        'mugshot_front',
+        'mugshot_left',
+        'mugshot_right',
+        'extra_mugshots',
+    ];
+
+    protected $casts = [
+        'extra_mugshots' => 'array',
+        'has_children'   => 'boolean',
+    ];
+
+    public function multipleCase()
+    {
+        return $this->belongsTo(MultipleSuspectCase::class, 'multiple_suspect_case_id');
+    }
+
+    public function exhibits()
+    {
+        return $this->hasMany(Exhibit::class, 'suspect_id');
+    }
+
+    public function labResults()
+    {
+        return $this->hasMany(LaboratoryExaminationResult::class, 'suspect_id');
+    }
+}

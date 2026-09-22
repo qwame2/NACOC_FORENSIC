@@ -647,6 +647,35 @@
                                 <span>3A. Legal Identity</span>
                             </div>
 
+                            <!-- LIVE SUSPECT BIODATA DUPLICATE WARNING BANNER -->
+                            <div id="suspectDuplicateNoticeCard" class="hidden mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-300 shadow-sm animate-in fade-in duration-200">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center space-x-2">
+                                                <span class="font-extrabold text-amber-900 text-xs uppercase tracking-wider font-mono-code">Existing Suspect Profile Detected</span>
+                                                <span id="suspectDupMatchBadge" class="px-2 py-0.5 bg-amber-200 text-amber-900 font-mono-code font-bold text-[10px] rounded-full border border-amber-300">90% Match</span>
+                                            </div>
+                                            <p class="text-xs text-amber-800 mt-0.5 font-medium leading-relaxed">
+                                                Suspect <strong id="suspectDupName" class="font-bold text-slate-900"></strong> (Card: <span id="dupSuspectCard" class="font-mono-code"></span>) is already registered in case <strong id="suspectDupCaseRef" class="font-mono-code text-blue-700"></strong>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2 shrink-0">
+                                        <button type="button" onclick="viewSuspectExistingCase()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs flex items-center space-x-1 cursor-pointer">
+                                            <span>View Case</span>
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                        </button>
+                                        <button type="button" onclick="hideSuspectDuplicateNoticeCard()" class="text-amber-700 hover:text-amber-900 text-xs font-bold px-2 py-1 cursor-pointer">
+                                            Dismiss
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- ROW 1: REF (READONLY), FULL NAME, ALIAS -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                                 
@@ -932,10 +961,10 @@
                             <!-- ROW 3: PLACE OF BIRTH, CONTACT PHONE NUMBER, RESIDENTIAL ADDRESS -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                                 
-                                <!-- PLACE OF BIRTH / HOMETOWN (NEW) -->
+                                <!-- PLACE OF BIRTH (NEW) -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Place of Birth / Hometown <span class="text-red-600 font-bold">*</span>
+                                        Place of Birth <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <div class="relative flex items-center group">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
@@ -3232,6 +3261,59 @@
     </div>
 
     <script>
+        // Populate only the readonly manifest-sync weight fields without resetting confirmatory test data.
+        // Called when the user opens the Confirmatory YES section so they see exhibit context.
+        function initSampleWeightFieldsOnly() {
+            const selectEl = document.getElementById('labExhibitSelect');
+            if (!selectEl) return;
+            const selectedOption = selectEl.options[selectEl.selectedIndex];
+            if (!selectedOption || !selectEl.value || selectEl.value === '' || selectedOption.text === 'No exhibit saved yet') {
+                // Attempt a sync first in case the manifest was filled but sync not triggered yet
+                if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                    syncSection4ExhibitsToLabSection();
+                }
+                return;
+            }
+
+            const name    = selectedOption.getAttribute('data-name') || '';
+            const cat     = selectedOption.getAttribute('data-cat')  || '';
+            const qty     = selectedOption.getAttribute('data-qty')  || '';
+            const pkg     = selectedOption.getAttribute('data-pkg')  || '';
+            const weight  = selectedOption.getAttribute('data-weight') || '';
+            const unit    = selectedOption.getAttribute('data-unit')   || '';
+
+            const drugName      = name || cat || '';
+            const unitsText     = qty ? `${qty} ${pkg}`.trim() : (pkg || '');
+            const grossWeightText = weight ? `${weight} ${unit}`.trim() : (unit || '');
+
+            const nonDrugKwList = ['truck','vehicle','car','pistol','rifle','weapon','currency','zonda','cash','usd','ghs','laptop','phone'];
+            const isNonDrug = (val) => { if (!val) return false; const l = val.toLowerCase(); return nonDrugKwList.some(k => l.includes(k)); };
+
+            const sampleDescInput  = document.getElementById('sampleWeightDescription');
+            const sampleUnitsInput = document.getElementById('sampleWeightUnits');
+            const sampleGrossInput = document.getElementById('sampleWeightGross');
+            const unitAddon        = document.getElementById('sampleWeightTakenUnitAddon');
+
+            if (sampleDescInput && (!sampleDescInput.value || sampleDescInput.getAttribute('data-auto-synced') === 'true' || isNonDrug(sampleDescInput.value))) {
+                if (drugName) { sampleDescInput.value = drugName; sampleDescInput.setAttribute('data-auto-synced', 'true'); }
+            }
+            if (sampleUnitsInput && (!sampleUnitsInput.value || sampleUnitsInput.getAttribute('data-auto-synced') === 'true' || isNonDrug(sampleUnitsInput.value))) {
+                if (unitsText) { sampleUnitsInput.value = unitsText; sampleUnitsInput.setAttribute('data-auto-synced', 'true'); }
+            }
+            if (sampleGrossInput && (!sampleGrossInput.value || sampleGrossInput.getAttribute('data-auto-synced') === 'true' || isNonDrug(sampleGrossInput.value))) {
+                if (grossWeightText) { sampleGrossInput.value = grossWeightText; sampleGrossInput.setAttribute('data-auto-synced', 'true'); }
+            }
+            if (unitAddon) {
+                if (unit) {
+                    unitAddon.textContent = unit;
+                } else if (grossWeightText) {
+                    const uMatch = grossWeightText.match(/(Kilograms?\s*\([^\)]+\)|Kilograms?|kg|Grams?|g|mg|lbs?)/i);
+                    if (uMatch) unitAddon.textContent = uMatch[1];
+                }
+            }
+            if (typeof updateSampleWeightReserved === 'function') updateSampleWeightReserved();
+        }
+
         function toggleConfirmatoryTest(choice) {
             const yesBox = document.getElementById('confirmatoryTestYes');
             const noBox = document.getElementById('confirmatoryTestNo');
@@ -3242,7 +3324,8 @@
                     if (noBox) noBox.checked = false;
                     if (inputEl) inputEl.value = 'YES';
                     if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
-                    if (typeof onLabExhibitSelected === 'function') onLabExhibitSelected();
+                    // Auto-fill weight fields from the selected manifest exhibit
+                    initSampleWeightFieldsOnly();
                 } else {
                     if (noBox) noBox.checked = true;
                     if (inputEl) inputEl.value = 'NO';
@@ -3257,7 +3340,8 @@
                     if (yesBox) yesBox.checked = true;
                     if (inputEl) inputEl.value = 'YES';
                     if (sampleWeightContainer) sampleWeightContainer.classList.remove('hidden');
-                    if (typeof onLabExhibitSelected === 'function') onLabExhibitSelected();
+                    // Auto-fill weight fields from the selected manifest exhibit
+                    initSampleWeightFieldsOnly();
                 }
             }
         }
@@ -3271,13 +3355,15 @@
                     if (noBox) noBox.checked = false;
                     if (container) container.classList.remove('hidden');
                 } else {
+                    if (noBox) noBox.checked = true;
                     if (container) container.classList.add('hidden');
                 }
             } else if (choice === 'NO') {
                 if (noBox && noBox.checked) {
                     if (yesBox) yesBox.checked = false;
                     if (container) container.classList.add('hidden');
-                } else if (yesBox && yesBox.checked) {
+                } else {
+                    if (yesBox) yesBox.checked = true;
                     if (container) container.classList.remove('hidden');
                 }
             }
@@ -3926,7 +4012,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Place of Birth / Hometown <span class="text-red-600 font-bold">*</span>
+                                Place of Birth <span class="text-red-600 font-bold">*</span>
                             </label>
                             <div class="relative flex items-center group">
                                 <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
@@ -4626,7 +4712,7 @@
                 { id: 'newArrestedGender', label: 'Gender', triggerId: 'genderDropdownTrigger' },
                 { id: 'newArrestedDOB', label: 'Date of Birth' },
                 { id: 'newArrestedNationality', label: 'Nationality', triggerId: 'nationalityDropdownTrigger' },
-                { id: 'newArrestedPOB', label: 'Place of Birth / Hometown' },
+                { id: 'newArrestedPOB', label: 'Place of Birth' },
                 { id: 'newArrestedPhone', label: 'Contact Phone Number' },
                 { id: 'newArrestedAddress', label: 'Residential Address / GPS' },
                 { id: 'newArrestedRaidLocation', label: 'Raid Scene Location' },
@@ -4678,7 +4764,7 @@
             return true;
         }
 
-        function processNewArrested() {
+        function processNewArrested(confirmDuplicate = false) {
             if (!validateSuspectDocketForm()) {
                 return;
             }
@@ -5092,11 +5178,16 @@
                     location: `${raidLocation} (${address})`,
                     description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
                     commanding_officer: 'Cmdr. Crime Scene Support',
-                    submitting_officer: 'Field Arrest Officer'
+                    submitting_officer: primarySeizure.seizure_officer || null,
+                    confirm_duplicate: confirmDuplicate ? 1 : 0
                 })
             })
             .then(async res => {
                 const data = await res.json();
+                if (res.status === 409) {
+                    showDuplicateCaseModal(data);
+                    throw new Error('DUPLICATE_CASE_INTERCEPTED');
+                }
                 if (!res.ok) {
                     let errMsg = data.message || 'Validation failed. Please check all required suspect details.';
                     if (data.errors) {
@@ -5145,7 +5236,7 @@
                             </span>
                         </td>
                         <td class="py-4 px-5 text-right space-x-2">
-                            <a href="/cases/${caseDbId}/review" class="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-[11px] font-bold shadow-2xs inline-block">Review Docket</a>
+                            <a href="/cases/${caseDbId}/review?from=${encodeURIComponent(@json($userUnit))}" class="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-[11px] font-bold shadow-2xs inline-block">Review Docket</a>
                         </td>
                     `;
                     tbody.insertBefore(newRow, tbody.firstChild);
@@ -5154,6 +5245,7 @@
                 showSuccessPopover(finalRef);
             })
             .catch(err => {
+                if (err.message === 'DUPLICATE_CASE_INTERCEPTED') return;
                 console.error('Error saving case:', err);
                 const msg = err.message || 'An error occurred while saving the case. Please enter all required suspect details.';
                 const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
@@ -7023,7 +7115,164 @@
                     });
                 }, false);
             }
+            // Live Suspect Biodata Duplicate Check Listeners
+            ['newArrestedID', 'newArrestedName', 'newArrestedDOB', 'newArrestedPhone'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('blur', checkDuplicateSuspectLive);
+                    el.addEventListener('input', checkDuplicateSuspectLive);
+                }
+            });
         });
+
+        /* ════════════════════════════════════════════════════════════
+           SMART DUPLICATE DETECTION FRONTEND CONTROLLER
+        ════════════════════════════════════════════════════════════ */
+        let suspectCheckTimer = null;
+        let lastMatchedSuspectCaseNumber = null;
+        let currentMatchedCaseNumber = null;
+
+        function checkDuplicateSuspectLive() {
+            clearTimeout(suspectCheckTimer);
+            suspectCheckTimer = setTimeout(async () => {
+                const ghanaCard = document.getElementById('newArrestedID')?.value?.trim();
+                const suspectName = document.getElementById('newArrestedName')?.value?.trim();
+                const dob = document.getElementById('newArrestedDOB')?.value?.trim();
+                const phone = document.getElementById('newArrestedPhone')?.value?.trim();
+
+                if (!ghanaCard && (!suspectName || !dob)) {
+                    hideSuspectDuplicateNoticeCard();
+                    return;
+                }
+
+                try {
+                    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    const res = await fetch('/api/cases/check-duplicate-suspect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': token || ''
+                        },
+                        body: JSON.stringify({
+                            ghana_card: ghanaCard,
+                            suspect_name: suspectName,
+                            dob: dob,
+                            phone: phone
+                        })
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.matched && data.scores && data.scores.total >= 65) {
+                            showSuspectDuplicateNoticeCard(data);
+                        } else {
+                            hideSuspectDuplicateNoticeCard();
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Suspect duplicate check error:', e);
+                }
+            }, 400);
+        }
+
+        function showSuspectDuplicateNoticeCard(data) {
+            const card = document.getElementById('suspectDuplicateNoticeCard');
+            if (!card) return;
+            const sName = document.getElementById('suspectDupName');
+            const sCard = document.getElementById('dupSuspectCard');
+            const sCase = document.getElementById('suspectDupCaseRef');
+            const sBadge = document.getElementById('suspectDupMatchBadge');
+
+            if (sName) sName.innerText = data.matched_suspect?.name || 'Unknown Suspect';
+            if (sCard) sCard.innerText = data.matched_suspect?.ghana_card || 'N/A';
+            if (sCase) sCase.innerText = data.matched_suspect?.case_number || 'Existing Case';
+            if (sBadge) sBadge.innerText = `${data.scores.total}% Match (${data.recommendation || 'Found'})`;
+
+            lastMatchedSuspectCaseNumber = data.matched_suspect?.case_number;
+            card.classList.remove('hidden');
+        }
+
+        function hideSuspectDuplicateNoticeCard() {
+            const card = document.getElementById('suspectDuplicateNoticeCard');
+            if (card) card.classList.add('hidden');
+        }
+
+        function viewSuspectExistingCase() {
+            if (lastMatchedSuspectCaseNumber) {
+                window.open('/cases/' + lastMatchedSuspectCaseNumber + '/review?from=' + encodeURIComponent(@json($userUnit)), '_blank');
+            }
+        }
+
+        function showDuplicateCaseModal(data) {
+            const modal = document.getElementById('duplicateCaseModal');
+            if (!modal) return;
+
+            const cRef = document.getElementById('dupModalCaseRef');
+            const cTitle = document.getElementById('dupModalCaseTitle');
+            const sName = document.getElementById('dupModalSuspectName');
+            const gCard = document.getElementById('dupModalGhanaCard');
+            const aDate = document.getElementById('dupModalArrestDate');
+            const rLoc = document.getElementById('dupModalLocation');
+            const offDesc = document.getElementById('dupModalOffense');
+            const scoreEl = document.getElementById('dupModalScore');
+            const badgeEl = document.getElementById('dupModalBadge');
+            const iconBox = document.getElementById('dupModalIconContainer');
+            const titleEl = document.getElementById('dupModalTitle');
+            const subEl = document.getElementById('dupModalSubtitle');
+
+            const mCase = data.matched_case || {};
+            currentMatchedCaseNumber = mCase.case_number || null;
+
+            if (cRef) cRef.innerText = mCase.case_number || 'CSS-2026-XXXX';
+            if (cTitle) cTitle.innerText = mCase.title || 'Republic Vs Suspect';
+            if (sName) sName.innerText = mCase.suspect_name || mCase.docket_data?.full_name || 'N/A';
+            if (gCard) gCard.innerText = mCase.ghana_card || mCase.docket_data?.id_card || 'N/A';
+            if (aDate) aDate.innerText = mCase.arrest_date || 'N/A';
+            if (rLoc) rLoc.innerText = mCase.raid_location || mCase.location || 'N/A';
+            if (offDesc) offDesc.innerText = mCase.offense_description || mCase.description || 'N/A';
+            if (scoreEl) scoreEl.innerText = `${data.score || 0}% Match`;
+
+            if (data.duplicate_level === 'HIGH_CONFIDENCE') {
+                if (badgeEl) {
+                    badgeEl.innerText = 'HIGH CONFIDENCE DUPLICATE CASE DETECTED';
+                    badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-red-100 text-red-800 border border-red-200 uppercase tracking-wider';
+                }
+                if (iconBox) {
+                    iconBox.className = 'w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-red-600/30';
+                }
+                if (titleEl) titleEl.innerText = 'Possible Duplicate Case Found';
+                if (subEl) subEl.innerText = data.message || 'An existing case file closely matches the suspect biodata, operation, and incident details entered.';
+            } else {
+                if (badgeEl) {
+                    badgeEl.innerText = 'POTENTIAL DUPLICATE CASE DETECTED';
+                    badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider';
+                }
+                if (iconBox) {
+                    iconBox.className = 'w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30';
+                }
+                if (titleEl) titleEl.innerText = 'Potential Duplicate Detected';
+                if (subEl) subEl.innerText = data.message || 'Some details match an existing record. Please review before proceeding.';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeDuplicateCaseModal() {
+            const modal = document.getElementById('duplicateCaseModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function viewMatchedDuplicateCase() {
+            if (currentMatchedCaseNumber) {
+                window.open('/cases/' + currentMatchedCaseNumber + '/review?from=' + encodeURIComponent(@json($userUnit)), '_blank');
+            }
+        }
+
+        function confirmAndRegisterDuplicateCase() {
+            closeDuplicateCaseModal();
+            processNewArrested(true);
+        }
 
         function selectVehType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
@@ -7844,6 +8093,83 @@
                 <span class="text-[10px] font-mono-code font-bold text-slate-400">NACOC SYSTEM</span>
                 <button type="button" onclick="closeValidationErrorPopover()" class="w-full sm:w-auto px-7 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-red-600/30 transition-all cursor-pointer border-none flex items-center justify-center space-x-2">
                     <span>Fill Required Details</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SMART DUPLICATE CASE WARNING MODAL -->
+    <div id="duplicateCaseModal" class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
+        <div class="bg-white rounded-3xl border border-amber-200 shadow-2xl max-w-lg w-full p-6 space-y-5 animate-in fade-in zoom-in duration-200">
+            <div class="flex items-start space-x-4">
+                <div id="dupModalIconContainer" class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <span id="dupModalBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider">
+                            POSSIBLE DUPLICATE CASE DETECTED
+                        </span>
+                        <button type="button" onclick="closeDuplicateCaseModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <h3 id="dupModalTitle" class="text-base font-extrabold text-slate-900 leading-snug">
+                        Possible Duplicate Case Found
+                    </h3>
+                    <p id="dupModalSubtitle" class="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
+                        The details being entered closely match an existing case in the system. Please review the matched case file before proceeding.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Matched Case Card -->
+            <div id="dupModalCard" class="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80 space-y-3">
+                <div class="flex items-center justify-between border-b border-amber-200/60 pb-2">
+                    <div>
+                        <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Matched Case Number</span>
+                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">CSS-2026-0000</div>
+                    </div>
+                    <span id="dupModalScore" class="px-2.5 py-1 bg-amber-500 text-white font-mono-code font-bold text-[11px] rounded-full shadow-2xs">
+                        95% Match
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-[10px] font-mono-code text-slate-500">Suspect Name:</span>
+                        <div id="dupModalSuspectName" class="font-bold text-slate-800">N/A</div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-mono-code text-slate-500">Ghana Card #:</span>
+                        <div id="dupModalGhanaCard" class="font-bold text-slate-800 font-mono-code">N/A</div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-mono-code text-slate-500">Date of Arrest:</span>
+                        <div id="dupModalArrestDate" class="font-bold text-slate-800 font-mono-code">N/A</div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-mono-code text-slate-500">Raid / Scene Location:</span>
+                        <div id="dupModalLocation" class="font-bold text-slate-800">N/A</div>
+                    </div>
+                </div>
+                <div class="pt-2 border-t border-amber-200/60">
+                    <span class="text-[10px] font-mono-code text-slate-500">Primary Offense:</span>
+                    <div id="dupModalOffense" class="font-semibold text-slate-700 text-xs">N/A</div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeDuplicateCaseModal()" class="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-300">
+                    Cancel
+                </button>
+                <button type="button" id="dupModalViewBtn" onclick="viewMatchedDuplicateCase()" class="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-600/20 transition-all cursor-pointer border-none flex items-center justify-center space-x-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    <span>View Existing Case</span>
+                </button>
+                <button type="button" onclick="confirmAndRegisterDuplicateCase()" class="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/30 transition-all cursor-pointer border-none flex items-center justify-center space-x-1.5">
+                    <span>Continue Registration</span>
                 </button>
             </div>
         </div>

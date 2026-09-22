@@ -114,12 +114,35 @@
                         @php
                             $reqUnitLanding = request()->query('unit') ?? request()->query('from');
                             $userUnitLanding = auth()->user()->unit ?? session('user_unit') ?? '';
-                            $prevUrlLanding = url()->previous() ?? '';
-                            $isLabLanding = $reqUnitLanding === 'Lab Analysis' 
-                                            || $reqUnitLanding === 'lab' 
-                                            || str_contains(strtolower($reqUnitLanding ?? ''), 'lab') 
-                                            || str_contains(strtolower($userUnitLanding), 'lab') 
-                                            || str_contains(strtolower($prevUrlLanding), 'lab');
+
+                            if (!empty($reqUnitLanding)) {
+                                $isLabLanding = str_contains(strtolower($reqUnitLanding), 'lab');
+                                if (str_contains(strtolower($reqUnitLanding), 'crime') || str_contains(strtolower($reqUnitLanding), 'field')) {
+                                    $landingUnitContext = 'Crime Scene Support';
+                                } elseif (str_contains(strtolower($reqUnitLanding), 'lab')) {
+                                    $landingUnitContext = 'Lab Analysis';
+                                } elseif (str_contains(strtolower($reqUnitLanding), 'evidence')) {
+                                    $landingUnitContext = 'Evidence Management';
+                                } elseif (str_contains(strtolower($reqUnitLanding), 'digital') || str_contains(strtolower($reqUnitLanding), 'physical')) {
+                                    $landingUnitContext = 'Digital & Physical Forensics';
+                                } else {
+                                    $landingUnitContext = $reqUnitLanding;
+                                }
+                            } elseif (request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*')) {
+                                $isLabLanding = true;
+                                $landingUnitContext = 'Lab Analysis';
+                            } elseif (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*')) {
+                                $isLabLanding = false;
+                                $landingUnitContext = 'Crime Scene Support';
+                            } else {
+                                if (!empty($userUnitLanding)) {
+                                    $isLabLanding = str_contains(strtolower($userUnitLanding), 'lab');
+                                    $landingUnitContext = $userUnitLanding;
+                                } else {
+                                    $isLabLanding = false;
+                                    $landingUnitContext = 'Crime Scene Support';
+                                }
+                            }
                         @endphp
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
@@ -308,9 +331,7 @@
                                             }
                                         }
 
-                                        $unitsLandingList = ['Crime Scene Support', 'Evidence Management'];
-                                        if ($isDrugLanding) { $unitsLandingList[] = 'Lab Analysis'; }
-                                        $unitsLandingList[] = 'Digital & Physical Forensics';
+                                        $unitsLandingList = $case->getWorkflowUnits();
                                         $totalUnitsLanding = count($unitsLandingList);
 
                                         $compCountLanding = 0;
@@ -318,9 +339,6 @@
                                             if (isset($uProgLanding[$ukey]['status']) && strtoupper($uProgLanding[$ukey]['status']) === 'COMPLETED') {
                                                 $compCountLanding++;
                                             }
-                                        }
-                                        if ($compCountLanding === 0 && $case->status === 'Under Multi-Unit Processing') {
-                                            $compCountLanding = 1;
                                         }
 
                                         $statusTab = match($case->status) {
@@ -348,8 +366,6 @@
                                         };
 
                                         $suspectDisplayName = $case->suspect_name ?? $case->commanding_officer ?? 'Unassigned Target';
-                                        $nameParts = explode(' ', $suspectDisplayName);
-                                        $initials = strtoupper(substr($nameParts[0] ?? 'N', 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
 
                                         $frontPic = $case->mugshot_front ?? (is_array($case->docket_data) ? ($case->docket_data['mugshot_front'] ?? null) : null);
                                         if (!$frontPic && !empty($case->evidence_photos)) {
@@ -397,66 +413,91 @@
 
                                         $allAliases = array_values(array_filter(array_map(fn($sp) => !empty($sp['alias']) && $sp['alias'] !== 'N/A' ? $sp['alias'] : null, $suspectPics)));
                                         $aliasDisplay = !empty($allAliases) ? implode(', ', $allAliases) : ($case->suspect_alias ?? 'N/A');
+
+                                        // Lab specific data calculations
+                                        $caseTypeDisplay = count($suspectPics) > 1 ? 'Joint Multi-Suspect' : 'Single Suspect';
+                                        $incidentDateDisplay = $case->incident_date ? substr((string)$case->incident_date, 0, 10) : ($case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d'));
+                                        $drugTypeDisplay = $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibits_summary ?: 'Narcotic Exhibit'));
+                                        $qtyDisplay = trim(($case->seizure_quantity ?? '') . ' ' . ($case->seizure_packaging ?? ''));
+                                        if (empty($qtyDisplay) && !empty($case->seizure_weight)) {
+                                            $qtyDisplay = trim($case->seizure_weight . ' ' . ($case->seizure_unit ?? ''));
+                                        }
+                                        if (empty($qtyDisplay)) {
+                                            $qtyDisplay = 'Standard Seizure';
+                                        }
+
+                                        $labExamStatus = isset($uProgLanding['Lab Analysis']['status']) && strtoupper($uProgLanding['Lab Analysis']['status']) === 'COMPLETED' ? 'Completed' : 'Pending';
                                     @endphp
                                     <tr class="table-row-hover transition-colors case-row" data-status="{{ $statusTab }}">
-                                        <td class="py-4 px-4 whitespace-nowrap">
-                                            <div class="font-bold font-mono-code text-blue-600 text-xs">{{ $case->case_number }}</div>
-                                            <div class="flex items-center space-x-1.5 mt-0.5">
-                                                <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold {{ $priorityClass }}">
-                                                    {{ strtoupper($case->priority) }}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td class="py-4 px-4">
-                                            <div class="font-semibold text-slate-800">{{ $case->title }}</div>
-                                            <div class="text-[10px] text-blue-600 font-mono-code font-semibold">{{ $case->unit_name ?? 'Forensic Directorate' }}</div>
-                                        </td>
-                                         <td class="py-4 px-4">
-                                             <div class="flex items-center space-x-3">
-                                                 <div class="flex items-center {{ count($suspectPics) > 1 ? '-space-x-3 hover:space-x-1 transition-all duration-300' : '' }} shrink-0">
-                                                     @foreach($suspectPics as $sp)
-                                                         <div class="suspect-avatar-trigger cursor-pointer shrink-0 relative group" 
-                                                              data-name="{{ $sp['name'] }}" 
-                                                              data-alias="{{ $sp['alias'] }}" 
-                                                              data-pic="{{ $sp['pic'] ?? '' }}" 
-                                                              data-ref="{{ $case->case_number }}" 
-                                                              data-priority="{{ strtoupper($case->priority) }}"
-                                                              title="{{ $sp['name'] }} {{ $sp['alias'] !== 'N/A' ? "({$sp['alias']})" : '' }}">
-                                                             <div class="w-10 h-10 rounded-full bg-white border-2 border-white ring-1 ring-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 hover:z-30 transition-all duration-200">
-                                                                 @if(!empty($sp['pic']))
-                                                                     <img src="{{ $sp['pic'] }}" alt="{{ $sp['name'] }}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">
-                                                                 @else
-                                                                     <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            <td class="py-4 px-4 whitespace-nowrap">
+                                                <div class="font-bold font-mono-code text-blue-600 text-xs">{{ $case->case_number }}</div>
+                                                <div class="flex items-center space-x-1.5 mt-0.5">
+                                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold {{ $priorityClass }}">
+                                                        {{ strtoupper($case->priority) }}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td class="py-4 px-4">
+                                                <div class="font-semibold text-slate-800">{{ $case->title }}</div>
+                                                <div class="text-[10px] text-blue-600 font-mono-code font-semibold mt-0.5">{{ $case->unit_name ?? 'Crime Scene Support' }}</div>
+                                            </td>
+                                             <td class="py-3.5 px-4">
+                                                 <div class="flex items-center space-x-3">
+                                                     <div class="flex items-center {{ count($suspectPics) > 1 ? '-space-x-3.5 hover:space-x-1 transition-all duration-300' : '' }} shrink-0 py-1">
+                                                         @foreach($suspectPics as $spIdx => $sp)
+                                                             <div class="suspect-avatar-trigger cursor-pointer shrink-0 relative group pt-1.5 pb-0.5" 
+                                                                  style="z-index: {{ 10 + $spIdx }};"
+                                                                  data-name="{{ $sp['name'] }}" 
+                                                                  data-alias="{{ $sp['alias'] }}" 
+                                                                  data-pic="{{ $sp['pic'] ?? '' }}" 
+                                                                  data-ref="{{ $case->case_number }}" 
+                                                                  data-priority="{{ strtoupper($case->priority) }}"
+                                                                  title="{{ $sp['name'] }} {{ $sp['alias'] !== 'N/A' ? "({$sp['alias']})" : '' }}">
+                                                                 
+                                                                 @if($sp['is_associate'])
+                                                                     <span class="absolute -top-0.5 left-1/2 -translate-x-1/2 z-30 w-4 h-4 bg-amber-500 border border-white rounded-full flex items-center justify-center text-[8.5px] font-black text-white shadow-xs font-mono-code" title="Associate Suspect">A</span>
                                                                  @endif
+
+                                                                 <div class="w-10 h-10 rounded-full bg-slate-100 ring-2 ring-white shadow-sm flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden group-hover:ring-2 group-hover:ring-blue-500 group-hover:z-40 transition-all duration-200">
+                                                                     @if(!empty($sp['pic']))
+                                                                         <img src="{{ $sp['pic'] }}" alt="{{ $sp['name'] }}" class="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-110">
+                                                                     @else
+                                                                         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                                     @endif
+                                                                 </div>
                                                              </div>
-                                                             @if($sp['is_associate'])
-                                                                 <span class="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-2xs" title="Associate Suspect">A</span>
-                                                             @endif
+                                                         @endforeach
+                                                     </div>
+                                                     <div class="min-w-0">
+                                                         <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]" title="{{ $suspectDisplayName }}">{{ $suspectDisplayName }}</div>
+                                                         <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]">
+                                                             <span class="text-slate-400">ALIAS:</span> {{ $aliasDisplay }}
                                                          </div>
-                                                     @endforeach
+                                                         @if(count($suspectPics) > 1)
+                                                             <div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200/60 text-blue-700 text-[9px] font-mono-code font-bold">
+                                                                 <svg class="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                                                 <span>{{ count($suspectPics) }} Suspects</span>
+                                                             </div>
+                                                         @endif
+                                                     </div>
                                                  </div>
-                                                 <div>
-                                                     <div class="font-bold text-slate-900 leading-snug">{{ $suspectDisplayName }}</div>
-                                                     <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">ALIAS: {{ $aliasDisplay }}</div>
-                                                 </div>
-                                             </div>
-                                         </td>
-                                        <td class="py-4 px-4">
-                                            <div class="font-medium text-slate-800 flex items-center gap-1">
-                                                <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                                                <span>{{ $case->location ?? 'NACOC Central Vault' }}</span>
-                                            </div>
-                                        </td>
-                                        <td class="py-4 px-4 whitespace-nowrap">
-                                            <div class="text-slate-700 font-mono-code">{{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}</div>
-                                            <div class="text-[10px] text-slate-400 font-mono-code">{{ $case->created_at ? $case->created_at->format('H:i:s T') : '12:00:00 UTC' }}</div>
-                                        </td>
-                                        <td class="py-4 px-4 text-center whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold {{ $statusBadge['bg'] }}">
-                                                <span class="w-1.5 h-1.5 rounded-full {{ $statusBadge['dot'] }} mr-1.5"></span>
-                                                {{ $statusBadge['label'] }}
-                                            </span>
-                                        </td>
+                                             </td>
+                                            <td class="py-4 px-4">
+                                                <div class="font-medium text-slate-800 flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                                                    <span>{{ $case->holding_facility ?? $case->raid_location ?? $case->seizure_location ?? $case->location ?? 'NACOC Central Custody Facility' }}</span>
+                                                </div>
+                                            </td>
+                                            <td class="py-4 px-4 whitespace-nowrap">
+                                                <div class="text-slate-700 font-mono-code">{{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}</div>
+                                                <div class="text-[10px] text-slate-400 font-mono-code">{{ $case->created_at ? $case->created_at->format('H:i:s T') : '12:00:00 UTC' }}</div>
+                                            </td>
+                                            <td class="py-4 px-4 text-center whitespace-nowrap">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold {{ $statusBadge['bg'] }}">
+                                                    <span class="w-1.5 h-1.5 rounded-full {{ $statusBadge['dot'] }} mr-1.5"></span>
+                                                    {{ $statusBadge['label'] }}
+                                                </span>
+                                            </td>
                                         <td class="py-4 px-4 text-right whitespace-nowrap">
                                             <div class="relative inline-block text-left case-action-dropdown-wrapper">
                                                 <button type="button" 
@@ -472,7 +513,7 @@
 
                                                 <div id="actionMenu-{{ $case->case_number }}" class="case-action-menu hidden fixed z-[99999] w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 space-y-1 text-left font-sans">
                                                     <!-- 1. ASSOCIATE DATA -->
-                                                    <a href="/cases/{{ $case->case_number }}/associate{{ $isLabLanding ? '?unit=Lab+Analysis' : '' }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                                    <a href="/cases/{{ $case->case_number }}/associate?from={{ urlencode($landingUnitContext) }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                                         <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                                                         </div>
@@ -483,7 +524,7 @@
                                                     </a>
 
                                                     <!-- 2. EDIT DOCKET -->
-                                                    <a href="/cases/{{ $case->case_number }}/review?edit=true{{ $isLabLanding ? '&from=Lab+Analysis' : '' }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                                    <a href="/cases/{{ $case->case_number }}/review?edit=true&from={{ urlencode($landingUnitContext) }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                                         <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                                         </div>
@@ -494,7 +535,7 @@
                                                     </a>
 
                                                     <!-- 3. VIEW DOCKET -->
-                                                    <a href="/cases/{{ $case->case_number }}/review{{ $isLabLanding ? '?from=Lab+Analysis' : '' }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                                    <a href="/cases/{{ $case->case_number }}/review?from={{ urlencode($landingUnitContext) }}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                                         <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                         </div>
@@ -716,9 +757,10 @@
         }
 
         const isLabLanding = {{ $isLabLanding ? 'true' : 'false' }};
+        const landingUnitContext = @json($landingUnitContext);
 
         function viewDocket(ref) {
-            window.location.href = '/cases/' + encodeURIComponent(ref) + '/review' + (isLabLanding ? '?from=Lab+Analysis' : '');
+            window.location.href = '/cases/' + encodeURIComponent(ref) + '/review?from=' + encodeURIComponent(landingUnitContext);
         }
 
         function closeDocketModal() {
@@ -777,29 +819,26 @@
                         } else if (isLab) {
                             statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>${status}</span>`;
                         } else {
-                            let uProg = {};
-                            if (c.docket_data) {
-                                let dData = (typeof c.docket_data === 'string') ? (JSON.parse(c.docket_data || '{}') || {}) : c.docket_data;
-                                uProg = dData.unit_progress || {};
-                            }
-                            let exCat = String(c.exhibit_category || '').toLowerCase();
-                            let sDrug = c.seizure_name_drug || '';
-                            let sName = String(c.seizure_name || '').toLowerCase();
-                            let exSum = String(c.exhibits_summary || '').toLowerCase();
-                            let isDrug = Boolean(sDrug || exCat.includes('drug') || exCat.includes('narcotic') || exCat.includes('substance') || exCat.includes('cannabis') || exCat.includes('cocaine') || exCat.includes('heroin') || exCat.includes('meth') || exCat.includes('tramadol') || sName.includes('cocaine') || sName.includes('heroin') || sName.includes('cannabis') || sName.includes('weed') || sName.includes('meth') || sName.includes('tramadol') || sName.includes('drug') || sName.includes('narcotic') || exSum.includes('cocaine') || exSum.includes('heroin') || exSum.includes('cannabis') || exSum.includes('weed') || exSum.includes('meth') || exSum.includes('tramadol') || exSum.includes('drug') || exSum.includes('narcotic'));
-                            
-                            let checkUnits = ['Crime Scene Support', 'Evidence Management'];
-                            if (isDrug) checkUnits.push('Lab Analysis');
-                            checkUnits.push('Digital & Physical Forensics');
-                            let totalU = checkUnits.length;
+                            // Use the server-computed workflow fields (added by CaseController::index())
+                            // These are derived from getWorkflowUnits() + actual unit_progress COMPLETED count.
+                            let totalU     = c.workflow_total     ?? null;
+                            let compCount  = c.workflow_completed ?? null;
 
-                            let compCount = 0;
-                            checkUnits.forEach(ukey => {
-                                if (uProg[ukey] && uProg[ukey].status && String(uProg[ukey].status).toUpperCase() === 'COMPLETED') {
-                                    compCount++;
+                            if (totalU === null || compCount === null) {
+                                // Fallback: derive from docket_data.unit_progress directly
+                                let uProg = {};
+                                if (c.docket_data) {
+                                    let dData = (typeof c.docket_data === 'string')
+                                        ? ((() => { try { return JSON.parse(c.docket_data); } catch(e) { return {}; } })())
+                                        : c.docket_data;
+                                    uProg = dData.unit_progress || {};
                                 }
-                            });
-                            if (compCount === 0) compCount = 1;
+                                // Use whatever units are recorded in unit_progress as the source of truth
+                                const progKeys = Object.keys(uProg);
+                                totalU    = progKeys.length || 1;
+                                compCount = progKeys.filter(k => uProg[k] && String(uProg[k].status || '').toUpperCase() === 'COMPLETED').length;
+                            }
+
                             statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5"></span>Multi-Unit (${compCount}/${totalU})</span>`;
                         }
 
@@ -854,31 +893,32 @@
                             const isAssoc = sItem.is_associate || (sItem.association_role && sItem.association_role.toLowerCase() !== 'primary suspect');
 
                             let imgTag = sPic
-                                ? `<img src="${sPic}" alt="${sName.replace(/"/g, '&quot;')}" class="w-full h-full object-cover object-center transition-transform duration-300 hover:scale-110">`
-                                : `<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
+                                ? `<img src="${sPic}" alt="${sName.replace(/"/g, '&quot;')}" class="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-110">`
+                                : `<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
 
                             let assocBadge = isAssoc
-                                ? `<span class="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-black text-white shadow-2xs" title="Associate Suspect">A</span>`
+                                ? `<span class="absolute -top-0.5 left-1/2 -translate-x-1/2 z-30 w-4 h-4 bg-amber-500 border border-white rounded-full flex items-center justify-center text-[8.5px] font-black text-white shadow-xs font-mono-code" title="Associate Suspect">A</span>`
                                 : '';
 
                             avatarsGroupHtml += `
-                                <div class="suspect-avatar-trigger cursor-pointer shrink-0 relative group" 
+                                <div class="suspect-avatar-trigger cursor-pointer shrink-0 relative group pt-1.5 pb-0.5" 
+                                     style="z-index: ${10 + sIdx};"
                                      data-name="${sName.replace(/"/g, '&quot;')}" 
                                      data-alias="${sAlias.replace(/"/g, '&quot;')}" 
                                      data-pic="${sPic ? sPic.replace(/"/g, '&quot;') : ''}" 
                                      data-ref="${c.case_number}" 
                                      data-priority="${(c.priority || 'NORMAL').toUpperCase()}"
                                      title="${sName.replace(/"/g, '&quot;')} ${sAlias !== 'N/A' ? '(' + sAlias.replace(/"/g, '&quot;') + ')' : ''}">
-                                    <div class="w-10 h-10 rounded-full bg-white border-2 border-white ring-1 ring-slate-300 flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden shadow-2xs hover:ring-2 hover:ring-blue-500 hover:border-blue-400 hover:z-30 transition-all duration-200">
+                                    ${assocBadge}
+                                    <div class="w-10 h-10 rounded-full bg-slate-100 ring-2 ring-gray-300 shadow-sm flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden group-hover:ring-2 group-hover:ring-blue-500 group-hover:z-40 transition-all duration-200">
                                         ${imgTag}
                                     </div>
-                                    ${assocBadge}
                                 </div>
                             `;
                         });
 
                         const aliasStr = aliasArray.length > 0 ? aliasArray.join(', ') : suspectAlias;
-                        const stackClass = suspectsList.length > 1 ? '-space-x-3 hover:space-x-1 transition-all duration-300' : '';
+                        const stackClass = suspectsList.length > 1 ? '-space-x-3.5 hover:space-x-1 transition-all duration-300' : '';
 
                         const createdDate = c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
                         const createdTime = c.created_at ? c.created_at.slice(11, 19) + ' UTC' : '12:00:00 UTC';
@@ -900,23 +940,24 @@
                             </td>
                             <td class="py-4 px-4">
                                 <div class="font-semibold text-slate-800">${c.title || 'Untitled Case'}</div>
-                                <div class="text-[10px] text-blue-600 font-mono-code font-semibold">${c.unit_name || 'Forensic Directorate'}</div>
+                                <div class="text-[10px] text-blue-600 font-mono-code font-semibold mt-0.5">${c.unit_name || 'Crime Scene Support'}</div>
                             </td>
-                            <td class="py-4 px-4">
+                            <td class="py-3.5 px-4">
                                 <div class="flex items-center space-x-3">
                                     <div class="flex items-center ${stackClass} shrink-0">
                                         ${avatarsGroupHtml}
                                     </div>
-                                    <div>
-                                        <div class="font-bold text-slate-900 leading-snug">${suspectDisplayName}</div>
-                                        <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">ALIAS: ${aliasStr}</div>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]" title="${suspectDisplayName.replace(/"/g, '&quot;')}">${suspectDisplayName}</div>
+                                        <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]"><span class="text-slate-400">ALIAS:</span> ${aliasStr}</div>
+                                        ${suspectsList.length > 1 ? `<div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200/60 text-blue-700 text-[9px] font-mono-code font-bold"><svg class="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg><span>${suspectsList.length} Suspects</span></div>` : ''}
                                     </div>
                                 </div>
                             </td>
                             <td class="py-4 px-4">
                                 <div class="font-medium text-slate-800 flex items-center gap-1">
                                     <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                                    <span>${c.location || 'NACOC Central Vault'}</span>
+                                    <span>${c.holding_facility || c.raid_location || c.seizure_location || c.location || 'NACOC Central Custody Facility'}</span>
                                 </div>
                             </td>
                             <td class="py-4 px-4 whitespace-nowrap">
@@ -938,7 +979,7 @@
                                     </button>
 
                                     <div id="actionMenu-${c.case_number}" class="case-action-menu hidden fixed z-[99999] w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 space-y-1 text-left font-sans">
-                                        <a href="/cases/${c.case_number}/associate${ (typeof isLabLanding !== 'undefined' && isLabLanding) || {{ $isLabLanding ? 'true' : 'false' }} ? '?unit=Lab+Analysis' : '' }" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                        <a href="/cases/${c.case_number}/associate?from=${encodeURIComponent(landingUnitContext)}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                             <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                                             </div>
@@ -948,7 +989,7 @@
                                             </div>
                                         </a>
 
-                                        <a href="/cases/${c.case_number}/review?edit=true${isLabLanding ? '&from=Lab+Analysis' : ''}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                        <a href="/cases/${c.case_number}/review?edit=true&from=${encodeURIComponent(landingUnitContext)}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                             <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                             </div>
@@ -958,7 +999,7 @@
                                             </div>
                                         </a>
 
-                                        <a href="/cases/${c.case_number}/review${isLabLanding ? '?from=Lab+Analysis' : ''}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
+                                        <a href="/cases/${c.case_number}/review?from=${encodeURIComponent(landingUnitContext)}" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
                                             <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                             </div>
