@@ -184,6 +184,10 @@ class ForensicCase extends Model
         $suspectsArray = [];
         foreach ($suspects as $sIdx => $s) {
             $assocId = $s->associate_id ?? ($sIdx > 0 ? ('ASC-' . str_pad($sIdx, 3, '0', STR_PAD_LEFT)) : null);
+            $sRole = strtolower(trim($s->role ?? ''));
+            $isPrimaryRole = $sRole === 'primary suspect' || $sRole === 'primary' || ($sIdx === 0 && empty($s->role));
+            $isAssocSuspect = !$isPrimaryRole;
+
             $suspectsArray[] = [
                 'associate_id'     => $assocId,
                 'suspect_id'       => $assocId,
@@ -209,7 +213,8 @@ class ForensicCase extends Model
                 'date_of_arrest'   => $s->arrest_date ?? null,
                 'time_of_arrest'   => $s->arrest_time ?? null,
                 'association_role' => $s->role ?? ($sIdx === 0 ? 'Primary Suspect' : 'Associate Suspect'),
-                'is_associate'     => !empty($s->role) && str_contains(strtolower($s->role), 'associate'),
+                'role'             => $s->role ?? ($sIdx === 0 ? 'Primary Suspect' : 'Associate Suspect'),
+                'is_associate'     => $isAssocSuspect,
                 'mugshot_front'    => $s->mugshot_front ?? null,
                 'mugshot_left'     => $s->mugshot_left ?? null,
                 'mugshot_right'    => $s->mugshot_right ?? null,
@@ -222,11 +227,13 @@ class ForensicCase extends Model
         $seizuresArray = [];
         foreach ($exhibits as $exIdx => $ex) {
             // Determine if this exhibit's suspect is an associate-role suspect
-            $isAssoc = $ex->suspect ? (!empty($ex->suspect->role) && str_contains(strtolower($ex->suspect->role), 'associate')) : false;
+            $exSuspect = $ex->suspect;
+            $exSuspectRole = strtolower(trim($exSuspect->role ?? ''));
+            $isAssoc = $exSuspect ? ($exSuspect->suspect_number > 1 || ($exSuspectRole !== 'primary suspect' && $exSuspectRole !== 'primary')) : false;
 
             // For multi-suspect cases, null suspect_id means jointly owned by all suspects
-            $associatedPerson = $ex->suspect
-                ? $ex->suspect->suspect_name
+            $associatedPerson = $exSuspect
+                ? $exSuspect->suspect_name
                 : ($isMulti ? $allSuspectNames : ($instance->suspect_name ?? 'Primary Suspect'));
 
             $seizuresArray[] = [
@@ -252,6 +259,10 @@ class ForensicCase extends Model
                 'presumptive_result' => $ex->labResult ? $ex->labResult->presumptive_result : null,
                 'confirmatory_result' => $ex->labResult ? $ex->labResult->confirmatory_result : null,
                 'substance_identification' => $ex->labResult ? $ex->labResult->substance_identification : null,
+                'sample_taken'        => $ex->labResult ? $ex->labResult->sample_weight_taken : null,
+                'sample_weight_taken' => $ex->labResult ? $ex->labResult->sample_weight_taken : null,
+                'sample_reserved'     => $ex->labResult ? $ex->labResult->sample_weight_reserved : null,
+                'sample_weight_reserved' => $ex->labResult ? $ex->labResult->sample_weight_reserved : null,
                 'evidence_photos'    => (is_array($ex->evidence_photos) && !empty($ex->evidence_photos)) 
                     ? $ex->evidence_photos 
                     : ((!empty($ex->evidence_photos) && is_string($ex->evidence_photos) && json_decode($ex->evidence_photos, true))
@@ -666,8 +677,8 @@ class ForensicCase extends Model
                             'sample_weight_description'=> $sz['sample_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? ($labDataFromDocket['sample_weight_description'] ?? null)),
                             'sample_weight_units'     => $sz['sample_units'] ?? ($labDataFromDocket['sample_weight']['units_packaging'] ?? ($labDataFromDocket['sample_weight_units'] ?? null)),
                             'sample_weight_gross'     => $sz['sample_gross'] ?? ($labDataFromDocket['sample_weight']['gross_weight'] ?? ($labDataFromDocket['sample_weight_gross'] ?? null)),
-                            'sample_weight_taken'     => $sz['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? null)),
-                            'sample_weight_reserved'  => $sz['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? null)),
+                            'sample_weight_taken'     => $sz['sample_taken'] ?? ($sz['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)))),
+                            'sample_weight_reserved'  => $sz['sample_reserved'] ?? ($sz['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)))),
                             'detected_substances'     => $sz['detected_substances'] ?? ($labDataFromDocket['detected_substances'] ?? []),
                             'test_methods'            => $sz['test_methods'] ?? ($labDataFromDocket['test_methods'] ?? null),
                             'specifications'          => $sz['specifications'] ?? ($labDataFromDocket['specifications'] ?? null),
@@ -692,8 +703,8 @@ class ForensicCase extends Model
                     'sample_weight_description'=> $attributes['sample_weight_description'] ?? ($labDataFromDocket['sample_weight_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? null)),
                     'sample_weight_units'     => $attributes['sample_weight_units'] ?? ($labDataFromDocket['sample_weight_units'] ?? ($labDataFromDocket['sample_weight']['units_packaging'] ?? null)),
                     'sample_weight_gross'     => $attributes['sample_weight_gross'] ?? ($labDataFromDocket['sample_weight_gross'] ?? ($labDataFromDocket['sample_weight']['gross_weight'] ?? null)),
-                    'sample_weight_taken'     => $attributes['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)),
-                    'sample_weight_reserved'  => $attributes['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)),
+                    'sample_weight_taken'     => $attributes['sample_weight_taken'] ?? ($attributes['sample_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)))),
+                    'sample_weight_reserved'  => $attributes['sample_weight_reserved'] ?? ($attributes['sample_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)))),
                     'substance_identification'=> $attributes['confirmatory_substance_identification'] ?? ($labDataFromDocket['substance_identification'] ?? null),
                     'test_methods'            => $attributes['confirmatory_test_methods'] ?? ($labDataFromDocket['test_methods'] ?? null),
                     'specifications'          => $attributes['confirmatory_specifications'] ?? ($labDataFromDocket['specifications'] ?? null),
@@ -857,8 +868,8 @@ class ForensicCase extends Model
                 'sample_weight_description'=> $labSwDesc,
                 'sample_weight_units'     => $labSwUnits,
                 'sample_weight_gross'     => $labSwGross,
-                'sample_weight_taken'     => $attributes['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)),
-                'sample_weight_reserved'  => $attributes['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)),
+                'sample_weight_taken'     => $attributes['sample_weight_taken'] ?? ($attributes['sample_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)))),
+                'sample_weight_reserved'  => $attributes['sample_weight_reserved'] ?? ($attributes['sample_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)))),
                 'substance_identification'=> $attributes['confirmatory_substance_identification'] ?? ($labDataFromDocket['substance_identification'] ?? null),
                 'test_methods'            => $attributes['confirmatory_test_methods'] ?? ($labDataFromDocket['test_methods'] ?? null),
                 'specifications'          => $attributes['confirmatory_specifications'] ?? ($labDataFromDocket['specifications'] ?? null),
@@ -942,7 +953,7 @@ class ForensicCase extends Model
             };
         }
 
-        $singles = SingleSuspectCase::where($column, $operator, $value)->get();
+        $singles = SingleSuspectCase::where($column, $operator, $value)->where('status', '!=', 'Promoted')->get();
         $multiples = MultipleSuspectCase::where($column, $operator, $value)->get();
 
         $collection = collect();
@@ -952,6 +963,7 @@ class ForensicCase extends Model
         foreach ($multiples as $m) {
             $collection->push(self::wrapRecord($m));
         }
+        $collection = $collection->unique('case_number')->values();
 
         return new class($collection, $column, $operator, $value) {
             protected $items;
@@ -1018,7 +1030,7 @@ class ForensicCase extends Model
             };
         }
 
-        $singles = SingleSuspectCase::whereIn($column, $values)->get();
+        $singles = SingleSuspectCase::whereIn($column, $values)->where('status', '!=', 'Promoted')->get();
         $multiples = MultipleSuspectCase::whereIn($column, $values)->get();
 
         $collection = collect();
@@ -1028,6 +1040,7 @@ class ForensicCase extends Model
         foreach ($multiples as $m) {
             $collection->push(self::wrapRecord($m));
         }
+        $collection = $collection->unique('case_number')->values();
 
         return new class($collection, $column, $values) {
             protected $items;
@@ -1094,7 +1107,7 @@ class ForensicCase extends Model
             return collect();
         }
 
-        $singles = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->get();
+        $singles = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->where('status', '!=', 'Promoted')->get();
         $multiples = MultipleSuspectCase::with(['user', 'unit', 'suspects', 'exhibits', 'labResults'])->get();
 
         $all = collect();
@@ -1105,7 +1118,7 @@ class ForensicCase extends Model
             $all->push(self::wrapRecord($m));
         }
 
-        return $all->sortByDesc('created_at')->values();
+        return $all->unique('case_number')->sortByDesc('created_at')->values();
     }
 
     /**
@@ -1131,18 +1144,18 @@ class ForensicCase extends Model
         }
 
         if (is_numeric($ref)) {
-            $single = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->find($ref);
-            if ($single) return self::wrapRecord($single);
-
             $multi = MultipleSuspectCase::with(['user', 'unit', 'suspects', 'exhibits', 'labResults'])->find($ref);
             if ($multi) return self::wrapRecord($multi);
-        }
 
-        $single = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->where('case_number', $ref)->first();
-        if ($single) return self::wrapRecord($single);
+            $single = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->where('status', '!=', 'Promoted')->find($ref);
+            if ($single) return self::wrapRecord($single);
+        }
 
         $multi = MultipleSuspectCase::with(['user', 'unit', 'suspects', 'exhibits', 'labResults'])->where('case_number', $ref)->first();
         if ($multi) return self::wrapRecord($multi);
+
+        $single = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->where('case_number', $ref)->where('status', '!=', 'Promoted')->first();
+        if ($single) return self::wrapRecord($single);
 
         return null;
     }
@@ -1218,9 +1231,31 @@ class ForensicCase extends Model
 
             foreach ($texts as $text) {
                 if (!is_string($text) || $text === '') continue;
-                if (!$flags['has_drug']                  && $matches($text, self::$DRUG_KEYWORDS))                  $flags['has_drug']                  = true;
-                if (!$flags['has_electronic']            && $matches($text, self::$ELECTRONIC_KEYWORDS))            $flags['has_electronic']            = true;
-                if (!$flags['has_crime_scene_mandatory'] && $matches($text, self::$CRIME_SCENE_MANDATORY_KEYWORDS)) $flags['has_crime_scene_mandatory'] = true;
+                if (!$flags['has_drug'] && $matches($text, self::$DRUG_KEYWORDS)) {
+                    $flags['has_drug'] = true;
+                }
+                if (!$flags['has_crime_scene_mandatory'] && $matches($text, self::$CRIME_SCENE_MANDATORY_KEYWORDS)) {
+                    $flags['has_crime_scene_mandatory'] = true;
+                }
+            }
+
+            foreach ($texts as $text) {
+                if (!is_string($text) || $text === '') continue;
+                if (!$flags['has_electronic'] && $matches($text, self::$ELECTRONIC_KEYWORDS)) {
+                    $lowerText = strtolower($text);
+                    // Disambiguate pharmaceutical tablets (e.g. Tramadol Tablets, MDMA Tablets) from electronic tablets (e.g. iPad, Android Tablet)
+                    $isPharmTablet = false;
+                    if (preg_match('/\btablets?\b/i', $text) && !preg_match('/\b(tablet\s*pc|tablet\s*computer|android\s*tablet|ipad|graphics\s*tablet)\b/i', $text)) {
+                        $isDrugContext = $flags['has_drug'] || $matches($lowerText, self::$DRUG_KEYWORDS) || str_contains($lowerText, 'drug') || str_contains($lowerText, 'narcotic') || str_contains($lowerText, 'capsule') || str_contains($lowerText, 'dose') || str_contains($lowerText, 'mg') || str_contains($lowerText, 'gram');
+                        if ($isDrugContext) {
+                            $isPharmTablet = true;
+                        }
+                    }
+
+                    if (!$isPharmTablet) {
+                        $flags['has_electronic'] = true;
+                    }
+                }
             }
         };
 

@@ -2135,6 +2135,8 @@
                                                             <li class="pkg-item" onclick="selectPackagingType('Sacks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SCK</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Cartons', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Boxes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BOX</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Rounds', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rounds</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RND</span></button></li>
+                                                            <li class="pkg-item" onclick="selectPackagingType('Magazines', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magazines</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">MAG</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Pieces', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Units', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">UNT</span></button></li>
                                                             <li class="pkg-item" onclick="selectPackagingType('Wraps', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
@@ -5043,7 +5045,21 @@
                     substance_identification: document.getElementById('confirmatorySubstanceIdentification')?.value || '',
                     detected_substances: typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() : [],
                     test_methods: document.getElementById('confirmatoryTestMethods')?.value || '',
-                    specifications: document.getElementById('confirmatorySpecifications')?.value || ''
+                    specifications: document.getElementById('confirmatorySpecifications')?.value || '',
+                    sample_weight_description: document.getElementById('sampleWeightDescription')?.value || '',
+                    sample_weight_units: document.getElementById('sampleWeightUnits')?.value || '',
+                    sample_weight_gross: document.getElementById('sampleWeightGross')?.value || '',
+                    sample_weight_taken: document.getElementById('sampleWeightTaken')?.value || '',
+                    sample_weight_reserved: document.getElementById('sampleWeightReserved')?.value || '',
+                    sample_taken: document.getElementById('sampleWeightTaken')?.value || '',
+                    sample_reserved: document.getElementById('sampleWeightReserved')?.value || '',
+                    sample_weight: {
+                        description: document.getElementById('sampleWeightDescription')?.value || '',
+                        units_packaging: document.getElementById('sampleWeightUnits')?.value || '',
+                        gross_weight: document.getElementById('sampleWeightGross')?.value || '',
+                        sample_taken: document.getElementById('sampleWeightTaken')?.value || '',
+                        reserved_samples: document.getElementById('sampleWeightReserved')?.value || ''
+                    }
                 }
             };
 
@@ -5169,6 +5185,18 @@
                     mugshot_front: mugshotFront && mugshotFront.startsWith('data:') ? mugshotFront : null,
                     mugshot_left: mugshotLeft && mugshotLeft.startsWith('data:') ? mugshotLeft : null,
                     mugshot_right: mugshotRight && mugshotRight.startsWith('data:') ? mugshotRight : null,
+
+                    // Presumptive & Confirmatory / Sample Weight
+                    sample_weight_description: document.getElementById('sampleWeightDescription')?.value || null,
+                    sample_weight_units: document.getElementById('sampleWeightUnits')?.value || null,
+                    sample_weight_gross: document.getElementById('sampleWeightGross')?.value || null,
+                    sample_weight_taken: document.getElementById('sampleWeightTaken')?.value || null,
+                    sample_weight_reserved: document.getElementById('sampleWeightReserved')?.value || null,
+                    sample_taken: document.getElementById('sampleWeightTaken')?.value || null,
+                    sample_reserved: document.getElementById('sampleWeightReserved')?.value || null,
+                    confirmatory_substance_identification: document.getElementById('confirmatorySubstanceIdentification')?.value || null,
+                    confirmatory_test_methods: document.getElementById('confirmatoryTestMethods')?.value || null,
+                    confirmatory_specifications: document.getElementById('confirmatorySpecifications')?.value || null,
 
                     // Presumptive Result & Legacy JSON docket data
                     presumptive_result: presumptiveVal,

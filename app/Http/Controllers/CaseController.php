@@ -462,7 +462,9 @@ class CaseController extends Controller
             || !empty($validated['confirmatory_test_result'])
             || !empty($request->input('confirmatory_test_result'))
             || !empty($request->input('confirmatory_substance_identification'))
-            || !empty($request->input('sample_weight_gross'));
+            || !empty($request->input('sample_weight_gross'))
+            || !empty($request->input('sample_weight_taken'))
+            || !empty($request->input('sample_weight_reserved'));
 
         $labStatus = $hasSubmittedLabData ? 'COMPLETED' : 'PENDING';
         $labOfficer = $hasSubmittedLabData ? ($user ? $user->fullname : ($case->submitting_officer ?: 'Lab Analyst')) : null;
@@ -526,12 +528,12 @@ class CaseController extends Controller
             $labNum          = $request->input('laboratory_number') ?? ($request->input('lab_number') ?? ('LAB-' . date('Y') . '-' . sprintf('%04d', $case->id)));
             $labExamRef      = 'EXAM-LAB-' . date('Ymd') . '-' . sprintf('%03d', $case->id);
             $labExhNo        = 'EXH-' . date('Y') . '-' . sprintf('%03d', $case->id);
-            $substanceId     = $request->input('confirmatory_substance_identification');
-            $sampleDesc      = $request->input('sample_weight_description');
-            $sampleUnits     = $request->input('sample_weight_units');
-            $sampleGross     = $request->input('sample_weight_gross');
-            $sampleTaken     = $request->input('sample_weight_taken');
-            $sampleReserved  = $request->input('sample_weight_reserved');
+            $substanceId     = $request->input('confirmatory_substance_identification') ?? ($request->input('docket_data.lab_examination.substance_identification') ?? null);
+            $sampleDesc      = $request->input('sample_weight_description') ?? ($request->input('docket_data.lab_examination.sample_weight_description') ?? null);
+            $sampleUnits     = $request->input('sample_weight_units') ?? ($request->input('docket_data.lab_examination.sample_weight_units') ?? null);
+            $sampleGross     = $request->input('sample_weight_gross') ?? ($request->input('docket_data.lab_examination.sample_weight_gross') ?? null);
+            $sampleTaken     = $request->input('sample_weight_taken') ?? ($request->input('sample_taken') ?? ($request->input('docket_data.lab_examination.sample_weight_taken') ?? ($request->input('docket_data.lab_examination.sample_taken') ?? null)));
+            $sampleReserved  = $request->input('sample_weight_reserved') ?? ($request->input('sample_reserved') ?? ($request->input('docket_data.lab_examination.sample_weight_reserved') ?? ($request->input('docket_data.lab_examination.sample_reserved') ?? null)));
 
             // Auto-derive weight fields from the primary exhibit when the form did not submit them
             // (happens when JS didn't pre-populate the read-only manifest-synced fields)
@@ -1601,11 +1603,11 @@ class CaseController extends Controller
             if ($sampleGross !== null && $sampleGross !== '') {
                 $case->sample_weight_gross = $sampleGross;
             }
-            $sampleTaken = $request->input('sample_weight_taken');
+            $sampleTaken = $request->input('sample_weight_taken') ?? ($request->input('sample_taken') ?? ($request->input('docket_data.lab_examination.sample_weight_taken') ?? ($request->input('docket_data.lab_examination.sample_taken') ?? null)));
             if ($sampleTaken !== null && $sampleTaken !== '') {
                 $case->sample_weight_taken = $sampleTaken;
             }
-            $sampleReserved = $request->input('sample_weight_reserved');
+            $sampleReserved = $request->input('sample_weight_reserved') ?? ($request->input('sample_reserved') ?? ($request->input('docket_data.lab_examination.sample_weight_reserved') ?? ($request->input('docket_data.lab_examination.sample_reserved') ?? null)));
             if ($sampleReserved !== null && $sampleReserved !== '') {
                 $case->sample_weight_reserved = $sampleReserved;
             }
@@ -2235,78 +2237,82 @@ class CaseController extends Controller
         // 1. If single suspect case, promote to MultipleSuspectCase
         if ($case->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
             $single = $case->underlyingRecord;
-            $multi = \App\Models\MultipleSuspectCase::create([
-                'case_number'          => $single->case_number,
-                'laboratory_number'    => $single->laboratory_number,
-                'title'                => $single->title,
-                'unit_name'            => $single->unit_name,
-                'unit_id'              => $single->unit_id,
-                'user_id'              => $single->user_id,
-                'commanding_officer'   => $single->commanding_officer,
-                'submitting_officer'   => $single->submitting_officer,
-                'operation_code'       => $single->operation_code,
-                'operation_code_name'  => $single->operation_code_name,
-                'raid_location'        => $single->raid_location,
-                'offense_description'  => $single->offense_description,
-                'incident_date'        => $single->incident_date,
-                'priority'             => $single->priority ?? 'NORMAL',
-                'status'               => $single->status ?? 'Approved',
-                'hash_log'             => $single->hash_log,
-            ]);
+            $multi = \App\Models\MultipleSuspectCase::where('case_number', $single->case_number)->first();
+            if (!$multi) {
+                $multi = \App\Models\MultipleSuspectCase::create([
+                    'case_number'          => $single->case_number,
+                    'laboratory_number'    => $single->laboratory_number,
+                    'title'                => $single->title,
+                    'unit_name'            => $single->unit_name,
+                    'unit_id'              => $single->unit_id,
+                    'user_id'              => $single->user_id,
+                    'commanding_officer'   => $single->commanding_officer,
+                    'submitting_officer'   => $single->submitting_officer,
+                    'operation_code'       => $single->operation_code,
+                    'operation_code_name'  => $single->operation_code_name,
+                    'raid_location'        => $single->raid_location,
+                    'offense_description'  => $single->offense_description,
+                    'incident_date'        => $single->incident_date,
+                    'priority'             => $single->priority ?? 'NORMAL',
+                    'status'               => $single->status ?? 'Approved',
+                    'hash_log'             => $single->hash_log,
+                ]);
 
-            $primarySuspectModel = \App\Models\CaseSuspect::create([
-                'multiple_suspect_case_id' => $multi->id,
-                'suspect_number'           => 1,
-                'role'                     => 'Primary Suspect',
-                'associate_id'             => null,
-                'suspect_name'             => $single->suspect_name,
-                'suspect_alias'            => $single->suspect_alias,
-                'ghana_card'               => $single->ghana_card,
-                'gender'                   => $single->gender,
-                'dob'                      => $single->dob,
-                'age'                      => $single->age,
-                'height'                   => $single->height,
-                'height_unit'              => $single->height_unit ?? 'CM',
-                'eye_color'                => $single->eye_color,
-                'nationality'              => $single->nationality,
-                'pob'                      => $single->pob,
-                'phone'                    => $single->phone,
-                'address'                  => $single->address,
-                'marital_status'           => $single->marital_status,
-                'has_children'             => $single->has_children ?? false,
-                'children_count'           => $single->children_count ?? '0',
-                'spouse_info'              => $single->spouse_info,
-                'spouse_name'              => $single->spouse_name,
-                'spouse_phone'             => $single->spouse_phone,
-                'partner_name'             => $single->partner_name,
-                'partner_phone'            => $single->partner_phone,
-                'partner_info'             => $single->partner_info,
-                'dependents'               => $single->dependents,
-                'holding_facility'         => $single->holding_facility,
-                'raid_location'            => $single->raid_location,
-                'offense_description'      => $single->offense_description,
-                'arrest_date'              => $single->arrest_date,
-                'arrest_time'              => $single->arrest_time,
-                'mugshot_front'            => $single->mugshot_front,
-                'mugshot_left'             => $single->mugshot_left,
-                'mugshot_right'            => $single->mugshot_right,
-            ]);
+                $primarySuspectModel = \App\Models\CaseSuspect::create([
+                    'multiple_suspect_case_id' => $multi->id,
+                    'suspect_number'           => 1,
+                    'role'                     => 'Primary Suspect',
+                    'associate_id'             => null,
+                    'suspect_name'             => $single->suspect_name,
+                    'suspect_alias'            => $single->suspect_alias,
+                    'ghana_card'               => $single->ghana_card,
+                    'gender'                   => $single->gender,
+                    'dob'                      => $single->dob,
+                    'age'                      => $single->age,
+                    'height'                   => $single->height,
+                    'height_unit'              => $single->height_unit ?? 'CM',
+                    'eye_color'                => $single->eye_color,
+                    'nationality'              => $single->nationality,
+                    'pob'                      => $single->pob,
+                    'phone'                    => $single->phone,
+                    'address'                  => $single->address,
+                    'marital_status'           => $single->marital_status,
+                    'has_children'             => $single->has_children ?? false,
+                    'children_count'           => $single->children_count ?? '0',
+                    'spouse_info'              => $single->spouse_info,
+                    'spouse_name'              => $single->spouse_name,
+                    'spouse_phone'             => $single->spouse_phone,
+                    'partner_name'             => $single->partner_name,
+                    'partner_phone'            => $single->partner_phone,
+                    'partner_info'             => $single->partner_info,
+                    'dependents'               => $single->dependents,
+                    'holding_facility'         => $single->holding_facility,
+                    'raid_location'            => $single->raid_location,
+                    'offense_description'      => $single->offense_description,
+                    'arrest_date'              => $single->arrest_date,
+                    'arrest_time'              => $single->arrest_time,
+                    'mugshot_front'            => $single->mugshot_front,
+                    'mugshot_left'             => $single->mugshot_left,
+                    'mugshot_right'            => $single->mugshot_right,
+                ]);
 
-            \App\Models\Exhibit::where('single_suspect_case_id', $single->id)->update([
-                'case_type'                => 'MULTIPLE',
-                'single_suspect_case_id'   => null,
-                'multiple_suspect_case_id' => $multi->id,
-                'suspect_id'               => $primarySuspectModel->id,
-            ]);
+                \App\Models\Exhibit::where('single_suspect_case_id', $single->id)->update([
+                    'case_type'                => 'MULTIPLE',
+                    'single_suspect_case_id'   => null,
+                    'multiple_suspect_case_id' => $multi->id,
+                    'suspect_id'               => $primarySuspectModel->id,
+                ]);
 
-            \App\Models\LaboratoryExaminationResult::where('single_suspect_case_id', $single->id)->update([
-                'case_type'                => 'MULTIPLE',
-                'single_suspect_case_id'   => null,
-                'multiple_suspect_case_id' => $multi->id,
-                'suspect_id'               => $primarySuspectModel->id,
-            ]);
+                \App\Models\LaboratoryExaminationResult::where('single_suspect_case_id', $single->id)->update([
+                    'case_type'                => 'MULTIPLE',
+                    'single_suspect_case_id'   => null,
+                    'multiple_suspect_case_id' => $multi->id,
+                    'suspect_id'               => $primarySuspectModel->id,
+                ]);
 
-            $single->update(['status' => 'Promoted']);
+                $single->update(['status' => 'Promoted']);
+            }
+
             $case->underlyingRecord = $multi;
         }
 
@@ -2320,7 +2326,8 @@ class CaseController extends Controller
         // 2. Process new associated persons
         if (!empty($newPersons) && is_array($newPersons)) {
             foreach ($newPersons as $person) {
-                if (empty($person['suspect_name'])) continue;
+                $suspectName = $person['suspect_name'] ?? ($person['full_name'] ?? ($person['name'] ?? null));
+                if (empty($suspectName)) continue;
 
                 $currentSuspectsCount++;
                 $currentAssocCount++;
@@ -2329,14 +2336,14 @@ class CaseController extends Controller
                 $pobVal   = $person['place_of_birth'] ?? ($person['hometown'] ?? ($person['pob'] ?? null));
                 $phoneVal = $person['phone_number'] ?? ($person['contact_phone'] ?? ($person['phone'] ?? null));
                 $addrVal  = $person['residential_address'] ?? ($person['address'] ?? null);
-                $roleVal  = $person['association_role'] ?? ($person['role'] ?? 'ASSOCIATE');
+                $roleVal  = $person['association_role'] ?? ($person['role'] ?? 'Associate Suspect');
 
                 \App\Models\CaseSuspect::create([
                     'multiple_suspect_case_id' => $multiCase->id,
                     'suspect_number'           => $currentSuspectsCount,
                     'role'                     => $roleVal,
                     'associate_id'             => $assocId,
-                    'suspect_name'             => $person['suspect_name'],
+                    'suspect_name'             => $suspectName,
                     'suspect_alias'            => $person['suspect_alias'] ?? null,
                     'ghana_card'               => $person['ghana_card'] ?? null,
                     'gender'                   => $person['gender'] ?? null,
@@ -2443,7 +2450,8 @@ class CaseController extends Controller
 
         // Update counts & title on MultipleSuspectCase
         $allNames = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->pluck('suspect_name')->toArray();
-        $jointSuspectNameLabel = !empty($allNames) ? implode(', ', $allNames) : $multiCase->title;
+        $cleanNames = array_map(fn($n) => preg_replace('/^Republic\s+vs\s+/i', '', trim($n)), $allNames);
+        $jointSuspectNameLabel = !empty($cleanNames) ? implode(', ', array_filter($cleanNames)) : preg_replace('/^Republic\s+vs\s+/i', '', trim($multiCase->title));
         $multiCase->update([
             'total_suspects_count' => count($allNames),
             'total_exhibits_count' => $currentExhibitsCount,

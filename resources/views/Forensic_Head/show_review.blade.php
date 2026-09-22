@@ -526,8 +526,8 @@
         }
     }
     $labSampleGross = (!empty($rawSampleGross) && !$isNonDrugGross) ? $rawSampleGross : $defaultGrossWeight;
-    $labSampleTaken = !empty($labSampleWeight['sample_taken']) ? $labSampleWeight['sample_taken'] : (!empty($case->sample_weight_taken) ? $case->sample_weight_taken : '');
-    $labSampleReserved = !empty($labSampleWeight['reserved_samples']) ? $labSampleWeight['reserved_samples'] : (!empty($case->sample_weight_reserved) ? $case->sample_weight_reserved : '');
+    $labSampleTaken = !empty($labSampleWeight['sample_taken']) ? $labSampleWeight['sample_taken'] : (!empty($labSampleWeight['sample_weight_taken']) ? $labSampleWeight['sample_weight_taken'] : (!empty($labExam['sample_weight_taken']) ? $labExam['sample_weight_taken'] : (!empty($labExam['sample_taken']) ? $labExam['sample_taken'] : (!empty($case->sample_weight_taken) ? $case->sample_weight_taken : (!empty($docketData['seizures'][0]['sample_taken']) ? $docketData['seizures'][0]['sample_taken'] : (!empty($docketData['seizures'][0]['sample_weight_taken']) ? $docketData['seizures'][0]['sample_weight_taken'] : (!empty($dbPrimaryLabExam->sample_weight_taken) ? $dbPrimaryLabExam->sample_weight_taken : '')))))));
+    $labSampleReserved = !empty($labSampleWeight['reserved_samples']) ? $labSampleWeight['reserved_samples'] : (!empty($labSampleWeight['sample_weight_reserved']) ? $labSampleWeight['sample_weight_reserved'] : (!empty($labExam['sample_weight_reserved']) ? $labExam['sample_weight_reserved'] : (!empty($labExam['reserved_samples']) ? $labExam['reserved_samples'] : (!empty($case->sample_weight_reserved) ? $case->sample_weight_reserved : (!empty($docketData['seizures'][0]['sample_reserved']) ? $docketData['seizures'][0]['sample_reserved'] : (!empty($docketData['seizures'][0]['sample_weight_reserved']) ? $docketData['seizures'][0]['sample_weight_reserved'] : (!empty($dbPrimaryLabExam->sample_weight_reserved) ? $dbPrimaryLabExam->sample_weight_reserved : '')))))));
     $labSampleUnit = !empty($firstDrugUnit) ? $firstDrugUnit : (!empty($case->seizure_unit) ? $case->seizure_unit : 'Kilograms (kg)');
 
     $rawSubstanceId = !empty($labExam['substance_identification']) ? $labExam['substance_identification'] : (!empty($case->confirmatory_substance_identification) ? $case->confirmatory_substance_identification : '');
@@ -2273,13 +2273,48 @@
 
                                         $matchedOwner = null;
                                         $matchedRole = null;
-                                        if (!empty($szId) && !empty($docketData['suspects'])) {
+                                        if (!empty($docketData['suspects'])) {
                                             foreach ($docketData['suspects'] as $sp) {
-                                                $spId = $sp['associate_id'] ?? ($sp['suspect_id'] ?? null);
-                                                if (!empty($spId) && strtolower(trim($spId)) === strtolower(trim($szId))) {
-                                                    $matchedOwner = $sp['suspect_name'] ?? null;
+                                                $spId = $sp['associate_id'] ?? ($sp['suspect_id'] ?? ($sp['id'] ?? null));
+                                                $spName = $sp['suspect_name'] ?? null;
+                                                $idMatch = !empty($szId) && !empty($spId) && strtolower(trim((string)$spId)) === strtolower(trim((string)$szId));
+                                                $nameMatch = !empty($rawOwner) && !empty($spName) && strtolower(trim($spName)) === strtolower(trim($rawOwner));
+                                                if ($idMatch || $nameMatch) {
+                                                    $matchedOwner = $spName;
                                                     $matchedRole = $sp['association_role'] ?? ($sp['role'] ?? null);
                                                     break;
+                                                }
+                                            }
+                                        }
+
+                                        if (empty($matchedRole) && !empty($case->suspects)) {
+                                            foreach ($case->suspects as $spModel) {
+                                                $spName = $spModel->suspect_name ?? null;
+                                                if ((!empty($szId) && (string)$spModel->id === (string)$szId) ||
+                                                    (!empty($rawOwner) && !empty($spName) && strtolower(trim($spName)) === strtolower(trim($rawOwner)))) {
+                                                    $matchedOwner = $spName;
+                                                    $matchedRole = $spModel->role;
+                                                    break;
+                                                }
+                                            }
+                                        }
+
+                                        if (empty($matchedRole) && !empty($rawOwner)) {
+                                            $rawLower = strtolower(trim($rawOwner));
+                                            if (!empty($associateSuspectNamesList)) {
+                                                foreach ($associateSuspectNamesList as $aName) {
+                                                    if (strtolower(trim($aName)) === $rawLower || str_contains($rawLower, strtolower(trim($aName)))) {
+                                                        $matchedRole = 'Associate Suspect';
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (empty($matchedRole) && !empty($coSuspectNamesList)) {
+                                                foreach ($coSuspectNamesList as $cName) {
+                                                    if (strtolower(trim($cName)) === $rawLower || str_contains($rawLower, strtolower(trim($cName)))) {
+                                                        $matchedRole = 'Co-Suspect';
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }
@@ -2312,7 +2347,7 @@
                                         } elseif ($matchedRole && str_contains(strtolower($matchedRole), 'co-suspect')) {
                                             $badgeLabel = 'CO-SUSPECT';
                                             $badgeClass = 'text-blue-900 bg-blue-100 border-blue-300';
-                                        } elseif (!empty($szItem['is_associate']) || ($matchedRole && str_contains(strtolower($matchedRole), 'associate'))) {
+                                        } elseif (!empty($szItem['is_associate']) || ($matchedRole && strtolower(trim($matchedRole)) !== 'primary suspect' && strtolower(trim($matchedRole)) !== 'primary') || (!empty($ownerLower) && !empty($primarySuspectName) && strtolower(trim($ownerLower)) !== strtolower(trim($primarySuspectName)) && !str_contains($ownerLower, ','))) {
                                             $badgeLabel = 'ASSOCIATE';
                                             $badgeClass = 'text-amber-900 bg-amber-100 border-amber-300';
                                         } else {
@@ -2925,7 +2960,7 @@
                                             <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5" id="section5SampleGrossDisplay">{{ $savedLabSampleGross ?: 'N/A' }}</div>
                                         </div>
                                         <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Mass Taken</div>
+                                            <div class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">Sample Taken</div>
                                             @php
                                                 if (!empty($savedLabSampleTaken) && $savedLabSampleTaken !== 'N/A') {
                                                     if (preg_match('/(kg|g|mg|lbs|grams|kilograms)/i', (string)$savedLabSampleTaken)) {
@@ -4146,7 +4181,7 @@
                                                     <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5">{{ $assocGross }}</div>
                                                 </div>
                                                 <div class="p-2 bg-amber-50/50 border border-amber-200 rounded-lg">
-                                                    <div class="text-[9px] font-mono-code font-black text-amber-800 uppercase tracking-wider">Mass Taken</div>
+                                                    <div class="text-[9px] font-mono-code font-black text-amber-800 uppercase tracking-wider">Sample Taken</div>
                                                     <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5">{{ $assocTaken }}</div>
                                                 </div>
                                                 <div class="p-2 bg-amber-50/50 border border-amber-200 rounded-lg">
