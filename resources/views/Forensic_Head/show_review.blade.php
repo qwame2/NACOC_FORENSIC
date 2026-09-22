@@ -269,31 +269,45 @@
                 'status'     => 'COMPLETED',
                 'officer'    => $case->commanding_officer ?? ($case->submitting_officer ?? null),
                 'updated_at' => optional($case->created_at)->toDateTimeString(),
+                'notes'      => 'Submitted via Crime Scene Support & Field Operations Workspace',
             ];
         } elseif ($uKey === 'Lab Analysis') {
             $defaultProgress[$uKey] = [
                 'status'     => $hasSavedLabResult ? 'COMPLETED' : 'PENDING',
-                'officer'    => $hasSavedLabResult ? ($docketData['lab_examination']['analyst'] ?? null) : null,
+                'officer'    => $hasSavedLabResult ? ($docketData['lab_examination']['analyst'] ?? ($case->commanding_officer ?? null)) : null,
                 'updated_at' => $hasSavedLabResult ? (optional($case->updated_at)->toDateTimeString()) : null,
+                'notes'      => $hasSavedLabResult ? 'Submitted via Laboratory Analysis & Case Registration Workspace' : null,
             ];
         } else {
             $defaultProgress[$uKey] = [
                 'status'     => 'PENDING',
                 'officer'    => null,
                 'updated_at' => null,
+                'notes'      => null,
             ];
         }
     }
-
-
 
     $rawProgress = $docketData['unit_progress'] ?? $defaultProgress;
     $unitProgress = [];
     foreach ($unitsList as $uKey) {
         if (isset($rawProgress[$uKey])) {
-            $unitProgress[$uKey] = $rawProgress[$uKey];
+            $uItem = $rawProgress[$uKey];
+            $st = strtoupper($uItem['status'] ?? 'PENDING');
+            if (empty($uItem['notes'])) {
+                if ($uKey === 'Lab Analysis' && ($st === 'COMPLETED' || $hasSavedLabResult)) {
+                    $uItem['notes'] = 'Submitted via Laboratory Analysis & Case Registration Workspace';
+                } elseif ($uKey === 'Crime Scene Support' && $st === 'COMPLETED') {
+                    $uItem['notes'] = 'Submitted via Crime Scene Support & Field Operations Workspace';
+                } elseif ($uKey === 'Evidence Management' && $st === 'COMPLETED') {
+                    $uItem['notes'] = 'Processed via Evidence Management & Custody Vault Workspace';
+                } elseif ($uKey === 'Digital & Physical Forensics' && $st === 'COMPLETED') {
+                    $uItem['notes'] = 'Processed via Digital & Physical Forensics Extraction Workspace';
+                }
+            }
+            $unitProgress[$uKey] = $uItem;
         } else {
-            $unitProgress[$uKey] = $defaultProgress[$uKey] ?? ['status' => 'PENDING', 'officer' => null, 'updated_at' => null];
+            $unitProgress[$uKey] = $defaultProgress[$uKey] ?? ['status' => 'PENDING', 'officer' => null, 'updated_at' => null, 'notes' => null];
         }
     }
 
@@ -1193,7 +1207,7 @@
                                 {{-- Unit card --}}
                                 <div class="flex items-stretch gap-0">
                                     <div id="unitCard-{{ $uSlug }}"
-                                         class="w-52 flex flex-col rounded-2xl border-2 transition-all duration-300 overflow-hidden"
+                                         class="w-56 flex flex-col rounded-2xl border-2 transition-all duration-300 overflow-hidden shadow-2xs"
                                          style="{{ $cardBg }}">
 
                                         {{-- Card header stripe --}}
@@ -1231,9 +1245,9 @@
                                             {{-- Notes snippet --}}
                                             <div id="unitNotesBox-{{ $uSlug }}">
                                                 @if(!empty($uData['notes']))
-                                                    <div class="text-[10px] text-slate-600 mt-1.5 p-2 rounded-lg border border-white/80 leading-relaxed italic line-clamp-2"
-                                                         style="background:rgba(255,255,255,0.7);">
-                                                        "{{ Str::limit($uData['notes'], 90) }}"
+                                                    <div class="text-[10px] text-slate-700 font-medium mt-1.5 p-2 rounded-lg border border-white/80 leading-snug italic"
+                                                         style="background:rgba(255,255,255,0.75);">
+                                                        "{{ $uData['notes'] }}"
                                                     </div>
                                                 @endif
                                             </div>
