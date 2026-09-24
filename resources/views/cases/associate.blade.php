@@ -15,10 +15,20 @@
         $officerName = auth()->user()->fullname ?? session('user_name') ?? 'Handling Officer';
         $todayDate = date('Y-m-d');
         $caseNumClean = preg_replace('/[^A-Za-z0-9]/', '', $case->case_number ?? 'CASE-001');
-        $examRefAuto = 'EXAM-LAB-' . date('Ymd') . '-' . rand(100, 999);
+        $examRefAuto = 'GSA-FM-T' . rand(10, 99) . '-F';
         $caseRefAuto = $case->case_number ?? ('CR-' . date('Y') . '/0098');
         $exhibitRefAuto = 'EXH-' . $caseNumClean . '-01';
-        $labNumberAuto = 'LAB/' . date('Y') . '/' . rand(1000, 9999);
+        $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
+
+        $activeSuspectHasSavedResult = false;
+        if (isset($case) && !empty($case->id)) {
+            $dbExamExists = \App\Models\LaboratoryExaminationResult::where('case_id', $case->id)->exists();
+            $dDataCheck = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            $docketExamSaved = !empty($dDataCheck['lab_examination']['has_saved']);
+            if ($dbExamExists || $docketExamSaved) {
+                $activeSuspectHasSavedResult = true;
+            }
+        }
 
         $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
         $existingSuspects = (isset($dData['suspects']) && is_array($dData['suspects']) && count($dData['suspects']) > 0)
@@ -727,7 +737,7 @@
                     </div>
 
                     <!-- SECTION 4: FORENSIC EXAMINATION & LABORATORY ANALYSIS (LAB ANALYSIS EXCLUSIVE) -->
-                    @if($isLabAnalysis)
+                    @if($isLabAnalysis && !empty($isDrugCase))
                     <div class="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-6 relative">
                         
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -747,6 +757,8 @@
                             </div>
                         </div>
 
+                        <!-- EXAMINATION INFORMATION CONTAINER (HIDDEN WHEN RESULT EXISTS FOR ACTIVE SUSPECT/EXHIBIT) -->
+                        <div id="section5FormContainer" class="space-y-6 {{ $activeSuspectHasSavedResult ? 'hidden' : '' }}">
                         <!-- SUB-SECTION 4A: EXAMINATION INFORMATION -->
                         <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
                             <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
@@ -1148,13 +1160,26 @@
                                                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
                                                     ></textarea>
                                                 </div>
+
+                                                <!-- 5. REMARK TEXTAREA INPUT -->
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Remark <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
+                                                    </label>
+                                                    <textarea 
+                                                        id="confirmatoryRemark" 
+                                                        name="confirmatory_remark" 
+                                                        rows="3" 
+                                                        placeholder="Enter any additional remarks or observations regarding the confirmatory analysis..."
+                                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
+                                                    ></textarea>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-
                     </div>
                     @endif
 
@@ -2057,6 +2082,18 @@
             }
         }
 
+        function toggleAmmoOtherCondition(el) {
+            const root = el ? (el.closest('.seizure-block') || document) : document;
+            const wrapper = root.querySelector('#ammoOtherConditionWrapper');
+            if (wrapper) {
+                if (el && el.value === 'Other') {
+                    wrapper.classList.remove('hidden');
+                } else {
+                    wrapper.classList.add('hidden');
+                }
+            }
+        }
+
         function updateCommodityField(category, rootEl) {
             const root = rootEl || document.querySelector('.seizure-block') || document;
             const textWrapper     = root.querySelector('#commodityTextWrapper');
@@ -2067,6 +2104,7 @@
             const deviceWrapper   = root.querySelector('#deviceSelectWrapper');
             const deviceFieldsWrapper = root.querySelector('#deviceFieldsWrapper');
             const weaponFieldsWrapper = root.querySelector('#weaponFieldsWrapper');
+            const ammoFieldsWrapper   = root.querySelector('#ammoFieldsWrapper');
             const vehicleWrapper  = root.querySelector('#vehicleFieldsWrapper');
             const textInput       = root.querySelector('#newSeizureName');
             const drugSearch      = root.querySelector('#drugSearchInput');
@@ -2083,6 +2121,7 @@
             if (ammoWrapper)         ammoWrapper.classList.add('hidden');
             if (deviceWrapper)       deviceWrapper.classList.add('hidden');
             if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
+            if (ammoFieldsWrapper)   ammoFieldsWrapper.classList.add('hidden');
             if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
             if (vehicleWrapper)      vehicleWrapper.classList.add('hidden');
 
@@ -2108,6 +2147,7 @@
             } else if (category === 'Ammunition') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';
                 if (ammoWrapper) ammoWrapper.classList.remove('hidden');
+                if (ammoFieldsWrapper) ammoFieldsWrapper.classList.remove('hidden');
                 if (ammoSearch)  { ammoSearch.placeholder = 'Select or type custom ammunition type...'; }
             } else if (category === 'Electronic Devices') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
@@ -2791,6 +2831,81 @@
                             <div class="sm:col-span-3">
                                 <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">DISTINGUISHING MARKS / FEATURES</label>
                                 <input type="text" name="associated_exhibits[${seizureCounter}][weapon_distinguishing_marks]" placeholder="e.g. Scratch on left grip, custom insignia engraved, missing safety switch" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AMMUNITION SPECIFICATIONS PANEL -->
+                <div id="ammoFieldsWrapper" class="hidden col-span-full bg-slate-50/80 p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                    <div class="flex items-center space-x-2 text-slate-800">
+                        <div class="w-5 h-5 rounded bg-emerald-500 text-white flex items-center justify-center font-bold text-xs">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        </div>
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-900">AMMUNITION SPECIFIC DETAILS</span>
+                    </div>
+
+                    <!-- 1. PHYSICAL DESCRIPTION -->
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-extrabold rounded-md uppercase tracking-wider border border-emerald-200">1. PHYSICAL DESCRIPTION</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">CARTRIDGE APPEARANCE</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][cartridge_appearance]" placeholder="e.g. Brass casing, FMJ, Nickel-plated" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">PROJECTILE / BULLET TYPE</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][projectile_bullet_type]" placeholder="e.g. Full Metal Jacket (FMJ), Hollow Point" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">CASE MATERIAL</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][cartridge_case_material]" placeholder="e.g. Brass, Steel, Aluminium, Plastic" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">COLOUR / MARKINGS</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][colour_markings]" placeholder="e.g. Headstamp CBC 9mm LUGER, Red primer sealant" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">CONDITION</label>
+                                <select name="associated_exhibits[${seizureCounter}][ammunition_details][condition]" onchange="toggleAmmoOtherCondition(this)" class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl text-xs font-bold text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <option value="" class="text-slate-400 font-normal">Select Condition...</option>
+                                    <option value="Intact" class="font-semibold text-slate-900">Intact</option>
+                                    <option value="Damaged" class="font-semibold text-slate-900">Damaged</option>
+                                    <option value="Corroded" class="font-semibold text-slate-900">Corroded</option>
+                                    <option value="Deformed" class="font-semibold text-slate-900">Deformed</option>
+                                    <option value="Other" class="font-semibold text-slate-900">Other</option>
+                                </select>
+                            </div>
+                            <div id="ammoOtherConditionWrapper" class="hidden">
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">DESCRIBE OTHER CONDITION</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][other_condition]" placeholder="Specify condition details..." class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. PACKAGING & SEALING -->
+                    <div class="space-y-3 pt-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-extrabold rounded-md uppercase tracking-wider border border-emerald-200">2. PACKAGING &amp; SEALING</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">PACKAGING TYPE</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][packaging_type]" placeholder="e.g. Cardboard Box, Plastic Ammo Can, Loose Bag" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">SEAL / TAMPER-EVIDENT CONDITION</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][seal_tamper_evident_condition]" placeholder="e.g. Intact Tamper-Evident Bag #SEAL-90812" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">PACKAGE / REFERENCE NUMBER</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][package_reference_number]" placeholder="e.g. PKG-2026-AM01" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                            </div>
+                            <div>
+                                <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">CONDITION WHEN RECEIVED</label>
+                                <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][condition_when_received]" placeholder="e.g. Sealed and untampered" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                             </div>
                         </div>
                     </div>

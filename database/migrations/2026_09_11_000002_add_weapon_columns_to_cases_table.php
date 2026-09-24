@@ -12,16 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('cases', function (Blueprint $table) {
-            $table->string('wpn_make')->nullable()->after('veh_features');
-            $table->string('wpn_model')->nullable()->after('wpn_make');
-            $table->string('wpn_serial_no')->nullable()->after('wpn_model');
-            $table->string('wpn_calibre')->nullable()->after('wpn_serial_no');
-            $table->string('wpn_colour')->nullable()->after('wpn_calibre');
-            $table->string('wpn_size')->nullable()->after('wpn_colour');
+            $table->text('wpn_make')->nullable()->after('veh_features');
+            $table->text('wpn_model')->nullable()->after('wpn_make');
+            $table->text('wpn_serial_no')->nullable()->after('wpn_model');
+            $table->text('wpn_calibre')->nullable()->after('wpn_serial_no');
+            $table->text('wpn_colour')->nullable()->after('wpn_calibre');
+            $table->text('wpn_size')->nullable()->after('wpn_colour');
             $table->text('wpn_marks')->nullable()->after('wpn_size');
-            $table->string('wpn_location_found')->nullable()->after('wpn_marks');
-            $table->string('wpn_loaded_status')->nullable()->after('wpn_location_found');
-            $table->string('wpn_condition')->nullable()->after('wpn_loaded_status');
+            $table->text('wpn_location_found')->nullable()->after('wpn_marks');
+            $table->text('wpn_loaded_status')->nullable()->after('wpn_location_found');
+            $table->text('wpn_condition')->nullable()->after('wpn_loaded_status');
         });
     }
 

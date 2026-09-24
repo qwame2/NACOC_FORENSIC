@@ -34,6 +34,7 @@ class LaboratoryExaminationResult extends Model
         'detected_substances',
         'test_methods',
         'specifications',
+        'remark',
         'findings',
         'has_saved',
     ];

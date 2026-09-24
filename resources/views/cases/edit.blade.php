@@ -63,6 +63,7 @@
             'seizure_packaging'  => $ex['seizure_packaging'] ?? ($ex['packaging'] ?? ($exIdx === 0 ? $case->seizure_packaging : '')),
             'seizure_reason'     => $ex['seizure_reason'] ?? ($ex['reason'] ?? ($exIdx === 0 ? $case->seizure_reason : '')),
             'presumptive_result' => $ex['presumptive_result'] ?? ($exIdx === 0 ? $case->presumptive_test_result : ''),
+            'ammunition_details' => $ex['ammunition_details'] ?? ($exIdx === 0 ? $case->ammunition_details : null),
             'evidence_photos'    => array_values($exPhotos),
         ];
     }
@@ -78,6 +79,7 @@
             'seizure_packaging'  => $case->seizure_packaging,
             'seizure_reason'     => $case->seizure_reason,
             'presumptive_result' => $case->presumptive_test_result,
+            'ammunition_details' => $case->ammunition_details,
             'evidence_photos'    => array_values($casePhotos),
         ];
     }
@@ -1729,6 +1731,123 @@
                             </div>
                         </div>
 
+                        <!-- CARD 2D: AMMUNITION METROLOGY & SPECIFICATIONS -->
+                        <div id="card_ammunition_details" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5 hover:border-slate-300 transition-all hidden">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center font-bold">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xs font-black font-mono-code uppercase text-slate-900 tracking-wider">2D. Dedicated Ammunition Metrology &amp; Specifications</h3>
+                                        <p class="text-[11px] font-medium text-slate-500">Cartridge physical appearance, bullet types, case materials, condition, and tamper-evident packaging</p>
+                                    </div>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[10px] font-mono-code font-extrabold bg-orange-50 text-orange-800 border border-orange-200 uppercase tracking-wider">
+                                    AMMUNITION DETAILS
+                                </span>
+                            </div>
+
+                            <!-- 1. Physical Description -->
+                            <div class="space-y-3">
+                                <h4 class="text-[10px] font-extrabold text-orange-700 uppercase tracking-widest bg-orange-50 px-2 py-1 rounded-md inline-block">1. Physical Description</h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Cartridge Appearance</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_cartridge_appearance" name="ammo_cartridge_appearance" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Brass casing, FMJ, Nickel-plated">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Projectile / Bullet Type</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_projectile_bullet_type" name="ammo_projectile_bullet_type" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Full Metal Jacket (FMJ), Hollow Point">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Cartridge Case Material</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_cartridge_case_material" name="ammo_cartridge_case_material" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Brass, Steel, Aluminium, Plastic">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Colour / Markings</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_colour_markings" name="ammo_colour_markings" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Headstamp CBC 9mm LUGER, Red primer sealant">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Condition</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <select id="input_ammo_condition" name="ammo_condition" onchange="toggleEditAmmoOtherCondition(this)" {{ !$canEditCrimeScene ? 'disabled' : '' }} class="stylish-select">
+                                            <option value="">Select Condition...</option>
+                                            <option value="Intact">Intact</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Corroded">Corroded</option>
+                                            <option value="Deformed">Deformed</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+
+                                    <div id="wrapper_edit_ammo_other_condition" class="hidden">
+                                        <label class="stylish-label">
+                                            <span>Other Condition Description</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_other_condition" name="ammo_other_condition" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="Specify condition details...">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Packaging & Sealing -->
+                            <div class="space-y-3 pt-3 border-t border-slate-100">
+                                <h4 class="text-[10px] font-extrabold text-orange-700 uppercase tracking-widest bg-orange-50 px-2 py-1 rounded-md inline-block">2. Packaging &amp; Sealing</h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5">
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Packaging Type</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_packaging_type" name="ammo_packaging_type" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Cardboard Box, Plastic Ammo Can, Loose Bag">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Seal / Tamper-Evident Condition</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_seal_condition" name="ammo_seal_condition" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Intact Tamper-Evident Bag #SEAL-90812">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Package / Reference Number</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_package_reference_number" name="ammo_package_reference_number" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. PKG-2026-AM01">
+                                    </div>
+
+                                    <div>
+                                        <label class="stylish-label">
+                                            <span>Condition When Received</span>
+                                            @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
+                                        </label>
+                                        <input type="text" id="input_ammo_condition_when_received" name="ammo_condition_when_received" {{ !$canEditCrimeScene ? 'readonly' : '' }} class="stylish-input font-bold text-slate-900" placeholder="e.g. Sealed and untampered">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- CARD 2C: SEIZED CONTRABAND & DRUG VISUAL EVIDENCE GALLERY -->
                         <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5 hover:border-slate-300 transition-all">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-3.5 flex-wrap gap-2">
@@ -2300,6 +2419,21 @@
                                                         {{ !$canEditLab ? 'readonly' : '' }}
                                                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
                                                     >{{ $case->confirmatory_specifications ?: ($docketData['lab_examination']['specifications'] ?? '') }}</textarea>
+                                                </div>
+
+                                                <!-- 5. REMARK TEXTAREA INPUT -->
+                                                <div>
+                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Remark <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
+                                                    </label>
+                                                    <textarea 
+                                                        id="confirmatoryRemark" 
+                                                        name="confirmatory_remark" 
+                                                        rows="3" 
+                                                        placeholder="Enter any additional remarks or observations regarding the confirmatory analysis..."
+                                                        {{ !$canEditLab ? 'readonly' : '' }}
+                                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"
+                                                    >{{ $case->confirmatory_remark ?: ($docketData['lab_examination']['remark'] ?? '') }}</textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -3368,6 +3502,18 @@
             ex.seizure_packaging = document.getElementById('input_seizure_packaging')?.value || '';
             ex.seizure_reason = document.getElementById('input_seizure_reason')?.value || '';
             ex.evidence_photos = ex.evidence_photos || [];
+            ex.ammunition_details = {
+                cartridge_appearance: document.getElementById('input_ammo_cartridge_appearance')?.value || '',
+                projectile_bullet_type: document.getElementById('input_ammo_projectile_bullet_type')?.value || '',
+                cartridge_case_material: document.getElementById('input_ammo_cartridge_case_material')?.value || '',
+                colour_markings: document.getElementById('input_ammo_colour_markings')?.value || '',
+                condition: document.getElementById('input_ammo_condition')?.value || '',
+                other_condition: document.getElementById('input_ammo_other_condition')?.value || '',
+                packaging_type: document.getElementById('input_ammo_packaging_type')?.value || '',
+                seal_tamper_evident_condition: document.getElementById('input_ammo_seal_condition')?.value || '',
+                package_reference_number: document.getElementById('input_ammo_package_reference_number')?.value || '',
+                condition_when_received: document.getElementById('input_ammo_condition_when_received')?.value || ''
+            };
 
             // Mirror shared exhibit to all suspects linking to exIdx
             suspectsData.forEach(sp => {
@@ -3417,6 +3563,17 @@
         }
     }
 
+    function toggleEditAmmoOtherCondition(el) {
+        const wrapper = document.getElementById('wrapper_edit_ammo_other_condition');
+        if (wrapper) {
+            if (el && el.value === 'Other') {
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        }
+    }
+
     /* REAL-TIME TAB 2 EXHIBIT SYNC & UI DROPDOWN MAP HELPERS */
     function updateCategoryDropdownUI(catVal) {
         const curCat = (catVal || '').toLowerCase().trim();
@@ -3429,6 +3586,8 @@
             val = 'Currency / Cash'; badge = 'CASH'; label = 'Currency / Cash'; badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
         } else if (curCat.includes('gold') || curCat.includes('metal') || curCat.includes('bullion')) {
             val = 'Gold / Precious Metals'; badge = 'MET'; label = 'Gold / Precious Metals'; badgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
+        } else if (curCat.includes('ammo') || curCat.includes('ammunition')) {
+            val = 'Ammunition'; badge = 'AMMO'; label = 'Ammunition'; badgeClass = 'bg-orange-100 text-orange-800 border-orange-200';
         } else if (curCat.includes('firearm') || curCat.includes('weapon') || curCat.includes('gun')) {
             val = 'Firearm / Ammunition / Weapon'; badge = 'WPN'; label = 'Firearm / Ammunition / Weapon'; badgeClass = 'bg-red-100 text-red-800 border-red-200';
         } else if (curCat.includes('vehicle') || curCat.includes('car') || curCat.includes('transport')) {
@@ -3447,6 +3606,15 @@
             val = ''; badge = 'CAT'; label = 'Select Category...'; badgeClass = 'bg-slate-100 text-slate-600 border-slate-200';
         } else {
             val = catVal; badge = 'DRG'; label = catVal; badgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        }
+
+        const ammoCard = document.getElementById('card_ammunition_details');
+        if (ammoCard) {
+            if (curCat.includes('ammo') || curCat.includes('ammunition')) {
+                ammoCard.classList.remove('hidden');
+            } else {
+                ammoCard.classList.add('hidden');
+            }
         }
 
         selectEditCategory(val, label, badge, badgeClass);
@@ -3670,6 +3838,25 @@
         updateUnitDropdownUI(ex.seizure_unit || 'Kilograms (kg)');
         if (document.getElementById('input_seizure_packaging')) document.getElementById('input_seizure_packaging').value = ex.seizure_packaging || '';
         if (document.getElementById('input_seizure_reason')) document.getElementById('input_seizure_reason').value = ex.seizure_reason || '';
+        
+        let ammo = ex.ammunition_details || {};
+        if (typeof ammo === 'string') {
+            try { ammo = JSON.parse(ammo); } catch (e) { ammo = {}; }
+        }
+        if (document.getElementById('input_ammo_cartridge_appearance')) document.getElementById('input_ammo_cartridge_appearance').value = ammo.cartridge_appearance || '';
+        if (document.getElementById('input_ammo_projectile_bullet_type')) document.getElementById('input_ammo_projectile_bullet_type').value = ammo.projectile_bullet_type || '';
+        if (document.getElementById('input_ammo_cartridge_case_material')) document.getElementById('input_ammo_cartridge_case_material').value = ammo.cartridge_case_material || '';
+        if (document.getElementById('input_ammo_colour_markings')) document.getElementById('input_ammo_colour_markings').value = ammo.colour_markings || '';
+        if (document.getElementById('input_ammo_condition')) {
+            document.getElementById('input_ammo_condition').value = ammo.condition || '';
+            toggleEditAmmoOtherCondition(document.getElementById('input_ammo_condition'));
+        }
+        if (document.getElementById('input_ammo_other_condition')) document.getElementById('input_ammo_other_condition').value = ammo.other_condition || '';
+        if (document.getElementById('input_ammo_packaging_type')) document.getElementById('input_ammo_packaging_type').value = ammo.packaging_type || '';
+        if (document.getElementById('input_ammo_seal_condition')) document.getElementById('input_ammo_seal_condition').value = ammo.seal_tamper_evident_condition || ammo.seal_condition || '';
+        if (document.getElementById('input_ammo_package_reference_number')) document.getElementById('input_ammo_package_reference_number').value = ammo.package_reference_number || '';
+        if (document.getElementById('input_ammo_condition_when_received')) document.getElementById('input_ammo_condition_when_received').value = ammo.condition_when_received || '';
+
         renderExhibitPhotosGrid(ex.evidence_photos || []);
 
         // Tab 3 fields (Lab Results loaded from shared labsData[s.lab_index])

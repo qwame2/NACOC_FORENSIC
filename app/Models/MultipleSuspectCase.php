@@ -32,13 +32,23 @@ class MultipleSuspectCase extends Model
         'priority',
         'status',
         'hash_log',
+        'confirmatory_remark',
+        'case_status',
+        'controller_user_id',
+        'suspect_disposition',
+        'disposition_reason',
+        'disposition_updated_at',
+        'disposition_updated_by',
     ];
-
-
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function controllerUser()
+    {
+        return $this->belongsTo(User::class, 'controller_user_id');
     }
 
     public function unit()

@@ -51,11 +51,13 @@ class Exhibit extends Model
         'dev_imei1',
         'dev_imei2',
         'dev_mac_address',
+        'ammunition_details',
         'evidence_photos',
     ];
 
     protected $casts = [
-        'evidence_photos' => 'array',
+        'evidence_photos'    => 'array',
+        'ammunition_details' => 'array',
     ];
 
     public function singleCase()

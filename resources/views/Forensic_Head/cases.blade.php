@@ -461,6 +461,7 @@
                                     <th class="py-3.5 px-5 font-extrabold">Suspect</th>
                                     <th class="py-3.5 px-5 font-extrabold">Assigned Unit &amp; Head</th>
                                     <th class="py-3.5 px-5 font-extrabold">Handling Officer</th>
+                                    <th class="py-3.5 px-5 font-extrabold text-center">Case Stat</th>
                                     <th class="py-3.5 px-5 font-extrabold">Director Status</th>
                                     <th class="py-3.5 px-5 font-extrabold text-right">Head Actions</th>
                                 </tr>
@@ -585,6 +586,25 @@
                                         <td class="py-4 px-5">
                                             <div class="font-bold text-slate-900 text-xs">{{ $case->submitting_officer ?? $case->commanding_officer }}</div>
                                             <div class="text-[10px] text-slate-500">Handling Officer</div>
+                                        </td>
+                                        @php
+                                            $cStatHead = $case->case_status ?? 'Under Investigation';
+                                            $cStatHeadBadge = match($cStatHead) {
+                                                'Under Investigation'         => 'bg-amber-50 text-amber-800 border-amber-300',
+                                                'On Remand'                   => 'bg-purple-50 text-purple-800 border-purple-300',
+                                                'On Bail'                     => 'bg-indigo-50 text-indigo-800 border-indigo-300',
+                                                'In Court'                    => 'bg-blue-50 text-blue-800 border-blue-300',
+                                                'Verdict Passed — Imprisoned' => 'bg-rose-50 text-rose-800 border-rose-300',
+                                                'Verdict Passed — Acquitted'  => 'bg-emerald-50 text-emerald-800 border-emerald-300',
+                                                'Case Dismissed'              => 'bg-slate-100 text-slate-700 border-slate-300',
+                                                'Case Closed'                 => 'bg-slate-800 text-slate-100 border-slate-700',
+                                                default                       => 'bg-amber-50 text-amber-800 border-amber-300',
+                                            };
+                                        @endphp
+                                        <td class="py-4 px-5 text-center whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border {{ $cStatHeadBadge }}">
+                                                {{ $cStatHead }}
+                                            </span>
                                         </td>
                                         <td class="py-4 px-5 whitespace-nowrap">
                                             @if($case->status === 'Approved' || $case->status === 'Authorized')

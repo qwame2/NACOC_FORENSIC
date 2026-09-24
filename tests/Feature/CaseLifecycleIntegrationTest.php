@@ -179,7 +179,7 @@ class CaseLifecycleIntegrationTest extends TestCase
             ]
         ]);
 
-        $response = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review?from=Lab+Analysis');
+        $response = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review?from=Lab+Analysis&suspect=Atta+Budo');
 
         $response->assertStatus(200);
         $html = $response->getContent();
@@ -187,17 +187,19 @@ class CaseLifecycleIntegrationTest extends TestCase
         // 1. Lab badge status must show PENDING because Atta Budo's Cocaine is pending
         $this->assertStringContainsString('⭕ LAB PENDING', $html);
 
-        // 2. Dropdown must contain pending exhibit (Cocaine / Atta Budo)
+        // 2. Dropdown for Atta Budo must contain Atta Budo's pending exhibit (Cocaine / Atta Budo)
         $this->assertStringContainsString('Cocaine (High-Purity Powder / Slabs)', $html);
         $this->assertStringContainsString('Owner: Atta Budo', $html);
 
-        // 3. Dropdown options must NOT include completed exhibit (Tramadol / Princilla Addo)
+        // 3. Dropdown options must NOT include Princilla Addo's exhibit when Atta Budo is selected
         $this->assertStringNotContainsString('data-name="Tramadol (High-Dose Tablets / Capsules)"', $html);
 
-        // 4. Read-only report view MUST render Princilla Addo's completed certificate
-        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — PRINCILLA ADDO', $html);
-        $this->assertStringContainsString('SUSPECT: PRINCILLA ADDO', $html);
-        $this->assertStringContainsString('Tramadol (High-Dose Tablets / Capsules)', $html);
+        // 4. Read-only report view for Princilla Addo MUST render Princilla Addo's completed certificate when Princilla Addo is selected
+        $respPrincilla = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review?from=Lab+Analysis&suspect=Princilla+Addo');
+        $htmlPrincilla = $respPrincilla->getContent();
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — PRINCILLA ADDO', $htmlPrincilla);
+        $this->assertStringContainsString('SUSPECT: PRINCILLA ADDO', $htmlPrincilla);
+        $this->assertStringContainsString('Tramadol (High-Dose Tablets / Capsules)', $htmlPrincilla);
     }
 
     #[Test]
@@ -218,7 +220,7 @@ class CaseLifecycleIntegrationTest extends TestCase
                     ['suspect_name' => 'Atta Budo', 'association_role' => 'Mastermind', 'is_associate' => true, 'associate_id' => 'ASC-001'],
                 ],
                 'seizures' => [
-                    ['category' => 'Drugs', 'seizure_name_drug' => 'Tramadol (High-Dose Tablets / Capsules)', 'is_associate' => false, 'exhibit_number' => 'EXH-01', 'has_saved_lab' => true, 'presumptive_result' => 'YES (Presence of: Tramadol - Purity/Percentage: 20%)', 'confirmatory_result' => 'YES'],
+                    ['category' => 'Drugs', 'seizure_name_drug' => 'Tramadol (High-Dose Tablets / Capsules)', 'associated_person' => 'Princilla Addo', 'is_associate' => false, 'exhibit_number' => 'EXH-01', 'has_saved_lab' => true, 'presumptive_result' => 'YES (Presence of: Tramadol - Purity/Percentage: 20%)', 'confirmatory_result' => 'YES'],
                     ['category' => 'Drugs', 'seizure_name_drug' => 'Cocaine (High-Purity Powder / Slabs)', 'associated_person' => 'Atta Budo', 'is_associate' => true, 'associate_id' => 'ASC-001', 'exhibit_number' => 'EXH-02'],
                 ],
                 'lab_examination' => [
@@ -272,15 +274,20 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertTrue($docketData['seizures'][1]['has_saved_lab']);
         $this->assertEquals('YES (Presence of: Cocaine - Purity/Percentage: 85%)', $docketData['seizures'][1]['presumptive_result']);
 
-        // 3. Render review screen & assert BOTH certificates exist in HTML output
-        $reviewResponse = $this->actingAs($user)->get('/cases/' . $refreshedCase->case_number . '/review?from=Lab+Analysis');
-        $reviewResponse->assertStatus(200);
-        $html = $reviewResponse->getContent();
+        // 3. Render review screen & assert respective certificates exist for each suspect when selected
+        $reviewResponsePrimary = $this->actingAs($user)->get('/cases/' . $refreshedCase->case_number . '/review?from=Lab+Analysis&suspect=Princilla+Addo');
+        $reviewResponsePrimary->assertStatus(200);
+        $htmlPrimary = $reviewResponsePrimary->getContent();
 
-        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — PRINCILLA ADDO', $html);
-        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — ATTA BUDO', $html);
-        $this->assertStringContainsString('Tramadol (High-Dose Tablets / Capsules)', $html);
-        $this->assertStringContainsString('Cocaine (High-Purity Powder / Slabs)', $html);
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — PRINCILLA ADDO', $htmlPrimary);
+        $this->assertStringContainsString('Tramadol (High-Dose Tablets / Capsules)', $htmlPrimary);
+
+        $reviewResponseAssoc = $this->actingAs($user)->get('/cases/' . $refreshedCase->case_number . '/review?from=Lab+Analysis&suspect=Atta+Budo');
+        $reviewResponseAssoc->assertStatus(200);
+        $htmlAssoc = $reviewResponseAssoc->getContent();
+
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — ATTA BUDO', $htmlAssoc);
+        $this->assertStringContainsString('Cocaine (High-Purity Powder / Slabs)', $htmlAssoc);
     }
 
     #[Test]

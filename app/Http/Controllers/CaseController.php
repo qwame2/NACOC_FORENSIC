@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\ForensicCase;
 use App\Models\Unit;
+use App\Models\CaseHandover;
+use App\Models\AuditLog;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class CaseController extends Controller
 {
@@ -384,6 +388,7 @@ class CaseController extends Controller
             'detected_substances'      => $request->input('detected_substances') ?? null,
             'confirmatory_test_methods'=> $request->input('confirmatory_test_methods') ?? null,
             'confirmatory_specifications' => $request->input('confirmatory_specifications') ?? null,
+            'confirmatory_remark'        => $request->input('confirmatory_remark') ?? ($request->input('remark') ?? null),
             'incident_date'            => $validated['arrest_date'] ?? now(),
         ];
 
@@ -453,6 +458,23 @@ class CaseController extends Controller
             'mugshot_right'  => $validated['mugshot_right'] ?? ($primarySuspect['mugshot_right'] ?? null),
             'hash_log'       => 'HASH-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-VERIFIED',
         ]));
+
+        AuditLogger::log(
+            'CASE_CREATED',
+            "New forensic case created with reference {$case->case_number} by " . ($user ? $user->fullname : 'System') . " ({$case->unit_name})",
+            [
+                'case_number'    => $case->case_number,
+                'auditable_type' => get_class($case->underlyingRecord ?? $case),
+                'auditable_id'   => $case->id,
+                'new_values'     => [
+                    'case_number'        => $case->case_number,
+                    'title'              => $case->title,
+                    'unit_name'          => $case->unit_name,
+                    'controller_user_id' => $case->controller_user_id,
+                ],
+                'user'           => $user,
+            ]
+        );
 
         // -----------------------------------------------------------------------
         // Initialize unit_progress & laboratory examination in docket_data
@@ -525,8 +547,8 @@ class CaseController extends Controller
         if ($hasSubmittedLabData) {
             $presumptiveVal  = $validated['presumptive_test_result'] ?? ($request->input('presumptive_reaction_result_input') ?? null);
             $confirmatoryVal = $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? 'YES');
-            $labNum          = $request->input('laboratory_number') ?? ($request->input('lab_number') ?? ('LAB-' . date('Y') . '-' . sprintf('%04d', $case->id)));
-            $labExamRef      = 'EXAM-LAB-' . date('Ymd') . '-' . sprintf('%03d', $case->id);
+            $labNum          = $request->input('laboratory_number') ?? ($request->input('lab_number') ?? ('Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y')));
+            $labExamRef      = $request->input('lab_exam_reference') ?? ($request->input('exam_reference') ?? ('GSA-FM-T' . rand(10, 99) . '-F'));
             $labExhNo        = 'EXH-' . date('Y') . '-' . sprintf('%03d', $case->id);
             $substanceId     = $request->input('confirmatory_substance_identification') ?? ($request->input('docket_data.lab_examination.substance_identification') ?? null);
             $sampleDesc      = $request->input('sample_weight_description') ?? ($request->input('docket_data.lab_examination.sample_weight_description') ?? null);
@@ -574,6 +596,7 @@ class CaseController extends Controller
             }
             $testMethods = $request->input('confirmatory_test_methods');
             $specs       = $request->input('confirmatory_specifications');
+            $remark      = $request->input('confirmatory_remark') ?? $request->input('remark');
             $officer     = $labOfficer;
 
             $primarySuspectName = $primarySuspect['suspect_name'] ?? $case->suspect_name;
@@ -602,6 +625,7 @@ class CaseController extends Controller
                 'detected_substances'      => $detSubs,
                 'test_methods'             => $testMethods,
                 'specifications'           => $specs,
+                'remark'                   => $remark,
                 'findings'                 => 'Submitted via Laboratory Analysis & Case Registration Workspace',
                 'has_saved'                => true,
             ];
@@ -621,9 +645,10 @@ class CaseController extends Controller
             $caseDocketData['seizures'][0]['sample_gross'] = $sampleGross;
             $caseDocketData['seizures'][0]['sample_taken'] = $sampleTaken;
             $caseDocketData['seizures'][0]['sample_reserved'] = $sampleReserved;
-            $caseDocketData['seizures'][0]['laboratory_number'] = $labNum;
-            $caseDocketData['seizures'][0]['exam_reference'] = $labExamRef;
-            $caseDocketData['seizures'][0]['exhibit_number'] = $labExhNo;
+            $caseDocketData['seizures'][0]['test_methods'] = $testMethods;
+            $caseDocketData['seizures'][0]['specifications'] = $specs;
+            $caseDocketData['seizures'][0]['remark'] = $remark;
+            $caseDocketData['seizures'][0]['findings'] = 'Submitted via Laboratory Analysis & Case Registration Workspace';
             $caseDocketData['seizures'][0]['analyst'] = $officer;
             $caseDocketData['seizures'][0]['date_received'] = $validated['arrest_date'] ?? date('Y-m-d');
             $caseDocketData['seizures'][0]['date_started'] = date('Y-m-d');
@@ -655,6 +680,7 @@ class CaseController extends Controller
                     'detected_substances'     => $detSubs,
                     'test_methods'            => $testMethods,
                     'specifications'          => $specs,
+                    'remark'                  => $remark,
                     'findings'                => 'Submitted via Laboratory Analysis & Case Registration Workspace',
                     'analyst'                 => $officer,
                     'has_saved'               => true,
@@ -990,6 +1016,8 @@ class CaseController extends Controller
             if ($request->has('confirmatory_substance_identification')) $case->confirmatory_substance_identification = $request->input('confirmatory_substance_identification');
             if ($request->has('confirmatory_test_methods')) $case->confirmatory_test_methods = $request->input('confirmatory_test_methods');
             if ($request->has('confirmatory_specifications')) $case->confirmatory_specifications = $request->input('confirmatory_specifications');
+            if ($request->has('confirmatory_remark')) $case->confirmatory_remark = $request->input('confirmatory_remark');
+            if ($request->has('remark')) $case->confirmatory_remark = $request->input('remark');
             if ($request->has('findings') || $request->has('notes')) {
                 $f = $request->input('findings') ?? $request->input('notes');
                 $case->laboratory_analytical_findings = $f;
@@ -1017,6 +1045,8 @@ class CaseController extends Controller
             if ($request->has('confirmatory_substance_identification')) $docketData['lab_examination']['substance_identification'] = $request->input('confirmatory_substance_identification');
             if ($request->has('confirmatory_test_methods')) $docketData['lab_examination']['test_methods'] = $request->input('confirmatory_test_methods');
             if ($request->has('confirmatory_specifications')) $docketData['lab_examination']['specifications'] = $request->input('confirmatory_specifications');
+            if ($request->has('confirmatory_remark')) $docketData['lab_examination']['remark'] = $request->input('confirmatory_remark');
+            if ($request->has('remark')) $docketData['lab_examination']['remark'] = $request->input('remark');
             if ($request->has('findings') || $request->has('notes')) {
                 $docketData['lab_examination']['findings'] = $request->input('findings') ?? $request->input('notes');
             }
@@ -1285,7 +1315,7 @@ class CaseController extends Controller
 
                         $exRecord = \App\Models\Exhibit::where('single_suspect_case_id', $case->id)
                             ->orWhere('multiple_suspect_case_id', $case->id)
-                            ->first();
+                            ->skip($eIdx)->first();
                         if ($exRecord) {
                             $exRecord->update(array_filter([
                                 'commodity_name'    => $szName ?: null,
@@ -1295,6 +1325,7 @@ class CaseController extends Controller
                                 'seizure_unit'       => $exObj['seizure_unit'] ?? null,
                                 'seizure_packaging'  => $exObj['seizure_packaging'] ?? null,
                                 'seizure_reason'     => $exObj['seizure_reason'] ?? null,
+                                'ammunition_details' => $exObj['ammunition_details'] ?? null,
                                 'evidence_photos'    => !empty($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : null,
                             ], fn($v) => !is_null($v)));
                         }
@@ -1330,6 +1361,7 @@ class CaseController extends Controller
                             'detected_substances'       => $labObj['detected_substances'] ?? [],
                             'test_methods'              => $labObj['confirmatory_test_methods'] ?? ($labObj['test_methods'] ?? ''),
                             'specifications'            => $labObj['confirmatory_specifications'] ?? ($labObj['specifications'] ?? ''),
+                            'remark'                    => $labObj['confirmatory_remark'] ?? ($labObj['remark'] ?? ''),
                             'findings'                  => $labObj['laboratory_analytical_findings'] ?? ($labObj['findings'] ?? ''),
                             'has_saved'                 => 1,
                         ];
@@ -1354,6 +1386,8 @@ class CaseController extends Controller
                             if (isset($labObj['substance_identification'])) $case->confirmatory_substance_identification = $labObj['substance_identification'];
                             if (isset($labObj['test_methods'])) $case->confirmatory_test_methods = $labObj['test_methods'];
                             if (isset($labObj['specifications'])) $case->confirmatory_specifications = $labObj['specifications'];
+                            if (isset($labObj['confirmatory_remark'])) $case->confirmatory_remark = $labObj['confirmatory_remark'];
+                            if (isset($labObj['remark'])) $case->confirmatory_remark = $labObj['remark'];
                             if (isset($labObj['findings'])) $case->laboratory_analytical_findings = $labObj['findings'];
                         }
 
@@ -1403,6 +1437,7 @@ class CaseController extends Controller
                                     'detected_substances'     => $labObj['detected_substances'] ?? [],
                                     'test_methods'            => $labObj['test_methods'] ?? null,
                                     'specifications'          => $labObj['specifications'] ?? null,
+                                    'remark'                  => $labObj['confirmatory_remark'] ?? ($labObj['remark'] ?? null),
                                     'findings'                => $labObj['findings'] ?? null,
                                     'has_saved'               => true,
                                 ]
@@ -1416,6 +1451,7 @@ class CaseController extends Controller
                                     'confirmatory_substance_identification' => $labObj['substance_identification'] ?? null,
                                     'confirmatory_test_methods' => $labObj['test_methods'] ?? null,
                                     'confirmatory_specifications' => $labObj['specifications'] ?? null,
+                                    'confirmatory_remark' => $labObj['confirmatory_remark'] ?? ($labObj['remark'] ?? null),
                                 ]);
                             }
 
@@ -1572,12 +1608,12 @@ class CaseController extends Controller
                 }
             }
 
-            $labNum = $request->input('laboratory_number') ?: ($request->input('lab_number') ?: ($case->laboratory_number ?: ($docketData['lab_examination']['laboratory_number'] ?? null)));
+            $labNum = $request->input('laboratory_number') ?: ($request->input('lab_number') ?: ($case->laboratory_number ?: ($docketData['lab_examination']['laboratory_number'] ?? ('Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y')))));
             if ($labNum) {
                 $case->laboratory_number = $labNum;
             }
 
-            $labExamRef = $request->input('lab_exam_reference') ?: ($docketData['lab_examination']['exam_reference'] ?? null);
+            $labExamRef = $request->input('lab_exam_reference') ?: ($request->input('exam_reference') ?: ($docketData['lab_examination']['exam_reference'] ?? ('GSA-FM-T' . rand(10, 99) . '-F')));
             $labExhNo = $request->input('lab_exhibit_number') ?: ($docketData['lab_examination']['exhibit_number'] ?? null);
             $labUnitVal = $request->input('lab_unit') ?: ($docketData['lab_examination']['lab_unit'] ?? null);
 
@@ -1643,6 +1679,11 @@ class CaseController extends Controller
                 $case->confirmatory_specifications = $specs;
             }
 
+            $remark = $request->input('confirmatory_remark') ?? $request->input('remark');
+            if ($remark !== null && $remark !== '') {
+                $case->confirmatory_remark = $remark;
+            }
+
             $seizVal = $request->input('seizure_value') ?? $request->input('valuation');
             if ($seizVal !== null && $seizVal !== '') {
                 $case->seizure_value = $seizVal;
@@ -1683,6 +1724,7 @@ class CaseController extends Controller
                 'detected_substances'      => $detSubs,
                 'test_methods'             => $testMethods,
                 'specifications'           => $specs,
+                'remark'                   => $remark,
                 'findings'                 => $unitNotes,
                 'has_saved'                => true,
             ];
@@ -1724,6 +1766,7 @@ class CaseController extends Controller
                 $docketData['seizures'][$matchedSeizureIdx]['detected_substances'] = $detSubs;
                 $docketData['seizures'][$matchedSeizureIdx]['test_methods'] = $testMethods;
                 $docketData['seizures'][$matchedSeizureIdx]['specifications'] = $specs;
+                $docketData['seizures'][$matchedSeizureIdx]['remark'] = $remark;
                 $docketData['seizures'][$matchedSeizureIdx]['findings'] = $unitNotes;
                 $docketData['seizures'][$matchedSeizureIdx]['analyst'] = $officer;
                 $docketData['seizures'][$matchedSeizureIdx]['laboratory_number'] = $labNum;
@@ -1783,6 +1826,7 @@ class CaseController extends Controller
                         'detected_substances'       => $detSubs,
                         'test_methods'              => $testMethods,
                         'specifications'            => $specs,
+                        'remark'                    => $remark,
                         'findings'                  => $unitNotes,
                         'has_saved'                 => true,
                     ]
@@ -1866,6 +1910,9 @@ class CaseController extends Controller
                 if ($specs !== null && $specs !== '') {
                     $docketData['lab_examination']['specifications'] = $specs;
                 }
+                if ($remark !== null && $remark !== '') {
+                    $docketData['lab_examination']['remark'] = $remark;
+                }
                 $docketData['lab_examination']['has_saved'] = true;
             }
 
@@ -1918,6 +1965,7 @@ class CaseController extends Controller
                         'detected_substances'      => $detSubs,
                         'test_methods'             => $testMethods,
                         'specifications'           => $specs,
+                        'remark'                   => $remark,
                         'findings'                 => $unitNotes,
                         'has_saved'                => true,
                     ]
@@ -1932,6 +1980,7 @@ class CaseController extends Controller
                             'confirmatory_substance_identification' => $substanceId,
                             'confirmatory_test_methods' => $testMethods,
                             'confirmatory_specifications' => $specs,
+                            'confirmatory_remark' => $remark,
                         ]);
                     }
                     $delName = $exOwnerName ?: $case->suspect_name;
@@ -2009,6 +2058,22 @@ class CaseController extends Controller
         $case->docket_data = $docketData;
         $case->save();
 
+        AuditLogger::log(
+            'WORKFLOW_UNIT_COMPLETED',
+            "{$unitNameKey} unit progress updated to '{$unitStatus}' by " . ($user ? $user->fullname : $officer) . " ({$unitNameKey}) for Case {$case->case_number}",
+            [
+                'case_number'    => $case->case_number,
+                'auditable_type' => get_class($case->underlyingRecord ?? $case),
+                'auditable_id'   => $case->id,
+                'new_values'     => [
+                    'unit_name'   => $unitNameKey,
+                    'unit_status' => $unitStatus,
+                    'officer'     => $officer,
+                ],
+                'user'           => $user,
+            ]
+        );
+
         return response()->json([
             'success'         => true,
             'message'         => $msg,
@@ -2053,12 +2118,13 @@ class CaseController extends Controller
             }
         }
 
-        // 2. Fallback to case->suspect_name (could be comma separated)
-        if (empty($allSuspects) && !empty($case->suspect_name)) {
-            $parts = array_map('trim', explode(',', $case->suspect_name));
-            foreach ($parts as $pIdx => $pName) {
-                if (!empty($pName)) {
-                    $addSuspect($pName, $pIdx > 0);
+        // 2. Relational CaseSuspect models
+        if (empty($allSuspects) && !empty($case->id)) {
+            $dbSuspects = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $case->id)->orderBy('suspect_number')->get();
+            foreach ($dbSuspects as $idx => $sp) {
+                if (!empty($sp->suspect_name)) {
+                    $isAssoc = !empty($sp->associate_id) || str_contains(strtolower($sp->role ?? ''), 'associate') || ($idx > 0);
+                    $addSuspect($sp->suspect_name, $isAssoc);
                 }
             }
         }
@@ -2255,6 +2321,7 @@ class CaseController extends Controller
                     'incident_date'        => $single->incident_date,
                     'priority'             => $single->priority ?? 'NORMAL',
                     'status'               => $single->status ?? 'Approved',
+                    'docket_data'          => $single->docket_data,
                     'hash_log'             => $single->hash_log,
                 ]);
 
@@ -2381,9 +2448,14 @@ class CaseController extends Controller
         $allSuspectsInCase = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->get();
         $currentExhibitsCount = \App\Models\Exhibit::where('multiple_suspect_case_id', $multiCase->id)->count();
 
+        $docketData = is_array($multiCase->docket_data) ? $multiCase->docket_data : (json_decode($multiCase->docket_data ?? '[]', true) ?: []);
+        if (!isset($docketData['seizures']) || !is_array($docketData['seizures'])) {
+            $docketData['seizures'] = [];
+        }
+
         if (!empty($newExhibits) && is_array($newExhibits)) {
             foreach ($newExhibits as $exIdx => $exhibit) {
-                $exName = $exhibit['seizure_name'] ?? ($exhibit['name'] ?? null);
+                $exName = $exhibit['seizure_name'] ?? ($exhibit['name'] ?? ($exhibit['commodity_name'] ?? null));
                 if (empty($exName)) continue;
 
                 $currentExhibitsCount++;
@@ -2403,6 +2475,7 @@ class CaseController extends Controller
                     foreach ($allSuspectsInCase as $sp) {
                         if (strtolower(trim($sp->suspect_name)) === strtolower(trim($assocPersonName))) {
                             $targetSuspectId = $sp->id;
+                            $assocPersonName = $sp->suspect_name;
                             break;
                         }
                     }
@@ -2411,12 +2484,14 @@ class CaseController extends Controller
                     foreach ($allSuspectsInCase as $sp) {
                         if ($sp->associate_id === $exhibit['associate_id']) {
                             $targetSuspectId = $sp->id;
+                            $assocPersonName = $sp->suspect_name;
                             break;
                         }
                     }
                 }
-                if (!$targetSuspectId && isset($allSuspectsInCase[$exIdx + 1])) {
-                    $targetSuspectId = $allSuspectsInCase[$exIdx + 1]->id;
+                if (!$targetSuspectId && isset($allSuspectsInCase[$exIdx])) {
+                    $targetSuspectId = $allSuspectsInCase[$exIdx]->id;
+                    $assocPersonName = $allSuspectsInCase[$exIdx]->suspect_name;
                 }
 
                 $photosList = [];
@@ -2428,12 +2503,14 @@ class CaseController extends Controller
                     $photosList = [$exhibit['exhibit_photo']];
                 }
 
+                $exCat = $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit');
+
                 \App\Models\Exhibit::create([
                     'case_type'                => 'MULTIPLE',
                     'multiple_suspect_case_id' => $multiCase->id,
                     'suspect_id'               => $targetSuspectId,
                     'exhibit_number'           => $exhibit['exhibit_number'] ?? ('EXH-' . sprintf('%02d', $currentExhibitsCount)),
-                    'exhibit_category'         => $exhibit['category'] ?? ($exhibit['exhibit_category'] ?? 'General Exhibit'),
+                    'exhibit_category'         => $exCat,
                     'commodity_name'           => $exName,
                     'seizure_quantity'         => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
                     'seizure_packaging'        => $exhibit['seizure_packaging'] ?? ($exhibit['packaging'] ?? null),
@@ -2441,8 +2518,25 @@ class CaseController extends Controller
                     'seizure_unit'             => $exhibit['seizure_unit'] ?? ($exhibit['unit'] ?? null),
                     'seizure_value'            => $exhibit['seizure_value'] ?? ($exhibit['value'] ?? null),
                     'seizure_officer'          => $exhibit['seizure_officer'] ?? ($exhibit['seizing_officer'] ?? null),
+                    'ammunition_details'       => $exhibit['ammunition_details'] ?? null,
                     'evidence_photos'          => $photosList,
                 ]);
+
+                $docketData['seizures'][] = [
+                    'exhibit_category'   => $exCat,
+                    'category'           => $exCat,
+                    'seizure_name'       => $exName,
+                    'commodity_name'     => $exName,
+                    'name'               => $exName,
+                    'seizure_name_drug'  => (str_contains(strtolower($exCat), 'drug') || str_contains(strtolower($exName), 'drug') || str_contains(strtolower($exName), 'cocaine') || str_contains(strtolower($exName), 'heroin') || str_contains(strtolower($exName), 'cannabis') || str_contains(strtolower($exName), 'tramadol')) ? $exName : null,
+                    'seizure_quantity'   => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
+                    'seizure_weight'     => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
+                    'seizure_unit'       => $exhibit['seizure_unit'] ?? ($exhibit['unit'] ?? null),
+                    'seizure_packaging'  => $exhibit['seizure_packaging'] ?? ($exhibit['packaging'] ?? null),
+                    'seizure_value'      => $exhibit['seizure_value'] ?? ($exhibit['value'] ?? null),
+                    'associated_person'  => $assocPersonName,
+                    'suspect_name'       => $assocPersonName,
+                ];
 
                 $addedExhibitsCount++;
             }
@@ -2452,11 +2546,38 @@ class CaseController extends Controller
         $allNames = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->pluck('suspect_name')->toArray();
         $cleanNames = array_map(fn($n) => preg_replace('/^Republic\s+vs\s+/i', '', trim($n)), $allNames);
         $jointSuspectNameLabel = !empty($cleanNames) ? implode(', ', array_filter($cleanNames)) : preg_replace('/^Republic\s+vs\s+/i', '', trim($multiCase->title));
-        $multiCase->update([
+
+        // Save updated seizures array to docket_data if column exists
+        if (\Schema::hasColumn($multiCase->getTable(), 'docket_data')) {
+            $multiCase->docket_data = $docketData;
+            $multiCase->save();
+        }
+
+        // Recalculate unit progress using fresh model (loads new DB exhibits)
+        $refreshedForCalc = \App\Models\ForensicCase::wrapRecord($multiCase->fresh(['suspects', 'exhibits', 'labResults']));
+        $reqUnits = $refreshedForCalc->getWorkflowUnits();
+        $unitProgress = $docketData['unit_progress'] ?? [];
+        foreach ($reqUnits as $reqU) {
+            if (!isset($unitProgress[$reqU])) {
+                $unitProgress[$reqU] = [
+                    'status'     => 'PENDING',
+                    'officer'    => null,
+                    'updated_at' => null,
+                ];
+            }
+        }
+        $docketData['unit_progress'] = $unitProgress;
+
+        $updatePayload = [
             'total_suspects_count' => count($allNames),
             'total_exhibits_count' => $currentExhibitsCount,
             'title'                => 'Republic vs ' . $jointSuspectNameLabel,
-        ]);
+        ];
+        if (\Schema::hasColumn($multiCase->getTable(), 'docket_data')) {
+            $updatePayload['docket_data'] = $docketData;
+        }
+
+        $multiCase->update($updatePayload);
 
         $refreshedCase = \App\Models\ForensicCase::wrapRecord($multiCase->fresh(['suspects', 'exhibits', 'labResults']));
 
@@ -2676,7 +2797,7 @@ class CaseController extends Controller
             ]);
         }
         $this->repairExhibitAssociations($case);
-        return view('Forensic_Head.show_review', compact('case'));
+        return view('cases.show_review', compact('case'));
     }
 
     /**
@@ -2687,46 +2808,9 @@ class CaseController extends Controller
         if (!$case || empty($case->docket_data)) return;
         $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data, true) ?: []);
 
-        if (empty($docketData['suspects']) || empty($docketData['seizures'])) return;
-
-        $associates = array_values(array_filter($docketData['suspects'], function($s) {
-            return !empty($s['suspect_name']) && (!empty($s['is_associate']) || (!empty($s['association_role']) && strtolower($s['association_role']) !== 'primary suspect'));
-        }));
-
-        if (count($associates) >= 2) {
-            $modified = false;
-            foreach ($docketData['seizures'] as $idx => &$sz) {
-                $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
-                $name = strtolower($sz['seizure_name'] ?? ($sz['name'] ?? ''));
-                $owner = strtolower(trim($sz['associated_person'] ?? ''));
-
-                $isWeapon = str_contains($cat, 'weapon') || str_contains($name, 'ak-47') || str_contains($name, 'pistol') || str_contains($name, 'rifle') || str_contains($name, 'firearm') || str_contains($name, 'machete') || str_contains($name, 'gun');
-
-                if ($isWeapon && !empty($associates[1]['suspect_name'])) {
-                    $assoc1Name = strtolower(trim($associates[0]['suspect_name']));
-                    $assoc2Name = $associates[1]['suspect_name'];
-                    $assoc2Id   = $associates[1]['associate_id'] ?? ($associates[1]['suspect_id'] ?? 'ASC-002');
-
-                    if ($owner === $assoc1Name || empty($owner)) {
-                        $sz['associated_person'] = $assoc2Name;
-                        $sz['associate_id']      = $assoc2Id;
-                        $sz['suspect_id']        = $assoc2Id;
-                        $sz['is_associate']      = true;
-                        $modified = true;
-                    }
-                }
-            }
-            unset($sz);
-
-            if ($modified) {
-                $case->docket_data = $docketData;
-                if (!empty($case->exists)) {
-                    $case->save();
-                }
-            }
-        }
-
-        // Backfill exhibit seizure_officer and seizure_reason from docket_data if missing in DB
+        // Backfill exhibit seizure_officer and seizure_reason from docket_data if missing in DB.
+        // Each DB Exhibit is matched to its corresponding docket seizure by exhibit_number first,
+        // then by index position. No default fallback to seizures[0] to avoid cross-suspect data leakage.
         if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
             $exList = \App\Models\Exhibit::where(function($q) use ($case) {
                 if ($case->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
@@ -2736,8 +2820,24 @@ class CaseController extends Controller
                 }
             })->get();
 
+            // Build an exhibit_number → docket seizure lookup for accurate matching
+            $docketByExNo = [];
+            foreach ($docketData['seizures'] as $dIdx => $sz) {
+                $exNo = strtolower(trim($sz['exhibit_number'] ?? ''));
+                if (!empty($exNo)) {
+                    $docketByExNo[$exNo] = $sz;
+                }
+            }
+
             foreach ($exList as $idx => $exItem) {
-                $szDoc = $docketData['seizures'][$idx] ?? ($docketData['seizures'][0] ?? []);
+                // Match by exhibit_number first, then by positional index — never default to seizures[0]
+                $dbExNo = strtolower(trim($exItem->exhibit_number ?? ''));
+                $szDoc = (!empty($dbExNo) && isset($docketByExNo[$dbExNo]))
+                    ? $docketByExNo[$dbExNo]
+                    : ($docketData['seizures'][$idx] ?? null);
+
+                if (empty($szDoc)) continue;
+
                 $exUpdates = [];
                 if (empty($exItem->seizure_officer) && !empty($szDoc['seizure_officer'])) {
                     $exUpdates['seizure_officer'] = $szDoc['seizure_officer'];
@@ -2823,5 +2923,403 @@ class CaseController extends Controller
         $detector = new \App\Services\CaseDuplicateDetector();
         $result = $detector->checkCaseDuplicate($request->all(), $allSuspects);
         return response()->json($result);
+    }
+
+    /**
+     * Update Case Status. Must be authorized Case Status Controller.
+     */
+    public function updateCaseStatus(Request $request, $id)
+    {
+        $validated = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'case_status' => [
+                'required',
+                'string',
+                'in:Under Investigation,On Remand,On Bail,In Court,Verdict Passed — Imprisoned,Verdict Passed — Acquitted,Case Dismissed,Case Closed'
+            ],
+        ])->validate();
+
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json(['message' => 'Case file not found.'], 404);
+        }
+
+        $user = Auth::user();
+        if (!$case->isController($user)) {
+            return response()->json([
+                'message' => 'Unauthorized: You are not the current Case Status Controller for this case.'
+            ], 403);
+        }
+
+        $oldStatus = $case->case_status ?? 'Under Investigation';
+        $newStatus = $validated['case_status'];
+
+        DB::transaction(function () use ($case, $oldStatus, $newStatus, $user) {
+            $case->case_status = $newStatus;
+            $case->save();
+
+            // Sync with all case_suspects rows if multi-suspect case
+            if ($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                \App\Models\CaseSuspect::where('multiple_suspect_case_id', $case->id)->update(['case_status' => $newStatus]);
+            }
+
+            AuditLogger::log(
+                'CASE_STATUS_CHANGED',
+                "Case Status updated from '{$oldStatus}' to '{$newStatus}' for Case {$case->case_number}",
+                [
+                    'case_number'    => $case->case_number,
+                    'auditable_type' => get_class($case->underlyingRecord ?? $case),
+                    'auditable_id'   => $case->id,
+                    'old_values'     => ['case_status' => $oldStatus],
+                    'new_values'     => ['case_status' => $newStatus],
+                    'user'           => $user,
+                ]
+            );
+        });
+
+        $refreshed = $case->fresh();
+
+        return response()->json([
+            'success'     => true,
+            'message'     => "Case status successfully updated to '{$newStatus}'.",
+            'case_status' => $newStatus,
+            'case'        => $refreshed,
+        ]);
+    }
+
+    /**
+     * Initiate Case Status Handover request.
+     */
+    public function initiateHandover(Request $request, $id)
+    {
+        $validated = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'to_user_id'    => ['required', 'exists:users,id'],
+            'request_notes' => ['nullable', 'string', 'max:1000'],
+        ])->validate();
+
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json(['message' => 'Case file not found.'], 404);
+        }
+
+        $user = Auth::user();
+        if (!$case->isController($user)) {
+            return response()->json([
+                'message' => 'Unauthorized: Only the current Case Status Controller can initiate a handover.'
+            ], 403);
+        }
+
+        $toUser = \App\Models\User::findOrFail($validated['to_user_id']);
+        if ((int)$toUser->id === (int)$user->id) {
+            return response()->json([
+                'message' => 'You cannot transfer case control to yourself.'
+            ], 422);
+        }
+
+        // Check if pending handover exists
+        $existing = CaseHandover::where('case_number', $case->case_number)
+            ->where('status', 'Pending Acknowledgement')
+            ->first();
+        if ($existing) {
+            return response()->json([
+                'message' => 'An active handover request is already pending acknowledgement for this case.'
+            ], 422);
+        }
+
+        $handover = DB::transaction(function () use ($case, $user, $toUser, $validated) {
+            $h = CaseHandover::create([
+                'case_number'              => $case->case_number,
+                'single_suspect_case_id'   => $case->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $case->id : null,
+                'multiple_suspect_case_id' => $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null,
+                'from_user_id'             => $user->id,
+                'from_unit'                => $user->unit ?? 'Unknown',
+                'to_user_id'               => $toUser->id,
+                'to_unit'                  => $toUser->unit ?? 'Unknown',
+                'status'                   => 'Pending Acknowledgement',
+                'request_notes'            => $validated['request_notes'] ?? null,
+            ]);
+
+            AuditLogger::log(
+                'HANDOVER_INITIATED',
+                "Handover initiated by {$user->fullname} ({$user->unit}) to {$toUser->fullname} ({$toUser->unit}) for Case {$case->case_number}",
+                [
+                    'case_number'    => $case->case_number,
+                    'auditable_type' => CaseHandover::class,
+                    'auditable_id'   => $h->id,
+                    'new_values'     => [
+                        'from_user' => $user->fullname,
+                        'to_user'   => $toUser->fullname,
+                        'to_unit'   => $toUser->unit,
+                        'status'    => 'Pending Acknowledgement',
+                    ],
+                    'user'           => $user,
+                ]
+            );
+
+            return $h;
+        });
+
+        return response()->json([
+            'success'  => true,
+            'message'  => "Handover request successfully sent to {$toUser->fullname} ({$toUser->unit}). Control remains with you until acknowledged.",
+            'handover' => $handover,
+        ]);
+    }
+
+    /**
+     * Respond to Case Status Handover request (Accept, Decline, or Cancel).
+     */
+    public function respondHandover(Request $request, $id)
+    {
+        $validated = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'action'         => ['required', 'string', 'in:accept,decline,cancel'],
+            'response_notes' => ['nullable', 'string', 'max:1000'],
+        ])->validate();
+
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json(['message' => 'Case file not found.'], 404);
+        }
+
+        $handover = CaseHandover::where('case_number', $case->case_number)
+            ->where('status', 'Pending Acknowledgement')
+            ->latest()
+            ->first();
+
+        if (!$handover) {
+            return response()->json(['message' => 'No pending handover request found for this case.'], 404);
+        }
+
+        $user = Auth::user();
+        $action = strtolower($validated['action']);
+
+        if ($action === 'accept') {
+            if ((int)$user->id !== (int)$handover->to_user_id) {
+                return response()->json([
+                    'message' => 'Unauthorized: Only the designated receiving Unit Head can accept this handover request.'
+                ], 403);
+            }
+
+            DB::transaction(function () use ($case, $handover, $user, $validated) {
+                $handover->update([
+                    'status'          => 'Accepted',
+                    'acknowledged_at' => now(),
+                    'response_notes'  => $validated['response_notes'] ?? null,
+                ]);
+
+                // Transfer controller_user_id
+                $case->controller_user_id = $user->id;
+                $case->save();
+
+                AuditLogger::log(
+                    'HANDOVER_ACCEPTED',
+                    "Case Status Control for Case {$case->case_number} transferred from {$handover->fromUser->fullname} to {$user->fullname} ({$user->unit})",
+                    [
+                        'case_number'    => $case->case_number,
+                        'auditable_type' => CaseHandover::class,
+                        'auditable_id'   => $handover->id,
+                        'old_values'     => ['controller_user_id' => $handover->from_user_id],
+                        'new_values'     => ['controller_user_id' => $user->id],
+                        'user'           => $user,
+                    ]
+                );
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => "Handover accepted. You are now the active Case Status Controller for Case {$case->case_number}.",
+                'case'    => $case->fresh(),
+            ]);
+        } elseif ($action === 'decline') {
+            if ((int)$user->id !== (int)$handover->to_user_id) {
+                return response()->json([
+                    'message' => 'Unauthorized: Only the designated receiving Unit Head can decline this handover request.'
+                ], 403);
+            }
+
+            DB::transaction(function () use ($case, $handover, $user, $validated) {
+                $handover->update([
+                    'status'          => 'Declined',
+                    'acknowledged_at' => now(),
+                    'response_notes'  => $validated['response_notes'] ?? null,
+                ]);
+
+                AuditLogger::log(
+                    'HANDOVER_DECLINED',
+                    "Handover request for Case {$case->case_number} declined by {$user->fullname} ({$user->unit})",
+                    [
+                        'case_number'    => $case->case_number,
+                        'auditable_type' => CaseHandover::class,
+                        'auditable_id'   => $handover->id,
+                        'user'           => $user,
+                    ]
+                );
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => "Handover request declined.",
+            ]);
+        } elseif ($action === 'cancel') {
+            if ((int)$user->id !== (int)$handover->from_user_id) {
+                return response()->json([
+                    'message' => 'Unauthorized: Only the initiating Unit Head can cancel this handover request.'
+                ], 403);
+            }
+
+            DB::transaction(function () use ($case, $handover, $user, $validated) {
+                $handover->update([
+                    'status'         => 'Cancelled',
+                    'response_notes' => $validated['response_notes'] ?? 'Cancelled by initiator',
+                ]);
+
+                AuditLogger::log(
+                    'HANDOVER_CANCELLED',
+                    "Handover request for Case {$case->case_number} cancelled by {$user->fullname}",
+                    [
+                        'case_number'    => $case->case_number,
+                        'auditable_type' => CaseHandover::class,
+                        'auditable_id'   => $handover->id,
+                        'user'           => $user,
+                    ]
+                );
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => "Handover request cancelled.",
+            ]);
+        }
+
+        return response()->json(['message' => 'Invalid action.'], 400);
+    }
+
+    /**
+     * Get Audit Trail logs for a case.
+     */
+    public function getAuditTrail($id)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json(['message' => 'Case file not found.'], 404);
+        }
+
+        $logs = AuditLog::where('case_number', $case->case_number)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'logs'    => $logs,
+        ]);
+    }
+
+    /**
+     * Update suspect-level disposition (e.g., Cleared / No Further Action).
+     */
+    public function updateSuspectDisposition(Request $request, $id)
+    {
+        $validated = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'suspect_name'        => ['required', 'string'],
+            'suspect_disposition' => [
+                'required',
+                'string',
+                'in:Active — Under Investigation,Cleared / No Further Action,Released from Case,Reclassified,Referred for Further Review'
+            ],
+            'disposition_reason'  => ['nullable', 'string', 'max:1000'],
+        ])->validate();
+
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json(['message' => 'Case file not found.'], 404);
+        }
+
+        $user = Auth::user();
+        $isController = $case->isController($user);
+        $isHead = !empty($user->is_head);
+        $isCreator = (int)$user->id === (int)$case->user_id;
+
+        if (!$isController && !$isHead && !$isCreator) {
+            return response()->json([
+                'message' => 'Unauthorized: Only an authorized Case Controller or Unit Head can modify suspect dispositions.'
+            ], 403);
+        }
+
+        $newDisp = $validated['suspect_disposition'];
+        $reason  = trim($validated['disposition_reason'] ?? '');
+        $suspectName = $validated['suspect_name'];
+
+        if ($newDisp !== 'Active — Under Investigation' && empty($reason)) {
+            return response()->json([
+                'message' => 'A valid justification reason is required when marking a suspect as cleared, released, or reclassified.'
+            ], 422);
+        }
+
+        $oldDisp = 'Active — Under Investigation';
+
+        DB::transaction(function () use ($case, $suspectName, $newDisp, $reason, $user, &$oldDisp) {
+            // 1. Update CaseSuspect if multi-suspect DB record exists
+            $csRecord = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $case->id)
+                ->where('suspect_name', $suspectName)
+                ->first();
+
+            if ($csRecord) {
+                $oldDisp = $csRecord->suspect_disposition ?? 'Active — Under Investigation';
+                $csRecord->update([
+                    'suspect_disposition'    => $newDisp,
+                    'disposition_reason'     => $reason,
+                    'disposition_updated_at' => now(),
+                    'disposition_updated_by' => $user->fullname ?? $user->username,
+                ]);
+            }
+
+            // 2. Update docket_data['suspects'] array
+            $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            if (isset($dData['suspects']) && is_array($dData['suspects'])) {
+                foreach ($dData['suspects'] as &$s) {
+                    if (isset($s['suspect_name']) && strtolower(trim($s['suspect_name'])) === strtolower(trim($suspectName))) {
+                        $oldDisp = $s['suspect_disposition'] ?? $oldDisp;
+                        $s['suspect_disposition']    = $newDisp;
+                        $s['disposition_reason']     = $reason;
+                        $s['disposition_updated_at'] = now()->toDateTimeString();
+                        $s['disposition_updated_by'] = $user->fullname ?? $user->username;
+                    }
+                }
+                $case->docket_data = $dData;
+                $case->save();
+            }
+
+            // 3. Update primary suspect column if single suspect case or primary on multi
+            if (strtolower(trim($case->suspect_name ?? '')) === strtolower(trim($suspectName))) {
+                if ($case->underlyingRecord) {
+                    $case->underlyingRecord->update([
+                        'suspect_disposition'    => $newDisp,
+                        'disposition_reason'     => $reason,
+                        'disposition_updated_at' => now(),
+                        'disposition_updated_by' => $user->fullname ?? $user->username,
+                    ]);
+                }
+            }
+
+            AuditLogger::log(
+                'SUSPECT_DISPOSITION_CHANGED',
+                "Suspect disposition for {$suspectName} updated from '{$oldDisp}' to '{$newDisp}' on Case {$case->case_number}. Reason: {$reason}",
+                [
+                    'case_number'    => $case->case_number,
+                    'auditable_type' => get_class($case->underlyingRecord ?? $case),
+                    'auditable_id'   => $case->id,
+                    'old_values'     => ['suspect_name' => $suspectName, 'suspect_disposition' => $oldDisp],
+                    'new_values'     => ['suspect_name' => $suspectName, 'suspect_disposition' => $newDisp, 'disposition_reason' => $reason],
+                    'user'           => $user,
+                ]
+            );
+        });
+
+        return response()->json([
+            'success'          => true,
+            'message'          => "Suspect disposition for {$suspectName} updated to '{$newDisp}'.",
+            'case'             => $case->fresh(),
+            'active_suspects'  => $case->fresh()->getActiveSuspects(),
+            'cleared_suspects' => $case->fresh()->getClearedSuspects(),
+        ]);
     }
 }

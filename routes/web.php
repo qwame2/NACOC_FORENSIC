@@ -87,10 +87,19 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cases/{id}/update-unit-progress', [CaseController::class, 'updateUnitProgress']);
     Route::post('/cases/{id}/associate', [CaseController::class, 'associate']);
     Route::post('/cases/{id}/reassign-exhibit', [CaseController::class, 'reassignExhibit']);
+    Route::post('/cases/{id}/case-status', [CaseController::class, 'updateCaseStatus']);
+    Route::post('/cases/{id}/suspect-disposition', [CaseController::class, 'updateSuspectDisposition']);
+    Route::post('/cases/{id}/handover/initiate', [CaseController::class, 'initiateHandover']);
+    Route::post('/cases/{id}/handover/respond', [CaseController::class, 'respondHandover']);
+    Route::get('/cases/{id}/audit-trail', [CaseController::class, 'getAuditTrail']);
 
     // GENERAL DOCKET & EVENT ROUTES
+    Route::get('/cases/create', function () {
+        return view('cases.create');
+    })->name('cases.create');
+
     Route::get('/arrest-person', function () {
-        return view('Crime_Scene_Support.staff.events.arrest_person');
+        return view('cases.create');
     })->name('arrest_person');
 
     Route::get('/cargo-parcel-interception', function () {
@@ -135,7 +144,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('/Crime_Scene_Support/staff/arrest-person', function () {
-        return view('Crime_Scene_Support.staff.events.arrest_person');
+        return view('cases.create');
     });
 
     Route::get('/Crime_Scene_Support', function () {
@@ -155,6 +164,22 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // LAB ANALYSIS UNIT DEDICATED ROUTES
+    Route::get('/Lab_Analysis', function () {
+        return view('Lab_Analysis.lab_analysis');
+    });
+
+    Route::get('/Lab_Analysis/head', function () {
+        return view('Lab_Analysis.lab_analysis');
+    });
+
+    Route::get('/Lab_Analysis/staff', function () {
+        return view('Lab_Analysis.staff.staff');
+    });
+
+    Route::get('/lab-analysis', function () {
+        return view('Lab_Analysis.lab_analysis');
+    });
+
     Route::get('/lab-result', function () {
         $cases = ForensicCase::allCases();
         return view('cases.landing', compact('cases'));
@@ -166,11 +191,46 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('/Lab_Analysis/examination', function () {
-        return view('Lab_Analysis.examination');
+        $case = \App\Models\ForensicCase::find(request('case_id'));
+        return view('Lab_Analysis.examination', compact('case'));
     });
 
     Route::get('/lab-analysis/add-case', function () {
         return view('Lab_Analysis.examination');
+    });
+
+    // EVIDENCE MANAGEMENT UNIT DEDICATED ROUTES
+    Route::get('/Evidence_Management', function () {
+        return view('Evidence_Management.evidence_management');
+    });
+
+    Route::get('/Evidence_Management/head', function () {
+        return view('Evidence_Management.evidence_management');
+    });
+
+    Route::get('/Evidence_Management/staff', function () {
+        return view('Evidence_Management.staff.staff');
+    });
+
+    Route::get('/evidence-management', function () {
+        return view('Evidence_Management.evidence_management');
+    });
+
+    // DIGITAL & PHYSICAL FORENSICS UNIT DEDICATED ROUTES
+    Route::get('/Digital_Forensics', function () {
+        return view('Digital_Forensics.digital_forensics');
+    });
+
+    Route::get('/Digital_Forensics/head', function () {
+        return view('Digital_Forensics.digital_forensics');
+    });
+
+    Route::get('/Digital_Forensics/staff', function () {
+        return view('Digital_Forensics.staff.staff');
+    });
+
+    Route::get('/digital-forensics', function () {
+        return view('Digital_Forensics.digital_forensics');
     });
 
     /*

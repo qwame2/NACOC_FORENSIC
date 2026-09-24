@@ -16,6 +16,10 @@
         }
     } elseif (request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*') || (isset($isLabAnalysis) && $isLabAnalysis)) {
         $sidebarUnit = 'Lab Analysis';
+    } elseif (request()->is('Evidence_Management*') || request()->is('evidence-management*')) {
+        $sidebarUnit = 'Evidence Management';
+    } elseif (request()->is('Digital_Forensics*') || request()->is('digital-forensics*')) {
+        $sidebarUnit = 'Digital & Physical Forensics';
     } elseif (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*')) {
         $sidebarUnit = 'Crime Scene Support';
     } elseif ($sidebarUser && !empty($sidebarUser->unit)) {

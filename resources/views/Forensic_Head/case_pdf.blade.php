@@ -486,7 +486,7 @@
         }
     }
     $caseNumericId = sprintf('%03d', $case->id ?? 1);
-    $labExamRef = !empty($rawLabExamRef) ? $rawLabExamRef : ('EXAM-LAB-' . date('Ymd', strtotime($case->created_at ?? 'now')) . '-' . $caseNumericId);
+    $labExamRef = !empty($rawLabExamRef) ? $rawLabExamRef : ('GSA-FM-T' . rand(10, 99) . '-F');
 
     $labCaseRef = $case->case_number;
 
@@ -505,7 +505,7 @@
     $labExhibitNo = !empty($rawLabExhibitNo) ? $rawLabExhibitNo : ('EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . $caseNumericId);
 
     $rawLabNumber = $case->laboratory_number ?? ($labExam['laboratory_number'] ?? ($labExam['lab_number'] ?? null));
-    $labNumber = !empty($rawLabNumber) ? $rawLabNumber : ('LAB-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . sprintf('%04d', $case->id ?? 1));
+    $labNumber = !empty($rawLabNumber) ? $rawLabNumber : ('Lab No. ' . rand(10, 99) . '/FS' . date('m', strtotime($case->created_at ?? 'now')) . '/' . date('Y', strtotime($case->created_at ?? 'now')));
     $labUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : (!empty($unitProgress['Lab Analysis']['unit']) ? $unitProgress['Lab Analysis']['unit'] : 'Chemistry & Narcotics Unit');
     $currentLoggedInName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? '');
     $labAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : (!empty($unitProgress['Lab Analysis']['officer']) ? $unitProgress['Lab Analysis']['officer'] : (!empty($currentLoggedInName) ? $currentLoggedInName : $defaultLabHeadName));
@@ -594,6 +594,7 @@
     }
     $labTestMethods = !empty($labExam['test_methods']) ? $labExam['test_methods'] : (!empty($case->confirmatory_test_methods) ? $case->confirmatory_test_methods : '');
     $labSpecifications = !empty($labExam['specifications']) ? $labExam['specifications'] : (!empty($case->confirmatory_specifications) ? $case->confirmatory_specifications : '');
+    $labRemark = !empty($labExam['remark']) ? $labExam['remark'] : (!empty($case->confirmatory_remark) ? $case->confirmatory_remark : '');
     if (!empty($labSampleGross) && preg_match('/(Kilograms?\s*\([^\)]+\)|Kilograms?|kg|Grams?|g|mg|lbs?)/i', $labSampleGross, $uMatch)) {
         $labSampleUnit = $uMatch[1];
     }
@@ -625,13 +626,13 @@
         || (!empty($docketData['lab_examinations_list']) && count(array_filter($docketData['lab_examinations_list'], fn($v) => !empty($v['has_saved']))) > 0)
         || (!empty($docketData['seizures']) && count(array_filter($docketData['seizures'], fn($s) => $checkIsDrugExhibitPdf($s) && !empty($s['has_saved_lab']))) > 0);
 
-    $labStatus = strtoupper($unitProgress['Lab Analysis']['status'] ?? ($case->lab_status ?? ($docketData['lab_examination']['status'] ?? 'PENDING')));
-    $hasSavedLabData = $isDrugCase && (
-        $hasAnySavedLabExam
-        || $labStatus === 'COMPLETED' 
-        || (isset($case->lab_status) && strtoupper($case->lab_status) === 'COMPLETED')
-        || (!empty($docketData['lab_examination']['has_saved']) && (!empty($case->confirmatory_substance_identification) || !empty($docketData['lab_examination']['confirmatory_result']) || !empty($docketData['lab_examination']['substance_identification'])))
-    );
+    if (isset($unitProgress['Lab Analysis']) && !$hasAnySavedLabExam) {
+        $unitProgress['Lab Analysis']['status'] = 'PENDING';
+        $unitProgress['Lab Analysis']['officer'] = null;
+        $unitProgress['Lab Analysis']['updated_at'] = null;
+    }
+    $labStatus = $hasAnySavedLabExam ? 'COMPLETED' : 'PENDING';
+    $hasSavedLabData = $isDrugCase && $hasAnySavedLabExam;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -1247,52 +1248,18 @@
 
             @if(!$isAssociate || $isCoSuspect)
                 @php 
-                    $primaryExhibitsFromDocket = [];
-                    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
-                        foreach ($docketData['seizures'] as $sz) {
-                            $isAssoc = !empty($sz['is_associate']) 
-                                || (!empty($sz['associated_person']) && strtolower($sz['associated_person']) !== 'primary suspect')
-                                || (!empty($sz['association_role']) && str_contains(strtolower($sz['association_role']), 'associate'));
-                            if (!$isAssoc) {
-                                $primaryExhibitsFromDocket[] = $sz;
-                            }
+                    $primaryExhibitsFromDocket = $case->getExhibitsForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel);
+                    if (empty($primaryExhibitsFromDocket)) {
+                        $directEx = $sItem['exhibits'] ?? ($sItem['seizures'] ?? ($sItem['associated_seizures'] ?? ($sItem['associate_exhibits'] ?? [])));
+                        if (!empty($directEx) && is_array($directEx)) {
+                            $primaryExhibitsFromDocket = $directEx;
                         }
                     }
-
-                    if (empty($primaryExhibitsFromDocket) && (!empty($case->exhibit_category) || !empty($case->seizure_name_drug) || !empty($case->seizure_name))) {
-                        $primaryExhibitsFromDocket[] = [
-                            'exhibit_number'     => $case->exhibit_number ?? null,
-                            'category'           => $case->exhibit_category ?? '',
-                            'seizure_name_drug'  => $case->seizure_name_drug ?? '',
-                            'seizure_name'       => $case->seizure_name ?? '',
-                            'seizure_quantity'   => $case->seizure_quantity ?? null,
-                            'seizure_packaging'  => $case->seizure_packaging ?? null,
-                            'seizure_weight'     => $case->seizure_weight ?? null,
-                            'seizure_unit'       => $case->seizure_unit ?? null,
-                            'seizure_value'      => $case->seizure_value ?: ($case->valuation ?: null),
-                            'seizure_concealment'=> $case->seizure_concealment ?? null,
-                            'seizure_date'       => $case->seizure_date ?: ($case->incident_date ?: ($case->arrest_date ?? null)),
-                            'seizure_time'       => $case->seizure_time ?: ($case->arrest_time ?? null),
-                            'seizure_location'   => $case->seizure_location ?: ($case->raid_location ?? null),
-                            'seizure_officer'    => $case->seizure_officer ?: ($case->submitting_officer ?? null),
-                            'seizure_reason'     => $case->seizure_reason ?: ($case->operation_code_name ?: ($case->operation_code ?? null)),
-                            'veh_make'           => $case->veh_make ?? null,
-                            'veh_model'          => $case->veh_model ?? null,
-                            'veh_type'           => $case->veh_type ?? null,
-                            'veh_reg_no'         => $case->veh_reg_no ?? null,
-                            'veh_vin'            => $case->veh_vin ?? null,
-                            'veh_owner'          => $case->veh_owner ?? null,
-                            'dev_model'          => $case->dev_model ?? null,
-                            'dev_serial_no'      => $case->dev_serial_no ?? null,
-                            'dev_imei1'          => $case->dev_imei1 ?? null,
-                            'dev_storage'        => $case->dev_storage ?? null,
-                            'dev_colour'         => $case->dev_colour ?? null,
-                        ];
-                    }
                 @endphp
+                @if(!empty($primaryExhibitsFromDocket) && count($primaryExhibitsFromDocket) > 0)
                 <div class="space-y-2 avoid-break relative z-10 pt-1">
                     <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
-                        <span>PRIMARY &amp; CO-SUSPECT LOGGED EXHIBITS ({{ strtoupper($primarySuspectsCombinedNames) }})</span>
+                        <span>PRIMARY &amp; CO-SUSPECT LOGGED EXHIBITS ({{ strtoupper($sName) }})</span>
                         <span class="text-[10px] text-slate-900 font-bold bg-slate-200 px-2 py-0.5 rounded border border-slate-300">PRIMARY &amp; CO-SUSPECT DOSSIER</span>
                     </div>
 
@@ -1463,33 +1430,19 @@
                     </div>
                     @endif
                 </div>
+                @endif
             @endif
 
             <!-- SECTION: ASSOCIATE OR PRIMARY LOGGED EXHIBITS FOR SUSPECT #{{ $sNum }} -->
-            @if($isAssociate && !$isCoSuspect)
                 @php
-                    $allSeizuresForPdfAssoc = array_merge(
-                        $docketData['associated_seizures'] ?? [],
-                        $docketData['associate_exhibits'] ?? []
-                    );
-                    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
-                        foreach ($docketData['seizures'] as $sz) {
-                            $szOwnerName = strtolower(trim($sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['associated_suspect'] ?? ''))));
-                            if (!empty($szOwnerName) && $szOwnerName !== 'primary suspect' && $szOwnerName !== 'associate suspect' && $szOwnerName !== 'joint suspects' && !str_contains($szOwnerName, ',')) {
-                                if ($szOwnerName === strtolower(trim($sName))) {
-                                    $allSeizuresForPdfAssoc[] = $sz;
-                                }
-                            }
+                    $pdfAssocExhibits = $case->getExhibitsForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel);
+
+                    if (empty($pdfAssocExhibits)) {
+                        $directEx = $sItem['exhibits'] ?? ($sItem['seizures'] ?? ($sItem['associated_seizures'] ?? ($sItem['associate_exhibits'] ?? [])));
+                        if (!empty($directEx) && is_array($directEx)) {
+                            $pdfAssocExhibits = $directEx;
                         }
                     }
-                    $pdfAssocExhibits = array_values(array_filter($allSeizuresForPdfAssoc, function($sz) use ($sName, $sId) {
-                        $szOwnerName = strtolower(trim($sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['associated_suspect'] ?? ''))));
-                        if (!empty($szOwnerName) && $szOwnerName !== 'primary suspect' && $szOwnerName !== 'associate suspect' && $szOwnerName !== 'joint suspects' && !str_contains($szOwnerName, ',')) {
-                            return $szOwnerName === strtolower(trim($sName));
-                        }
-                        $szAssocId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
-                        return !empty($szAssocId) && !empty($sId) && (strtolower(trim($szAssocId)) === strtolower(trim($sId)));
-                    }));
                 @endphp
                 @if(!empty($pdfAssocExhibits) && count($pdfAssocExhibits) > 0)
                 <div class="space-y-2 avoid-break relative z-10 pt-1">
@@ -1591,6 +1544,60 @@
                             </tr>
                             @endif
                             @endif
+
+                            @php
+                                $aAmmo = $aEx['ammunition_details'] ?? null;
+                                if (is_string($aAmmo)) {
+                                    $aAmmo = json_decode($aAmmo, true) ?: [];
+                                }
+                                $isAmmoEx = str_contains($catLower, 'ammo') || str_contains($catLower, 'ammunition') || (!empty($aAmmo) && is_array($aAmmo) && array_filter($aAmmo));
+                            @endphp
+
+                            @if($isAmmoEx && !empty($aAmmo) && is_array($aAmmo) && array_filter($aAmmo))
+                            <tr>
+                                <td class="pdf-label-cell font-mono-code text-amber-900 font-extrabold uppercase" colspan="4" style="background:#fffbeb; border-top:2px solid #f59e0b;">
+                                    AMMUNITION DETAILED SPECIFICATIONS:
+                                </td>
+                            </tr>
+                            @if(!empty($aAmmo['cartridge_appearance']) || !empty($aAmmo['projectile_bullet_type']))
+                            <tr>
+                                <td class="pdf-label-cell">Cartridge Appearance:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aAmmo['cartridge_appearance'] ?? 'N/A' }}</td>
+                                <td class="pdf-label-cell">Projectile / Bullet Type:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aAmmo['projectile_bullet_type'] ?? 'N/A' }}</td>
+                            </tr>
+                            @endif
+                            @if(!empty($aAmmo['cartridge_case_material']) || !empty($aAmmo['colour_markings']))
+                            <tr>
+                                <td class="pdf-label-cell">Case Material:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aAmmo['cartridge_case_material'] ?? 'N/A' }}</td>
+                                <td class="pdf-label-cell">Colour / Markings:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aAmmo['colour_markings'] ?? 'N/A' }}</td>
+                            </tr>
+                            @endif
+                            @if(!empty($aAmmo['condition']) || !empty($aAmmo['packaging_type']))
+                            <tr>
+                                <td class="pdf-label-cell">Condition:</td>
+                                <td class="pdf-value-cell font-bold text-emerald-800">{{ $aAmmo['condition'] ?? 'N/A' }} {{ !empty($aAmmo['other_condition']) ? "({$aAmmo['other_condition']})" : '' }}</td>
+                                <td class="pdf-label-cell">Packaging Type:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aAmmo['packaging_type'] ?? 'N/A' }}</td>
+                            </tr>
+                            @endif
+                            @if(!empty($aAmmo['seal_tamper_evident_condition']) || !empty($aAmmo['seal_condition']) || !empty($aAmmo['package_reference_number']))
+                            <tr>
+                                <td class="pdf-label-cell">Seal / Tamper Condition:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900">{{ $aAmmo['seal_tamper_evident_condition'] ?? ($aAmmo['seal_condition'] ?? 'N/A') }}</td>
+                                <td class="pdf-label-cell">Package / Ref Number:</td>
+                                <td class="pdf-value-cell font-mono-code font-extrabold text-amber-900">{{ $aAmmo['package_reference_number'] ?? 'N/A' }}</td>
+                            </tr>
+                            @endif
+                            @if(!empty($aAmmo['condition_when_received']))
+                            <tr>
+                                <td class="pdf-label-cell">Condition When Received:</td>
+                                <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $aAmmo['condition_when_received'] }}</td>
+                            </tr>
+                            @endif
+                            @endif
                         </tbody>
                     </table>
                     @endforeach
@@ -1650,7 +1657,6 @@
                     @endif
                 </div>
                 @endif
-            @endif
         @endforeach
 
         @if($hasSavedLabData)
@@ -1847,6 +1853,10 @@
                         <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $labTestMethods ?: 'N/A' }}</td>
                     </tr>
                     <tr>
+                        <td class="pdf-label-cell">Analysis Remark:</td>
+                        <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $labRemark ?: 'N/A' }}</td>
+                    </tr>
+                    <tr>
                         <td class="pdf-label-cell">Detected Compounds:</td>
                         <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
                             @php 
@@ -2040,28 +2050,11 @@
                         }
                     }
 
-                    $assocExhibitsList = array_filter($docketData['seizures'] ?? [], function($sz) use ($aSpName, $aSpId, $checkIsDrugExhibitPdf) {
-                        if (!$checkIsDrugExhibitPdf($sz)) {
-                            return false;
-                        }
-                        $szOwnerName = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
-                        if (!empty($szOwnerName) && strtolower(trim($szOwnerName)) !== 'associate suspect' && strtolower(trim($szOwnerName)) !== 'primary suspect') {
-                            $ownerLow = strtolower(trim($szOwnerName));
-                            $aNameLow = strtolower(trim($aSpName));
-                            if ($ownerLow === $aNameLow || str_contains($ownerLow, $aNameLow) || str_contains($aNameLow, $ownerLow)) {
-                                return true;
-                            }
-                            return false;
-                        }
-                        $szAssocId = $sz['associate_id'] ?? ($sz['suspect_id'] ?? null);
-                        if (!empty($szAssocId) && !empty($aSpId)) {
-                            if (strtolower(trim($szAssocId)) === strtolower(trim($aSpId))) {
-                                return true;
-                            }
-                        }
-                        return false;
-                    });
-                    $assocExhibitsList = array_values($assocExhibitsList);
+                    // Resolve associate exhibits via the model's authoritative suspect-scoped method.
+                    $assocExhibitsList = array_values(array_filter(
+                        $case->getExhibitsForSuspect($aSpName, $assocLabInfo['item']['id'] ?? null, $aSpId, 'Associate Suspect'),
+                        $checkIsDrugExhibitPdf
+                    ));
                     $firstAssocEx = !empty($assocExhibitsList) ? $assocExhibitsList[0] : null;
 
                     $assocLabExamPdf = null;
@@ -2077,15 +2070,15 @@
                     $hasThisAssocSavedLabPdf = false;
                     if ($dbAssocExamPdf && $dbAssocExamPdf->has_saved) {
                         $hasThisAssocSavedLabPdf = true;
-                    } elseif ($docketAssocExamPdf && !empty($docketAssocExamPdf['has_saved'])) {
+                    } elseif ($docketAssocExamPdf && !empty($docketAssocExamPdf['has_saved']) && !empty($firstAssocEx) && $checkIsDrugExhibitPdf($firstAssocEx)) {
                         $hasThisAssocSavedLabPdf = true;
                     } elseif (!empty($firstAssocEx) && $checkIsDrugExhibitPdf($firstAssocEx) && !empty($firstAssocEx['has_saved_lab'])) {
                         $hasThisAssocSavedLabPdf = true;
-                    } elseif (!empty($assocLabExamPdf) && !empty($assocLabExamPdf['has_saved'])) {
+                    } elseif (!empty($assocLabExamPdf) && !empty($assocLabExamPdf['has_saved']) && !empty($firstAssocEx) && $checkIsDrugExhibitPdf($firstAssocEx)) {
                         $hasThisAssocSavedLabPdf = true;
                     }
 
-                    $assocExamRef = $dbAssocExamPdf ? $dbAssocExamPdf->exam_reference : (!empty($docketAssocExamPdf['exam_reference']) ? $docketAssocExamPdf['exam_reference'] : (!empty($firstAssocEx['exam_reference']) ? $firstAssocEx['exam_reference'] : (!empty($assocLabExamPdf['exam_reference']) ? $assocLabExamPdf['exam_reference'] : 'N/A')));
+                    $assocExamRef = $dbAssocExamPdf ? $dbAssocExamPdf->exam_reference : (!empty($docketAssocExamPdf['exam_reference']) ? $docketAssocExamPdf['exam_reference'] : (!empty($firstAssocEx['exam_reference']) ? $firstAssocEx['exam_reference'] : (!empty($assocLabExamPdf['exam_reference']) ? $assocLabExamPdf['exam_reference'] : ('GSA-FM-T' . rand(10, 99) . '-F'))));
 
                     $assocExhibitNo = $dbAssocExamPdf ? $dbAssocExamPdf->exhibit_number : (!empty($docketAssocExamPdf['exhibit_number']) ? $docketAssocExamPdf['exhibit_number'] : (!empty($firstAssocEx['exhibit_number']) ? $firstAssocEx['exhibit_number'] : (!empty($assocLabExamPdf['exhibit_number']) ? $assocLabExamPdf['exhibit_number'] : 'N/A')));
 
@@ -2607,6 +2600,54 @@
                         <tr>
                             <td class="pdf-label-cell">Location Found:</td>
                             <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $case->wpn_location_found ?: ($docketData['weapon']['location_found'] ?? 'N/A') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            @endif
+
+            <!-- SEIZED AMMUNITION DETAILS RECORD -->
+            @php
+                $pdfMainAmmo = $case->ammunition_details ?: ($docketData['ammunition_details'] ?? ($docketData['seizures'][0]['ammunition_details'] ?? null));
+                if (is_string($pdfMainAmmo)) {
+                    $pdfMainAmmo = json_decode($pdfMainAmmo, true) ?: [];
+                }
+            @endphp
+            @if(!empty($pdfMainAmmo) && is_array($pdfMainAmmo) && array_filter($pdfMainAmmo))
+            <div class="pt-2 avoid-break">
+                <div class="text-[10.5px] font-mono-code font-extrabold text-slate-900 uppercase pb-1 flex items-center justify-between">
+                    <span>SEIZED AMMUNITION DETAILS RECORD</span>
+                    <span class="text-[9px] font-mono-code font-black text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">AMMUNITION LOG</span>
+                </div>
+                <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
+                    <tbody>
+                        <tr>
+                            <td class="pdf-label-cell w-1/5">Cartridge Appearance:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900 w-3/10">{{ $pdfMainAmmo['cartridge_appearance'] ?? 'N/A' }}</td>
+                            <td class="pdf-label-cell w-1/5">Projectile / Bullet Type:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900 w-3/10">{{ $pdfMainAmmo['projectile_bullet_type'] ?? 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Case Material:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $pdfMainAmmo['cartridge_case_material'] ?? 'N/A' }}</td>
+                            <td class="pdf-label-cell">Colour / Markings:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $pdfMainAmmo['colour_markings'] ?? 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Condition:</td>
+                            <td class="pdf-value-cell font-bold text-emerald-800">{{ $pdfMainAmmo['condition'] ?? 'N/A' }} {{ !empty($pdfMainAmmo['other_condition']) ? "({$pdfMainAmmo['other_condition']})" : '' }}</td>
+                            <td class="pdf-label-cell">Packaging Type:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $pdfMainAmmo['packaging_type'] ?? 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Seal / Tamper Condition:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $pdfMainAmmo['seal_tamper_evident_condition'] ?? ($pdfMainAmmo['seal_condition'] ?? 'N/A') }}</td>
+                            <td class="pdf-label-cell">Package / Ref Number:</td>
+                            <td class="pdf-value-cell font-mono-code font-extrabold text-amber-900">{{ $pdfMainAmmo['package_reference_number'] ?? 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Condition When Received:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $pdfMainAmmo['condition_when_received'] ?? 'N/A' }}</td>
                         </tr>
                     </tbody>
                 </table>

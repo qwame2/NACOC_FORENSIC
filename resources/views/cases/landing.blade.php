@@ -291,6 +291,7 @@
                                     <th class="py-3.5 px-4 font-extrabold">Suspect</th>
                                     <th class="py-3.5 px-4 font-extrabold">Location</th>
                                     <th class="py-3.5 px-4 font-extrabold">Registered Date</th>
+                                    <th class="py-3.5 px-4 font-extrabold text-center">Case Stat</th>
                                     <th class="py-3.5 px-4 font-extrabold text-center">Status</th>
                                     <th class="py-3.5 px-4 font-extrabold text-right">Action</th>
                                 </tr>
@@ -492,9 +493,27 @@
                                                 <div class="text-slate-700 font-mono-code">{{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}</div>
                                                 <div class="text-[10px] text-slate-400 font-mono-code">{{ $case->created_at ? $case->created_at->format('H:i:s T') : '12:00:00 UTC' }}</div>
                                             </td>
+                                            @php
+                                                $cStatLanding = $case->case_status ?? 'Under Investigation';
+                                                $cStatBadgeCls = match($cStatLanding) {
+                                                    'Under Investigation'         => 'bg-amber-50 text-amber-800 border-amber-300',
+                                                    'On Remand'                   => 'bg-purple-50 text-purple-800 border-purple-300',
+                                                    'On Bail'                     => 'bg-indigo-50 text-indigo-800 border-indigo-300',
+                                                    'In Court'                    => 'bg-blue-50 text-blue-800 border-blue-300',
+                                                    'Verdict Passed — Imprisoned' => 'bg-rose-50 text-rose-800 border-rose-300',
+                                                    'Verdict Passed — Acquitted'  => 'bg-emerald-50 text-emerald-800 border-emerald-300',
+                                                    'Case Dismissed'              => 'bg-slate-100 text-slate-700 border-slate-300',
+                                                    'Case Closed'                 => 'bg-slate-800 text-slate-100 border-slate-700',
+                                                    default                       => 'bg-amber-50 text-amber-800 border-amber-300',
+                                                };
+                                            @endphp
+                                            <td class="py-4 px-4 text-center whitespace-nowrap">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border {{ $cStatBadgeCls }}">
+                                                    {{ $cStatLanding }}
+                                                </span>
+                                            </td>
                                             <td class="py-4 px-4 text-center whitespace-nowrap">
                                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold {{ $statusBadge['bg'] }}">
-                                                    <span class="w-1.5 h-1.5 rounded-full {{ $statusBadge['dot'] }} mr-1.5"></span>
                                                     {{ $statusBadge['label'] }}
                                                 </span>
                                             </td>
@@ -550,7 +569,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="py-8 text-center text-slate-500 font-mono-code text-xs">
+                                        <td colspan="8" class="py-8 text-center text-slate-500 font-mono-code text-xs">
                                             No forensic case dockets found in database.
                                         </td>
                                     </tr>
@@ -797,7 +816,7 @@
 
                 let html = '';
                 if (cases.length === 0) {
-                    html = `<tr><td colspan="7" class="py-8 text-center text-slate-500 font-mono-code text-xs">No forensic case dockets found in database.</td></tr>`;
+                    html = `<tr><td colspan="8" class="py-8 text-center text-slate-500 font-mono-code text-xs">No forensic case dockets found in database.</td></tr>`;
                 } else {
                     cases.forEach(c => {
                         const status = c.status || 'Active Investigation';
@@ -815,31 +834,16 @@
 
                         let statusBadgeHtml = '';
                         if (isApproved) {
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>${status}</span>`;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">${status}</span>`;
                         } else if (isLab) {
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>${status}</span>`;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">${status}</span>`;
                         } else {
                             // Use the server-computed workflow fields (added by CaseController::index())
                             // These are derived from getWorkflowUnits() + actual unit_progress COMPLETED count.
-                            let totalU     = c.workflow_total     ?? null;
-                            let compCount  = c.workflow_completed ?? null;
+                            let totalU     = c.workflow_total     ?? 1;
+                            let compCount  = c.workflow_completed ?? 0;
 
-                            if (totalU === null || compCount === null) {
-                                // Fallback: derive from docket_data.unit_progress directly
-                                let uProg = {};
-                                if (c.docket_data) {
-                                    let dData = (typeof c.docket_data === 'string')
-                                        ? ((() => { try { return JSON.parse(c.docket_data); } catch(e) { return {}; } })())
-                                        : c.docket_data;
-                                    uProg = dData.unit_progress || {};
-                                }
-                                // Use whatever units are recorded in unit_progress as the source of truth
-                                const progKeys = Object.keys(uProg);
-                                totalU    = progKeys.length || 1;
-                                compCount = progKeys.filter(k => uProg[k] && String(uProg[k].status || '').toUpperCase() === 'COMPLETED').length;
-                            }
-
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5"></span>Multi-Unit (${compCount}/${totalU})</span>`;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Multi-Unit (${compCount}/${totalU})</span>`;
                         }
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data.full_name : 'Unnamed Suspect');
@@ -964,6 +968,19 @@
                                 <div class="text-slate-700 font-mono-code">${createdDate}</div>
                                 <div class="text-[10px] text-slate-400 font-mono-code">${createdTime}</div>
                             </td>
+                            ${(() => {
+                                const cStatVal = c.case_status || 'Under Investigation';
+                                let cStatCls = 'bg-amber-50 text-amber-800 border-amber-300';
+                                if (cStatVal === 'On Remand') cStatCls = 'bg-purple-50 text-purple-800 border-purple-300';
+                                else if (cStatVal === 'On Bail') cStatCls = 'bg-indigo-50 text-indigo-800 border-indigo-300';
+                                else if (cStatVal === 'In Court') cStatCls = 'bg-blue-50 text-blue-800 border-blue-300';
+                                else if (cStatVal === 'Verdict Passed — Imprisoned') cStatCls = 'bg-rose-50 text-rose-800 border-rose-300';
+                                else if (cStatVal === 'Verdict Passed — Acquitted') cStatCls = 'bg-emerald-50 text-emerald-800 border-emerald-300';
+                                else if (cStatVal === 'Case Dismissed') cStatCls = 'bg-slate-100 text-slate-700 border-slate-300';
+                                else if (cStatVal === 'Case Closed') cStatCls = 'bg-slate-800 text-slate-100 border-slate-700';
+
+                                return `<td class="py-4 px-4 text-center whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cStatCls}">${cStatVal}</span></td>`;
+                            })()}
                             <td class="py-4 px-4 text-center whitespace-nowrap">${statusBadgeHtml}</td>
                             <td class="py-4 px-4 text-right whitespace-nowrap">
                                 <div class="relative inline-block text-left case-action-dropdown-wrapper">

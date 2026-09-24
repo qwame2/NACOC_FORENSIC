@@ -9,7 +9,9 @@ class CaseSuspect extends Model
 {
     use HasFactory;
 
-    protected $table = 'case_suspects';
+    protected $attributes = [
+        'suspect_disposition' => 'Active — Under Investigation',
+    ];
 
     protected $fillable = [
         'multiple_suspect_case_id',
@@ -48,6 +50,11 @@ class CaseSuspect extends Model
         'mugshot_left',
         'mugshot_right',
         'extra_mugshots',
+        'case_status',
+        'suspect_disposition',
+        'disposition_reason',
+        'disposition_updated_at',
+        'disposition_updated_by',
     ];
 
     protected $casts = [

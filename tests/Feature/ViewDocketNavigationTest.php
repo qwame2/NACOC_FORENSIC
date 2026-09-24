@@ -116,4 +116,132 @@ class ViewDocketNavigationTest extends TestCase
         $response->assertSee('DIGITAL &amp; PHYSICAL FORENSICS UNIT', false);
         $response->assertSee('from=Digital+%26+Physical+Forensics');
     }
+
+    #[Test]
+    public function suspect_without_drug_exhibit_does_not_show_lab_pending_section()
+    {
+        $labOfficer = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $case = ForensicCase::create([
+            'case_number' => 'CAS-MULTI-999',
+            'title' => 'Multi Suspect Case',
+            'unit_name' => 'Lab Analysis',
+            'commanding_officer' => 'Dr. Eric Mensah',
+            'submitting_officer' => 'Insp. Field Officer',
+            'suspect_name' => 'Suspect Drug Owner',
+            'exhibit_category' => 'Drugs',
+            'seizure_name_drug' => 'Cocaine',
+            'status' => 'Pending Approval',
+            'docket_data' => [
+                'suspects' => [
+                    [
+                        'id' => 'S1',
+                        'suspect_name' => 'Suspect Drug Owner',
+                        'association_role' => 'Primary Suspect',
+                    ],
+                    [
+                        'id' => 'S2',
+                        'suspect_name' => 'Suspect No Drugs',
+                        'association_role' => 'Associate Suspect',
+                    ]
+                ],
+                'seizures' => [
+                    [
+                        'exhibit_category' => 'Drugs',
+                        'seizure_name_drug' => 'Cocaine',
+                        'associated_person' => 'Suspect Drug Owner',
+                        'seizure_quantity' => 10,
+                        'seizure_unit' => 'Kilograms (kg)',
+                    ],
+                    [
+                        'exhibit_category' => 'Weapons & Ammunition',
+                        'seizure_name' => 'Pistol',
+                        'associated_person' => 'Suspect No Drugs',
+                        'seizure_quantity' => 1,
+                    ]
+                ]
+            ]
+        ]);
+
+        // Access review page for Suspect No Drugs who is not linked to any drug exhibits
+        $response = $this->actingAs($labOfficer)->get("/cases/{$case->case_number}/review?from=Lab+Analysis&suspect=Suspect+No+Drugs");
+        $response->assertStatus(200);
+
+        // Should see section5NoDrugExhibitNotice and should NOT see LAB PENDING inside section5FormContainer
+        $response->assertSee('No Drug Exhibit Linked');
+        $response->assertSee('The selected suspect (<strong>Suspect No Drugs</strong>) is not linked to any drug exhibits', false);
+        $response->assertSee('id="section5FormContainer" class="space-y-6 hidden"', false);
+    }
+
+    #[Test]
+    public function selecting_suspect_without_drug_exhibit_renders_empty_lab_exhibit_select_with_zero_options()
+    {
+        $labOfficer = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $case = ForensicCase::create([
+            'case_number' => 'CAS-MULTI-888',
+            'title' => 'Multi Suspect Exhibit Mapping Test',
+            'unit_name' => 'Lab Analysis',
+            'commanding_officer' => 'Dr. Eric Mensah',
+            'submitting_officer' => 'Insp. Field Officer',
+            'suspect_name' => 'Eric',
+            'exhibit_category' => 'Drugs',
+            'seizure_name_drug' => 'Heroin',
+            'status' => 'Pending Approval',
+            'docket_data' => [
+                'suspects' => [
+                    [
+                        'id' => 'S1',
+                        'suspect_name' => 'Eric',
+                        'association_role' => 'Primary Suspect',
+                    ],
+                    [
+                        'id' => 'S2',
+                        'suspect_name' => 'Linda',
+                        'association_role' => 'Associate Suspect',
+                    ]
+                ],
+                'seizures' => [
+                    [
+                        'exhibit_category' => 'Drugs',
+                        'seizure_name_drug' => 'Heroin',
+                        'associated_person' => 'Eric',
+                        'seizure_quantity' => 5,
+                        'seizure_unit' => 'Kilograms (kg)',
+                    ],
+                    [
+                        'exhibit_category' => 'Weapons & Ammunition',
+                        'seizure_name' => 'Pistol',
+                        'associated_person' => 'Linda',
+                        'seizure_quantity' => 1,
+                    ]
+                ]
+            ]
+        ]);
+
+        // 1. When Eric (who has Heroin) is selected:
+        $respEric = $this->actingAs($labOfficer)->get("/cases/{$case->case_number}/review?from=Lab+Analysis&suspect=Eric");
+        $respEric->assertStatus(200);
+        $respEric->assertSee('data-name="Heroin"', false);
+
+        // 2. When Linda (who has NO drug exhibit) is selected:
+        $respLinda = $this->actingAs($labOfficer)->get("/cases/{$case->case_number}/review?from=Lab+Analysis&suspect=Linda");
+        $respLinda->assertStatus(200);
+
+        // Linda must NEVER see Eric's Heroin exhibit in the labExhibitSelect dropdown
+        $respLinda->assertDontSee('data-name="Heroin"', false);
+        $respLinda->assertSee('0 Drug Exhibits Linked');
+
+        // Verify labExhibitSelect is rendered disabled without option elements
+        $respLinda->assertSee('<select', false);
+        $respLinda->assertSee('id="labExhibitSelect"', false);
+        $respLinda->assertSee('disabled', false);
+    }
 }
+
