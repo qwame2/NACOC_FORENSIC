@@ -98,9 +98,36 @@ Route::middleware(['auth'])->group(function () {
         return view('cases.create');
     })->name('cases.create');
 
-    Route::get('/arrest-person', function () {
+    Route::get('/arrest-person', function (\Illuminate\Http\Request $request) {
+        $authUser = auth()->user();
+        $unit = $request->query('unit') ?? $request->query('from') ?? ($authUser ? $authUser->unit : session('user_unit'));
+        if (!$unit || str_contains(strtolower($unit), 'crime') || str_contains(strtolower($unit), 'field')) {
+            return view('Crime_Scene_Support.head.CrimeSceneCreate');
+        } elseif (str_contains(strtolower($unit), 'lab')) {
+            return view('Lab_Analysis.create');
+        } elseif (str_contains(strtolower($unit), 'evidence')) {
+            return view('Evidence_Management.create');
+        } elseif (str_contains(strtolower($unit), 'digital') || str_contains(strtolower($unit), 'physical')) {
+            return view('Digital_Forensics.create');
+        }
         return view('cases.create');
     })->name('arrest_person');
+
+    Route::get('/Crime_Scene_Support/create', function () {
+        return view('Crime_Scene_Support.head.CrimeSceneCreate');
+    })->name('crime_scene.create');
+
+    Route::get('/Crime_Scene_Support/head/CrimeSceneCreate', function () {
+        return view('Crime_Scene_Support.head.CrimeSceneCreate');
+    });
+
+    Route::get('/Crime_Scene_Support/head/create', function () {
+        return view('Crime_Scene_Support.head.CrimeSceneCreate');
+    });
+
+    Route::get('/Crime_Scene_Support/arrest-person', function () {
+        return view('Crime_Scene_Support.head.CrimeSceneCreate');
+    });
 
     Route::get('/cargo-parcel-interception', function () {
         return view('Crime_Scene_Support.staff.events.cargo_parcel_interception');
@@ -144,7 +171,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('/Crime_Scene_Support/staff/arrest-person', function () {
-        return view('cases.create');
+        return view('Crime_Scene_Support.head.CrimeSceneCreate');
     });
 
     Route::get('/Crime_Scene_Support', function () {
@@ -195,14 +222,18 @@ Route::middleware(['auth'])->group(function () {
         return view('Lab_Analysis.examination', compact('case'));
     });
 
-    Route::get('/lab-analysis/add-case', function () {
-        return view('Lab_Analysis.examination');
-    });
+    Route::get('/Lab_Analysis/create', function () {
+        return view('Lab_Analysis.create');
+    })->name('lab_analysis.create');
 
     // EVIDENCE MANAGEMENT UNIT DEDICATED ROUTES
     Route::get('/Evidence_Management', function () {
         return view('Evidence_Management.evidence_management');
     });
+
+    Route::get('/Evidence_Management/create', function () {
+        return view('Evidence_Management.create');
+    })->name('evidence_management.create');
 
     Route::get('/Evidence_Management/head', function () {
         return view('Evidence_Management.evidence_management');
@@ -220,6 +251,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Digital_Forensics', function () {
         return view('Digital_Forensics.digital_forensics');
     });
+
+    Route::get('/Digital_Forensics/create', function () {
+        return view('Digital_Forensics.create');
+    })->name('digital_forensics.create');
 
     Route::get('/Digital_Forensics/head', function () {
         return view('Digital_Forensics.digital_forensics');

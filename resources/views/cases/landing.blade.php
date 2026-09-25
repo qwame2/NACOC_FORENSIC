@@ -143,15 +143,29 @@
                                     $landingUnitContext = 'Crime Scene Support';
                                 }
                             }
+
+                            if (str_contains(strtolower($landingUnitContext), 'lab')) {
+                                $addCaseUrl = url('/Lab_Analysis/create');
+                                $addCaseBtnLabel = 'Add Lab Analysis Case';
+                            } elseif (str_contains(strtolower($landingUnitContext), 'evidence')) {
+                                $addCaseUrl = url('/Evidence_Management/create');
+                                $addCaseBtnLabel = 'Lodge New Exhibit Case';
+                            } elseif (str_contains(strtolower($landingUnitContext), 'digital') || str_contains(strtolower($landingUnitContext), 'physical')) {
+                                $addCaseUrl = url('/Digital_Forensics/create');
+                                $addCaseBtnLabel = 'Intake Digital Evidence Case';
+                            } else {
+                                $addCaseUrl = url('/Crime_Scene_Support/create');
+                                $addCaseBtnLabel = 'Add New Case File';
+                            }
                         @endphp
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
                                 <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">
-                                    {{ $isLabLanding ? 'LAB ANALYSIS DIRECTORATE' : 'FIELD COMMAND' }}
+                                    {{ strtoupper($landingUnitContext) }} DIRECTORATE
                                 </span>
                             </div>
                             <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                                {{ $isLabLanding ? 'Lab Analysis Case Directory & Docket Registry' : 'Forensic Case Directory & Docket Registry' }}
+                                {{ $landingUnitContext }} Case Directory &amp; Docket Registry
                             </h2>
                             <p class="text-xs sm:text-sm font-semibold text-slate-700 max-w-3xl leading-relaxed">
                                 Centralized law enforcement repository for logging, searching, and managing narcotic seizures, suspect records, and physical forensic exhibits with full chain-of-custody compliance.
@@ -161,11 +175,11 @@
                         <!-- CTA BUTTONS -->
                         <div class="flex items-center gap-3 shrink-0 pt-2 lg:pt-0">
                             <a 
-                                href="{{ $isLabLanding ? url('/Lab_Analysis/examination') : url('/arrest-person') }}" 
+                                href="{{ $addCaseUrl }}" 
                                 class="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none"
                             >
                                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                <span>{{ $isLabLanding ? 'Add Lab Examination Case' : 'Add New Case File' }}</span>
+                                <span>{{ $addCaseBtnLabel }}</span>
                             </a>
                         </div>
                     </div>
@@ -843,7 +857,7 @@
                             let totalU     = c.workflow_total     ?? 1;
                             let compCount  = c.workflow_completed ?? 0;
 
-                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Multi-Unit (${compCount}/${totalU})</span>`;
+                            statusBadgeHtml = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-white text-slate-900 border border-slate-300">Multi-Unit (${compCount}/${totalU})</span>`;
                         }
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data.full_name : 'Unnamed Suspect');

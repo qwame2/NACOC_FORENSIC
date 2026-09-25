@@ -22,7 +22,9 @@
 
         $activeSuspectHasSavedResult = false;
         if (isset($case) && !empty($case->id)) {
-            $dbExamExists = \App\Models\LaboratoryExaminationResult::where('case_id', $case->id)->exists();
+            $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
+                $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+            })->exists();
             $dDataCheck = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
             $docketExamSaved = !empty($dDataCheck['lab_examination']['has_saved']);
             if ($dbExamExists || $docketExamSaved) {
@@ -572,7 +574,7 @@
                                                     </div>
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Children / Dependents:</span>
-                                                        <strong class="text-slate-800">{{ $sDependents ?: 'No Children' }}</strong>
+                                                        <strong class="text-slate-800">{{ $sDependents ?: 'N/A' }}</strong>
                                                     </div>
                                                 </div>
                                             </div>

@@ -986,8 +986,8 @@
                                             $genderLabel = 'Other / Non-Binary';
                                             $genderBadgeClass = 'bg-purple-100 text-purple-700';
                                         } elseif ($curGender === 'unspecified') {
-                                            $genderVal = 'Unspecified';
-                                            $genderLabel = 'Unspecified';
+                                            $genderVal = 'N/A';
+                                            $genderLabel = 'N/A';
                                             $genderBadgeClass = 'bg-slate-100 text-slate-600';
                                         } elseif (empty($curGender)) {
                                             $genderVal = '';
@@ -1025,8 +1025,8 @@
                                                 <button type="button" onclick="selectEditGender('Other', 'Other / Non-Binary', '', 'bg-purple-100 text-purple-700', event)" class="w-full text-left p-2 text-xs font-bold text-slate-800 hover:bg-purple-50 rounded-xl flex items-center space-x-2 transition-colors cursor-pointer">
                                                     <span>Other / Non-Binary</span>
                                                 </button>
-                                                <button type="button" onclick="selectEditGender('Unspecified', 'Unspecified', '', 'bg-slate-100 text-slate-600', event)" class="w-full text-left p-2 text-xs font-bold text-slate-800 hover:bg-slate-100 rounded-xl flex items-center space-x-2 transition-colors cursor-pointer">
-                                                    <span>Unspecified</span>
+                                                <button type="button" onclick="selectEditGender('N/A', 'N/A', '', 'bg-slate-100 text-slate-600', event)" class="w-full text-left p-2 text-xs font-bold text-slate-800 hover:bg-slate-100 rounded-xl flex items-center space-x-2 transition-colors cursor-pointer">
+                                                    <span>N/A</span>
                                                 </button>
                                             </div>
                                         @endif
@@ -3467,7 +3467,7 @@
         s.partner_info = s.spouse_info;
         s.children_count = document.getElementById('input_children_count')?.value || '0';
         s.has_children = parseInt(s.children_count) > 0;
-        s.dependents = parseInt(s.children_count) > 0 ? (s.children_count + ' Kids') : 'No Children';
+        s.dependents = parseInt(s.children_count) > 0 ? (s.children_count + ' Kids') : 'N/A';
         s.spouse_summary = s.spouse_name ? (`Spouse: ${s.spouse_name}` + (s.spouse_phone ? ` (${s.spouse_phone})` : '') + (s.spouse_info ? ` - ${s.spouse_info}` : '')) : 'N/A';
         s.holding_facility = document.getElementById('input_holding_facility')?.value || '';
         s.offense_description = document.getElementById('input_offense_description')?.value || '';
@@ -3660,7 +3660,7 @@
         } else if (g.includes('other') || g.includes('binary')) {
             val = 'Other'; symbol = ''; label = 'Other / Non-Binary'; badgeClass = 'bg-purple-100 text-purple-700';
         } else if (g === 'unspecified') {
-            val = 'Unspecified'; symbol = ''; label = 'Unspecified'; badgeClass = 'bg-slate-100 text-slate-600';
+            val = 'N/A'; symbol = ''; label = 'N/A'; badgeClass = 'bg-slate-100 text-slate-600';
         } else if (!g) {
             val = ''; symbol = ''; label = 'Select Gender...'; badgeClass = 'bg-slate-100 text-slate-600';
         }

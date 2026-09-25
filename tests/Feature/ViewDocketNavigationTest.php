@@ -170,10 +170,9 @@ class ViewDocketNavigationTest extends TestCase
         $response = $this->actingAs($labOfficer)->get("/cases/{$case->case_number}/review?from=Lab+Analysis&suspect=Suspect+No+Drugs");
         $response->assertStatus(200);
 
-        // Should see section5NoDrugExhibitNotice and should NOT see LAB PENDING inside section5FormContainer
-        $response->assertSee('No Drug Exhibit Linked');
-        $response->assertSee('The selected suspect (<strong>Suspect No Drugs</strong>) is not linked to any drug exhibits', false);
-        $response->assertSee('id="section5FormContainer" class="space-y-6 hidden"', false);
+        // Section 5 Examination Information is always displayed per Requirement 1
+        $response->assertSee('id="section5FormContainer"', false);
+        $response->assertDontSee('id="section5FormContainer" class="space-y-6 hidden"', false);
     }
 
     #[Test]

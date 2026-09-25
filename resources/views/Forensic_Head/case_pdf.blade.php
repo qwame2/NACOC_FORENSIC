@@ -1029,7 +1029,7 @@
                 $sPartnerN= $sItem['partner_name'] ?? ($sNum == 1 ? $case->partner_name : null);
                 $sPartnerP= $sItem['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone : null);
                 $sPartnerI= $sItem['partner_info'] ?? ($sNum == 1 ? $case->partner_info : null);
-                $sDependents = $sItem['dependents'] ?? ($sNum == 1 ? ($case->dependents ?? ($docketData['dependents'] ?? 'No Children')) : 'No Children');
+                $sDependents = $sItem['dependents'] ?? ($sNum == 1 ? ($case->dependents ?? ($docketData['dependents'] ?? 'N/A')) : 'N/A');
                 $sRaid    = $sItem['raid_location'] ?? ($sNum == 1 ? ($case->raid_location ?: ($case->location ?: 'N/A')) : 'N/A');
                 $sArrestDate = $sItem['date_of_arrest'] ?? ($sNum == 1 ? $case->arrest_date : null);
                 $sArrestTime = $sItem['time_of_arrest'] ?? ($sNum == 1 ? $case->arrest_time : null);
@@ -1259,8 +1259,13 @@
                 @if(!empty($primaryExhibitsFromDocket) && count($primaryExhibitsFromDocket) > 0)
                 <div class="space-y-2 avoid-break relative z-10 pt-1">
                     <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
-                        <span>PRIMARY &amp; CO-SUSPECT LOGGED EXHIBITS ({{ strtoupper($sName) }})</span>
-                        <span class="text-[10px] text-slate-900 font-bold bg-slate-200 px-2 py-0.5 rounded border border-slate-300">PRIMARY &amp; CO-SUSPECT DOSSIER</span>
+                        @php
+                            $hasCoSuspectsPdf = !empty($suspectsList) && count($suspectsList) > 1;
+                            $pdfExhibitTitle = $hasCoSuspectsPdf ? "PRIMARY & CO-SUSPECT LOGGED EXHIBITS (" . strtoupper($sName) . ")" : "PRIMARY LOGGED EXHIBITS (" . strtoupper($sName) . ")";
+                            $pdfDossierBadge = $hasCoSuspectsPdf ? "PRIMARY & CO-SUSPECT DOSSIER" : "PRIMARY EXHIBIT DOSSIER";
+                        @endphp
+                        <span>{{ $pdfExhibitTitle }}</span>
+                        <span class="text-[10px] text-slate-900 font-bold bg-slate-200 px-2 py-0.5 rounded border border-slate-300">{{ $pdfDossierBadge }}</span>
                     </div>
 
                     @foreach($primaryExhibitsFromDocket as $pIdx => $pEx)
@@ -1402,7 +1407,7 @@
                                     <td class="pdf-label-cell">Keys Received:</td>
                                     <td class="pdf-value-cell font-bold text-slate-900">{{ $case->veh_keys_recv ?: 'N/A' }} {{ $case->veh_key_count !== null ? "({$case->veh_key_count} keys)" : '' }}</td>
                                     <td class="pdf-label-cell">Existing Damage:</td>
-                                    <td class="pdf-value-cell font-bold text-slate-900">{{ $case->veh_damage ?: 'None' }}</td>
+                                    <td class="pdf-value-cell font-bold text-slate-900">{{ $case->veh_damage ?: 'N/A' }}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1444,7 +1449,7 @@
                         }
                     }
                 @endphp
-                @if(!empty($pdfAssocExhibits) && count($pdfAssocExhibits) > 0)
+                @if($isAssociate && !$isCoSuspect && !empty($pdfAssocExhibits) && count($pdfAssocExhibits) > 0)
                 <div class="space-y-2 avoid-break relative z-10 pt-1">
                     <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
                         <span>{{ $isCoSuspect ? 'CO-SUSPECT DOSSIER' : 'ASSOCIATE DOSSIER' }} (SUSPECT #{{ $sNum }}: {{ strtoupper($sName) }})</span>
@@ -1510,7 +1515,7 @@
                                 <td class="pdf-label-cell">Model / Type:</td>
                                 <td class="pdf-value-cell font-bold text-slate-900">{{ $aEx['weapon_model'] ?? 'N/A' }}</td>
                                 <td class="pdf-label-cell">Serial Number:</td>
-                                <td class="pdf-value-cell font-mono-code font-extrabold text-amber-900">{{ $aEx['weapon_serial_number'] ?? 'Defaced / Unspecified' }}</td>
+                                <td class="pdf-value-cell font-mono-code font-extrabold text-amber-900">{{ $aEx['weapon_serial_number'] ?? 'N/A' }}</td>
                             </tr>
                             @endif
                             @if(!empty($aEx['weapon_calibre']) || !empty($aEx['weapon_color']))
@@ -1903,14 +1908,14 @@
                             @if(count($pdfDetList) > 0)
                                 <span>{{ implode(', ', $pdfDetList) }}</span>
                             @else
-                                <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                                <span class="text-slate-700 font-bold italic text-xs">N/A</span>
                             @endif
                         </td>
                     </tr>
                     <tr>
                         <td class="pdf-label-cell">Findings Log Summary:</td>
                         <td class="pdf-value-cell font-medium text-slate-900 leading-relaxed" colspan="3">
-                            {{ $labFindings ?: 'No specific laboratory analytical findings logged yet.' }}
+                            {{ $labFindings ?: 'N/A' }}
                         </td>
                     </tr>
                 </tbody>
@@ -2112,7 +2117,7 @@
 
                     $assocMethodsVal = $dbAssocExamPdf ? $dbAssocExamPdf->test_methods : (!empty($docketAssocExamPdf['test_methods']) ? $docketAssocExamPdf['test_methods'] : (!empty($firstAssocEx['test_methods']) ? $firstAssocEx['test_methods'] : (!empty($assocLabExamPdf['test_methods']) ? $assocLabExamPdf['test_methods'] : 'N/A')));
 
-                    $assocFindingsVal = $dbAssocExamPdf ? $dbAssocExamPdf->findings : (!empty($docketAssocExamPdf['findings']) ? $docketAssocExamPdf['findings'] : (!empty($firstAssocEx['findings']) ? $firstAssocEx['findings'] : (!empty($firstAssocEx['notes']) ? $firstAssocEx['notes'] : (!empty($assocLabExamPdf['findings']) ? $assocLabExamPdf['findings'] : 'No specific laboratory analytical findings logged.'))));
+                    $assocFindingsVal = $dbAssocExamPdf ? $dbAssocExamPdf->findings : (!empty($docketAssocExamPdf['findings']) ? $docketAssocExamPdf['findings'] : (!empty($firstAssocEx['findings']) ? $firstAssocEx['findings'] : (!empty($firstAssocEx['notes']) ? $firstAssocEx['notes'] : (!empty($assocLabExamPdf['findings']) ? $assocLabExamPdf['findings'] : 'N/A'))));
 
                     $pResultAssocPdf = 'N/A';
                     $pPresenceAssocPdf = 'N/A';
@@ -2364,7 +2369,7 @@
                                     @if(count($detListAssocPdf) > 0)
                                         <span>{{ implode(', ', $detListAssocPdf) }}</span>
                                     @else
-                                        <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                                        <span class="text-slate-700 font-bold italic text-xs">N/A</span>
                                     @endif
                                 </td>
                             </tr>
@@ -2439,6 +2444,8 @@
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Item #</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Suspect / Owner</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Category</th>
+                            <th class="px-2 py-1.5 border-r border-slate-300 text-left">Type</th>
+                            <th class="px-2 py-1.5 border-r border-slate-300 text-left">Class</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Exhibit Description</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Quantity</th>
                             <th class="px-2 py-1.5 border-r border-slate-300 text-left">Weight / Unit</th>
@@ -2536,6 +2543,8 @@
                                     $badgeClass = 'text-slate-900 bg-slate-200 border-slate-300';
                                 }
                                 $exCat = $szItem['category'] ?? ($szItem['exhibit_category'] ?? 'General Exhibit');
+                                $exType = $szItem['exhibit_type'] ?? (strtolower($exCat) === 'drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit');
+                                $exClass = $szItem['drug_classification'] ?? 'N/A';
                                 $exName = $szItem['seizure_name'] ?? ($szItem['name'] ?? 'N/A');
                                 $exQty = $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A');
                                 $exWt = $szItem['seizure_weight'] ?? ($szItem['weight'] ?? null);
@@ -2552,6 +2561,8 @@
                                     </span>
                                 </td>
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code font-bold text-amber-900">{{ $exCat }}</td>
+                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-[9px] text-slate-800">{{ $exType }}</td>
+                                <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code font-bold text-[9px] text-purple-900">{{ $exClass }}</td>
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-black text-slate-950">{{ $exName }}</td>
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-slate-900">{{ $exQty }}</td>
                                 <td class="px-2 py-1.5 border-r border-slate-200 font-mono-code text-slate-900">

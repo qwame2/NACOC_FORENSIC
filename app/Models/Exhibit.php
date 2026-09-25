@@ -18,6 +18,8 @@ class Exhibit extends Model
         'suspect_id',
         'exhibit_number',
         'exhibit_category',
+        'exhibit_type',
+        'drug_classification',
         'commodity_name',
         'seizure_quantity',
         'seizure_packaging',

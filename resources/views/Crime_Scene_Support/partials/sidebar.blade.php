@@ -40,7 +40,20 @@
         : url('/Crime_Scene_Support/head');
     $headDashboardUrl = $headDashboardBase . ($isLabContext ? '?from=Lab+Analysis' : '?from=' . urlencode($sidebarUnit));
     $caseDirectoryUrl = url('/cases') . '?from=' . urlencode($sidebarUnit);
-    $newCaseUrl = $isLabContext ? url('/Lab_Analysis/examination') : url('/arrest-person');
+    
+    if (str_contains(strtolower($sidebarUnit), 'lab')) {
+        $newCaseUrl = url('/Lab_Analysis/create');
+        $newCaseLabel = 'Chemical Assay & Docket Intake';
+    } elseif (str_contains(strtolower($sidebarUnit), 'evidence')) {
+        $newCaseUrl = url('/Evidence_Management/create');
+        $newCaseLabel = 'Exhibit & Property Lodgement';
+    } elseif (str_contains(strtolower($sidebarUnit), 'digital') || str_contains(strtolower($sidebarUnit), 'physical')) {
+        $newCaseUrl = url('/Digital_Forensics/create');
+        $newCaseLabel = 'Digital Device & Media Intake';
+    } else {
+        $newCaseUrl = url('/Crime_Scene_Support/create');
+        $newCaseLabel = 'Arrest & Seizure (New Case)';
+    }
 @endphp
 <!-- LEFT UNIT COMMAND SIDEBAR (EXECUTIVE GRAY THEME WITH SHADOW) -->
 <aside class="w-64 bg-slate-100 text-slate-800 flex flex-col shrink-0 shadow-2xl select-none z-30 relative overflow-x-hidden font-sans">
@@ -71,8 +84,8 @@
                 
 
                 <!-- HEAD OVERVIEW -->
-                <a href="{{ $headDashboardUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || request()->is('Forensic_Head*')) && !request()->is('cases*') && !request()->is('Lab_Analysis*') && !request()->is('arrest-person*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || request()->is('Forensic_Head*')) && !request()->is('cases*') && !request()->is('Lab_Analysis*') && !request()->is('arrest-person*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                <a href="{{ $headDashboardUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || request()->is('Forensic_Head*')) && !request()->is('cases*') && !request()->is('Lab_Analysis*') && !request()->is('Crime_Scene_Support/create*') && !request()->is('arrest-person*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || request()->is('Forensic_Head*')) && !request()->is('cases*') && !request()->is('Lab_Analysis*') && !request()->is('Crime_Scene_Support/create*') && !request()->is('arrest-person*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     <span class="text-xs">Head Dashboard</span>
                 </a>
                 
@@ -82,7 +95,7 @@
                     <span class="text-xs">Case Directory</span>
                 </a>
 
-                               
+                                
                 
             </nav>
         </div>
@@ -91,9 +104,9 @@
         <div>
             <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-emerald-600 tracking-wider mb-2">Event Dockets</div>
             <nav class="space-y-1 text-xs font-semibold">
-                <a href="{{ $newCaseUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->is('arrest-person*') || request()->is('Lab_Analysis*') || request()->is('lab-analysis*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('arrest-person*') || request()->is('Lab_Analysis*') || request()->is('lab-analysis*') ? 'text-white' : 'text-red-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                    <span class="truncate">{{ $isLabContext ? 'Examination Log (Lab Case)' : 'Arrest & Seizure (New Case)' }}</span>
+                <a href="{{ $newCaseUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->is('Crime_Scene_Support/create*') || request()->is('Evidence_Management/create*') || request()->is('Digital_Forensics/create*') || request()->is('Lab_Analysis/create*') || request()->is('arrest-person*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Crime_Scene_Support/create*') || request()->is('Evidence_Management/create*') || request()->is('Digital_Forensics/create*') || request()->is('Lab_Analysis/create*') || request()->is('arrest-person*') ? 'text-white' : 'text-red-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                    <span class="truncate">{{ $newCaseLabel }}</span>
                 </a>
                 
                 <a href="{{ url('/Report') }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->is('Report*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">

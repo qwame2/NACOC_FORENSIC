@@ -38,7 +38,9 @@
 
             $dbExamExists = false;
             if (!empty($case->id)) {
-                $dbExamExists = \App\Models\LaboratoryExaminationResult::where('case_id', $case->id)->exists();
+                $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
+                    $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                })->exists();
             }
             $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
             $docketExamSaved = !empty($dData['lab_examination']['has_saved']);
@@ -782,9 +784,9 @@
                                             <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">⚧</span>
                                             <span>Other / Non-Binary</span>
                                         </button>
-                                        <button type="button" onclick="selectGender('Unspecified', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                        <button type="button" onclick="selectGender('N/A', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
                                             <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
-                                            <span>Unspecified</span>
+                                            <span>N/A</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1345,6 +1347,39 @@
                                                         class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
                                                     >
                                                         <option value="All Suspects">All Suspects (Joint Ownership)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <!-- EXHIBIT TYPE DROPDOWN -->
+                                            <div class="relative z-30">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Exhibit Type
+                                                </label>
+                                                <div class="relative">
+                                                    <select
+                                                        class="exhibit-type-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
+                                                    >
+                                                        <option value="">-- Select Type --</option>
+                                                        <option value="Drug Exhibit">Drug Exhibit</option>
+                                                        <option value="Non-Drug Exhibit">Non-Drug Exhibit</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <!-- DRUG CLASSIFICATION DROPDOWN -->
+                                            <div class="relative z-30">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Classify Drugs
+                                                </label>
+                                                <div class="relative">
+                                                    <select
+                                                        class="drug-classification-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
+                                                    >
+                                                        <option value="N/A">N/A</option>
+                                                        <option value="Class A">Class A</option>
+                                                        <option value="Class B">Class B</option>
+                                                        <option value="Class C">Class C</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -2729,7 +2764,7 @@
                         </div>
 
                         <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5: FORENSIC EXAMINATION & LABORATORY ANALYSIS -->
-                        <div id="labAnalysisExclusiveSections" class="{{ ($isLabAnalysis && !empty($isDrugCase)) ? '' : 'hidden' }} bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
+                        <div id="labAnalysisExclusiveSections" class="{{ $isLabAnalysis ? '' : 'hidden' }} bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
 
                             <!-- SECTION 5 MAIN CONTAINER HEADER -->
                             <div class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2752,7 +2787,6 @@
                             </div>
 
                             <!-- EXAMINATION INFORMATION CONTAINER (HIDDEN WHEN RESULT EXISTS FOR ACTIVE SUSPECT/EXHIBIT) -->
-                             @if($hasDrugExhibitLinkedToSuspect)
                             <div id="section5FormContainer" class="space-y-5 {{ $activeSuspectHasSavedResult ? 'hidden' : '' }}">
                             <!-- SUB-SECTION 5A: EXAMINATION INFORMATION -->
                             <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
@@ -2764,30 +2798,36 @@
                                 </div>
 
                                 <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 4 SEIZED COMMODITIES MANIFEST -->
-                                <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-2.5 shadow-2xs">
-                                    <div class="flex items-center justify-between">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-2">
-                                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                            <span>Select Seized Exhibit to Examine (Manifest Sync)</span>
-                                            <span class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                                            No exhibit saved yet
-                                        </span>
-                                    </div>
-                                    <div class="relative">
-                                        <select 
-                                            id="labExhibitSelect" 
-                                            name="lab_selected_exhibit_index" 
-                                            onchange="onLabExhibitSelected()" 
-                                            class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer"
-                                        >
-                                            <option value="">No exhibit saved yet</option>
-                                        </select>
+                                <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- DRUG TYPE SELECTOR -->
+                                        
+
+                                        <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                                <span class="flex items-center space-x-2">
+                                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                    <span>Select Seized Exhibit (Manifest Sync)</span>
+                                                    <span class="text-red-600 font-bold">*</span>
+                                                </span>
+                                                <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                    No exhibit saved yet
+                                                </span>
+                                            </label>
+                                            <select 
+                                                id="labExhibitSelect" 
+                                                name="lab_selected_exhibit_index" 
+                                                onchange="onLabExhibitSelected()" 
+                                                class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                            >
+                                                <option value="" selected>Select Seized Exhibit (Manifest Sync)...</option>
+                                            </select>
+                                        </div>
                                     </div>
                                     <p class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
                                         <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>Select an exhibit above to view its manifest details and process forensic examination separately.</span>
+                                        <span>Select a drug type and exhibit above to view its manifest details and process forensic examination separately.</span>
                                     </p>
                                 </div>
 
@@ -2940,7 +2980,6 @@
                                     </div>
                                 </div>
                             </div>
-                            @endif
 
                             <!-- SUB-SECTION 5B: PRESUMPTIVE TEST -->
                             <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
@@ -4010,9 +4049,9 @@
                                     <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">⚧</span>
                                     <span>Other / Non-Binary</span>
                                 </button>
-                                <button type="button" onclick="selectDynamicGender(this, 'Unspecified', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                <button type="button" onclick="selectDynamicGender(this, 'N/A', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
                                     <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
-                                    <span>Unspecified</span>
+                                    <span>N/A</span>
                                 </button>
                             </div>
                         </div>
@@ -4473,9 +4512,23 @@
             }
 
             // Mugshots for Suspect #1
-            const s1MugFront = document.getElementById('preview-front')?.src || null;
-            const s1MugLeft  = document.getElementById('preview-left-profile')?.src || null;
-            const s1MugRight = document.getElementById('preview-right-profile')?.src || null;
+            const cleanMugshotSrc = (src) => {
+                if (!src) return null;
+                const s = src.trim();
+                if (!s || s === window.location.href || s.endsWith('#') || s.includes('blank')) return null;
+                if (s.startsWith('data:image/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/storage') || s.startsWith('blob:')) {
+                    return s;
+                }
+                return null;
+            };
+
+            const s1MugFrontRaw = document.getElementById('preview-front')?.src || document.getElementById('hidden-front')?.value || null;
+            const s1MugLeftRaw  = document.getElementById('preview-left-profile')?.src || document.getElementById('hidden-left-profile')?.value || null;
+            const s1MugRightRaw = document.getElementById('preview-right-profile')?.src || document.getElementById('hidden-right-profile')?.value || null;
+
+            const s1MugFront = cleanMugshotSrc(s1MugFrontRaw);
+            const s1MugLeft  = cleanMugshotSrc(s1MugLeftRaw);
+            const s1MugRight = cleanMugshotSrc(s1MugRightRaw);
 
             if (s1Name) {
                 suspects.push({
@@ -4510,11 +4563,14 @@
                     offense:          s1Offense,
                     raid_location:    s1Raid,
                     date_of_arrest:   s1Date,
+                    arrest_date:      s1Date,
                     time_of_arrest:   s1Time,
+                    arrest_time:      s1Time,
                     holding_facility: s1Facility,
-                    mugshot_front:    s1MugFront && s1MugFront.startsWith('data:') ? s1MugFront : null,
-                    mugshot_left:     s1MugLeft && s1MugLeft.startsWith('data:') ? s1MugLeft : null,
-                    mugshot_right:    s1MugRight && s1MugRight.startsWith('data:') ? s1MugRight : null,
+                    facility:         s1Facility,
+                    mugshot_front:    s1MugFront,
+                    mugshot_left:     s1MugLeft,
+                    mugshot_right:    s1MugRight,
                 });
             }
 
@@ -4551,13 +4607,17 @@
                 const sPartnerI = getField('partner_info');
                 const sRaid     = getField('raid_location');
                 const sOffense  = getField('offense');
-                const sDate     = getField('date_of_arrest');
-                const sTime     = getField('time_of_arrest');
-                const sFacility = getField('holding_facility');
+                const sDate     = getField('date_of_arrest') || getField('arrest_date');
+                const sTime     = getField('time_of_arrest') || getField('arrest_time');
+                const sFacility = getField('holding_facility') || getField('facility');
 
-                const sMugFront = document.getElementById(`preview-front-${suspectNum}`)?.src || null;
-                const sMugLeft  = document.getElementById(`preview-left-profile-${suspectNum}`)?.src || null;
-                const sMugRight = document.getElementById(`preview-right-profile-${suspectNum}`)?.src || null;
+                const sMugFrontRaw = card.querySelector('img[id^="preview-front"]')?.src || card.querySelector('input[id^="hidden-front"]')?.value || document.getElementById(`preview-front-${suspectNum}`)?.src || null;
+                const sMugLeftRaw  = card.querySelector('img[id^="preview-left"]')?.src  || card.querySelector('input[id^="hidden-left"]')?.value  || document.getElementById(`preview-left-profile-${suspectNum}`)?.src || null;
+                const sMugRightRaw = card.querySelector('img[id^="preview-right"]')?.src || card.querySelector('input[id^="hidden-right"]')?.value || document.getElementById(`preview-right-profile-${suspectNum}`)?.src || null;
+
+                const sMugFront = cleanMugshotSrc(sMugFrontRaw);
+                const sMugLeft  = cleanMugshotSrc(sMugLeftRaw);
+                const sMugRight = cleanMugshotSrc(sMugRightRaw);
 
                 let sSpouseSummary = 'N/A';
                 if (sMarital === 'Married') {
@@ -4601,11 +4661,14 @@
                         offense:          sOffense,
                         raid_location:    sRaid,
                         date_of_arrest:   sDate,
+                        arrest_date:      sDate,
                         time_of_arrest:   sTime,
+                        arrest_time:      sTime,
                         holding_facility: sFacility,
-                        mugshot_front:    sMugFront && sMugFront.startsWith('data:') ? sMugFront : null,
-                        mugshot_left:     sMugLeft && sMugLeft.startsWith('data:') ? sMugLeft : null,
-                        mugshot_right:    sMugRight && sMugRight.startsWith('data:') ? sMugRight : null,
+                        facility:         sFacility,
+                        mugshot_front:    sMugFront,
+                        mugshot_left:     sMugLeft,
+                        mugshot_right:    sMugRight,
                     });
                     suspectNum++;
                 }
@@ -4891,10 +4954,10 @@
             const maritalVal = document.getElementById('newArrestedMarital')?.value;
             const maritalLabel = document.getElementById('selectedMaritalLabel')?.innerText;
             let marital = (maritalVal && maritalVal.trim() !== '') ? maritalVal : ((maritalLabel && maritalLabel !== 'Select Marital Status...' && maritalLabel !== 'Select Marital / Relationship Status') ? maritalLabel : '');
-            if (marital === 'Unspecified') { marital = ''; }
+            if (marital === 'N/A') { marital = ''; }
             const hasChildren = document.getElementById('hasChildrenCheckbox')?.checked;
             const childrenVal = hasChildren ? (document.getElementById('newArrestedChildren')?.value || '1') : '0';
-            const childrenText = hasChildren ? `${childrenVal} Kids` : 'No Children';
+            const childrenText = hasChildren ? `${childrenVal} Kids` : 'N/A';
             const offense = document.getElementById('newArrestedOffense')?.value || 'Under Investigation';
             const raidLocation = document.getElementById('newArrestedRaidLocation')?.value || 'Unspecified Scene';
             const facility = document.getElementById('newArrestedFacility')?.value || 'NACOC Holding Cell';
@@ -4934,23 +4997,31 @@
             const allSuspectsForExhibits = collectAllSuspects();
             const jointSuspectNamesLabel = allSuspectsForExhibits.map(s => s.suspect_name).filter(Boolean).join(', ');
 
-            seizureBlocks.forEach((block, idx) => {
-                const itemNum = idx + 1;
-                const exhibitCat = block.querySelector('#newSeizureCategory')?.value || 'General Contraband';
+            if (hasSeizures) {
+                seizureBlocks.forEach((block, idx) => {
+                    const itemNum = idx + 1;
+                    const rawExhibitCat = block.querySelector('#newSeizureCategory')?.value || '';
 
-                const drugName = block.querySelector('#drugSelect')?.value || block.querySelector('#newSeizureNameDrug')?.value || '';
-                const wpnName = block.querySelector('#weaponSelect')?.value || block.querySelector('#newSeizureNameWeapon')?.value || '';
-                const currName = block.querySelector('#newSeizureNameCurrency')?.value || '';
-                const ammoName = block.querySelector('#ammoSearchInput')?.value || block.querySelector('#newSeizureNameAmmo')?.value || '';
-                const devName = block.querySelector('#deviceSearchInput')?.value || block.querySelector('#newSeizureNameDevice')?.value || '';
-                const genName = block.querySelector('#newSeizureName')?.value || '';
+                    const drugName = block.querySelector('#drugSelect')?.value || block.querySelector('#newSeizureNameDrug')?.value || '';
+                    const wpnName = block.querySelector('#weaponSelect')?.value || block.querySelector('#newSeizureNameWeapon')?.value || '';
+                    const currName = block.querySelector('#newSeizureNameCurrency')?.value || '';
+                    const ammoName = block.querySelector('#ammoSearchInput')?.value || block.querySelector('#newSeizureNameAmmo')?.value || '';
+                    const devName = block.querySelector('#deviceSearchInput')?.value || block.querySelector('#newSeizureNameDevice')?.value || '';
+                    const genName = block.querySelector('#newSeizureName')?.value || '';
 
-                const seizureName = drugName || wpnName || currName || ammoName || devName || genName || '';
-                const seizureQty = block.querySelector('#newSeizureQuantity')?.value || '';
-                const seizurePackaging = block.querySelector('#pkgSearchInput')?.value || block.querySelector('#newSeizurePackaging')?.value || '';
-                const seizureWeight = block.querySelector('#newSeizureWeight')?.value || '';
-                const seizureUnit = block.querySelector('#unitSearchInput')?.value || block.querySelector('#newSeizureUnit')?.value || '';
-                const seizureValue = block.querySelector('#newSeizureValue')?.value || '';
+                    const seizureName = drugName || wpnName || currName || ammoName || devName || genName || '';
+                    const seizureQty = block.querySelector('#newSeizureQuantity')?.value || '';
+                    const seizurePackaging = block.querySelector('#pkgSearchInput')?.value || block.querySelector('#newSeizurePackaging')?.value || '';
+                    const seizureWeight = block.querySelector('#newSeizureWeight')?.value || '';
+                    const seizureUnit = block.querySelector('#unitSearchInput')?.value || block.querySelector('#newSeizureUnit')?.value || '';
+                    const seizureValue = block.querySelector('#newSeizureValue')?.value || '';
+
+                    // Skip empty seizure block if no category, name, or metric was entered
+                    if (!rawExhibitCat && !seizureName && !seizureQty && !seizureWeight && !seizureValue) {
+                        return;
+                    }
+
+                    const exhibitCat = rawExhibitCat || (drugName ? 'Drugs' : (wpnName ? 'Weapons' : (currName ? 'Money' : (devName ? 'Electronic Devices' : (ammoName ? 'Ammunition' : 'General Contraband')))));
                 const seizureConcealment = block.querySelector('#newSeizureConcealment')?.value || '';
                 const seizureDate = block.querySelector('#newSeizureDate')?.value || '';
                 const seizureTime = block.querySelector('#newSeizureTime')?.value || '';
@@ -5036,6 +5107,8 @@
                 seizuresList.push({
                     item_number: itemNum,
                     exhibit_category: exhibitCat,
+                    exhibit_type: block.querySelector('.exhibit-type-select')?.value || (exhibitCat === 'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit'),
+                    drug_classification: block.querySelector('.drug-classification-select')?.value || 'N/A',
                     associated_person: finalAssocPerson,
                     suspect_ownership: selectedAssocPerson || 'All Suspects',
                     seizure_name: seizureName,
@@ -5064,6 +5137,41 @@
                     dev_colour: devColour,
                     dev_marks: devMarks,
                     ammunition_details: ammoDetailsObj,
+                    veh_make: vehMake,
+                    veh_model: vehModel,
+                    veh_type: vehType,
+                    veh_year: vehYear,
+                    veh_colour: vehColour,
+                    veh_reg_no: vehRegNo,
+                    veh_vin: vehVIN,
+                    veh_engine_no: vehEngineNo,
+                    veh_country_reg: vehCountryReg,
+                    veh_owner: vehOwner,
+                    veh_driver: vehDriver,
+                    vehicle_make_model: vehMake ? (vehModel ? (vehMake + ' ' + vehModel) : vehMake) : vehModel,
+                    vehicle_type: vehType,
+                    vehicle_year: vehYear,
+                    vehicle_color_type: vehColour,
+                    vehicle_registration: vehRegNo,
+                    vehicle_chassis_vin: vehVIN,
+                    engine_number: vehEngineNo,
+                    country_of_registration: vehCountryReg,
+                    vehicle_owner: vehOwner,
+                    vehicle_driver: vehDriver,
+                    wpn_model: wpnModel,
+                    wpn_serial_no: wpnSerialNo,
+                    wpn_calibre: wpnCalibre,
+                    wpn_colour: wpnColour,
+                    wpn_size: wpnSize,
+                    wpn_marks: wpnMarks,
+                    wpn_location_found: wpnLocationFound,
+                    wpn_loaded_status: wpnLoadedStatus,
+                    wpn_condition: wpnCondition,
+                    weapon_model: wpnModel,
+                    weapon_serial: wpnSerialNo,
+                    weapon_calibre: wpnCalibre,
+                    weapon_colour: wpnColour,
+                    weapon_size: wpnSize,
                     veh: {
                         make: vehMake, model: vehModel, type: vehType, year: vehYear, colour: vehColour,
                         reg_no: vehRegNo, vin: vehVIN, engine_no: vehEngineNo, country_reg: vehCountryReg,
@@ -5088,6 +5196,7 @@
                 if (!itemDesc) itemDesc = `Item #${itemNum} (${exhibitCat})`;
                 seizureSummaryParts.push(`Item #${itemNum} [${exhibitCat}]: ${itemDesc}`);
             });
+            }
 
             let seizureSummary = 'No contraband logged';
             let seizureHtml = '';
@@ -5102,8 +5211,8 @@
             const mugshotLeft = document.getElementById('preview-left-profile')?.src || null;
             const mugshotRight = document.getElementById('preview-right-profile')?.src || null;
 
-            const exhibitCat = primarySeizure.exhibit_category || 'General Contraband';
-            const valuationText = seizureSummary !== 'No contraband logged' ? seizureSummary : (primarySeizure.seizure_value || 'N/A');
+            const exhibitCat = (hasSeizures && primarySeizure.exhibit_category) ? primarySeizure.exhibit_category : null;
+            const valuationText = (hasSeizures && primarySeizure.seizure_value && primarySeizure.seizure_value.trim() !== '') ? primarySeizure.seizure_value.trim() : 'N/A';
 
             // Vehicle Specs (Primary Seizure)
             const vehMake = primarySeizure.veh?.make || '';
@@ -5248,7 +5357,7 @@
 
                     // Seizures (Commodities)
                     has_seizures: hasSeizures,
-                    exhibit_category: primarySeizure.exhibit_category || 'General Contraband',
+                    exhibit_category: (hasSeizures && primarySeizure.exhibit_category) ? primarySeizure.exhibit_category : null,
                     seizure_name: primarySeizure.seizure_name || null,
                     seizure_name_drug: primarySeizure.seizure_name_drug || null,
                     seizure_name_weapon: primarySeizure.seizure_name_weapon || null,
@@ -5274,6 +5383,8 @@
                     seizure_location: primarySeizure.seizure_location || null,
                     seizure_officer: primarySeizure.seizure_officer || null,
                     seizure_reason: primarySeizure.seizure_reason || null,
+                    exhibit_type: primarySeizure.exhibit_type || null,
+                    drug_classification: primarySeizure.drug_classification || null,
                     valuation: valuationText,
                     exhibits_summary: seizureSummary,
                     docket_data: docketPayload,
@@ -6432,6 +6543,15 @@
             if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
             updateCommodityField(val, root);
+
+            const exhTypeSelect = root.querySelector('.exhibit-type-select');
+            const drugClsSelect = root.querySelector('.drug-classification-select');
+            if (exhTypeSelect && !exhTypeSelect.value) {
+                exhTypeSelect.value = (val === 'Drugs') ? 'Drug Exhibit' : 'Non-Drug Exhibit';
+            }
+            if (drugClsSelect && val !== 'Drugs' && (!drugClsSelect.value || drugClsSelect.value === 'N/A')) {
+                drugClsSelect.value = 'N/A';
+            }
 
             // Focus corresponding commodity input so user can immediately type new data
             setTimeout(() => {
@@ -7623,6 +7743,8 @@
             const badgeEl = document.getElementById('labExhibitCountBadge');
             const descInput = document.getElementById('labExhibitDescriptionInput');
             const labSec = document.getElementById('labAnalysisExclusiveSections');
+            const drugTypeSel = document.getElementById('labDrugTypeSelect');
+            const selectedDrugType = drugTypeSel ? (drugTypeSel.value || '').toLowerCase().trim() : '';
             if (!selectEl) return;
 
             const isLabUser = (typeof isLabAnalysis !== 'undefined' && isLabAnalysis) || {{ $isLabAnalysis ? 'true' : 'false' }};
@@ -7633,15 +7755,17 @@
 
             const currentVal = selectEl.value;
             selectEl.innerHTML = '';
+            selectEl.removeAttribute('disabled');
 
             if (!hasSeizures || !isContainerVisible) {
                 const opt = document.createElement('option');
                 opt.value = '';
-                opt.innerText = 'No exhibit saved yet';
+                opt.innerText = selectedDrugType ? 'No matching seized exhibit found' : 'No exhibit saved yet';
                 selectEl.appendChild(opt);
-                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                selectEl.setAttribute('disabled', 'disabled');
+                if (badgeEl) badgeEl.innerText = selectedDrugType ? 'No matching exhibit' : 'No exhibit saved yet';
                 if (descInput) {
-                    descInput.value = 'No exhibit saved yet';
+                    descInput.value = selectedDrugType ? 'No matching exhibit found' : 'No exhibit saved yet';
                 }
                 if (labSec && !isLabUser) labSec.classList.add('hidden');
                 else if (labSec) labSec.classList.remove('hidden');
@@ -7654,11 +7778,12 @@
             if (blocks.length === 0) {
                 const opt = document.createElement('option');
                 opt.value = '';
-                opt.innerText = 'No exhibit saved yet';
+                opt.innerText = selectedDrugType ? 'No matching seized exhibit found' : 'No exhibit saved yet';
                 selectEl.appendChild(opt);
-                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                selectEl.setAttribute('disabled', 'disabled');
+                if (badgeEl) badgeEl.innerText = selectedDrugType ? 'No matching exhibit' : 'No exhibit saved yet';
                 if (descInput) {
-                    descInput.value = 'No exhibit saved yet';
+                    descInput.value = selectedDrugType ? 'No matching exhibit found' : 'No exhibit saved yet';
                 }
                 if (labSec && !isLabUser) labSec.classList.add('hidden');
                 else if (labSec) labSec.classList.remove('hidden');
@@ -7687,14 +7812,23 @@
                 const weight = block.querySelector('#newSeizureWeight')?.value || '';
                 const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value || '';
                 const reason = block.querySelector('#newSeizureReason')?.value || '';
+                const owner = block.querySelector('#newSeizureAssociatedPerson')?.value || '';
 
                 let displayName = name;
                 if (!displayName || displayName.trim() === '') {
-                    displayName = (cat && cat.trim() !== '') ? cat : `Exhibit #${itemNum}`;
+                    displayName = (cat && cat.trim() !== '') ? cat : (name || 'Exhibit');
                 }
 
-                let optionText = `Exhibit #${itemNum}: ${displayName}`;
+                if (selectedDrugType) {
+                    const fullText = (displayName + ' ' + cat).toLowerCase();
+                    if (!fullText.includes(selectedDrugType)) {
+                        return;
+                    }
+                }
+
+                let optionText = displayName;
                 if (qty || weight) optionText += ` — ${qty ? qty + ' ' + (pkg || 'qty') : ''}${weight ? ' ' + weight + ' ' + (unit || '') : ''}`;
+                if (owner) optionText += ` (Owner: ${owner})`;
 
                 const opt = document.createElement('option');
                 opt.value = itemNum.toString();
@@ -7706,6 +7840,7 @@
                 opt.setAttribute('data-weight', weight);
                 opt.setAttribute('data-unit', unit);
                 opt.setAttribute('data-reason', reason);
+                opt.setAttribute('data-owner', owner);
                 selectEl.appendChild(opt);
                 validExhibitsCount++;
             });
@@ -7714,17 +7849,23 @@
                 selectEl.innerHTML = '';
                 const opt = document.createElement('option');
                 opt.value = '';
-                opt.innerText = 'No exhibit saved yet';
+                opt.innerText = selectedDrugType ? 'No matching seized exhibit found' : 'No exhibit saved yet';
                 selectEl.appendChild(opt);
-                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                selectEl.setAttribute('disabled', 'disabled');
+                if (badgeEl) badgeEl.innerText = selectedDrugType ? 'No matching exhibit' : 'No exhibit saved yet';
                 if (descInput) {
-                    descInput.value = 'No exhibit saved yet';
+                    descInput.value = selectedDrugType ? 'No matching exhibit found' : 'No exhibit saved yet';
                 }
                 if (labSec && !isLabUser) labSec.classList.add('hidden');
                 else if (labSec) labSec.classList.remove('hidden');
                 onLabExhibitSelected();
                 return;
             }
+
+            const placeholderOpt = document.createElement('option');
+            placeholderOpt.value = '';
+            placeholderOpt.innerText = 'Select Seized Exhibit (Manifest Sync)...';
+            selectEl.insertBefore(placeholderOpt, selectEl.firstChild);
 
             if (labSec) {
                 if (isLabUser) {
@@ -7741,10 +7882,14 @@
             if (currentVal && selectEl.querySelector(`option[value="${currentVal}"]`)) {
                 selectEl.value = currentVal;
             } else {
-                selectEl.value = selectEl.options[0] ? selectEl.options[0].value : '';
+                selectEl.value = '';
             }
 
             onLabExhibitSelected();
+        }
+
+        function onDrugTypeChangeCreate(selectEl) {
+            syncSection4ExhibitsToLabSection();
         }
 
         function onLabExhibitSelected() {
@@ -7756,9 +7901,9 @@
             if (!selectEl) return;
             const selectedOption = selectEl.options[selectEl.selectedIndex];
             
-            if (!selectedOption || !selectEl.value || selectEl.value === '' || selectedOption.text === 'No exhibit saved yet') {
+            if (!selectedOption || !selectEl.value || selectEl.value === '' || selectedOption.text === 'No exhibit saved yet' || selectedOption.text.startsWith('Select Seized Exhibit')) {
                 if (descInput) {
-                    descInput.value = 'No exhibit saved yet';
+                    descInput.value = 'No exhibit selected';
                 }
                 return;
             }
@@ -7781,7 +7926,7 @@
             const unit = selectedOption.getAttribute('data-unit') || '';
             const reason = selectedOption.getAttribute('data-reason') || '';
 
-            let formattedDesc = `Exhibit #${idx}: ${name}`;
+            let formattedDesc = name || cat || 'Exhibit';
             if (cat) formattedDesc += ` | Category: ${cat}`;
             if (qty || pkg) formattedDesc += ` | Quantity/Packaging: ${qty} ${pkg}`.trim();
             if (weight || unit) formattedDesc += ` | Net Weight/Metrics: ${weight} ${unit}`.trim();

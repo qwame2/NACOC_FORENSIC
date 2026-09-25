@@ -669,13 +669,11 @@
                                                     }
                                                     if ($cCountHead === 0) $cCountHead = 1;
                                                 @endphp
-                                                <span class="status-badge bg-emerald-100 text-emerald-800 border-emerald-300" id="status-{{ $case->case_number }}">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5 inline-block"></span>
+                                                <span class="status-badge bg-white text-slate-900 border border-slate-300" id="status-{{ $case->case_number }}">
                                                     Multi-Unit ({{ $cCountHead }}/{{ $tCountHead }})
                                                 </span>
                                             @else
-                                                <span class="status-badge status-await" id="status-{{ $case->case_number }}">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
+                                                <span class="status-badge bg-white text-slate-900 border border-slate-300" id="status-{{ $case->case_number }}">
                                                     {{ $case->status }}
                                                 </span>
                                             @endif

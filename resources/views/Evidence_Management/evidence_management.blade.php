@@ -60,9 +60,14 @@
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Evidence Vault &amp; Custody Headquarters</h1>
                         <p class="text-xs text-slate-500 mt-1">Commanding Officer: <strong class="text-slate-800">{{ $headName }}</strong> &bull; Total Cases in Vault: <strong class="text-amber-700 font-mono-code">{{ count($cases) }}</strong></p>
                     </div>
-                    <a href="{{ url('/cases') }}?from=Evidence+Management" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
-                        View Master Vault Directory
-                    </a>
+                    <div class="flex items-center gap-3">
+                        <a href="{{ url('/Evidence_Management/create') }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
+                            + Lodge New Exhibit Case
+                        </a>
+                        <a href="{{ url('/cases') }}?from=Evidence+Management" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl shadow-xs border border-slate-200 transition-colors">
+                            View Master Vault Directory
+                        </a>
+                    </div>
                 </div>
 
                 <!-- KPIS -->

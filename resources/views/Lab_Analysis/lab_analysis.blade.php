@@ -60,9 +60,14 @@
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Laboratory Analysis Headquarters</h1>
                         <p class="text-xs text-slate-500 mt-1">Head of Lab: <strong class="text-slate-800">{{ $headName }}</strong> &bull; Total Laboratory Dockets: <strong class="text-emerald-700 font-mono-code">{{ count($cases) }}</strong></p>
                     </div>
-                    <a href="{{ url('/cases') }}?from=Lab+Analysis" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
-                        View Master Lab Directory
-                    </a>
+                    <div class="flex items-center gap-3">
+                        <a href="{{ url('/Lab_Analysis/create') }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
+                            + Add Lab Analysis Case
+                        </a>
+                        <a href="{{ url('/cases') }}?from=Lab+Analysis" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl shadow-xs border border-slate-200 transition-colors">
+                            View Master Lab Directory
+                        </a>
+                    </div>
                 </div>
 
                 <!-- KPIS -->

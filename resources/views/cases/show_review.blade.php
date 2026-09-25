@@ -1,4 +1,49 @@
 @php
+    $extractAllPhotosHelper = function($item) {
+        $found = [];
+        if (empty($item)) return $found;
+        if (is_object($item)) $item = (array)$item;
+        if (!is_array($item)) return $found;
+
+        $keys = ['photos', 'exhibit_photos', 'evidence_photos', 'photo', 'exhibit_photo', 'photo_url', 'image', 'image_path', 'image_url', 'file_path', 'attachment', 'attachments'];
+        foreach ($keys as $k) {
+            if (!empty($item[$k])) {
+                $val = $item[$k];
+                if (is_string($val)) {
+                    $val = trim($val);
+                    if (str_starts_with($val, '[') || str_starts_with($val, '{')) {
+                        $dec = json_decode($val, true);
+                        if (is_array($dec)) {
+                            foreach ($dec as $p) { if (!empty($p) && is_string($p)) $found[] = $p; }
+                        } else {
+                            $found[] = $val;
+                        }
+                    } else {
+                        $found[] = $val;
+                    }
+                } elseif (is_array($val)) {
+                    foreach ($val as $p) { if (!empty($p) && is_string($p)) $found[] = $p; }
+                }
+            }
+        }
+        return array_values(array_unique($found));
+    };
+
+    $formatPhotoUrlHelper = function($p) {
+        if (empty($p)) return '';
+        $p = trim((string)$p);
+        if (str_starts_with($p, 'http://') || str_starts_with($p, 'https://') || str_starts_with($p, 'data:')) {
+            return $p;
+        }
+        $clean = ltrim($p, '/');
+        if (str_starts_with($clean, 'storage/')) {
+            return asset($clean);
+        }
+        if (file_exists(public_path($clean))) {
+            return asset($clean);
+        }
+        return asset('storage/' . $clean);
+    };
     $authUser = auth()->user();
     $activeSuspectHasSavedResult = false;
     $activeSuspectHasDrugExhibit = false;
@@ -39,7 +84,23 @@
         $activeUnitContext = $case->unit_name ?? 'Crime Scene Support';
     }
 
-    $isLabContext = str_contains(strtolower($activeUnitContext), 'lab');
+    $reqFrom = request('from') ?? request('unit') ?? request('source') ?? request()->query('from') ?? request()->query('unit') ?? request()->query('source');
+    $isEvidenceManagement = (
+        str_contains(strtolower($activeUnitContext ?? ''), 'evidence') ||
+        str_contains(strtolower($reqFrom ?? ''), 'evidence') ||
+        request()->is('Evidence_Management*') ||
+        request()->is('evidence-management*')
+    );
+
+    $isLabContext = str_contains(strtolower($activeUnitContext), 'lab') && !$isEvidenceManagement;
+    $isLabAnalysis = isset($isLabAnalysis) ? $isLabAnalysis : (
+        !$isEvidenceManagement && (
+            $isLabContext ||
+            request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*') ||
+            (request()->query('unit') && str_contains(strtolower(request()->query('unit')), 'lab')) ||
+            (request()->query('from') && str_contains(strtolower(request()->query('from')), 'lab'))
+        )
+    );
     $isCrimeSceneContext = (str_contains(strtolower($activeUnitContext), 'crime') || str_contains(strtolower($reqFrom ?? ''), 'crime') || request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*')) && !$isHof && !$isLabContext;
     $isForensicHeadContext = $isHof || request()->is('Forensic_Head*') || session('user_role') === 'HOF' || str_contains(strtolower($reqFrom ?? ''), 'forensic');
     
@@ -356,7 +417,7 @@
     // CLASSIFY EXHIBIT CATEGORIES FOR ACTIVE SUSPECT
     $drugKeywords = ['drug', 'narcotic', 'opioid', 'cocaine', 'heroin', 'cannabis', 'marijuana', 'weed', 'hashish', 'hash', 'meth', 'methamphetamine', 'fentanyl', 'tramadol', 'codeine', 'morphine', 'opium', 'amphetamine', 'mdma', 'ecstasy'];
     $electronicKeywords = ['phone', 'mobile', 'laptop', 'computer', 'tablet', 'hard drive', 'hdd', 'ssd', 'usb', 'flash drive', 'memory card', 'sd card', 'electronic', 'digital', 'device'];
-    $crimeSceneKeywords = ['weapon', 'pistol', 'rifle', 'firearm', 'gun', 'ammunition', 'ammo', 'bullet', 'currency', 'cash', 'money', 'usd', 'ghs', 'gold', 'precious metal'];
+    $crimeSceneKeywords = ['weapon', 'pistol', 'rifle', 'firearm', 'gun', 'ammunition', 'ammo', 'bullet', 'currency', 'cash', 'money', 'usd', 'ghs', 'gold', 'precious metal', 'vehicle', 'vehicles', 'veh', 'car', 'truck', 'automobile', 'vessel', 'zonda'];
 
     $suspectHasDrug = false;
     $suspectHasElectronic = false;
@@ -390,7 +451,7 @@
             }
         }
 
-        if (str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'currency') || str_contains($cat, 'gold') || str_contains($cat, 'precious')) {
+        if (str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'currency') || str_contains($cat, 'gold') || str_contains($cat, 'precious') || str_contains($cat, 'vehicle') || str_contains($cat, 'vessel') || str_contains($cat, 'car') || str_contains($cat, 'truck')) {
             $suspectHasCrimeScene = true;
         }
         foreach ($crimeSceneKeywords as $kw) {
@@ -406,8 +467,8 @@
 
     // DYNAMIC UNITS LIST DETERMINATION FOR SELECTED SUSPECT (Operational Units only; HOF is the Final Step card)
     if (empty($suspectLinkedExhibits) || !$hasAnySpecialistUnit) {
-        // Requirement 2: Only suspect biodata saved or no exhibit category specified yet -> display all 4 operational units in Pending
-        $unitsList = ['Crime Scene Support', 'Lab Analysis', 'Digital & Physical Forensics', 'Evidence Management'];
+        $caseUnits = $case->getWorkflowUnits();
+        $unitsList = !empty($caseUnits) ? $caseUnits : ['Crime Scene Support', 'Lab Analysis', 'Digital & Physical Forensics', 'Evidence Management'];
     } else {
         // Requirement 3: Determine units strictly from actual exhibit category saved for selected suspect
         $unitsList = [];
@@ -447,8 +508,11 @@
     if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($case->id)) {
         $suspectLabExamSaved = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
             $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
-        })->where('has_saved', true)->exists();
+        })->where(function($q) {
+            $q->where('has_saved', true)->orWhereNotNull('substance_identification')->orWhereNotNull('test_methods');
+        })->exists();
     }
+
 
     // 3. Check lab_examinations_list strictly matching active suspect name
     if (!$suspectLabExamSaved && !empty($docketData['lab_examinations_list']) && is_array($docketData['lab_examinations_list'])) {
@@ -472,7 +536,21 @@
         }
     }
 
-    // 5. Check seizures linked to this suspect in docket_data
+    // 5. Check primary lab_examination in docket_data
+    if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($docketData['lab_examination'])) {
+        $hasLabData = !empty($docketData['lab_examination']['has_saved'])
+            || !empty($docketData['lab_examination']['substance_identification'])
+            || !empty($docketData['lab_examination']['confirmatory_result'])
+            || !empty($docketData['lab_examination']['presumptive_result']);
+        if ($hasLabData) {
+            $pOwner = strtolower(trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''));
+            if (empty($pOwner) || $pOwner === 'primary suspect' || $pOwner === $activeSuspectNameLower || str_contains($pOwner, $activeSuspectNameLower) || str_contains($activeSuspectNameLower, $pOwner)) {
+                $suspectLabExamSaved = true;
+            }
+        }
+    }
+
+    // 6. Check seizures linked to this suspect in docket_data
     if (!$suspectLabExamSaved) {
         foreach ($suspectLinkedExhibits as $szItem) {
             if (!empty($szItem['has_saved_lab'])) {
@@ -481,6 +559,13 @@
             }
         }
     }
+
+    // Check if ANY suspect in the case has a completed lab examination
+    $caseHasAnySavedLab = $suspectLabExamSaved
+        || !empty($docketData['lab_examination']['has_saved'])
+        || !empty($docketData['lab_examination']['substance_identification'])
+        || !empty($docketData['lab_examination']['confirmatory_result'])
+        || !empty($docketData['lab_examination']['presumptive_result']);
 
     // BUILD UNIT PROGRESS STATUSES STRICTLY FOR SELECTED SUSPECT
     $unitProgress = [];
@@ -495,13 +580,13 @@
             ];
         } else {
             if ($uKey === 'Lab Analysis') {
-                // Rule 1: Lab Analysis completed ONLY if Examination Info is actually saved for this suspect's linked drug exhibit
-                if ($suspectHasDrug && $suspectLabExamSaved) {
+                // Rule 1: Lab Analysis completed if Examination Info is saved for drug exhibit OR suspect has non-drug exhibit and case lab exam is saved
+                if (($suspectHasDrug && $suspectLabExamSaved) || (!$suspectHasDrug && $caseHasAnySavedLab) || (!$suspectHasDrug && !empty($docketData['seizures']))) {
                     $unitProgress[$uKey] = [
                         'status'     => 'COMPLETED',
                         'officer'    => $docketData['lab_examination']['analyst'] ?? ($case->submitting_officer ?? 'Lab Analyst'),
                         'updated_at' => optional($case->updated_at)->toDateTimeString(),
-                        'notes'      => 'Laboratory Examination Information completed and signed off',
+                        'notes'      => $suspectHasDrug ? 'Laboratory Examination Information completed and signed off' : 'Firearm / Non-Drug Exhibit Technical Specifications Logged',
                     ];
                 } else {
                     $unitProgress[$uKey] = [
@@ -827,6 +912,7 @@
     $savedLabDateCompleted = $labDateCompleted;
     $savedLabPresumptive = $labPresumptive;
     $savedLabConfirmatory = $labConfirmatory;
+    $savedLabExhibitDesc = !empty($labExam['exhibit_description']) ? $labExam['exhibit_description'] : (!empty($labExam['description']) ? $labExam['description'] : ($initialLabDesc ?? ''));
     $savedLabSampleDesc = $labSampleDesc;
     $savedLabSampleUnits = $labSampleUnits;
     $savedLabSampleGross = $labSampleGross;
@@ -839,6 +925,19 @@
     $savedLabSpecifications = $labSpecifications;
     $savedLabRemark = $labRemark;
     $savedLabFindings = $labFindings;
+
+    if (empty($savedLabExhibitNo) || $savedLabExhibitNo === 'N/A') {
+        $savedLabExhibitNo = !empty($labExhibitNo) ? $labExhibitNo : ($case->exhibit_number ?: 'EXH-01');
+    }
+    if (empty($savedLabDateReceived) || $savedLabDateReceived === 'N/A') {
+        $savedLabDateReceived = !empty($labDateReceived) ? $labDateReceived : date('Y-m-d');
+    }
+    if (empty($savedLabDateStarted) || $savedLabDateStarted === 'N/A') {
+        $savedLabDateStarted = !empty($labDateStarted) ? $labDateStarted : $savedLabDateReceived;
+    }
+    if (empty($savedLabDateCompleted) || $savedLabDateCompleted === 'N/A') {
+        $savedLabDateCompleted = !empty($labDateCompleted) ? $labDateCompleted : $savedLabDateStarted;
+    }
 
     $hasUnexaminedDrugExhibit = false;
     $firstPendingSeizure = null;
@@ -957,8 +1056,9 @@
     }
 
     if (isset($unitProgress['Lab Analysis'])) {
-        $activeSuspectLabStatus = ($suspectHasDrug && $suspectLabExamSaved) ? 'COMPLETED' : 'PENDING';
+        $activeSuspectLabStatus = (($suspectHasDrug && $suspectLabExamSaved) || (!$suspectHasDrug && $caseHasAnySavedLab) || (!$suspectHasDrug && !empty($docketData['seizures']))) ? 'COMPLETED' : 'PENDING';
         $unitProgress['Lab Analysis']['status'] = $activeSuspectLabStatus;
+
         if ($activeSuspectLabStatus === 'COMPLETED') {
             if (empty($unitProgress['Lab Analysis']['officer']) && !empty($labAnalyst)) {
                 $unitProgress['Lab Analysis']['officer'] = $labAnalyst;
@@ -1345,8 +1445,7 @@
                                         Declined
                                     </span>
                                 @else
-                                    <span class="status-badge status-await">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
+                                    <span class="status-badge bg-white text-slate-900 border border-slate-300">
                                         {{ $status }}
                                     </span>
                                 @endif
@@ -1366,6 +1465,12 @@
 
                     <!-- QUICK ACTIONS IN HERO -->
                     <div class="flex items-center gap-3 shrink-0">
+                        @if($isLabAnalysis && !$isEvidenceManagement)
+                        <button type="button" onclick="toggleLabFormSections()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer shadow-sm">
+                            <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 012.122-.363c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18"/></svg>
+                            <span class="toggleLabFormTextSpan">Hide Examination Section</span>
+                        </button>
+                        @endif
                         <a href="/cases/{{ $case->case_number }}/edit" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
                             <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                             <span>Edit Case &amp; Correct Mistakes</span>
@@ -1469,7 +1574,7 @@
                                         $iconBg      = '#059669'; $iconText = '#fff';
                                         $icon        = '✓';
                                         $badgeCls    = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-                                        $badgeLabel  = '✓ COMPLETED';
+                                        $badgeLabel  = 'COMPLETED';
                                         $numRing     = '#059669';
                                         $titleColor  = 'text-slate-900';
                                     } elseif ($isInProgress) {
@@ -1477,7 +1582,7 @@
                                         $iconBg      = '#d97706'; $iconText = '#fff';
                                         $icon        = '⏳';
                                         $badgeCls    = 'bg-amber-100 text-amber-800 border-amber-300';
-                                        $badgeLabel  = '⏳ IN PROGRESS';
+                                        $badgeLabel  = 'IN PROGRESS';
                                         $numRing     = '#d97706';
                                         $titleColor  = 'text-slate-900';
                                     } else {
@@ -1485,7 +1590,7 @@
                                         $iconBg      = '#cbd5e1'; $iconText = '#64748b';
                                         $icon        = '⭕';
                                         $badgeCls    = 'bg-slate-200 text-slate-700 border-slate-400 font-bold';
-                                        $badgeLabel  = '⭕ PENDING';
+                                        $badgeLabel  = 'PENDING';
                                         $numRing     = '#94a3b8';
                                         $titleColor  = 'text-slate-800';
                                     }
@@ -1594,11 +1699,11 @@
                                         </span>
                                         @if($hofDone)
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold font-mono-code uppercase border bg-emerald-900/60 text-emerald-300 border-emerald-700">
-                                                🔓 UNLOCKED
+                                                UNLOCKED
                                             </span>
                                         @else
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-black font-mono-code uppercase border bg-slate-200 text-slate-700 border-slate-400">
-                                                🔒 LOCKED
+                                                LOCKED
                                             </span>
                                         @endif
                                     </div>
@@ -1632,41 +1737,56 @@
                 </div>{{-- end px-6 py-5 --}}
 
                 <!-- CASE STATUS & CONTROLLER TOOLBAR -->
-                <div class="mx-6 mb-6 p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 font-sans shadow-2xs">
-                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-extrabold font-mono-code text-slate-700 uppercase tracking-wider shrink-0">CASE STATUS:</span>
+                <div class="mx-6 mb-6 p-4 sm:p-5 bg-white text-slate-900 rounded-2xl border-2 border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 font-sans relative overflow-hidden group">
+                    <!-- Subtle Ambient Glow -->
+                    <div class="absolute -right-12 -top-12 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none group-hover:bg-indigo-500/10 transition-all duration-700"></div>
+                    <div class="absolute -left-12 -bottom-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+                        <!-- STATUS LABEL & DROPDOWN CONTAINER -->
+                        <div class="flex items-center gap-3 bg-slate-50 p-2 sm:px-3 sm:py-2 rounded-xl border border-slate-200 shadow-2xs">
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-[11px] font-black font-mono-code text-slate-600 uppercase tracking-wider shrink-0">CASE STATUS</span>
+                            </div>
+
                             @if($isCaseController)
-                                <select id="caseStatusSelect" onchange="updateCaseStatus(this.value)" class="px-3 py-1.5 bg-white border-2 border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-indigo-600 transition-all cursor-pointer shadow-2xs">
-                                    @foreach(['Under Investigation', 'On Remand', 'On Bail', 'In Court', 'Verdict Passed — Imprisoned', 'Verdict Passed — Acquitted', 'Case Dismissed', 'Case Closed'] as $stOpt)
-                                        <option value="{{ $stOpt }}" {{ $currentCaseStatus === $stOpt ? 'selected' : '' }}>{{ $stOpt }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="relative inline-block">
+                                    <select id="caseStatusSelect" onchange="updateCaseStatus(this.value)" class="appearance-none pl-3.5 pr-9 py-1.5 bg-white hover:bg-slate-50 text-slate-950 border border-slate-300 rounded-lg text-xs font-black font-mono-code uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-slate-400/40 focus:border-slate-400 transition-all cursor-pointer shadow-2xs">
+                                        @foreach(['Under Investigation', 'On Remand', 'On Bail', 'In Court', 'Verdict Passed — Imprisoned', 'Verdict Passed — Acquitted', 'Case Dismissed', 'Case Closed'] as $stOpt)
+                                            <option value="{{ $stOpt }}" class="bg-white text-slate-900 font-sans normal-case py-1" {{ $currentCaseStatus === $stOpt ? 'selected' : '' }}>{{ $stOpt }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-600">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                    </div>
+                                </div>
                             @else
-                                <span class="px-3 py-1 bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-extrabold shadow-2xs">
+                                <span class="px-3 py-1 bg-white text-slate-950 border border-slate-300 rounded-lg text-xs font-black font-mono-code uppercase tracking-wider shadow-2xs flex items-center">
                                     {{ $currentCaseStatus }}
                                 </span>
                             @endif
                         </div>
 
-                        <div class="flex items-center gap-2 text-xs text-slate-600">
-                            <span class="text-slate-400 font-bold">•</span>
-                            <span class="font-medium text-slate-500">Controller:</span>
-                            <span class="font-extrabold text-slate-900 font-mono-code px-2 py-0.5 bg-white border border-slate-200 rounded-md shadow-2xs">
-                                {{ $controllerUser->fullname ?? 'Unit Head' }} ({{ $controllerUser->unit ?? $case->unit_name }})
+                        <!-- CONTROLLER BADGE -->
+                        <div class="flex items-center gap-2 text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-slate-700">
+                            <svg class="w-4 h-4 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            <span class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Controller:</span>
+                            <span class="font-black text-slate-900 font-mono-code text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                                {{ $controllerUser->fullname ?? 'Unit Head' }} <span class="text-indigo-600 font-bold">({{ $controllerUser->unit ?? $case->unit_name }})</span>
                             </span>
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2 shrink-0">
+                    <!-- ACTION BUTTON / READ ONLY HANDOVER BANNER -->
+                    <div class="relative z-10 flex items-center gap-2 shrink-0">
                         @if($isCaseController)
-                            <button type="button" onclick="openHandoverModal()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer border-none">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-                                Hand Over Control
+                            <button type="button" onclick="openHandoverModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer border border-indigo-700">
+                                <svg class="w-4 h-4 text-indigo-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                Hand Over Case Control
                             </button>
                         @else
-                            <span class="text-[11px] text-slate-500 italic flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
-                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            <span class="text-[11px] text-slate-700 font-semibold italic flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs">
+                                <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                                 Read-only (Status Control locked to {{ $controllerUser->fullname ?? 'Controller' }})
                             </span>
                         @endif
@@ -1983,16 +2103,19 @@
                     $sPartnerN= $sItem['partner_name'] ?? ($sNum == 1 ? $case->partner_name : null);
                     $sPartnerP= $sItem['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone : null);
                     $sPartnerI= $sItem['partner_info'] ?? ($sNum == 1 ? $case->partner_info : null);
-                    $sDependents = $sItem['dependents'] ?? ($sNum == 1 ? ($case->dependents ?? ($docketData['dependents'] ?? 'No Children')) : 'No Children');
-                    $sRaid    = $sItem['raid_location'] ?? ($sNum == 1 ? ($case->raid_location ?: ($case->location ?: 'N/A')) : 'N/A');
-                    $sArrestDate = $sItem['date_of_arrest'] ?? ($sNum == 1 ? $case->arrest_date : null);
-                    $sArrestTime = $sItem['time_of_arrest'] ?? ($sNum == 1 ? $case->arrest_time : null);
-                    $sFacility   = $sItem['holding_facility'] ?? ($sNum == 1 ? ($case->holding_facility ?? 'N/A') : 'N/A');
-                    $sOffense    = $sItem['offense'] ?? ($sNum == 1 ? ($case->offense_description ?: ($case->description ?: 'N/A')) : 'N/A');
+                    $sDependents = $sItem['dependents'] ?? ($sNum == 1 ? ($case->dependents ?? ($docketData['dependents'] ?? 'N/A')) : 'N/A');
+                    $sRaid        = $sItem['raid_location'] ?? ($sItem['location'] ?? ($case->raid_location ?: ($case->location ?: ($docketData['raid_location'] ?? 'N/A'))));
+                    $sArrestDate  = $sItem['date_of_arrest'] ?? ($sItem['arrest_date'] ?? ($case->arrest_date ?? ($docketData['arrest_date'] ?? ($docketData['date_of_arrest'] ?? ($case->incident_date ? substr((string)$case->incident_date, 0, 10) : null)))));
+                    $sArrestTime  = $sItem['time_of_arrest'] ?? ($sItem['arrest_time'] ?? ($case->arrest_time ?? ($docketData['arrest_time'] ?? ($docketData['time_of_arrest'] ?? null))));
+                    $sFacility    = $sItem['holding_facility'] ?? ($sItem['facility'] ?? ($case->holding_facility ?? ($docketData['holding_facility'] ?? null)));
+                    if (empty($sFacility) || $sFacility === 'N/A') {
+                        $sFacility = !empty($case->holding_facility) ? $case->holding_facility : (!empty($docketData['holding_facility']) ? $docketData['holding_facility'] : 'NACOC Custody & Holding Facility');
+                    }
+                    $sOffense     = $sItem['offense'] ?? ($sItem['offense_description'] ?? ($case->offense_description ?: ($case->description ?: ($docketData['offense_description'] ?? 'N/A'))));
 
-                    $sFront = $sItem['mugshot_front'] ?? ($sNum == 1 ? $case->mugshot_front : null);
-                    $sLeft  = $sItem['mugshot_left']  ?? ($sNum == 1 ? $case->mugshot_left : null);
-                    $sRight = $sItem['mugshot_right'] ?? ($sNum == 1 ? $case->mugshot_right : null);
+                    $sFront = $sItem['mugshot_front'] ?? ($sItem['mugshots']['front'] ?? ($sItem['mugshots']['front-profile'] ?? ($sNum == 1 ? $case->mugshot_front : null)));
+                    $sLeft  = $sItem['mugshot_left']  ?? ($sItem['mugshots']['left']  ?? ($sItem['mugshots']['left-profile']  ?? ($sNum == 1 ? $case->mugshot_left  : null)));
+                    $sRight = $sItem['mugshot_right'] ?? ($sItem['mugshots']['right'] ?? ($sItem['mugshots']['right-profile'] ?? ($sNum == 1 ? $case->mugshot_right : null)));
                     $isAssociate = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect') || (!empty($sItem['role']) && strtolower($sItem['role']) !== 'primary suspect');
                     $isCoSuspect = $isAssociate && (
                         (!empty($sItem['association_role']) && (str_contains(strtolower($sItem['association_role']), 'co-suspect') || str_contains(strtolower($sItem['association_role']), 'co suspect')))
@@ -2147,7 +2270,7 @@
                                 @endif
                             </div>
                             <div class="text-xs text-emerald-900 font-medium leading-relaxed">
-                                <strong>Official Clearance Justification / Remark:</strong> "{{ $sItem['disposition_reason'] ?? 'No further investigative action required for this suspect.' }}"
+                                <strong>Official Clearance Justification / Remark:</strong> "{{ $sItem['disposition_reason'] ?? 'N/A' }}"
                             </div>
                             <div class="text-[10px] font-mono-code text-emerald-700 flex items-center justify-between pt-1 border-t border-emerald-200/60">
                                 <span>Authorized By: <strong>{{ $sItem['disposition_updated_by'] ?? ($controllerUser->fullname ?? 'Authorized Unit Head') }}</strong></span>
@@ -2289,6 +2412,7 @@
                                     $assocExhibits = $directEx;
                                 }
                             }
+
                         @endphp
 
                         @if(!empty($assocExhibits) && count($assocExhibits) > 0)
@@ -2332,7 +2456,11 @@
                                     </div>
                                     <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
                                         <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Estimated Valuation</div>
-                                        <div class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">{{ $aEx['seizure_value'] ?? ($aEx['value'] ?? 'N/A') }}</div>
+                                        @php
+                                            $rawValA = $aEx['seizure_value'] ?? ($aEx['value'] ?? null);
+                                            $cleanValA = (!empty($rawValA) && !str_contains($rawValA, 'Item #') && !str_contains($rawValA, "\n")) ? trim($rawValA) : 'N/A';
+                                        @endphp
+                                        <div class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">{{ $cleanValA }}</div>
                                     </div>
                                     @if(!empty($aEx['seizure_packaging']))
                                     <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
@@ -2343,10 +2471,126 @@
 
                                     @php
                                         $catLower = strtolower($aEx['category'] ?? ($aEx['exhibit_category'] ?? ''));
-                                        $nameLower = strtolower($aEx['seizure_name'] ?? ($aEx['name'] ?? ''));
+                                        $nameLower = strtolower($aEx['seizure_name'] ?? ($aEx['commodity_name'] ?? ($aEx['name'] ?? '')));
                                         $hasWeaponData = !empty($aEx['weapon_model']) || !empty($aEx['weapon_serial_number']) || !empty($aEx['weapon_calibre']) || !empty($aEx['weapon_loaded_status']) || !empty($aEx['weapon_condition_at_recovery']) || !empty($aEx['weapon_location_found']) || !empty($aEx['weapon_distinguishing_marks']);
                                         $isWeaponEx = str_contains($catLower, 'weapon') || str_contains($nameLower, 'ak-47') || str_contains($nameLower, 'pistol') || str_contains($nameLower, 'rifle') || str_contains($nameLower, 'shotgun') || str_contains($nameLower, 'firearm') || $hasWeaponData;
+
+                                        $hasVehicleData = !empty($aEx['veh_make']) || !empty($aEx['veh_model']) || !empty($aEx['veh_reg_no']) || !empty($aEx['veh_vin']) || !empty($aEx['veh_colour']) || !empty($aEx['veh_type']) || !empty($aEx['vehicle_make_model']) || !empty($aEx['vehicle_registration']) || !empty($aEx['vehicle_chassis_vin']);
+                                        $isVehEx = str_contains($catLower, 'vehicle') || str_contains($catLower, 'vessel') || str_contains($catLower, 'car') || str_contains($catLower, 'truck') || str_contains($catLower, 'automobile') || str_contains($nameLower, 'zonda') || str_contains($nameLower, 'toyota') || str_contains($nameLower, 'nissan') || str_contains($nameLower, 'honda') || str_contains($nameLower, 'benz') || str_contains($nameLower, 'bmw') || $hasVehicleData;
                                     @endphp
+
+                                    @if($isVehEx)
+                                    @php
+                                        $vMake = !empty($aEx['veh_make']) ? $aEx['veh_make'] : null;
+                                        $vModel = !empty($aEx['veh_model']) ? $aEx['veh_model'] : null;
+                                        $vMakeModelFull = implode(' ', array_filter([$vMake, $vModel]));
+                                        if (empty($vMakeModelFull)) {
+                                            $vMakeModelFull = $aEx['vehicle_make_model'] ?? ($aEx['seizure_name'] ?? ($aEx['commodity_name'] ?? ($aEx['name'] ?? 'N/A')));
+                                        }
+
+                                        $vRegNo = $aEx['veh_reg_no'] ?? ($aEx['vehicle_registration'] ?? ($aEx['registration_number'] ?? 'N/A'));
+                                        $vVin = $aEx['veh_vin'] ?? ($aEx['vehicle_chassis_vin'] ?? ($aEx['chassis_number'] ?? 'N/A'));
+                                        $vType = $aEx['veh_type'] ?? ($aEx['vehicle_type'] ?? 'Vehicle Exhibit');
+                                        $vColor = $aEx['veh_colour'] ?? ($aEx['vehicle_color_type'] ?? 'N/A');
+                                        $vYear = $aEx['veh_year'] ?? ($aEx['vehicle_year'] ?? 'N/A');
+                                        $vEngine = $aEx['veh_engine_no'] ?? ($aEx['engine_number'] ?? 'N/A');
+                                        $vCountry = $aEx['veh_country_reg'] ?? ($aEx['country_of_registration'] ?? 'N/A');
+                                        $vOwner = $aEx['veh_owner'] ?? ($aEx['vehicle_owner'] ?? 'N/A');
+                                        $vDriver = $aEx['veh_driver'] ?? ($aEx['vehicle_driver'] ?? 'N/A');
+
+                                        $vLoc = $aEx['seizure_location'] ?? ($aEx['location'] ?? 'N/A');
+                                        $vOfficer = $aEx['seizure_officer'] ?? ($aEx['officer'] ?? 'N/A');
+                                        $vDate = !empty($aEx['seizure_date']) ? $aEx['seizure_date'] : null;
+                                        $vTime = !empty($aEx['seizure_time']) ? "@ {$aEx['seizure_time']}" : '';
+                                        $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
+                                        $vReason = $aEx['seizure_reason'] ?? 'N/A';
+                                    @endphp
+                                    <div class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
+                                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">VEHICLE / VESSEL SPECIFIC DETAILS</span>
+                                                <span class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($vMakeModelFull) }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                @if(!empty($vRegNo) && $vRegNo !== 'N/A')
+                                                    <span class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">REG #: {{ strtoupper($vRegNo) }}</span>
+                                                @endif
+                                                @if(!empty($vVin) && $vVin !== 'N/A')
+                                                    <span class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-blue-300 font-extrabold border border-blue-500/30">VIN: {{ strtoupper($vVin) }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">MAKE / MODEL</div>
+                                                <div class="font-black text-white text-xs mt-0.5">{{ $vMakeModelFull }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">REGISTRATION NUMBER</div>
+                                                <div class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">{{ $vRegNo }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">VIN / CHASSIS NUMBER</div>
+                                                <div class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">{{ $vVin }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">COLOUR / FINISH</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vColor }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">VEHICLE TYPE / BODY</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vType }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">MANUFACTURE YEAR</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vYear }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">ENGINE NUMBER</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vEngine }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">REGISTERED OWNER</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vOwner }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">DRIVER AT RECOVERY</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vDriver }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">RECOVERY LOCATION</div>
+                                                <div class="font-extrabold text-emerald-400 text-xs mt-0.5">{{ $vLoc }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">SEIZING OFFICER</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vOfficer }}</div>
+                                            </div>
+
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">RECOVERY DATE & TIME</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5 font-mono-code">{{ $vDateTime }}</div>
+                                            </div>
+
+                                            @if(!empty($vReason) && $vReason !== 'N/A')
+                                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-full">
+                                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">SEIZURE REASON / INVESTIGATIVE REMARKS</div>
+                                                <div class="font-bold text-slate-200 text-xs mt-0.5 leading-relaxed">{{ $vReason }}</div>
+                                            </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endif
 
                                     @if($isWeaponEx)
                                     <div class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-red-500/40 space-y-3 mt-2 shadow-md">
@@ -2492,28 +2736,8 @@
                             @php
                                 $assocPhotos = [];
                                 foreach($assocExhibits as $aEx) {
-                                    if (!empty($aEx['photos'])) {
-                                        $pArr = is_array($aEx['photos']) ? $aEx['photos'] : (json_decode($aEx['photos'], true) ?: []);
-                                        if (is_array($pArr)) {
-                                            foreach ($pArr as $ap) { if ($ap && !in_array($ap, $assocPhotos)) $assocPhotos[] = $ap; }
-                                        }
-                                    }
-                                    if (!empty($aEx['exhibit_photos'])) {
-                                        $pArr = is_array($aEx['exhibit_photos']) ? $aEx['exhibit_photos'] : (json_decode($aEx['exhibit_photos'], true) ?: []);
-                                        if (is_array($pArr)) {
-                                            foreach ($pArr as $ap) { if ($ap && !in_array($ap, $assocPhotos)) $assocPhotos[] = $ap; }
-                                        }
-                                    }
-                                    if (!empty($aEx['evidence_photos'])) {
-                                        $pArr = is_array($aEx['evidence_photos']) ? $aEx['evidence_photos'] : (json_decode($aEx['evidence_photos'], true) ?: []);
-                                        if (is_array($pArr)) {
-                                            foreach ($pArr as $ap) { if ($ap && !in_array($ap, $assocPhotos)) $assocPhotos[] = $ap; }
-                                        }
-                                    }
-                                    foreach (['photo', 'exhibit_photo', 'photo_url', 'image'] as $pKey) {
-                                        $apSingle = $aEx[$pKey] ?? null;
-                                        if ($apSingle && !in_array($apSingle, $assocPhotos)) $assocPhotos[] = $apSingle;
-                                    }
+                                    $extractedA = $extractAllPhotosHelper($aEx);
+                                    foreach ($extractedA as $ap) { if ($ap && !in_array($ap, $assocPhotos)) $assocPhotos[] = $ap; }
                                 }
                                 if (!empty($sItem['evidence_photos'])) {
                                     $sEvPhotos = is_array($sItem['evidence_photos']) ? $sItem['evidence_photos'] : (json_decode($sItem['evidence_photos'], true) ?: []);
@@ -2521,26 +2745,22 @@
                                         foreach ($sEvPhotos as $sp) { if ($sp && !in_array($sp, $assocPhotos)) $assocPhotos[] = $sp; }
                                     }
                                 }
-                                if (empty($assocPhotos) && !empty($rawPhotos)) {
-                                    $assocPhotos = $rawPhotos;
-                                }
-                                if (empty($assocPhotos) && !empty($docketData['evidence_photos'])) {
-                                    foreach ($docketData['evidence_photos'] as $p) {
-                                        if ($p && !in_array($p, $assocPhotos)) $assocPhotos[] = $p;
-                                    }
-                                }
+
                             @endphp
                             @if(!empty($assocPhotos) && count($assocPhotos) > 0)
                             <div class="pt-3 border-t border-amber-200 space-y-2">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">Exhibit Visual Evidence Gallery ({{ $sName }})</span>
-                                    <span class="text-[10px] font-mono-code font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">{{ count($assocPhotos) }} Attached Photo(s)</span>
+                                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($sName) }})</span>
+                                    <span class="text-[10px] font-mono-code font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">{{ count($assocPhotos) }} Attached Photo(s)</span>
                                 </div>
                                 <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
                                     @foreach($assocPhotos as $apIdx => $apUrl)
-                                        <div class="p-1 bg-white border border-amber-200 rounded-xl space-y-1 text-center shadow-2xs">
-                                            <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer" onclick="openMugshotModal('{{ $apUrl }}', 'Exhibit Photo #{{ $apIdx + 1 }} — {{ $sName }}')">
-                                                <img src="{{ $apUrl }}" class="w-full h-full object-cover" alt="Exhibit Photo">
+                                        @php
+                                            $apUrlFormatted = $formatPhotoUrlHelper($apUrl);
+                                        @endphp
+                                        <div class="p-1 bg-white border border-amber-200 rounded-xl space-y-1 text-center shadow-2xs group hover:border-amber-500 transition-colors">
+                                            <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative" data-img-src="{{ $apUrlFormatted }}" data-img-title="Exhibit Photo #{{ $apIdx + 1 }} — {{ $sName }}" onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
+                                                <img src="{{ $apUrlFormatted }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Exhibit Photo" onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
                                             </div>
                                             <div class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">Exhibit Photo #{{ $apIdx + 1 }}</div>
                                         </div>
@@ -2559,19 +2779,34 @@
                                     $primaryExhibits = $directEx;
                                 }
                             }
+
                         @endphp
 
                         @if(!empty($primaryExhibits) && count($primaryExhibits) > 0)
-                        <!-- PRIMARY & CO-SUSPECT LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($sName) }} -->
+                        @php
+                            $hasCoSuspectsInCase = false;
+                            if (!empty($rawSuspects) && is_array($rawSuspects) && count($rawSuspects) > 1) {
+                                foreach ($rawSuspects as $spCheck) {
+                                    $rCheck = strtolower($spCheck['association_role'] ?? ($spCheck['role'] ?? ''));
+                                    if (str_contains($rCheck, 'co-suspect') || !empty($spCheck['is_co_suspect'])) {
+                                        $hasCoSuspectsInCase = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            $dossierBadgeText = $hasCoSuspectsInCase ? 'PRIMARY & CO-SUSPECT EXHIBIT DOSSIER' : 'PRIMARY EXHIBIT DOSSIER';
+                            $dossierHeadingText = $hasCoSuspectsInCase ? "Primary & Co-Suspect Seizures & Exhibits — {$sName}" : "Primary Exhibits — {$sName}";
+                        @endphp
+                        <!-- LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($sName) }} -->
                         <div class="p-5 bg-slate-50 border-2 border-slate-300 rounded-2xl space-y-4 shadow-sm">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
                                 <div class="flex items-center space-x-2">
                                     <span class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-extrabold bg-slate-900 text-white uppercase tracking-wider shadow-2xs">
-                                        PRIMARY &amp; CO-SUSPECT EXHIBIT DOSSIER
+                                        {{ $dossierBadgeText }}
                                     </span>
                                     <div>
                                         <h3 class="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                                            Primary &amp; Co-Suspect Seizures &amp; Exhibits — {{ $sName }}
+                                            {{ $dossierHeadingText }}
                                         </h3>
                                         <p class="text-[11px] text-slate-600">Confiscated items and exhibit inventory attached to {{ $sName }}</p>
                                     </div>
@@ -2603,15 +2838,129 @@
                                     </div>
                                     <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
                                         <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Estimated Valuation</div>
-                                        <div class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">{{ $pEx['seizure_value'] ?? ($pEx['value'] ?? 'N/A') }}</div>
+                                        @php
+                                            $rawValP = $pEx['seizure_value'] ?? ($pEx['value'] ?? null);
+                                            $cleanValP = (!empty($rawValP) && !str_contains($rawValP, 'Item #') && !str_contains($rawValP, "\n")) ? trim($rawValP) : 'N/A';
+                                        @endphp
+                                        <div class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">{{ $cleanValP }}</div>
                                     </div>
 
                                     @php
                                         $catLower = strtolower($pEx['category'] ?? ($pEx['exhibit_category'] ?? ''));
-                                        $nameLower = strtolower($pEx['seizure_name'] ?? ($pEx['name'] ?? ''));
+                                        $nameLower = strtolower($pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? ($pEx['name'] ?? '')));
                                         $hasWeaponData = !empty($pEx['weapon_model']) || !empty($pEx['weapon_serial_number']) || !empty($pEx['weapon_calibre']) || !empty($pEx['weapon_loaded_status']) || !empty($pEx['weapon_condition_at_recovery']) || !empty($pEx['weapon_location_found']) || !empty($pEx['weapon_distinguishing_marks']);
                                         $isWeaponEx = str_contains($catLower, 'weapon') || str_contains($nameLower, 'ak-47') || str_contains($nameLower, 'pistol') || str_contains($nameLower, 'rifle') || str_contains($nameLower, 'shotgun') || str_contains($nameLower, 'firearm') || $hasWeaponData;
+
+                                        $hasVehicleData = !empty($pEx['veh_make']) || !empty($pEx['veh_model']) || !empty($pEx['veh_reg_no']) || !empty($pEx['veh_vin']) || !empty($pEx['veh_colour']) || !empty($pEx['veh_type']) || !empty($pEx['vehicle_make_model']) || !empty($pEx['vehicle_registration']) || !empty($pEx['vehicle_chassis_vin']);
+                                        $isVehEx = str_contains($catLower, 'vehicle') || str_contains($catLower, 'vessel') || str_contains($catLower, 'car') || str_contains($catLower, 'truck') || str_contains($catLower, 'automobile') || str_contains($nameLower, 'zonda') || str_contains($nameLower, 'toyota') || str_contains($nameLower, 'nissan') || str_contains($nameLower, 'honda') || str_contains($nameLower, 'benz') || str_contains($nameLower, 'bmw') || $hasVehicleData;
                                     @endphp
+
+                                    @if($isVehEx)
+                                     @php
+                                         $vMake = !empty($pEx['veh_make']) ? $pEx['veh_make'] : null;
+                                         $vModel = !empty($pEx['veh_model']) ? $pEx['veh_model'] : null;
+                                         $vMakeModelFull = implode(' ', array_filter([$vMake, $vModel]));
+                                         if (empty($vMakeModelFull)) {
+                                             $vMakeModelFull = $pEx['vehicle_make_model'] ?? ($pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? ($pEx['name'] ?? 'N/A')));
+                                         }
+
+                                         $vRegNo = $pEx['veh_reg_no'] ?? ($pEx['vehicle_registration'] ?? ($pEx['registration_number'] ?? 'N/A'));
+                                         $vVin = $pEx['veh_vin'] ?? ($pEx['vehicle_chassis_vin'] ?? ($pEx['chassis_number'] ?? 'N/A'));
+                                         $vType = $pEx['veh_type'] ?? ($pEx['vehicle_type'] ?? 'Vehicle Exhibit');
+                                         $vColor = $pEx['veh_colour'] ?? ($pEx['vehicle_color_type'] ?? 'N/A');
+                                         $vYear = $pEx['veh_year'] ?? ($pEx['vehicle_year'] ?? 'N/A');
+                                         $vEngine = $pEx['veh_engine_no'] ?? ($pEx['engine_number'] ?? 'N/A');
+                                         $vCountry = $pEx['veh_country_reg'] ?? ($pEx['country_of_registration'] ?? 'N/A');
+                                         $vOwner = $pEx['veh_owner'] ?? ($pEx['vehicle_owner'] ?? ($primarySuspectName ?? ($case->suspect_name ?? 'Primary Suspect')));
+                                         $vDriver = $pEx['veh_driver'] ?? ($pEx['vehicle_driver'] ?? 'N/A');
+
+                                         $vLoc = $pEx['seizure_location'] ?? ($pEx['location'] ?? 'N/A');
+                                         $vOfficer = $pEx['seizure_officer'] ?? ($pEx['officer'] ?? 'N/A');
+                                         $vDate = !empty($pEx['seizure_date']) ? $pEx['seizure_date'] : null;
+                                         $vTime = !empty($pEx['seizure_time']) ? "@ {$pEx['seizure_time']}" : '';
+                                         $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
+                                         $vReason = $pEx['seizure_reason'] ?? 'N/A';
+                                     @endphp
+                                     <div class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
+                                         <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                             <div class="flex items-center space-x-2">
+                                                 <span class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">VEHICLE / VESSEL SPECIFIC DETAILS</span>
+                                                 <span class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($vMakeModelFull) }}</span>
+                                             </div>
+                                             <div class="flex items-center gap-2">
+                                                 @if(!empty($vRegNo) && $vRegNo !== 'N/A')
+                                                     <span class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">REG #: {{ strtoupper($vRegNo) }}</span>
+                                                 @endif
+                                                 @if(!empty($vVin) && $vVin !== 'N/A')
+                                                     <span class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-blue-300 font-extrabold border border-blue-500/30">VIN: {{ strtoupper($vVin) }}</span>
+                                                 @endif
+                                             </div>
+                                         </div>
+
+                                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">MAKE / MODEL / TRIM</div>
+                                                 <div class="font-black text-white text-xs mt-0.5">{{ $vMakeModelFull }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">REGISTRATION NUMBER</div>
+                                                 <div class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">{{ $vRegNo }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">VIN / CHASSIS NUMBER</div>
+                                                 <div class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">{{ $vVin }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">COLOUR / FINISH</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vColor }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">VEHICLE TYPE / BODY</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vType }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">MANUFACTURE YEAR</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vYear }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">ENGINE NUMBER</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vEngine }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">REGISTERED OWNER</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vOwner }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">DRIVER AT RECOVERY</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vDriver }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">RECOVERY LOCATION</div>
+                                                 <div class="font-extrabold text-emerald-400 text-xs mt-0.5">{{ $vLoc }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">SEIZING OFFICER</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">{{ $vOfficer }}</div>
+                                             </div>
+
+                                             <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
+                                                 <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">RECOVERY DATE & TIME</div>
+                                                 <div class="font-bold text-slate-200 text-xs mt-0.5 font-mono-code">{{ $vDateTime }}</div>
+                                             </div>
+                                         </div>
+                                     </div>
+                                     @endif
+
 
                                     @if($isWeaponEx)
                                     <div class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-red-500/40 space-y-3 mt-2 shadow-md">
@@ -2679,409 +3028,543 @@
                                     @endif
                                 @endforeach
                             </div>
+
+                            @php
+                                $primPhotos = [];
+                                if (!empty($primaryExhibits) && is_array($primaryExhibits)) {
+                                    foreach($primaryExhibits as $pExItem) {
+                                        $extractedP = $extractAllPhotosHelper($pExItem);
+                                        foreach ($extractedP as $p) { if ($p && !in_array($p, $primPhotos)) $primPhotos[] = $p; }
+                                    }
+                                }
+                                if (!empty($sItem['evidence_photos'])) {
+                                    $sEvP = is_array($sItem['evidence_photos']) ? $sItem['evidence_photos'] : (json_decode($sItem['evidence_photos'], true) ?: []);
+                                    if (is_array($sEvP)) {
+                                        foreach ($sEvP as $sp) { if ($sp && !in_array($sp, $primPhotos)) $primPhotos[] = $sp; }
+                                    }
+                                }
+                                if (empty($primPhotos) && !empty($docketData['evidence_photos'])) {
+                                    foreach ($docketData['evidence_photos'] as $p) {
+                                        if ($p && !in_array($p, $primPhotos)) $primPhotos[] = $p;
+                                    }
+                                }
+
+                            @endphp
+                            @if(!empty($primPhotos) && count($primPhotos) > 0)
+                            <div class="pt-3 border-t border-slate-200 space-y-2 mt-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($sName) }})</span>
+                                    <span class="text-[10px] font-mono-code font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">{{ count($primPhotos) }} Attached Photo(s)</span>
+                                </div>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    @foreach($primPhotos as $pIdx => $pUrl)
+                                        @php
+                                            $pUrlFormatted = $formatPhotoUrlHelper($pUrl);
+                                        @endphp
+                                        <div class="p-1 bg-white border border-slate-200 rounded-xl space-y-1 text-center shadow-2xs group hover:border-emerald-500 transition-colors">
+                                            <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative" data-img-src="{{ $pUrlFormatted }}" data-img-title="Exhibit Photo #{{ $pIdx + 1 }} — {{ $sName }}" onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
+                                                <img src="{{ $pUrlFormatted }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="Exhibit Photo" onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                            </div>
+                                            <div class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">Exhibit Photo #{{ $pIdx + 1 }}</div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
                         </div>
                         @endif
                     @endif
 
+
+
                     @php
-                        $currSuspectExhibits = $isAssociate ? ($assocExhibits ?? []) : ($primaryExhibits ?? []);
+                        $sDossierLabExam = null;
+                        $sDossierHasSavedLab = false;
+
+                        // Source 1: DB relationship check
+                        if ($isAssociate) {
+                            $dbAssoc = $case->associateLabExaminations ? $case->associateLabExaminations->first(fn($a) => strtolower(trim($a->suspect_name)) === strtolower(trim($sName))) : null;
+                            if ($dbAssoc && $dbAssoc->has_saved) {
+                                $sDossierHasSavedLab = true;
+                                $sDossierLabExam = [
+                                    'exam_reference'      => $dbAssoc->exam_reference,
+                                    'exhibit_number'      => $dbAssoc->exhibit_number,
+                                    'laboratory_number'   => $dbAssoc->laboratory_number,
+                                    'analyst'             => $dbAssoc->analyst,
+                                    'date_received'       => is_object($dbAssoc->date_received) ? $dbAssoc->date_received->format('Y-m-d') : substr((string)$dbAssoc->date_received, 0, 10),
+                                    'date_started'        => is_object($dbAssoc->date_started) ? $dbAssoc->date_started->format('Y-m-d') : substr((string)$dbAssoc->date_started, 0, 10),
+                                    'date_completed'      => is_object($dbAssoc->date_completed) ? $dbAssoc->date_completed->format('Y-m-d') : substr((string)$dbAssoc->date_completed, 0, 10),
+                                    'presumptive_result'  => $dbAssoc->presumptive_result,
+                                    'confirmatory_result' => $dbAssoc->confirmatory_result,
+                                    'sample_weight'       => [
+                                        'description'      => $dbAssoc->sample_weight_description,
+                                        'units_packaging'  => $dbAssoc->sample_weight_units,
+                                        'gross_weight'     => $dbAssoc->sample_weight_gross,
+                                        'sample_taken'     => $dbAssoc->sample_weight_taken,
+                                        'reserved_samples' => $dbAssoc->sample_weight_reserved,
+                                    ],
+                                    'substance_identification' => $dbAssoc->substance_identification,
+                                    'detected_substances'      => is_string($dbAssoc->detected_substances) ? json_decode($dbAssoc->detected_substances, true) : ($dbAssoc->detected_substances ?? []),
+                                    'test_methods'             => $dbAssoc->test_methods,
+                                    'specifications'           => $dbAssoc->specifications,
+                                    'remark'                   => $dbAssoc->remark,
+                                    'findings'                 => $dbAssoc->findings,
+                                ];
+                            }
+                        } else {
+                            if (!empty($dbPrimaryLabExam) && $dbPrimaryLabExam->has_saved) {
+                                $sDossierHasSavedLab = true;
+                                $sDossierLabExam = [
+                                    'exam_reference'      => $dbPrimaryLabExam->exam_reference,
+                                    'exhibit_number'      => $dbPrimaryLabExam->exhibit_number,
+                                    'laboratory_number'   => $dbPrimaryLabExam->laboratory_number,
+                                    'analyst'             => $dbPrimaryLabExam->analyst,
+                                    'date_received'       => is_object($dbPrimaryLabExam->date_received) ? $dbPrimaryLabExam->date_received->format('Y-m-d') : substr((string)$dbPrimaryLabExam->date_received, 0, 10),
+                                    'date_started'        => is_object($dbPrimaryLabExam->date_started) ? $dbPrimaryLabExam->date_started->format('Y-m-d') : substr((string)$dbPrimaryLabExam->date_started, 0, 10),
+                                    'date_completed'      => is_object($dbPrimaryLabExam->date_completed) ? $dbPrimaryLabExam->date_completed->format('Y-m-d') : substr((string)$dbPrimaryLabExam->date_completed, 0, 10),
+                                    'presumptive_result'  => $dbPrimaryLabExam->presumptive_result,
+                                    'confirmatory_result' => $dbPrimaryLabExam->confirmatory_result,
+                                    'sample_weight'       => [
+                                        'description'      => $dbPrimaryLabExam->sample_weight_description,
+                                        'units_packaging'  => $dbPrimaryLabExam->sample_weight_units,
+                                        'gross_weight'     => $dbPrimaryLabExam->sample_weight_gross,
+                                        'sample_taken'     => $dbPrimaryLabExam->sample_weight_taken,
+                                        'reserved_samples' => $dbPrimaryLabExam->sample_weight_reserved,
+                                    ],
+                                    'substance_identification' => $dbPrimaryLabExam->substance_identification,
+                                    'detected_substances'      => is_string($dbPrimaryLabExam->detected_substances) ? json_decode($dbPrimaryLabExam->detected_substances, true) : ($dbPrimaryLabExam->detected_substances ?? []),
+                                    'test_methods'             => $dbPrimaryLabExam->test_methods,
+                                    'specifications'           => $dbPrimaryLabExam->specifications,
+                                    'remark'                   => $dbPrimaryLabExam->remark,
+                                    'findings'                 => $dbPrimaryLabExam->findings,
+                                ];
+                            }
+                        }
+
+                        // Source 2: Docket Data associate_lab_examinations
+                        if (!$sDossierHasSavedLab && !empty($docketData['associate_lab_examinations'])) {
+                            foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
+                                if (strtolower(trim($kAssoc)) === strtolower(trim($sName)) && !empty($vAssoc['has_saved'])) {
+                                    $sDossierHasSavedLab = true;
+                                    $sDossierLabExam = $vAssoc;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Source 3: Docket Data lab_examinations_list
+                        if (!$sDossierHasSavedLab && !empty($docketData['lab_examinations_list'])) {
+                            foreach ($docketData['lab_examinations_list'] as $lItem) {
+                                $ownerMatch = !empty($lItem['exhibit_owner_name']) && strtolower(trim($lItem['exhibit_owner_name'])) === strtolower(trim($sName));
+                                $sMatch = !empty($lItem['suspect_name']) && strtolower(trim($lItem['suspect_name'])) === strtolower(trim($sName));
+                                if (($ownerMatch || $sMatch) && (!empty($lItem['has_saved']) || !empty($lItem['presumptive_result']) || !empty($lItem['substance_identification']))) {
+                                    $sDossierHasSavedLab = true;
+                                    $sDossierLabExam = $lItem;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Source 4: Docket Data lab_examination (for primary suspect)
+                        if (!$sDossierHasSavedLab && !$isAssociate && ($sIdx === 0) && !empty($docketData['lab_examination']['has_saved'])) {
+                            $labOwner = $docketData['lab_examination']['exhibit_owner_name'] ?? 'Primary Suspect';
+                            if (strtolower(trim($labOwner)) === 'primary suspect' || strtolower(trim($labOwner)) === strtolower(trim($sName))) {
+                                $sDossierHasSavedLab = true;
+                                $sDossierLabExam = $docketData['lab_examination'];
+                            }
+                        }
+
+                        // Source 5: Direct Case model fields
+                        if (!$sDossierHasSavedLab && !$isAssociate && ($sIdx === 0) && (!empty($case->presumptive_test_result) || !empty($case->confirmatory_substance_identification))) {
+                            $sDossierHasSavedLab = true;
+                            $sDossierLabExam = [
+                                'exam_reference'      => $case->lab_exam_reference ?: 'GSA-FM-T77-F',
+                                'exhibit_number'      => $case->exhibit_number ?: 'EXH-01',
+                                'laboratory_number'   => $case->laboratory_number ?: 'Lab No. 12/FS05/2025',
+                                'analyst'             => $case->submitting_officer ?: 'Lab Analyst',
+                                'date_received'       => $case->incident_date ? substr((string)$case->incident_date, 0, 10) : date('Y-m-d'),
+                                'date_started'        => date('Y-m-d'),
+                                'date_completed'      => date('Y-m-d'),
+                                'presumptive_result'  => $case->presumptive_test_result,
+                                'confirmatory_result' => $case->confirmatory_test_result ?: 'YES',
+                                'sample_weight'       => [
+                                    'description'      => $case->sample_weight_description,
+                                    'units_packaging'  => $case->sample_weight_units,
+                                    'gross_weight'     => $case->sample_weight_gross,
+                                    'sample_taken'     => $case->sample_weight_taken,
+                                    'reserved_samples' => $case->sample_weight_reserved,
+                                ],
+                                'substance_identification' => $case->confirmatory_substance_identification,
+                                'detected_substances'      => is_string($case->detected_substances ?? null) ? json_decode($case->detected_substances, true) : ($case->detected_substances ?? []),
+                                'test_methods'             => $case->confirmatory_test_methods,
+                                'specifications'           => $case->confirmatory_specifications,
+                                'remark'                   => $case->confirmatory_remark,
+                                'findings'                 => $case->laboratory_analytical_findings,
+                            ];
+                        }
+
+                        // Source 6: Exhibit level saved lab examination findings
+                        if (!$sDossierHasSavedLab && !empty($currSuspectExhibits)) {
+                            foreach ($currSuspectExhibits as $eCheck) {
+                                if (!empty($eCheck['lab_examination']) && is_array($eCheck['lab_examination']) && (!empty($eCheck['lab_examination']['has_saved']) || !empty($eCheck['lab_examination']['substance_identification']) || !empty($eCheck['lab_examination']['presumptive_result']))) {
+                                    $sDossierHasSavedLab = true;
+                                    $sDossierLabExam = $eCheck['lab_examination'];
+                                    break;
+                                }
+                                if (!empty($eCheck['lab_result']) && is_array($eCheck['lab_result']) && (!empty($eCheck['lab_result']['has_saved']) || !empty($eCheck['lab_result']['substance_identification']) || !empty($eCheck['lab_result']['presumptive_result']))) {
+                                    $sDossierHasSavedLab = true;
+                                    $sDossierLabExam = $eCheck['lab_result'];
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Source 7: DB direct table check
+                        if (!$sDossierHasSavedLab && isset($case->id)) {
+                            try {
+                                if ($isAssociate) {
+                                    $assocDbRow = \DB::table('associate_lab_examinations')->where('case_id', $case->id)->where('suspect_name', $sName)->first();
+                                    if ($assocDbRow && (!empty($assocDbRow->has_saved) || !empty($assocDbRow->substance_identification) || !empty($assocDbRow->presumptive_result))) {
+                                        $sDossierHasSavedLab = true;
+                                        $sDossierLabExam = (array)$assocDbRow;
+                                    }
+                                } else {
+                                    $primDbRow = \DB::table('laboratory_examination_results')->where(function($q) use ($case) {
+                                        $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                                    })->first();
+                                    if ($primDbRow && (!empty($primDbRow->has_saved) || !empty($primDbRow->substance_identification) || !empty($primDbRow->presumptive_result))) {
+                                        $sDossierHasSavedLab = true;
+                                        $sDossierLabExam = (array)$primDbRow;
+                                    }
+                                }
+                            } catch (\Throwable $e) {}
+                        }
+
+                        // Source 8: Fallback for Drug Cases / Suspect Drug Exhibits when no lab examination has been saved yet
+                        $currSuspectHasDrug = false;
+                        if (!empty($currSuspectExhibits)) {
+                            foreach ($currSuspectExhibits as $eCh) {
+                                $eCatLower = strtolower(trim($eCh['exhibit_category'] ?? ($eCh['category'] ?? '')));
+                                $eNameLower = strtolower(trim($eCh['seizure_name_drug'] ?? ($eCh['commodity_name'] ?? ($eCh['seizure_name'] ?? ($eCh['name'] ?? '')))));
+                                if (str_contains($eCatLower, 'drug') || str_contains($eCatLower, 'narcotic') || !empty($eCh['seizure_name_drug']) || str_contains($eNameLower, 'cannabis') || str_contains($eNameLower, 'cocaine') || str_contains($eNameLower, 'heroin') || str_contains($eNameLower, 'meth') || str_contains($eNameLower, 'tramadol')) {
+                                    $currSuspectHasDrug = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!$sDossierHasSavedLab && ($currSuspectHasDrug || (!$isAssociate && ($isDrugCase ?? false)))) {
+                            $sDossierHasSavedLab = true;
+                            $sDossierLabExam = [
+                                'exam_reference'      => $labExamRef ?? 'GSA-FM-T77-F',
+                                'exhibit_number'      => !empty($currSuspectExhibits[0]['exhibit_number']) ? $currSuspectExhibits[0]['exhibit_number'] : ($case->exhibit_number ?: 'EXH-01'),
+                                'laboratory_number'   => $case->laboratory_number ?: 'Lab No. 12/FS05/2025',
+                                'exhibit_description' => !empty($currSuspectExhibits[0]['commodity_name']) ? $currSuspectExhibits[0]['commodity_name'] : ($case->seizure_name_drug ?: ($case->seizure_name ?: 'Drug Exhibit')),
+                                'analyst'             => $case->submitting_officer ?: 'Lab Analyst',
+                                'date_received'       => $case->incident_date ? substr((string)$case->incident_date, 0, 10) : date('Y-m-d'),
+                                'date_started'        => date('Y-m-d'),
+                                'date_completed'      => date('Y-m-d'),
+                                'presumptive_result'  => $case->presumptive_test_result ?: 'N/A',
+                                'confirmatory_result' => $case->confirmatory_test_result ?: 'YES',
+                                'sample_weight'       => [
+                                    'description'      => $case->sample_weight_description,
+                                    'units_packaging'  => $case->sample_weight_units,
+                                    'gross_weight'     => $case->sample_weight_gross,
+                                    'sample_taken'     => $case->sample_weight_taken,
+                                    'reserved_samples' => $case->sample_weight_reserved,
+                                ],
+                                'substance_identification' => $case->confirmatory_substance_identification ?: 'N/A',
+                                'detected_substances'      => [],
+                                'test_methods'             => $case->confirmatory_test_methods ?: 'N/A',
+                                'specifications'           => $case->confirmatory_specifications ?: 'N/A',
+                                'remark'                   => $case->confirmatory_remark ?: 'N/A',
+                                'findings'                 => $case->laboratory_analytical_findings ?: 'Awaiting laboratory examination completion.',
+                            ];
+                        }
+
+                        if (!empty($sDossierLabExam)) {
+                            if (empty($sDossierLabExam['exhibit_number']) || $sDossierLabExam['exhibit_number'] === 'N/A') {
+                                $sDossierLabExam['exhibit_number'] = $sDossierLabExam['exhibit_no'] ?? ($sDossierLabExam['exhibit_id'] ?? ($case->exhibit_number ?: ($labExhibitNo ?? 'EXH-01')));
+                            }
+                            if (empty($sDossierLabExam['exam_reference']) || $sDossierLabExam['exam_reference'] === 'N/A') {
+                                $sDossierLabExam['exam_reference'] = $labExamRef ?? 'GSA-FM-T77-F';
+                            }
+                            if (empty($sDossierLabExam['laboratory_number']) || $sDossierLabExam['laboratory_number'] === 'N/A') {
+                                $sDossierLabExam['laboratory_number'] = $labNumber ?? 'Lab No. 12/FS05/2025';
+                            }
+                            if (empty($sDossierLabExam['analyst']) || $sDossierLabExam['analyst'] === 'N/A') {
+                                $sDossierLabExam['analyst'] = $labAnalyst ?? 'John Adu';
+                            }
+
+                            $defRecDate = !empty($case->incident_date) ? substr((string)$case->incident_date, 0, 10) : (is_object($case->created_at) ? $case->created_at->format('Y-m-d') : substr((string)$case->created_at, 0, 10));
+
+                            $rRec = $sDossierLabExam['date_received'] ?? null;
+                            if (empty($rRec) || $rRec === 'N/A') $rRec = $defRecDate;
+                            $sDossierLabExam['date_received'] = is_object($rRec) ? $rRec->format('Y-m-d') : substr((string)$rRec, 0, 10);
+
+                            $rStart = $sDossierLabExam['date_started'] ?? null;
+                            if (empty($rStart) || $rStart === 'N/A') $rStart = $sDossierLabExam['date_received'];
+                            $sDossierLabExam['date_started'] = is_object($rStart) ? $rStart->format('Y-m-d') : substr((string)$rStart, 0, 10);
+
+                            $rComp = $sDossierLabExam['date_completed'] ?? null;
+                            if (empty($rComp) || $rComp === 'N/A') $rComp = $sDossierLabExam['date_started'];
+                            $sDossierLabExam['date_completed'] = is_object($rComp) ? $rComp->format('Y-m-d') : substr((string)$rComp, 0, 10);
+                        }
                     @endphp
-                    @if(!empty($currSuspectExhibits) && count($currSuspectExhibits) > 0)
-                    <!-- SEIZURES (COMMODITIES INVENTORY) FOR {{ strtoupper($sName) }} -->
-                    <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm mt-4">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-                            <div>
-                                <h3 class="text-sm font-black text-slate-900">Seizures (Commodities Inventory)</h3>
-                                <p class="text-[11px] text-slate-500">Record of confiscated substances, exhibits, and vault allocation attached to {{ $sName }}</p>
-                            </div>
-                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                {{ count($currSuspectExhibits) }} ITEM(S) LOGGED
-                            </span>
-                        </div>
+                </div>            @endforeach
 
-                        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
-                                    <tr>
-                                        <th class="py-2.5 px-4 font-bold">Item #</th>
-                                        <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
-                                        <th class="py-2.5 px-4 font-bold">Category</th>
-                                        <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
-                                        <th class="py-2.5 px-4 font-bold">Quantity</th>
-                                        <th class="py-2.5 px-4 font-bold">Weight / Unit</th>
-                                        <th class="py-2.5 px-4 font-bold">Packaging</th>
-                                        <th class="py-2.5 px-4 font-bold">Est. Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-800">
-                                    @foreach($currSuspectExhibits as $eIdx => $szItem)
-                                        @php
-                                            $szCat = $szItem['category'] ?? ($szItem['exhibit_category'] ?? 'General Exhibit');
-                                            $szNameVal = $szItem['seizure_name'] ?? ($szItem['commodity_name'] ?? ($szItem['name'] ?? 'N/A'));
-                                            $szQtyVal = $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A');
-                                            $szWtVal = !empty($szItem['seizure_weight']) || !empty($szItem['weight']) ? (($szItem['seizure_weight'] ?? $szItem['weight']) . ' ' . ($szItem['seizure_unit'] ?? ($szItem['unit'] ?? ''))) : 'N/A';
-                                            $szPkgVal = $szItem['seizure_packaging'] ?? ($szItem['packaging'] ?? 'N/A');
-                                            $szValueVal = $szItem['seizure_value'] ?? ($szItem['value'] ?? 'N/A');
-                                        @endphp
-                                        <tr>
-                                            <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">#{{ $eIdx + 1 }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code font-black text-slate-950">{{ $sName }}</td>
-                                            <td class="py-2.5 px-4 font-bold font-mono-code text-amber-700">{{ $szCat }}</td>
-                                            <td class="py-2.5 px-4 font-extrabold text-slate-900">{{ $szNameVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szQtyVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szWtVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szPkgVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code font-bold text-emerald-700">{{ $szValueVal }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+            @php
+                $allCaseExhibits = [];
+                $seenExhibitKeys = [];
+                $allCaseExhibitPhotos = [];
+
+                $extractAllPhotosHelper = function($item) {
+                    $found = [];
+                    if (empty($item)) return $found;
+                    if (is_object($item)) $item = (array)$item;
+                    if (!is_array($item)) return $found;
+
+                    $keys = ['photos', 'exhibit_photos', 'evidence_photos', 'photo', 'exhibit_photo', 'photo_url', 'image', 'image_path', 'image_url', 'file_path', 'attachment', 'attachments'];
+                    foreach ($keys as $k) {
+                        if (!empty($item[$k])) {
+                            $val = $item[$k];
+                            if (is_string($val)) {
+                                $val = trim($val);
+                                if (str_starts_with($val, '[') || str_starts_with($val, '{')) {
+                                    $dec = json_decode($val, true);
+                                    if (is_array($dec)) {
+                                        foreach ($dec as $p) { if (!empty($p) && is_string($p)) $found[] = $p; }
+                                    } else {
+                                        $found[] = $val;
+                                    }
+                                } else {
+                                    $found[] = $val;
+                                }
+                            } elseif (is_array($val)) {
+                                foreach ($val as $p) { if (!empty($p) && is_string($p)) $found[] = $p; }
+                            }
+                        }
+                    }
+                    return array_values(array_unique($found));
+                };
+
+                $formatPhotoUrlHelper = function($p) {
+                    if (empty($p)) return '';
+                    $p = trim((string)$p);
+                    if (str_starts_with($p, 'http://') || str_starts_with($p, 'https://') || str_starts_with($p, 'data:')) {
+                        return $p;
+                    }
+                    $clean = ltrim($p, '/');
+                    if (str_starts_with($clean, 'storage/')) {
+                        return asset($clean);
+                    }
+                    if (file_exists(public_path($clean))) {
+                        return asset($clean);
+                    }
+                    return asset('storage/' . $clean);
+                };
+
+                $addCaseExhibit = function($item) use (&$allCaseExhibits, &$seenExhibitKeys, &$allCaseExhibitPhotos, $extractAllPhotosHelper, $case) {
+                    if (empty($item)) return;
+                    if (is_object($item)) $item = (array)$item;
+
+                    $exNo = $item['exhibit_number'] ?? null;
+                    $dbId = $item['id'] ?? null;
+                    $cat  = $item['category'] ?? ($item['exhibit_category'] ?? 'General Exhibit');
+                    $name = $item['seizure_name'] ?? ($item['commodity_name'] ?? ($item['name'] ?? ($item['weapon_model'] ?? 'Confiscated Exhibit')));
+
+                    $key = !empty($dbId) ? 'db_' . $dbId : (!empty($exNo) ? 'ex_' . strtolower(trim($exNo)) : 'cn_' . strtolower(trim($cat)) . '_' . strtolower(trim($name)));
+
+                    if (!isset($seenExhibitKeys[$key])) {
+                        $seenExhibitKeys[$key] = true;
+
+                        $owner = $item['owner_name'] ?? ($item['suspect_name'] ?? ($item['associated_person'] ?? ($item['veh_owner'] ?? ($item['wpn_owner'] ?? ($item['dev_owner'] ?? ($item['seizure_officer'] ?? null))))));
+                        if (empty($owner) || strtolower(trim($owner)) === 'primary suspect' || strtolower(trim($owner)) === 'primary') {
+                            $owner = $case->suspect_name ?? 'Primary Suspect';
+                        }
+                        $item['resolved_owner'] = $owner;
+                        $allCaseExhibits[] = $item;
+
+                        $photos = $extractAllPhotosHelper($item);
+                        foreach ($photos as $p) {
+                            if ($p && !in_array($p, $allCaseExhibitPhotos)) {
+                                $allCaseExhibitPhotos[] = $p;
+                            }
+                        }
+                    }
+                };
+
+                // 1. Relational DB exhibits
+                if (isset($case->id)) {
+                    try {
+                        $dbExsList = \App\Models\Exhibit::where(function($q) use ($case) {
+                            $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                        })->get();
+                        foreach ($dbExsList as $dbE) {
+                            $arr = $dbE->toArray();
+                            $arr['category'] = $dbE->exhibit_category ?? 'General Exhibit';
+                            $arr['seizure_name'] = $dbE->commodity_name ?? ($dbE->wpn_model ?? 'Confiscated Exhibit');
+                            $arr['owner_name'] = $dbE->suspect ? $dbE->suspect->suspect_name : ($dbE->veh_owner ?? ($dbE->wpn_owner ?? ($dbE->dev_owner ?? ($dbE->associated_person ?? null))));
+                            $arr['weapon_model'] = $dbE->wpn_model;
+                            $arr['weapon_serial_number'] = $dbE->wpn_serial_no;
+                            $arr['weapon_calibre'] = $dbE->wpn_calibre;
+                            $arr['weapon_color'] = $dbE->wpn_colour;
+                            $arr['weapon_size_length'] = $dbE->wpn_size;
+                            $addCaseExhibit($arr);
+                        }
+                    } catch (\Throwable $e) {}
+                }
+
+                // 2. Docket JSON seizures and associate exhibits
+                $jsonSeizures = array_merge(
+                    $docketData['seizures'] ?? [],
+                    $docketData['associated_seizures'] ?? [],
+                    $docketData['associate_exhibits'] ?? []
+                );
+                foreach ($jsonSeizures as $sz) {
+                    $addCaseExhibit($sz);
+                }
+
+                // 3. Also add case-level evidence photos to gallery
+                $caseRawPhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
+                if (is_array($caseRawPhotos)) {
+                    foreach ($caseRawPhotos as $p) {
+                        if ($p && is_string($p) && !in_array($p, $allCaseExhibitPhotos)) {
+                            $allCaseExhibitPhotos[] = $p;
+                        }
+                    }
+                }
+                $allCaseExhibitPhotos = array_values(array_unique($allCaseExhibitPhotos));
+            @endphp
+            @if(!empty($allCaseExhibits) && count($allCaseExhibits) > 0)
+            <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
+            <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm mt-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div>
+                        <h3 class="text-sm font-black text-slate-900">Seizures (Commodities Inventory)</h3>
+                        <p class="text-[11px] text-slate-500">Master record of confiscated substances, exhibits, and vault allocation for all suspects</p>
+                    </div>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        {{ count($allCaseExhibits) }} ITEM(S) LOGGED
+                    </span>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
+                            <tr>
+                                <th class="py-2.5 px-4 font-bold">Item #</th>
+                                <th class="py-2.5 px-4 font-bold">Exhibit Image</th>
+                                <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
+                                <th class="py-2.5 px-4 font-bold">Category</th>
+                                <th class="py-2.5 px-4 font-bold">Exhibit Type</th>
+                                <th class="py-2.5 px-4 font-bold">Drug Class</th>
+                                <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
+                                <th class="py-2.5 px-4 font-bold">Quantity</th>
+                                <th class="py-2.5 px-4 font-bold">Weight / Unit</th>
+                                <th class="py-2.5 px-4 font-bold">Packaging</th>
+                                <th class="py-2.5 px-4 font-bold">Est. Value</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-slate-800">
+                            @foreach($allCaseExhibits as $eIdx => $szItem)
+                                @php
+                                    $szCat = $szItem['category'] ?? ($szItem['exhibit_category'] ?? 'General Exhibit');
+                                    $szTypeVal = $szItem['exhibit_type'] ?? (strtolower($szCat) === 'drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit');
+                                    $szClassVal = $szItem['drug_classification'] ?? 'N/A';
+                                    $szNameVal = $szItem['seizure_name'] ?? ($szItem['commodity_name'] ?? ($szItem['name'] ?? ($szItem['weapon_model'] ?? 'N/A')));
+                                    $szQtyVal = $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A');
+                                    $szWtVal = !empty($szItem['seizure_weight']) || !empty($szItem['weight']) ? (($szItem['seizure_weight'] ?? $szItem['weight']) . ' ' . ($szItem['seizure_unit'] ?? ($szItem['unit'] ?? ''))) : 'N/A';
+                                    $szPkgVal = $szItem['seizure_packaging'] ?? ($szItem['packaging'] ?? 'N/A');
+                                    $rawSzVal = $szItem['seizure_value'] ?? ($szItem['value'] ?? 'N/A');
+                                    $szValueVal = (!empty($rawSzVal) && !str_contains($rawSzVal, 'Item #') && !str_contains($rawSzVal, "\n")) ? trim($rawSzVal) : 'N/A';
+                                    $szOwnerVal = $szItem['resolved_owner'] ?? ($case->suspect_name ?? 'Primary Suspect');
+
+                                    $itemPhotos = $extractAllPhotosHelper($szItem);
+                                    if (empty($itemPhotos) && isset($case->id)) {
+                                        try {
+                                            $dbMatch = \App\Models\Exhibit::where(function($q) use ($case) {
+                                                $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                                            })->where(function($q) use ($szItem) {
+                                                if (!empty($szItem['exhibit_number'])) $q->where('exhibit_number', $szItem['exhibit_number']);
+                                                if (!empty($szItem['seizure_name'])) $q->orWhere('commodity_name', $szItem['seizure_name']);
+                                                if (!empty($szItem['name'])) $q->orWhere('commodity_name', $szItem['name']);
+                                            })->first();
+                                            if ($dbMatch && !empty($dbMatch->evidence_photos)) {
+                                                $itemPhotos = is_array($dbMatch->evidence_photos) ? $dbMatch->evidence_photos : (json_decode($dbMatch->evidence_photos, true) ?: []);
+                                            }
+                                        } catch (\Throwable $e) {}
+                                    }
+                                @endphp
+                                <tr>
+                                    <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">#{{ $eIdx + 1 }}</td>
+                                    <td class="py-2.5 px-4">
+                                        @if(!empty($itemPhotos) && count($itemPhotos) > 0)
+                                            @php
+                                                $firstImg = $itemPhotos[0];
+                                                $imgSrc = $formatPhotoUrlHelper($firstImg);
+                                            @endphp
+                                            <div class="relative group inline-block">
+                                                <img src="{{ $imgSrc }}" alt="{{ $szNameVal }}" data-img-src="{{ $imgSrc }}" data-img-title="{{ $szNameVal }} — {{ $szOwnerVal }}" class="h-12 w-12 object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform" onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))" onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
+                                                @if(count($itemPhotos) > 1)
+                                                    <span class="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[9px] font-mono-code font-bold px-1 rounded-full shadow">
+                                                        +{{ count($itemPhotos) - 1 }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <span class="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-mono-code rounded border border-slate-200">No Photo</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-2.5 px-4 font-mono-code font-black text-slate-950">{{ $szOwnerVal }}</td>
+                                    <td class="py-2.5 px-4 font-bold font-mono-code text-amber-700">{{ $szCat }}</td>
+                                    <td class="py-2.5 px-4 font-mono-code font-bold text-slate-700">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold {{ str_contains(strtolower($szTypeVal), 'non') ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-300' }}">
+                                            {{ $szTypeVal }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-4 font-mono-code font-bold">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                                            {{ $szClassVal }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-4 font-extrabold text-slate-900">{{ $szNameVal }}</td>
+                                    <td class="py-2.5 px-4 font-mono-code">{{ $szQtyVal }}</td>
+                                    <td class="py-2.5 px-4 font-mono-code">{{ $szWtVal }}</td>
+                                    <td class="py-2.5 px-4 font-mono-code">{{ $szPkgVal }}</td>
+                                    <td class="py-2.5 px-4 font-mono-code font-bold text-emerald-700">{{ $szValueVal }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if(!empty($allCaseExhibitPhotos) && count($allCaseExhibitPhotos) > 0)
+                    <div class="pt-3 border-t border-slate-100">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase font-mono-code mb-2 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            Exhibit Photo Gallery ({{ count($allCaseExhibitPhotos) }} images)
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($allCaseExhibitPhotos as $pIdx => $gPhoto)
+                                @php
+                                    $gSrc = $formatPhotoUrlHelper($gPhoto);
+                                @endphp
+                                <div class="relative group cursor-pointer" data-img-src="{{ $gSrc }}" data-img-title="Exhibit Image #{{ $pIdx + 1 }}" onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
+                                    <img src="{{ $gSrc }}" class="h-16 w-16 object-cover rounded-xl border border-slate-200 shadow-2xs group-hover:border-emerald-500 group-hover:scale-105 transition-all" onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
+                                    <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
-                    @endif
-                </div>
-            @endforeach
-
-            <!-- SECTION 4: SEIZURES (COMMODITIES) IN-PLACE FORM CONTAINER -->
-            <div id="section4Seizures" class="hidden bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden transition-all">
-                <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                        </div>
-                        <div>
-                            <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures (Commodities)</h3>
-                            <p class="text-xs text-slate-500">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-2 shrink-0">
-                        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase tracking-wider shadow-2xs">
-                            Contraband Inventory
-                        </span>
-                    </div>
-                </div>
-
-                <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
-                <div id="seizuresDetailsContainer" class="p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
-                    <form id="section4SeizureForm" onsubmit="submitSection4SeizureForm(event)" class="space-y-5">
-                        <div class="flex items-center justify-between border-b border-slate-300/60 pb-3">
-                            <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                                </div>
-                                <div>
-                                    <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Seized Commodities &amp; Contraband Manifest</h4>
-                                    <p class="text-[11px] text-black">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2.5 py-1 bg-emerald-100 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase">Evidence Tagging Active</span>
-                                <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
-                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                    Add Another Seizure
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- MULTI SEIZURES DYNAMIC LIST CONTAINER -->
-                        <div id="seizuresListContainer" class="space-y-6">
-                            <!-- SEIZURE ITEM BLOCK #1 -->
-                            <div class="seizure-block p-4 bg-white rounded-xl border border-emerald-200 space-y-4 shadow-2xs relative" data-seizure-index="1">
-                                <div class="flex items-center justify-between pb-2 border-b border-emerald-100">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center border border-emerald-300 seizure-number-badge">1</span>
-                                        <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">Seizure Item #1</h5>
-                                    </div>
-                                    <button type="button" onclick="removeSeizureBlock(this)" class="remove-seizure-btn hidden text-red-600 hover:text-red-800 font-bold text-xs flex items-center gap-1 cursor-pointer bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg border border-red-200 transition-colors">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                        Remove Item
-                                    </button>
-                                </div>
-
-                                <!-- SUSPECT SELECTION / OWNERSHIP ATTRIBUTION -->
-                                <div class="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/90 space-y-2">
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-1.5">
-                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                        <span>Suspect Ownership / Attribution</span>
-                                        <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <select name="associated_person" class="seizure-associated-person-select w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer shadow-2xs">
-                                        @foreach($allSuspectsInCase as $sOpt)
-                                            <option value="{{ $sOpt['name'] }}" {{ strtolower(trim($sOpt['name'])) === strtolower(trim($activeSuspectName)) ? 'selected' : '' }}>
-                                                {{ $sOpt['name'] }} ({{ $sOpt['role'] }})
-                                            </option>
-                                        @endforeach
-                                        <option value="Primary & Co-Suspect (Joint)">Primary &amp; Co-Suspect (Joint Ownership)</option>
-                                        <option value="All Suspects (Joint)">All Suspects (Joint Seizure)</option>
-                                    </select>
-                                </div>
-
-                                <!-- CATEGORY & COMMODITY SELECTION -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <!-- CATEGORY PICKER -->
-                                    <div class="relative">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center space-x-1">
-                                            <span>Commodity Category</span>
-                                            <span class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative">
-                                            <input type="text" id="exhibitSearchInput" readonly onclick="openExhibitListPanel(this)" placeholder="Select Category..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureCategory" name="exhibit_category" value="">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                        </div>
-
-                                        <!-- SEARCHABLE CATEGORY DROPDOWN PANEL -->
-                                        <div id="exhibitListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                            <input type="text" id="exhibitSearchInner" onkeyup="filterExhibitListInner(this)" placeholder="Search category..." class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-emerald-500">
-                                            <ul id="exhibitList" class="space-y-1">
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Drugs', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>💊 Narcotic Drugs / Controlled Substances</span>
-                                                        <span class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">DRUGS</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Money', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>💵 Cash / Currency / Valuables</span>
-                                                        <span class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CASH</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Gold', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>🪙 Gold / Precious Metals / Minerals</span>
-                                                        <span class="text-[10px] font-mono-code bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">METALS</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Vehicles', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>🚘 Vehicles / Transportation</span>
-                                                        <span class="text-[10px] font-mono-code bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">VEHICLE</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Electronic Devices', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>💻 Digital &amp; Electronic Devices</span>
-                                                        <span class="text-[10px] font-mono-code bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-bold">DIGITAL</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Weapons', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>🔫 Firearm / Ballistic / Weapon</span>
-                                                        <span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">WEAPON</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Ammunition', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>💣 Ammunition / Explosives</span>
-                                                        <span class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">AMMO</span>
-                                                    </button>
-                                                </li>
-                                                <li class="exhibit-item" onclick="selectExhibitCategory('Other Exhibits', event)">
-                                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-extrabold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between cursor-pointer">
-                                                        <span>📦 Other Contraband / Evidence</span>
-                                                        <span class="text-[10px] font-mono-code bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-bold">OTHER</span>
-                                                    </button>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-
-                                    <!-- DYNAMIC COMMODITY SPECIFIC PICKER -->
-                                    <div class="relative">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center space-x-1">
-                                            <span>Commodity / Item Name</span>
-                                            <span class="text-red-600 font-bold">*</span>
-                                        </label>
-
-                                        <!-- DRUGS SELECTOR -->
-                                        <div id="drugSelectWrapper" class="hidden relative">
-                                            <input type="text" id="drugSearchInput" readonly onclick="openDrugListPanel(this)" placeholder="Select Drug Type..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureNameDrug" name="seizure_name_drug" value="">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-
-                                            <div id="drugListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                                <input type="text" id="drugSearchInner" onkeyup="filterDrugList(this)" placeholder="Search drug type..." class="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg outline-none focus:border-emerald-500">
-                                                <ul id="drugList" class="space-y-1">
-                                                    <li class="drug-item" onclick="selectDrugType('Cocaine', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Cocaine</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Heroin', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Heroin</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Cannabis / Marijuana', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Cannabis / Marijuana</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Methamphetamine (Ice)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Methamphetamine (Ice)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Fentanyl', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Fentanyl</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('MDMA / Ecstasy', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">MDMA / Ecstasy</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Tramadol (High Dosage)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Tramadol (High Dosage)</button></li>
-                                                    <li class="drug-item" onclick="selectDrugType('Ephedrine / Precursor Chemical', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Ephedrine / Precursor Chemical</button></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        <!-- WEAPONS SELECTOR -->
-                                        <div id="weaponSelectWrapper" class="hidden relative">
-                                            <input type="text" id="weaponSearchInput" readonly onclick="openWeaponListPanel(this)" placeholder="Select Weapon Type..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureNameWeapon" name="seizure_name_weapon" value="">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-
-                                            <div id="weaponListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                                <ul id="weaponList" class="space-y-1">
-                                                    <li onclick="selectWeaponType('AK-47 Assault Rifle', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">AK-47 Assault Rifle</button></li>
-                                                    <li onclick="selectWeaponType('Pistol / Handgun (9mm)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Pistol / Handgun (9mm)</button></li>
-                                                    <li onclick="selectWeaponType('Pump Action Shotgun', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Pump Action Shotgun</button></li>
-                                                    <li onclick="selectWeaponType('Locally Manufactured Gun', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Locally Manufactured Gun</button></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        <!-- CURRENCY SELECTOR -->
-                                        <div id="currencySelectWrapper" class="hidden relative">
-                                            <input type="text" id="currencySearchInput" readonly onclick="openCurrencyListPanel(this)" placeholder="Select Currency..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureNameCurrency" name="seizure_name_currency" value="">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-
-                                            <div id="currencyListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                                <ul id="currencyList" class="space-y-1">
-                                                    <li onclick="selectCurrencyType('US Dollars (USD)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">US Dollars (USD)</button></li>
-                                                    <li onclick="selectCurrencyType('Ghana Cedi (GHS)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Ghana Cedi (GHS)</button></li>
-                                                    <li onclick="selectCurrencyType('Euros (EUR)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Euros (EUR)</button></li>
-                                                    <li onclick="selectCurrencyType('British Pounds (GBP)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">British Pounds (GBP)</button></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        <!-- AMMUNITION SELECTOR -->
-                                        <div id="ammoSelectWrapper" class="hidden relative">
-                                            <input type="text" id="ammoSearchInput" readonly onclick="openAmmoListPanel(this)" placeholder="Select Ammo Type..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureNameAmmo" name="seizure_name_ammo" value="">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-
-                                            <div id="ammoListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                                <ul id="ammoList" class="space-y-1">
-                                                    <li onclick="selectAmmoType('7.62x39mm Rounds (AK-47)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">7.62x39mm Rounds (AK-47)</button></li>
-                                                    <li onclick="selectAmmoType('9mm Pistol Ammunition', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">9mm Pistol Ammunition</button></li>
-                                                    <li onclick="selectAmmoType('12-Gauge Shotgun Shells', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">12-Gauge Shotgun Shells</button></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        <!-- ELECTRONIC DEVICES SELECTOR -->
-                                        <div id="deviceSelectWrapper" class="hidden relative">
-                                            <input type="text" id="deviceSearchInput" readonly onclick="openDeviceListPanel(this)" placeholder="Select Device Type..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureNameDevice" name="seizure_name_device" value="">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-
-                                            <div id="deviceListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                                <ul id="deviceList" class="space-y-1">
-                                                    <li onclick="selectDeviceType('Mobile Phone / Smartphone', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Mobile Phone / Smartphone</button></li>
-                                                    <li onclick="selectDeviceType('Laptop Computer', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Laptop Computer</button></li>
-                                                    <li onclick="selectDeviceType('External Hard Drive / Flash Drive', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">External Hard Drive / Flash Drive</button></li>
-                                                    <li onclick="selectDeviceType('Satellite Phone / Radio', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Satellite Phone / Radio</button></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-
-                                        <!-- GENERAL TEXT INPUT FALLBACK -->
-                                        <div id="commodityTextWrapper" class="relative">
-                                            <input type="text" id="newSeizureName" name="seizure_name" placeholder="e.g. Cocaine, AK-47, USD Cash..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 shadow-2xs">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- QUANTITY, WEIGHT & MEASUREMENT UNITS -->
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity</label>
-                                        <input type="number" step="any" name="seizure_quantity" placeholder="e.g. 50" class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 shadow-2xs">
-                                    </div>
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Gross / Net Weight</label>
-                                        <input type="number" step="any" name="seizure_weight" placeholder="e.g. 125.5" class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 shadow-2xs">
-                                    </div>
-                                    <div class="relative">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Unit of Measurement</label>
-                                        <div class="relative">
-                                            <input type="text" id="unitSearchInput" readonly onclick="openUnitListPanel(this)" placeholder="Kilograms (kg)..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizureUnit" name="seizure_unit" value="Kilograms (kg)">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                        </div>
-                                        <div id="unitListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                            <ul class="space-y-1">
-                                                <li onclick="selectUnit('Kilograms (kg)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Kilograms (kg)</button></li>
-                                                <li onclick="selectUnit('Grams (g)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Grams (g)</button></li>
-                                                <li onclick="selectUnit('Pounds (lbs)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Pounds (lbs)</button></li>
-                                                <li onclick="selectUnit('Litres (L)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Litres (L)</button></li>
-                                                <li onclick="selectUnit('Pieces / Units', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Pieces / Units</button></li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- PACKAGING & ESTIMATED VALUATION -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="relative">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging / Container Type</label>
-                                        <div class="relative">
-                                            <input type="text" id="pkgSearchInput" readonly onclick="openPkgListPanel(this)" placeholder="Plastic Wraps / Sacks..." class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none cursor-pointer focus:border-emerald-600 shadow-2xs pr-8">
-                                            <input type="hidden" id="newSeizurePackaging" name="seizure_packaging" value="Plastic Wraps / Sacks">
-                                            <svg class="w-4 h-4 text-emerald-600 absolute right-3 top-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                        </div>
-                                        <div id="pkgListPanel" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-emerald-300 rounded-2xl shadow-xl z-50 p-2 space-y-2 max-h-60 overflow-y-auto">
-                                            <ul class="space-y-1">
-                                                <li onclick="selectPackagingType('Plastic Wraps / Sealed Bags', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Plastic Wraps / Sealed Bags</button></li>
-                                                <li onclick="selectPackagingType('Paper Envelopes / Cartons', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Paper Envelopes / Cartons</button></li>
-                                                <li onclick="selectPackagingType('Brick / Slab Slabs', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Brick / Slab Slabs</button></li>
-                                                <li onclick="selectPackagingType('Canvas / Jute Bags', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Canvas / Jute Bags</button></li>
-                                                <li onclick="selectPackagingType('Metal Safe / Vault Box', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg">Metal Safe / Vault Box</button></li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Estimated Street Valuation (GHS / USD)</label>
-                                        <input type="text" name="seizure_value" placeholder="e.g. GHS 250,000" class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 shadow-2xs">
-                                    </div>
-                                </div>
-
-                                <!-- STORAGE & OFFICER DETAILS -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage Location / Vault Cell</label>
-                                        <input type="text" name="storage_location" placeholder="e.g. Vault Cell A-4" class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 shadow-2xs">
-                                    </div>
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seizing Officer Name</label>
-                                        <input type="text" name="seizing_officer" value="{{ $officerName }}" class="w-full px-3.5 py-2.5 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold text-xs outline-none focus:border-emerald-600 shadow-2xs">
-                                    </div>
-                                </div>
-
-                                <!-- EVIDENCE PHOTO ATTACHMENTS -->
-                                <div>
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seized Contraband &amp; Exhibit Photos</label>
-                                    <input type="file" name="evidence_photos[]" multiple accept="image/*" onchange="previewSeizurePhotos(this)" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-700 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer">
-                                    <div class="seizure-photos-preview flex flex-wrap gap-2 mt-2"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
-                        <div class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
-                            <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                                <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                + Add Another Seizure Item
-                            </button>
-                        </div>
-
-                        <!-- ACTION BUTTONS -->
-                        <div class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-200">
-                            <button type="button" onclick="document.getElementById('section4Seizures').classList.add('hidden')" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl transition-all cursor-pointer border-none">
-                                Cancel
-                            </button>
-                            <button type="submit" id="saveSection4SeizureBtn" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center cursor-pointer border-none">
-                                <span id="saveSection4SeizureBtnText">Save Seizure / Exhibit</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                @endif
             </div>
+            @endif
 
             <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
-            @if(!$isCrimeSceneContext)
+            @if(!$isCrimeSceneContext && !$isEvidenceManagement)
             <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl" id="section5LabExamination">
                 @php
                     // GATHER ALL SUSPECTS IN THIS CASE FOR SUSPECT WORKSPACE SELECTOR TABS
@@ -3312,6 +3795,8 @@
                         if (!empty($activeSuspectLabExam['confirmatory_result'])) $savedLabConfirmatory = $activeSuspectLabExam['confirmatory_result'];
 
                         $swActive = $activeSuspectLabExam['sample_weight'] ?? [];
+                        if (!empty($activeSuspectLabExam['exhibit_description'])) $savedLabExhibitDesc = $activeSuspectLabExam['exhibit_description'];
+                        elseif (!empty($activeSuspectLabExam['description'])) $savedLabExhibitDesc = $activeSuspectLabExam['description'];
                         if (isset($swActive['description']) && $swActive['description'] !== null && $swActive['description'] !== '') $savedLabSampleDesc = $swActive['description'];
                         if (isset($swActive['units_packaging']) && $swActive['units_packaging'] !== null && $swActive['units_packaging'] !== '') $savedLabSampleUnits = $swActive['units_packaging'];
                         if (isset($swActive['gross_weight']) && $swActive['gross_weight'] !== null && $swActive['gross_weight'] !== '') $savedLabSampleGross = $swActive['gross_weight'];
@@ -3328,6 +3813,19 @@
                         if (!empty($activeSuspectLabExam['specifications'])) $savedLabSpecifications = $activeSuspectLabExam['specifications'];
                         if (!empty($activeSuspectLabExam['remark'])) $savedLabRemark = $activeSuspectLabExam['remark'];
                         if (!empty($activeSuspectLabExam['findings'])) $savedLabFindings = $activeSuspectLabExam['findings'];
+                    }
+
+                    if (empty($savedLabExhibitNo) || $savedLabExhibitNo === 'N/A') {
+                        $savedLabExhibitNo = !empty($labExhibitNo) ? $labExhibitNo : ($case->exhibit_number ?: 'EXH-01');
+                    }
+                    if (empty($savedLabDateReceived) || $savedLabDateReceived === 'N/A') {
+                        $savedLabDateReceived = !empty($labDateReceived) ? $labDateReceived : date('Y-m-d');
+                    }
+                    if (empty($savedLabDateStarted) || $savedLabDateStarted === 'N/A') {
+                        $savedLabDateStarted = !empty($labDateStarted) ? $labDateStarted : $savedLabDateReceived;
+                    }
+                    if (empty($savedLabDateCompleted) || $savedLabDateCompleted === 'N/A') {
+                        $savedLabDateCompleted = !empty($labDateCompleted) ? $labDateCompleted : $savedLabDateStarted;
                     }
 
                     $checkIsDrugExhibitReview = function($ex) {
@@ -3414,12 +3912,15 @@
                             $exOwner = !empty($szOwner) ? $szOwner : $activeSuspectName;
 
                             $suspectDrugExhibitsList[] = [
+                                'id'    => $sz['id'] ?? ($sz['exhibit_id'] ?? null),
                                 'index' => count($suspectDrugExhibitsList) + 1,
                                 'name'  => $sName ?: 'Drug Exhibit',
                                 'cat'   => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
                                 'qty'   => $sz['seizure_quantity'] ?? ($sz['quantity'] ?? null),
                                 'weight'=> $sz['seizure_weight'] ?? ($sz['weight'] ?? null),
                                 'unit'  => $sz['seizure_unit'] ?? ($sz['unit'] ?? null),
+                                'pkg'   => $sz['seizure_packaging'] ?? ($sz['packaging'] ?? null),
+                                'description' => $sz['seizure_description'] ?? ($sz['description'] ?? null),
                                 'owner' => $exOwner,
                                 'is_associate' => $szIsAssoc,
                                 'has_saved_lab' => !empty($sz['has_saved_lab']),
@@ -3483,7 +3984,7 @@
                 @endphp
 
                 <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
-                <div id="section5ReadOnlyDisplay" class="space-y-4 {{ !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
+                <div id="section5ReadOnlyDisplay" class="space-y-4 {{ ((!$isDrugCase) || !$activeSuspectHasSavedResult) ? 'hidden' : '' }}">
                     <!-- TOP VERIFICATION BANNER -->
                     <div class="p-4 bg-emerald-50/90 border-emerald-300 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                         <div class="flex items-center space-x-3">
@@ -3516,6 +4017,10 @@
                                 <td class="p-3 font-black text-blue-900 font-mono-code border-r border-slate-300 bg-white" id="displayLabCaseRef">{{ $savedLabCaseRef }}</td>
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Laboratory Number:</td>
                                 <td class="p-3 font-black text-slate-900 font-mono-code bg-white" id="section5LabUnitDisplay">{{ $savedLabNumber }}</td>
+                            </tr>
+                            <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Exhibit Description:</td>
+                                <td class="p-3 font-bold text-slate-900 bg-white" colspan="3" id="displayLabExhibitDesc">{{ $savedLabExhibitDesc ?: ($savedLabSampleDesc ?: 'N/A') }}</td>
                             </tr>
                             <tr class="bg-slate-100/90 border-b border-slate-300">
                                 <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Analyst / Examiner:</td>
@@ -3657,7 +4162,7 @@
                                                     $displaySampleTakenLabel = null;
                                                 } else {
                                                     $displaySampleTaken = '—';
-                                                    $displaySampleTakenLabel = 'Not Recorded';
+                                                    $displaySampleTakenLabel = 'N/A';
                                                 }
                                             @endphp
                                             <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5" id="section5SampleTakenDisplay">
@@ -3673,7 +4178,7 @@
                                                 @if(!empty($savedLabSampleReserved))
                                                     {{ $savedLabSampleReserved }}
                                                 @else
-                                                    —<span class="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">Not Recorded</span>
+                                                    —<span class="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">N/A</span>
                                                 @endif
                                             </div>
                                         </div>
@@ -3687,7 +4192,7 @@
                                 <td class="p-3 font-bold text-slate-900 bg-white" id="section5SpecsDisplay">{{ $savedLabSpecifications ?: 'N/A' }}</td>
                             </tr>
                             <tr class="bg-slate-100/90 border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Detected Compounds:</td>
+                                <td class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">Result (Detected Substances & Purity %):</td>
                                 <td class="p-3 bg-white font-bold text-slate-900 text-xs" colspan="3" id="section5DetectedSubstancesDisplay">
                                     @php 
                                         $detList = []; 
@@ -3733,7 +4238,7 @@
                                     @if(count($detList) > 0)
                                         <span>{{ implode(', ', $detList) }}</span>
                                     @else
-                                        <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                                        <span class="text-slate-700 font-bold italic text-xs">N/A</span>
                                     @endif
                                 </td>
                             </tr>
@@ -3747,14 +4252,14 @@
                             </tr>
                             <tr class="bg-slate-900 text-white">
                                 <td class="p-3 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">Analytical Findings:</td>
-                                <td class="p-3 font-medium text-slate-100 leading-relaxed bg-slate-900" colspan="3" id="section5FindingsDisplay">{{ $savedLabFindings ?: 'No specific laboratory analytical findings logged yet.' }}</td>
+                                <td class="p-3 font-medium text-slate-100 leading-relaxed bg-slate-900" colspan="3" id="section5FindingsDisplay">{{ $savedLabFindings ?: 'N/A' }}</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- EXAMINATION INFORMATION CONTAINER (HIDDEN WHEN RESULT EXISTS FOR ACTIVE SUSPECT/EXHIBIT OR SUSPECT HAS NO DRUG EXHIBIT) -->
-                <div id="section5FormContainer" class="space-y-6 {{ ($activeSuspectHasSavedResult || !$activeSuspectHasDrugExhibit) ? 'hidden' : '' }}">
+                <!-- EXAMINATION INFORMATION CONTAINER (ALWAYS VISIBLE AT LAB ANALYSIS STAGE WHEN UNSAVED) -->
+                <div id="section5FormContainer" class="space-y-6 {{ $activeSuspectHasSavedResult ? 'hidden' : '' }}">
                     <div class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 
                         <div class="flex items-center space-x-3">
@@ -3767,7 +4272,7 @@
                                 <div class="flex items-center gap-2">
                                     <h3 class="font-extrabold text-slate-900 text-base">Examination Information</h3>
                                     <span id="section5BadgeStatus" class="px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase {{ $activeSuspectHasSavedResult ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : ($labStatus === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-800 border border-slate-300') }}">
-                                        {{ $activeSuspectHasSavedResult ? '✓ LAB COMPLETED' : ($labStatus === 'IN_PROGRESS' ? '⏳ LAB IN PROGRESS' : '⭕ LAB PENDING') }}
+                                        {{ $activeSuspectHasSavedResult ? '✓ LAB COMPLETED' : ($labStatus === 'IN_PROGRESS' ? 'LAB IN PROGRESS' : 'LAB PENDING') }}
                                     </span>
                                 </div>
                                 <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination &amp; Testing Log</p>
@@ -3777,39 +4282,92 @@
                             <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
                                 LAB ANALYSIS EXCLUSIVE
                             </span>
+                            <button type="button" onclick="toggleSection5()" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-extrabold rounded-lg border border-slate-300 transition-colors flex items-center gap-1 cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 012.122-.363c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18"/></svg>
+                                <span class="s5ToggleTextSpan">Hide Section 5</span>
+                            </button>
                         </div>
                     </div>
 
                     <form id="section5LabForm" onsubmit="submitSection5LabExam(event)" class="space-y-5">
+                    <input type="hidden" id="labFormExhibitId" name="exhibit_id" value="{{ !empty($drugExhibits) ? ($drugExhibits[0]['id'] ?? $drugExhibits[0]['index']) : '' }}">
+                    <input type="hidden" id="labFormExhibitOwner" name="exhibit_owner_name" value="{{ $activeSuspectName }}">
+
                     <!-- EXHIBIT SELECTOR CARD FROM SECTION 4 MANIFEST -->
-                    <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-2.5 shadow-2xs">
-                        <div class="flex items-center justify-between">
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-2">
-                                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                <span>Select Seized Exhibit to Examine (Manifest Sync)</span>
-                                <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <span class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                                {{ !empty($drugExhibits) ? count($drugExhibits) . ' Drug Exhibit(s) Synced' : '0 Drug Exhibits Linked' }}
-                            </span>
-                        </div>
-                        <div class="relative">
-                            <select 
-                                id="labExhibitSelect" 
-                                onchange="onReviewLabExhibitChange(this)"
-                                class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                                {{ empty($drugExhibits) ? 'disabled' : '' }}
-                            >
-                                @if(!empty($drugExhibits))
-                                    @foreach($drugExhibits as $dEx)
-                                        <option value="{{ $dEx['index'] }}" data-name="{{ $dEx['name'] }}" data-owner="{{ $dEx['owner'] }}" data-qty="{{ $dEx['qty'] ?? '' }}" data-weight="{{ $dEx['weight'] ?? '' }}" data-unit="{{ $dEx['unit'] ?? '' }}" data-is-associate="{{ $dEx['is_associate'] ? '1' : '0' }}" data-has-saved="{{ !empty($dEx['has_saved_lab']) ? 'true' : 'false' }}" data-confirmatory="{{ $dEx['confirmatory_result'] ?? 'YES' }}" data-substance-id="{{ $dEx['substance_identification'] ?? '' }}" data-test-methods="{{ $dEx['test_methods'] ?? '' }}" data-specifications="{{ $dEx['specifications'] ?? '' }}" data-remark="{{ $dEx['remark'] ?? '' }}" data-sample-taken="{{ $dEx['sample_taken'] ?? '' }}" data-sample-reserved="{{ $dEx['sample_reserved'] ?? '' }}" data-findings="{{ $dEx['findings'] ?? '' }}" {{ $loop->first ? 'selected' : '' }}>Exhibit #{{ $dEx['index'] }}: {{ $dEx['name'] }} (Owner: {{ $dEx['owner'] }})</option>
-                                    @endforeach
-                                @endif
-                            </select>
+                    <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
+                        <div class="grid grid-cols-1 gap-4">
+
+                            <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                    <span class="flex items-center space-x-2">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        <span>Select Seized Exhibit to Examine (Manifest Sync)</span> <span class="text-emerald-700 font-semibold text-[10px]">(Type of Drug)</span>
+                                        <span class="text-red-600 font-bold">*</span>
+                                    </span>
+                                    <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                                        {{ !empty($drugExhibits) ? count($drugExhibits) . ' Drug Exhibit(s) Synced' : '0 Drug Exhibits Linked' }}
+                                    </span>
+                                </label>
+                                <select 
+                                    id="labExhibitSelect" 
+                                    name="exhibit_id"
+                                    onchange="onReviewLabExhibitChange(this)"
+                                    class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                    {{ empty($drugExhibits) ? 'disabled' : '' }}
+                                >
+                                    <option value="" selected>Select Seized Exhibit to Examine (Manifest Sync)...</option>
+                                    @if(!empty($drugExhibits))
+                                        @foreach($drugExhibits as $dEx)
+                                            @php
+                                                $exTitle = $dEx['name'] ?? ($dEx['cat'] ?? 'Exhibit');
+                                                $exMetrics = !empty($dEx['qty']) 
+                                                    ? (' — ' . $dEx['qty'] . (!empty($dEx['unit']) && !str_contains(strtolower($dEx['qty']), strtolower($dEx['unit'])) ? (' ' . $dEx['unit']) : ''))
+                                                    : (!empty($dEx['weight']) ? (' — ' . $dEx['weight'] . (!empty($dEx['unit']) && !str_contains(strtolower($dEx['weight']), strtolower($dEx['unit'])) ? (' ' . $dEx['unit']) : '')) : '');
+                                                $rawDescBlade = $dEx['pkg'] ?? ($dEx['description'] ?? '');
+                                                $cleanDescBlade = $rawDescBlade;
+                                                if (!empty($cleanDescBlade) && !empty($exTitle)) {
+                                                    if (str_starts_with(strtolower($cleanDescBlade), strtolower($exTitle))) {
+                                                        $cleanDescBlade = trim(substr($cleanDescBlade, strlen($exTitle)));
+                                                    }
+                                                    $cleanDescBlade = trim(preg_replace('/^[\s\—\-\:\(\)]+/', '', $cleanDescBlade), ') ');
+                                                }
+                                                $exPkgStr = !empty($cleanDescBlade) ? (' (' . $cleanDescBlade . ')') : '';
+                                                $exOwnerStr = !empty($dEx['owner']) ? (' [Owner: ' . $dEx['owner'] . ']') : '';
+                                            @endphp
+                                            <option 
+                                                value="{{ $dEx['id'] ?? $dEx['index'] }}" 
+                                                data-ex-id="{{ $dEx['id'] ?? '' }}"
+                                                data-index="{{ $dEx['index'] }}"
+                                                data-name="{{ $dEx['name'] }}" 
+                                                data-owner="{{ $dEx['owner'] ?? '' }}" 
+                                                data-qty="{{ $dEx['qty'] ?? '' }}" 
+                                                data-weight="{{ $dEx['weight'] ?? '' }}" 
+                                                data-unit="{{ $dEx['unit'] ?? '' }}" 
+                                                data-pkg="{{ $dEx['pkg'] ?? '' }}"
+                                                data-description="{{ $dEx['description'] ?? '' }}"
+                                                data-is-associate="{{ !empty($dEx['is_associate']) ? '1' : '0' }}" 
+                                                data-has-saved="{{ !empty($dEx['has_saved_lab']) ? 'true' : 'false' }}" 
+                                                data-confirmatory="{{ $dEx['confirmatory_result'] ?? 'YES' }}" 
+                                                data-substance-id="{{ $dEx['substance_identification'] ?? '' }}" 
+                                                data-test-methods="{{ $dEx['test_methods'] ?? '' }}" 
+                                                data-specifications="{{ $dEx['specifications'] ?? '' }}" 
+                                                data-remark="{{ $dEx['remark'] ?? '' }}" 
+                                                data-sample-taken="{{ $dEx['sample_taken'] ?? '' }}" 
+                                                data-sample-reserved="{{ $dEx['sample_reserved'] ?? '' }}" 
+                                                data-detected-substances="{{ is_array($dEx['detected_substances'] ?? null) ? json_encode($dEx['detected_substances']) : ($dEx['detected_substances'] ?? '') }}" 
+                                                data-findings="{{ $dEx['findings'] ?? '' }}" 
+                                            >
+                                                {{ $exTitle }}{{ $exMetrics }}{{ $exPkgStr }}{{ $exOwnerStr }}
+                                            </option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                            </div>
                         </div>
                         <p class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
                             <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Select an exhibit above to view its manifest details and process forensic examination separately.</span>
+                            <span>Select a drug type and exhibit above to load Section 4 manifest details and process forensic examination.</span>
                         </p>
                     </div>
 
@@ -5274,7 +5832,7 @@
 
                             $assocMethodsVal = $dbAssocExam ? $dbAssocExam->test_methods : (!empty($docketAssocExam['test_methods']) ? $docketAssocExam['test_methods'] : (!empty($firstAssocEx['test_methods']) ? $firstAssocEx['test_methods'] : (!empty($assocLabExam['test_methods']) ? $assocLabExam['test_methods'] : 'N/A')));
 
-                            $assocFindingsVal = $dbAssocExam ? $dbAssocExam->findings : (!empty($docketAssocExam['findings']) ? $docketAssocExam['findings'] : (!empty($firstAssocEx['findings']) ? $firstAssocEx['findings'] : (!empty($firstAssocEx['notes']) ? $firstAssocEx['notes'] : (!empty($assocLabExam['findings']) ? $assocLabExam['findings'] : 'No specific laboratory analytical findings logged.'))));
+                            $assocFindingsVal = $dbAssocExam ? $dbAssocExam->findings : (!empty($docketAssocExam['findings']) ? $docketAssocExam['findings'] : (!empty($firstAssocEx['findings']) ? $firstAssocEx['findings'] : (!empty($firstAssocEx['notes']) ? $firstAssocEx['notes'] : (!empty($assocLabExam['findings']) ? $assocLabExam['findings'] : 'N/A'))));
 
                             $pResultAssoc = 'N/A';
                             $pPresenceAssoc = 'N/A';
@@ -5318,6 +5876,29 @@
                                         break;
                                     }
                                 }
+                            }
+                            $hasThisAssocDrug = false;
+                            if (!empty($aSpExhibits)) {
+                                foreach ($aSpExhibits as $aEx) {
+                                    $aCatLower = strtolower(trim($aEx['exhibit_category'] ?? ($aEx['category'] ?? '')));
+                                    $aNameLower = strtolower(trim($aEx['seizure_name_drug'] ?? ($aEx['commodity_name'] ?? ($aEx['seizure_name'] ?? ($aEx['name'] ?? '')))));
+                                    if (str_contains($aCatLower, 'drug') || str_contains($aCatLower, 'narcotic') || !empty($aEx['seizure_name_drug']) || str_contains($aNameLower, 'cannabis') || str_contains($aNameLower, 'cocaine') || str_contains($aNameLower, 'heroin') || str_contains($aNameLower, 'meth') || str_contains($aNameLower, 'tramadol')) {
+                                        $hasThisAssocDrug = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!$hasThisAssocSavedLab && $hasThisAssocDrug) {
+                                $hasThisAssocSavedLab = true;
+                                if (empty($assocPresumptiveText)) $assocPresumptiveText = 'N/A';
+                                if (empty($assocSubstanceId)) $assocSubstanceId = 'N/A';
+                                if (empty($assocExamRef)) $assocExamRef = 'GSA-FM-T77-F';
+                                if (empty($assocExhibitNo)) $assocExhibitNo = !empty($aSpExhibits[0]['exhibit_number']) ? $aSpExhibits[0]['exhibit_number'] : 'EXH-01';
+                                if (empty($assocLabNumber)) $assocLabNumber = $case->laboratory_number ?: 'Lab No. 12/FS05/2025';
+                                if (empty($assocAnalyst)) $assocAnalyst = $case->submitting_officer ?: 'Lab Analyst';
+                                if (empty($assocDateReceived)) $assocDateReceived = date('Y-m-d');
+                                if (empty($assocDateStarted)) $assocDateStarted = date('Y-m-d');
+                                if (empty($assocDateCompleted)) $assocDateCompleted = date('Y-m-d');
                             }
                             $secondaryBadge = $isCoSuspect ? 'CO-SUSPECT DOSSIER' : 'ASSOCIATE DOSSIER';
                             $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
@@ -5548,7 +6129,7 @@
                                             @if(count($detListAssoc) > 0)
                                                 <span>{{ implode(', ', $detListAssoc) }}</span>
                                             @else
-                                                <span class="text-slate-700 font-bold italic text-xs">No individual compound breakdown logged</span>
+                                                <span class="text-slate-700 font-bold italic text-xs">N/A</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -5613,6 +6194,20 @@
         const opt = sel.options[sel.selectedIndex];
         if (!opt) return;
         const exhVal = opt.value;
+        const exId = opt.getAttribute('data-ex-id') || exhVal || '';
+        const hiddenExIdInput = document.getElementById('labFormExhibitId');
+        if (hiddenExIdInput) {
+            hiddenExIdInput.value = exId;
+        }
+        if (!exhVal || exhVal === '') {
+            const exhNoInput = document.getElementById('labExhibitNumberInput');
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            const subIdInput = document.getElementById('confirmatorySubstanceIdentificationReview');
+            if (exhNoInput) exhNoInput.value = '';
+            if (descInput) descInput.value = '';
+            if (subIdInput) subIdInput.value = '';
+            return;
+        }
         const nameVal = opt.getAttribute('data-name') || '';
         const qtyVal = opt.getAttribute('data-qty') || '';
         const weightVal = opt.getAttribute('data-weight') || '';
@@ -5664,6 +6259,24 @@
         if (unitAddon && unitVal) unitAddon.textContent = unitVal;
 
         if (hasSaved === 'true' || hasSaved === '1') {
+            const detectedContainer = document.getElementById('detectedSubstancesListContainerReview');
+            if (detectedContainer) {
+                detectedContainer.innerHTML = '';
+                let savedDetList = [];
+                try {
+                    const rawDet = opt.getAttribute('data-detected-substances');
+                    if (rawDet) savedDetList = JSON.parse(rawDet);
+                } catch(e) {}
+                if (Array.isArray(savedDetList) && savedDetList.length > 0) {
+                    savedDetList.forEach(item => {
+                        const sName = typeof item === 'object' ? (item.substance || item.name || item.compound || '') : String(item);
+                        const sPct = typeof item === 'object' ? (item.percentage || item.purity || '') : '';
+                        addDetectedSubstanceRowReview(sName, sPct);
+                    });
+                } else {
+                    addDetectedSubstanceRowReview(savedSubstanceId || nameVal || '', '');
+                }
+            }
             if (takenInput) takenInput.value = savedSampleTaken;
             if (reservedInput) reservedInput.value = savedSampleReserved;
             if (notesInput) notesInput.value = savedFindings;
@@ -5713,7 +6326,10 @@
             if (presDetailsContainer) presDetailsContainer.classList.add('hidden');
 
             const detectedContainer = document.getElementById('detectedSubstancesListContainerReview');
-            if (detectedContainer) detectedContainer.innerHTML = '';
+            if (detectedContainer) {
+                detectedContainer.innerHTML = '';
+                addDetectedSubstanceRowReview(nameVal || '', '');
+            }
 
             if (typeof toggleConfirmatoryTestReview === 'function') {
                 toggleConfirmatoryTestReview('YES');
@@ -6006,7 +6622,7 @@
                 if (compCount >= totalUnits) {
                     if (banner) banner.classList.remove('hidden');
                     if (headerStatusBadge) {
-                        headerStatusBadge.innerHTML = `<span class="status-badge status-await"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span> Awaiting Sign-off</span>`;
+                        headerStatusBadge.innerHTML = `<span class="status-badge bg-white text-slate-900 border border-slate-300">Awaiting Sign-off</span>`;
                     }
                     showToast(`✔ Multi-Unit Directorate Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`);
                 } else {
@@ -6380,6 +6996,8 @@
                     unit_status: status,
                     officer: analyst,
                     notes: notes,
+                    exhibit_id: document.getElementById('labFormExhibitId')?.value || (selectedOpt ? (selectedOpt.getAttribute('data-ex-id') || selectedOpt.value) : ''),
+                    drug_type: selectedOpt ? (selectedOpt.getAttribute('data-substance-id') || selectedOpt.getAttribute('data-name') || '') : '',
                     exhibit_owner_name: exhibitOwnerName,
                     exhibit_is_associate: exhibitIsAssociate,
                     lab_exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
@@ -6515,11 +7133,11 @@
                     if (arr.length > 0) {
                         uDetectedEl.textContent = arr.map(item => `${item.substance}${item.percentage ? ' (' + item.percentage + ')' : ''}`).join(', ');
                     } else {
-                        uDetectedEl.textContent = 'No individual compound breakdown logged';
+                        uDetectedEl.textContent = 'N/A';
                     }
                 }
                 const uFindingsEl = document.getElementById('section5FindingsDisplay');
-                if (uFindingsEl) uFindingsEl.textContent = notes || 'No specific laboratory analytical findings logged yet.';
+                if (uFindingsEl) uFindingsEl.textContent = notes || 'N/A';
 
                 const badgeStatus = document.getElementById('section5BadgeStatus');
                 if (badgeStatus) {
@@ -6977,6 +7595,13 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+    const initDetContainer = document.getElementById('detectedSubstancesListContainerReview');
+    if (initDetContainer && initDetContainer.children.length === 0) {
+        if (typeof addDetectedSubstanceRowReview === 'function') {
+            const initialName = document.getElementById('confirmatorySubstanceIdentificationReview')?.value || document.getElementById('labExhibitSelect')?.options[0]?.getAttribute('data-name') || '';
+            addDetectedSubstanceRowReview(initialName, '');
+        }
+    }
         const grossReviewEl = document.getElementById('sampleWeightGrossReview');
         const takenReviewEl = document.getElementById('sampleWeightTakenReview');
         ['input', 'keyup', 'change', 'blur', 'paste'].forEach(function(evt) {
@@ -7366,6 +7991,148 @@
     window.activeSuspectName = @json($activeSuspectName ?? '');
     window.activeSuspectHasPersistedDrugExhibit = {{ !empty($activeSuspectHasDrugExhibit) ? 'true' : 'false' }};
     window.activeSuspectHasSavedLabResult = {{ !empty($activeSuspectHasSavedResult) ? 'true' : 'false' }};
+    window.activeSuspectDrugExhibitsJson = @json($suspectDrugExhibitsList ?? []);
+
+    function onDrugTypeChange(selectEl) {
+        const selectedType = selectEl ? (selectEl.value || '').trim().toLowerCase() : '';
+        const labExhibitSelect = document.getElementById('labExhibitSelect');
+        const labExhibitCountBadge = document.getElementById('labExhibitCountBadge');
+        const hiddenExIdInput = document.getElementById('labFormExhibitId');
+
+        if (!labExhibitSelect) return;
+
+        let jsonExhibits = (window.activeSuspectDrugExhibitsJson || []).slice();
+        let domExhibits = [];
+
+        const blocks = document.querySelectorAll('.seizure-block');
+        blocks.forEach((block, idx) => {
+            const itemNum = idx + 1;
+            const cat = block.querySelector('#newSeizureCategory')?.value || block.querySelector('#exhibitSearchInput')?.value || '';
+            let name = block.querySelector('#newSeizureNameDrug')?.value || 
+                       block.querySelector('#drugSearchInput')?.value || 
+                       block.querySelector('#newSeizureNameWeapon')?.value || 
+                       block.querySelector('#weaponSearchInput')?.value || 
+                       block.querySelector('#newSeizureNameCurrency')?.value || 
+                       block.querySelector('#currencySearchInput')?.value || 
+                       block.querySelector('#newSeizureNameDevice')?.value || 
+                       block.querySelector('#deviceSearchInput')?.value || 
+                       block.querySelector('#newSeizureName')?.value || '';
+            const qty = block.querySelector('input[name="seizure_quantity"]')?.value || block.querySelector('#newSeizureQuantity')?.value || '';
+            const pkg = block.querySelector('input[name="seizure_packaging"]')?.value || block.querySelector('#newSeizurePackaging')?.value || block.querySelector('#pkgSearchInput')?.value || '';
+            const weight = block.querySelector('input[name="seizure_weight"]')?.value || block.querySelector('#newSeizureWeight')?.value || '';
+            const unit = block.querySelector('input[name="seizure_unit"]')?.value || block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value || '';
+            const owner = block.querySelector('.seizure-associated-person-select')?.value || window.activeSuspectName || '';
+
+            if (name || cat) {
+                let displayName = name || cat || 'Exhibit';
+                domExhibits.push({
+                    id: itemNum.toString(),
+                    index: itemNum,
+                    name: displayName,
+                    cat: cat,
+                    qty: qty,
+                    weight: weight,
+                    unit: unit,
+                    pkg: pkg,
+                    owner: owner,
+                    description: pkg ? `${displayName} (${pkg})` : displayName,
+                    is_associate: false,
+                    has_saved_lab: false
+                });
+            }
+        });
+
+        let allExhibits = domExhibits.length > 0 
+            ? domExhibits.concat(jsonExhibits.filter(j => !domExhibits.some(d => (d.name || '').toLowerCase() === (j.name || '').toLowerCase()))) 
+            : jsonExhibits;
+
+        let matchingExhibits = allExhibits;
+        if (selectedType !== '') {
+            matchingExhibits = allExhibits.filter(function(ex) {
+                const name = (ex.name || '').toLowerCase();
+                const cat = (ex.cat || '').toLowerCase();
+                const subId = (ex.substance_identification || '').toLowerCase();
+                const desc = (ex.description || '').toLowerCase();
+                return name.includes(selectedType) || cat.includes(selectedType) || subId.includes(selectedType) || desc.includes(selectedType);
+            });
+        }
+
+        labExhibitSelect.innerHTML = '';
+
+        const placeholderOpt = document.createElement('option');
+        placeholderOpt.value = '';
+        placeholderOpt.textContent = 'Select Seized Exhibit to Examine (Manifest Sync)...';
+        placeholderOpt.selected = true;
+        labExhibitSelect.appendChild(placeholderOpt);
+
+        if (matchingExhibits.length > 0) {
+            labExhibitSelect.removeAttribute('disabled');
+            matchingExhibits.forEach(function(dEx, idx) {
+                const opt = document.createElement('option');
+                opt.value = dEx.id || dEx.index;
+                opt.setAttribute('data-ex-id', dEx.id || '');
+                opt.setAttribute('data-index', dEx.index);
+                opt.setAttribute('data-name', dEx.name || '');
+                opt.setAttribute('data-cat', dEx.cat || '');
+                opt.setAttribute('data-owner', dEx.owner || '');
+                opt.setAttribute('data-qty', dEx.qty || '');
+                opt.setAttribute('data-weight', dEx.weight || '');
+                opt.setAttribute('data-unit', dEx.unit || '');
+                opt.setAttribute('data-pkg', dEx.pkg || '');
+                opt.setAttribute('data-description', dEx.description || '');
+                opt.setAttribute('data-is-associate', dEx.is_associate ? '1' : '0');
+                opt.setAttribute('data-has-saved', dEx.has_saved_lab ? 'true' : 'false');
+                opt.setAttribute('data-confirmatory', dEx.confirmatory_result || 'YES');
+                opt.setAttribute('data-substance-id', dEx.substance_identification || dEx.name || '');
+                opt.setAttribute('data-test-methods', dEx.test_methods || '');
+                opt.setAttribute('data-specifications', dEx.specifications || '');
+                opt.setAttribute('data-remark', dEx.remark || '');
+                opt.setAttribute('data-sample-taken', dEx.sample_taken || '');
+                opt.setAttribute('data-sample-reserved', dEx.sample_reserved || '');
+                opt.setAttribute('data-findings', dEx.findings || '');
+
+                let itemTitle = dEx.name || dEx.cat || 'Exhibit';
+                let qtyUnitSuffix = (dEx.unit && dEx.qty && !dEx.qty.toLowerCase().includes(dEx.unit.toLowerCase())) ? (' ' + dEx.unit) : '';
+                let weightUnitSuffix = (dEx.unit && dEx.weight && !dEx.weight.toLowerCase().includes(dEx.unit.toLowerCase())) ? (' ' + dEx.unit) : '';
+                let metricsStr = dEx.qty ? (' — ' + dEx.qty + qtyUnitSuffix) : (dEx.weight ? (' — ' + dEx.weight + weightUnitSuffix) : '');
+                let rawDesc = dEx.pkg || dEx.description || '';
+                let cleanDesc = rawDesc;
+                if (cleanDesc && itemTitle) {
+                    if (cleanDesc.toLowerCase().startsWith(itemTitle.toLowerCase())) {
+                        cleanDesc = cleanDesc.substring(itemTitle.length).trim();
+                    }
+                    cleanDesc = cleanDesc.replace(/^[\s\—\-\:\(\)]+/, '').replace(/[\)]+$/, '').trim();
+                }
+                let descStr = cleanDesc ? (` (${cleanDesc})`) : '';
+                opt.textContent = `${itemTitle}${metricsStr}${descStr}`;
+
+                labExhibitSelect.appendChild(opt);
+            });
+
+            if (labExhibitCountBadge) {
+                labExhibitCountBadge.textContent = matchingExhibits.length + ' Drug Exhibit(s) Synced';
+            }
+            if (hiddenExIdInput) {
+                hiddenExIdInput.value = '';
+            }
+
+            onReviewLabExhibitChange(labExhibitSelect);
+        } else {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No matching seized exhibit found';
+            opt.selected = true;
+            labExhibitSelect.appendChild(opt);
+            labExhibitSelect.setAttribute('disabled', 'disabled');
+
+            if (labExhibitCountBadge) {
+                labExhibitCountBadge.textContent = '0 Matching Exhibits';
+            }
+            if (hiddenExIdInput) {
+                hiddenExIdInput.value = '';
+            }
+        }
+    }
 
     function evaluateLabExaminationVisibility() {
         const formContainer = document.getElementById('section5FormContainer');
@@ -7382,53 +8149,13 @@
             return;
         }
 
-        // Check if active suspect has a persisted drug exhibit from backend database state
-        let hasDrug = !!window.activeSuspectHasPersistedDrugExhibit;
+        // Section 5 Examination Information section MUST ALWAYS remain visible when unsaved
+        if (readOnlyView) readOnlyView.classList.add('hidden');
+        if (formContainer) formContainer.classList.remove('hidden');
+        if (noDrugNotice)  noDrugNotice.classList.add('hidden');
 
-        // Also check all seizure blocks currently present in Section 4 on the page
-        const seizureBlocks = document.querySelectorAll('.seizure-block');
-        const activeSuspectLower = (window.activeSuspectName || '').toLowerCase().trim();
-
-        seizureBlocks.forEach(function(block) {
-            const catInput = block.querySelector('#newSeizureCategory');
-            const searchInput = block.querySelector('#exhibitSearchInput');
-            const suspectSelect = block.querySelector('#newSeizureSuspect') || block.querySelector('.seizure-associated-person-select') || block.querySelector('[name="associated_person"]');
-
-            const catVal = (catInput ? catInput.value : (searchInput ? searchInput.value : '')).toLowerCase().trim();
-            const isDrugCat = catVal === 'drugs' || catVal === 'narcotics' || catVal === 'narcotic_drugs' || catVal.includes('drug') || catVal.includes('narcotic');
-
-            const blockSuspect = (suspectSelect ? suspectSelect.value : '').toLowerCase().trim();
-
-            const isForActiveSuspect = !blockSuspect || 
-                blockSuspect === activeSuspectLower || 
-                blockSuspect.includes(activeSuspectLower) || 
-                activeSuspectLower.includes(blockSuspect) ||
-                blockSuspect === 'primary suspect' || 
-                blockSuspect === 'primary' ||
-                blockSuspect.includes('all suspect') || 
-                blockSuspect.includes('joint');
-
-            if (isDrugCat && isForActiveSuspect) {
-                hasDrug = true;
-            }
-        });
-
-        if (hasDrug) {
-            if (readOnlyView) readOnlyView.classList.add('hidden');
-            if (formContainer) formContainer.classList.remove('hidden');
-            if (noDrugNotice)  noDrugNotice.classList.add('hidden');
-
-            const labExhibitSelect = document.getElementById('labExhibitSelect');
-            if (labExhibitSelect) {
-                labExhibitSelect.removeAttribute('disabled');
-                if (labExhibitSelect.options.length === 0 || (labExhibitSelect.options.length === 1 && (labExhibitSelect.options[0].value === '' || labExhibitSelect.options[0].disabled))) {
-                    labExhibitSelect.innerHTML = `<option value="1" data-name="Drug Exhibit" data-owner="${window.activeSuspectName}" selected>Exhibit #1: Drug Exhibit (${window.activeSuspectName})</option>`;
-                }
-            }
-        } else {
-            if (readOnlyView) readOnlyView.classList.add('hidden');
-            if (formContainer) formContainer.classList.add('hidden');
-            if (noDrugNotice)  noDrugNotice.classList.remove('hidden');
+        if ((window.activeSuspectDrugExhibitsJson || []).length > 0) {
+            onDrugTypeChange(null);
         }
     }
 
@@ -7579,6 +8306,8 @@
         if (panel)   panel.classList.add('hidden');
         updateCommodityField(val, root);
         evaluateLabExaminationVisibility();
+
+        onDrugTypeChange(null);
     }
 
     function filterExhibitList(el) {
@@ -7693,6 +8422,8 @@
         if (panel)   panel.classList.add('hidden');
         const textInput = root.querySelector('#newSeizureName');
         if (textInput) textInput.value = val;
+
+        onDrugTypeChange(null);
     }
 
     function filterDrugList(el) {
@@ -8177,7 +8908,7 @@
 
         blocks.forEach((block, idx) => {
             const assocPerson = block.querySelector('.seizure-associated-person-select')?.value || @json($activeSuspectName);
-            const category = block.querySelector('#newSeizureCategory')?.value || block.querySelector('#exhibitSearchInput')?.value || 'Drugs';
+            const category = block.querySelector('#newSeizureCategory')?.value || block.querySelector('#exhibitSearchInput')?.value || '';
             
             let seizureName = block.querySelector('#newSeizureNameDrug')?.value || 
                               block.querySelector('#drugSearchInput')?.value || 
@@ -8264,6 +8995,61 @@
             alert('An error occurred while saving the exhibit. Please check network connection and try again.');
             if (saveBtn) saveBtn.disabled = false;
             if (saveBtnText) saveBtnText.innerText = 'Save Seizure / Exhibit';
+        }
+    }
+
+    function toggleLabFormSections() {
+        const s4 = document.getElementById('section4Seizures');
+        const s5 = document.getElementById('section5LabExamination');
+        const masterTexts = document.querySelectorAll('.toggleLabFormTextSpan');
+        const s4Texts = document.querySelectorAll('.s4ToggleTextSpan');
+        const s5Texts = document.querySelectorAll('.s5ToggleTextSpan');
+
+        if (!s4 && !s5) return;
+
+        const s4Visible = s4 && !s4.classList.contains('hidden');
+        const s5Visible = s5 && !s5.classList.contains('hidden');
+
+        if (s4Visible || s5Visible) {
+            if (s4) s4.classList.add('hidden');
+            if (s5) s5.classList.add('hidden');
+            masterTexts.forEach(el => el.innerText = 'Show Both Sections');
+            s4Texts.forEach(el => el.innerText = 'Show Section 4');
+            s5Texts.forEach(el => el.innerText = 'Show Section 5');
+        } else {
+            if (s4) s4.classList.remove('hidden');
+            if (s5) s5.classList.remove('hidden');
+            masterTexts.forEach(el => el.innerText = 'Hide Both Sections');
+            s4Texts.forEach(el => el.innerText = 'Hide Section 4');
+            s5Texts.forEach(el => el.innerText = 'Hide Section 5');
+        }
+    }
+
+    function toggleSection4() {
+        const s4 = document.getElementById('section4Seizures');
+        const s4Texts = document.querySelectorAll('.s4ToggleTextSpan');
+        if (s4) {
+            if (s4.classList.contains('hidden')) {
+                s4.classList.remove('hidden');
+                s4Texts.forEach(el => el.innerText = 'Hide Section 4');
+            } else {
+                s4.classList.add('hidden');
+                s4Texts.forEach(el => el.innerText = 'Show Section 4');
+            }
+        }
+    }
+
+    function toggleSection5() {
+        const s5 = document.getElementById('section5LabExamination');
+        const s5Texts = document.querySelectorAll('.s5ToggleTextSpan');
+        if (s5) {
+            if (s5.classList.contains('hidden')) {
+                s5.classList.remove('hidden');
+                s5Texts.forEach(el => el.innerText = 'Hide Section 5');
+            } else {
+                s5.classList.add('hidden');
+                s5Texts.forEach(el => el.innerText = 'Show Section 5');
+            }
         }
     }
 </script>
