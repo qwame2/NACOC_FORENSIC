@@ -4,14 +4,7 @@
     @php
         $authUser = auth()->user();
         $userUnit = $authUser->unit ?? session('user_unit') ?? request()->query('unit') ?? '';
-        $isLabAnalysis = isset($isLabAnalysis) ? $isLabAnalysis : (
-            str_contains(strtolower($userUnit), 'lab') 
-            || request()->query('unit') === 'Lab Analysis' 
-            || request()->query('unit') === 'lab' 
-            || session('user_unit') === 'Lab Analysis'
-            || request()->is('Lab_Analysis*')
-            || request()->query('from') === 'lab'
-        );
+        $isLabAnalysis = request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->query('from') === 'lab' || request()->query('unit') === 'Lab Analysis';
         $officerName = auth()->user()->fullname ?? session('user_name') ?? 'Handling Officer';
         $todayDate = date('Y-m-d');
         $caseNumClean = preg_replace('/[^A-Za-z0-9]/', '', $case->case_number ?? 'CASE-001');
@@ -2154,7 +2147,6 @@
             } else if (category === 'Electronic Devices') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
-                if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
                 if (deviceSearch)  { deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
             } else {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';

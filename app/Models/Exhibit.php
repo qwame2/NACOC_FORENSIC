@@ -55,6 +55,7 @@ class Exhibit extends Model
         'dev_mac_address',
         'ammunition_details',
         'evidence_photos',
+        'other_exhibit_description',
     ];
 
     protected $casts = [

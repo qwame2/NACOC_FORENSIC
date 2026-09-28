@@ -63,6 +63,12 @@
                     <span class="text-xs flex-1">Court Evidence Reports</span>
                 </a>
 
+                <!-- DIRECTORATE HISTORY LOG -->
+                <a href="{{ url('/Forensic_Head/history') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('*history*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*history*') ? 'text-white' : 'text-purple-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-xs flex-1">Directorate History Log</span>
+                </a>
+
             </nav>
         </div>
 

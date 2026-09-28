@@ -60,7 +60,7 @@
     
     <!-- BRAND / SYSTEM LOGO -->
     <div class="h-16 px-5 flex items-center justify-between bg-slate-100">
-        <a href="{{ $headDashboardUrl }}" class="flex items-center space-x-3 group">
+        <a href="#" class="flex items-center space-x-3 group">
             <div class="w-9 h-9 rounded-xl bg-white p-0.5 border border-slate-200 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
                 <img src="{{ asset('NACOC LOGO.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
             </div>
@@ -90,12 +90,16 @@
                 </a>
                 
                 <!-- CASE DIRECTORY -->
-                <a href="{{ $caseDirectoryUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('cases*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('cases*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <a href="{{ $caseDirectoryUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <span class="text-xs">Case Directory</span>
                 </a>
 
-                                
+                <!-- CASE HISTORY LOG -->
+                <a href="{{ url('/history') . '?from=' . urlencode($sidebarUnit) }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('history*') || request()->is('History*') || request()->is('*/history*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('history*') || request()->is('History*') || request()->is('*/history*') ? 'text-white' : 'text-purple-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="text-xs">Case History Log</span>
+                </a>
                 
             </nav>
         </div>

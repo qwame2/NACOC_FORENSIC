@@ -12,8 +12,8 @@ use App\Http\Middleware\EnsureHeadOfficer;
 | 1. PUBLIC / UNAUTHENTICATED ROUTES
 |--------------------------------------------------------------------------
 */
-Route::get('/', [AuthController::class, 'showLogin'])->name('login');
-Route::get('/login', [AuthController::class, 'showLogin']);
+Route::get('/', [AuthController::class, 'showLogin'])->name('home');
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
@@ -57,7 +57,51 @@ Route::middleware(['auth'])->group(function () {
     // AUTHENTICATION LOGOUT
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    // MASTER CASE DIRECTORY & CASES API
+    // MASTER CASE DIRECTORY & HISTORY ROUTES
+    Route::get('/history', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        $cases = ForensicCase::allCases();
+        $unitFilter = $request->query('unit') ?? $request->query('from') ?? ($user ? $user->unit : 'All Units');
+        return view('history', compact('cases', 'unitFilter'));
+    })->name('history');
+
+    Route::get('/History', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        $cases = ForensicCase::allCases();
+        $unitFilter = $request->query('unit') ?? $request->query('from') ?? ($user ? $user->unit : 'All Units');
+        return view('history', compact('cases', 'unitFilter'));
+    });
+
+    Route::get('/Crime_Scene_Support/history', function (\Illuminate\Http\Request $request) {
+        $cases = ForensicCase::allCases();
+        $unitFilter = 'Crime Scene Support';
+        return view('history', compact('cases', 'unitFilter'));
+    });
+
+    Route::get('/Lab_Analysis/history', function (\Illuminate\Http\Request $request) {
+        $cases = ForensicCase::allCases();
+        $unitFilter = 'Lab Analysis';
+        return view('history', compact('cases', 'unitFilter'));
+    });
+
+    Route::get('/Evidence_Management/history', function (\Illuminate\Http\Request $request) {
+        $cases = ForensicCase::allCases();
+        $unitFilter = 'Evidence Management';
+        return view('history', compact('cases', 'unitFilter'));
+    });
+
+    Route::get('/Digital_Forensics/history', function (\Illuminate\Http\Request $request) {
+        $cases = ForensicCase::allCases();
+        $unitFilter = 'Digital & Physical Forensics';
+        return view('history', compact('cases', 'unitFilter'));
+    });
+
+    Route::get('/Forensic_Head/history', function (\Illuminate\Http\Request $request) {
+        $cases = ForensicCase::allCases();
+        $unitFilter = 'All Units';
+        return view('history', compact('cases', 'unitFilter'));
+    });
+
     Route::get('/cases', function () {
         $cases = ForensicCase::allCases();
         return view('cases.landing', compact('cases'));
@@ -86,6 +130,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cases/{id}/update', [CaseController::class, 'updateCase'])->name('cases.update');
     Route::post('/cases/{id}/update-unit-progress', [CaseController::class, 'updateUnitProgress']);
     Route::post('/cases/{id}/associate', [CaseController::class, 'associate']);
+    Route::post('/cases/upload-evidence-photos', [CaseController::class, 'uploadEvidencePhotos']);
     Route::post('/cases/{id}/reassign-exhibit', [CaseController::class, 'reassignExhibit']);
     Route::post('/cases/{id}/case-status', [CaseController::class, 'updateCaseStatus']);
     Route::post('/cases/{id}/suspect-disposition', [CaseController::class, 'updateSuspectDisposition']);

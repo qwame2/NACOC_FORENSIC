@@ -89,4 +89,42 @@ class VehicleExhibitPersistenceTest extends TestCase
         $this->assertEquals('WP-778899', $wpnExhibit->wpn_serial_no);
         $this->assertEquals('9mm', $wpnExhibit->wpn_calibre);
     }
+
+    #[Test]
+    public function other_exhibit_description_is_persisted_in_exhibits_table()
+    {
+        $user = User::factory()->create([
+            'unit' => 'Evidence Management',
+        ]);
+
+        $seizures = [
+            [
+                'exhibit_number' => '1',
+                'category' => 'Other Exhibits',
+                'seizure_name' => 'Custom Crypto Mining Rig',
+                'other_exhibit_description' => '12x RTX 4090 GPU custom server rack used for illicit crypto operations.',
+            ]
+        ];
+
+        $payload = [
+            'unit_name' => 'Evidence Management',
+            'title' => 'Republic vs Cyber Suspect',
+            'suspect_name' => 'Cyber Suspect',
+            'docket_data' => [
+                'suspects' => [
+                    ['suspect_name' => 'Cyber Suspect', 'role' => 'Primary Suspect'],
+                ],
+                'seizures' => $seizures,
+            ],
+            'user_id' => $user->id,
+        ];
+
+        $case = ForensicCase::create($payload);
+
+        $otherExhibit = Exhibit::where('exhibit_category', 'Other Exhibits')->first();
+
+        $this->assertNotNull($otherExhibit);
+        $this->assertEquals('12x RTX 4090 GPU custom server rack used for illicit crypto operations.', $otherExhibit->other_exhibit_description);
+    }
 }
+

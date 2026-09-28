@@ -736,6 +736,7 @@ class ForensicCase extends Model
                         'dev_imei2'               => $attributes['dev_imei2'] ?? ($attributes['imei_2'] ?? null),
                         'dev_mac_address'         => $attributes['dev_mac_address'] ?? ($attributes['mac_address'] ?? null),
                         'ammunition_details'      => $attributes['ammunition_details'] ?? null,
+                        'other_exhibit_description' => $attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null),
                         'evidence_photos'         => $attributes['evidence_photos'] ?? [],
                     ]);
                 }
@@ -811,6 +812,7 @@ class ForensicCase extends Model
                         'dev_imei2'               => $sz['dev_imei2'] ?? ($sz['imei_2'] ?? ($attributes['dev_imei2'] ?? null)),
                         'dev_mac_address'         => $sz['dev_mac_address'] ?? ($sz['mac_address'] ?? ($attributes['dev_mac_address'] ?? null)),
                         'ammunition_details'      => $sz['ammunition_details'] ?? ($attributes['ammunition_details'] ?? null),
+                        'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
                         'evidence_photos'         => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
                     ]);
 
@@ -998,6 +1000,7 @@ class ForensicCase extends Model
                     'dev_imei2'             => $attributes['dev_imei2'] ?? ($attributes['imei_2'] ?? null),
                     'dev_mac_address'       => $attributes['dev_mac_address'] ?? ($attributes['mac_address'] ?? null),
                     'ammunition_details'    => $attributes['ammunition_details'] ?? null,
+                    'other_exhibit_description' => $attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null),
                     'evidence_photos'       => $attributes['evidence_photos'] ?? [],
                 ]);
             }
@@ -1044,6 +1047,7 @@ class ForensicCase extends Model
                     'dev_imei2'             => $sz['dev_imei2'] ?? ($sz['imei_2'] ?? ($attributes['dev_imei2'] ?? null)),
                     'dev_mac_address'       => $sz['dev_mac_address'] ?? ($sz['mac_address'] ?? ($attributes['dev_mac_address'] ?? null)),
                     'ammunition_details'    => $sz['ammunition_details'] ?? ($attributes['ammunition_details'] ?? null),
+                    'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
                     'evidence_photos'       => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
                 ]);
             }

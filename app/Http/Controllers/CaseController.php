@@ -116,6 +116,7 @@ class CaseController extends Controller
             'seizure_reason'       => ['nullable', 'string'],
             'exhibit_type'         => ['nullable', 'string', 'max:255'],
             'drug_classification'  => ['nullable', 'string', 'max:50'],
+            'other_exhibit_description' => ['nullable', 'string'],
             'veh_make'             => ['nullable', 'string', 'max:255'],
             'veh_model'            => ['nullable', 'string', 'max:255'],
             'veh_type'             => ['nullable', 'string', 'max:255'],
@@ -1373,6 +1374,7 @@ class CaseController extends Controller
                         if (isset($exObj['seizure_unit']))      $docketData['seizures'][$eIdx]['seizure_unit']      = $exObj['seizure_unit'];
                         if (isset($exObj['seizure_packaging'])) $docketData['seizures'][$eIdx]['seizure_packaging'] = $exObj['seizure_packaging'];
                         if (isset($exObj['seizure_reason']))    $docketData['seizures'][$eIdx]['seizure_reason']    = $exObj['seizure_reason'];
+                        if (isset($exObj['other_exhibit_description']) || isset($exObj['other_description'])) $docketData['seizures'][$eIdx]['other_exhibit_description'] = $exObj['other_exhibit_description'] ?? $exObj['other_description'];
                         if (isset($exObj['presumptive_result'])) $docketData['seizures'][$eIdx]['presumptive_result'] = $exObj['presumptive_result'];
                         if (isset($exObj['evidence_photos']))   $docketData['seizures'][$eIdx]['evidence_photos']   = is_array($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : [];
 
@@ -1402,6 +1404,7 @@ class CaseController extends Controller
                                 'seizure_unit'       => $exObj['seizure_unit'] ?? null,
                                 'seizure_packaging'  => $exObj['seizure_packaging'] ?? null,
                                 'seizure_reason'     => $exObj['seizure_reason'] ?? null,
+                                'other_exhibit_description' => $exObj['other_exhibit_description'] ?? ($exObj['other_description'] ?? null),
                                 'ammunition_details' => $exObj['ammunition_details'] ?? null,
                                 'evidence_photos'    => !empty($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : null,
                             ], fn($v) => !is_null($v)));
@@ -2745,6 +2748,7 @@ class CaseController extends Controller
                     'dev_imei2'                => $devImei2,
                     'dev_mac_address'          => $devMac,
                     'ammunition_details'       => $exhibit['ammunition_details'] ?? null,
+                    'other_exhibit_description' => $exhibit['other_exhibit_description'] ?? ($exhibit['other_description'] ?? null),
                     'evidence_photos'          => $photosList,
                 ]);
 
@@ -3578,6 +3582,42 @@ class CaseController extends Controller
             'case'             => $case->fresh(),
             'active_suspects'  => $case->fresh()->getActiveSuspects(),
             'cleared_suspects' => $case->fresh()->getClearedSuspects(),
+        ]);
+    }
+
+    /**
+     * Upload one or more evidence/exhibit photos and return their stored public URLs.
+     * Accepts multipart/form-data with field name 'photos[]' (multiple files).
+     */
+    public function uploadEvidencePhotos(Request $request)
+    {
+        $request->validate([
+            'photos'   => ['required', 'array', 'min:1'],
+            'photos.*' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:10240'],
+        ]);
+
+        $stored = [];
+
+        foreach ($request->file('photos') as $photo) {
+            if (!$photo->isValid()) {
+                continue;
+            }
+
+            $path = $photo->store('evidence_photos', 'public');
+
+            if ($path) {
+                $stored[] = \Illuminate\Support\Facades\Storage::url($path);
+            }
+        }
+
+        if (empty($stored)) {
+            return response()->json(['success' => false, 'message' => 'No valid photos were uploaded.'], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'urls'    => $stored,
+            'message' => count($stored) . ' photo(s) uploaded successfully.',
         ]);
     }
 }

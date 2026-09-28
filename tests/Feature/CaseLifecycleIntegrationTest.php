@@ -333,7 +333,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertStringContainsString('Kwame Nkrumah', $docketData['seizures'][0]['associated_person']);
 
         // 2. Assert initial review screen displays PENDING lab status badge
-        $reviewRes = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review');
+        $reviewRes = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review?from=Lab+Analysis');
         $reviewRes->assertStatus(200);
         $html = $reviewRes->getContent();
 

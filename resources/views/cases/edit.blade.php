@@ -472,7 +472,7 @@
                     <div class="flex items-center gap-4">
                         <div>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <h1 class="text-xl font-black text-white tracking-tight">Edit Case Record &amp; Correct Information</h1>
+                                <h1 class="text-xl font-black text-white tracking-tight">Edit Case/Update Case Records</h1>
                                 <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                     ACTIVE DOCKET
                                 </span>
@@ -505,7 +505,7 @@
                     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                         <div class="flex items-center gap-2">
                             <span class="text-amber-400 font-extrabold text-xs uppercase font-mono-code flex items-center gap-2">
-                                Registered Suspects &amp; Linked Exhibit Dockets
+                                Suspect(s) &amp; Linked Exhibit(s)
                             </span>
                             <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full font-mono-code font-bold border border-amber-500/30">
                                 {{ count($suspectsList) }} Suspect(s)
@@ -585,7 +585,7 @@
                             <div class="flex items-center justify-between border-b border-slate-200 pb-3">
                                 <div class="flex items-center gap-2">
                                     <div class="w-1.5 h-4 bg-amber-500 rounded-full"></div>
-                                    <h3 class="text-xs font-black font-mono-code uppercase text-slate-900 tracking-wider">Section 1 — Master Case Title &amp; Classification</h3>
+                                    <h3 class="text-xs font-black font-mono-code uppercase text-slate-900 tracking-wider">Section 1 — Case Title &amp; Classification</h3>
                                 </div>
                                 <span class="text-[10px] font-mono-code text-slate-400 font-bold uppercase">CRIME SCENE SUPPORT UNIT</span>
                             </div>

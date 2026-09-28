@@ -8,14 +8,7 @@
     @php
         $authUser = auth()->user();
         $userUnit = !empty($authUser->unit) ? $authUser->unit : (session('user_unit') ?? request()->query('unit') ?? request()->query('from') ?? 'Crime Scene Support');
-        $isLabAnalysis = isset($isLabAnalysis) ? $isLabAnalysis : (
-            str_contains(strtolower($userUnit), 'lab') 
-            || request()->query('unit') === 'Lab Analysis' 
-            || request()->query('unit') === 'lab' 
-            || session('user_unit') === 'Lab Analysis'
-            || request()->is('Lab_Analysis*')
-            || request()->query('from') === 'lab'
-        );
+        $isLabAnalysis = false;
         
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
@@ -239,7 +232,7 @@
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 01-2-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                                 </div>
                                 <div>
-                                    <h3 class="font-extrabold text-slate-900 text-base">Section 1: Master Case Title &amp; Classification</h3>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Section 1: Case Title &amp; Classification</h3>
                                     <p class="text-xs text-slate-500">Specify the official legal case title and select single or multiple suspect docket mode</p>
                                 </div>
                             </div>
@@ -1258,8 +1251,9 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
                     
+            </div>
+        </div>
 
                     <!-- SECTION 4: SEIZURES (COMMODITIES) -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
@@ -1321,11 +1315,11 @@
                                         <div class="flex items-center justify-between border-b border-slate-200 pb-3">
                                             <div class="flex items-center space-x-2">
                                                 <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center seizure-number-badge">1</span>
-                                                <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">Seizure Item #1</h5>
+                                                <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">Seized Item #1</h5>
                                             </div>
                                             <div class="flex items-center space-x-2 seizure-header-right">
                                                 <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200">ACTIVE EXHIBIT</span>
-                                                <button type="button" onclick="removeSeizureBlock(this)" class="remove-seizure-btn hidden text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1" title="Remove Seizure Item">
+                                                <button type="button" onclick="removeSeizureBlock(this)" class="remove-seizure-btn hidden text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1" title="Remove Seized Item">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Remove Item
                                                 </button>
                                             </div>
@@ -1349,38 +1343,6 @@
                                                 </div>
                                             </div>
 
-                                            <!-- EXHIBIT TYPE DROPDOWN -->
-                                            <div class="relative z-30">
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Exhibit Type
-                                                </label>
-                                                <div class="relative">
-                                                    <select
-                                                        class="exhibit-type-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
-                                                    >
-                                                        <option value="">-- Select Type --</option>
-                                                        <option value="Drug Exhibit">Drug Exhibit</option>
-                                                        <option value="Non-Drug Exhibit">Non-Drug Exhibit</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <!-- DRUG CLASSIFICATION DROPDOWN -->
-                                            <div class="relative z-30">
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Classify Drugs
-                                                </label>
-                                                <div class="relative">
-                                                    <select
-                                                        class="drug-classification-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
-                                                    >
-                                                        <option value="N/A">N/A</option>
-                                                        <option value="Class A">Class A</option>
-                                                        <option value="Class B">Class B</option>
-                                                        <option value="Class C">Class C</option>
-                                                    </select>
-                                                </div>
-                                            </div>
 
                                             <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
                                     <div class="relative z-[9999]" style="z-index: 9999;">
@@ -2125,6 +2087,28 @@
                                         </div>
                                     </div>
 
+                                    <!-- OTHER EXHIBIT DESCRIPTION PANEL (shown when Other Exhibits is selected) -->
+                                    <div id="otherExhibitDescriptionWrapper" class="other-exhibit-description-wrapper hidden col-span-full bg-slate-50/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
+                                        <div class="flex items-center space-x-2 text-slate-800">
+                                            <div class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L19.828 4.828a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                                            </div>
+                                            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Specify Other Exhibit Description &amp; Details</span>
+                                        </div>
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Exhibit Description / Specifications <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <textarea
+                                                id="newOtherExhibitDescription"
+                                                name="other_exhibit_description"
+                                                rows="3"
+                                                placeholder="Type detailed description and specifications of this exhibit..."
+                                                class="other-exhibit-description-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 font-sans"
+                                            ></textarea>
+                                        </div>
+                                    </div>
+
                                     <!-- ESTIMATED STREET VALUE -->
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Estimated Street Value</label>
@@ -2308,6 +2292,8 @@
                                             <input type="text" id="newSeizureLocation" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
+
+                                    
 
                                     <!-- SEIZING OFFICERS (MULTI-ROW) -->
                                     <div class="col-span-full md:col-span-2">
@@ -2721,7 +2707,7 @@
                                 <div class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
                                     <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group">
                                         <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                        + Add Another Seizure Item
+                                        Add Another Seized Item
                                     </button>
                                 </div>
                                 </div>
@@ -2762,7 +2748,8 @@
                         </div>
 
                         <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5: FORENSIC EXAMINATION & LABORATORY ANALYSIS -->
-                        <div id="labAnalysisExclusiveSections" class="{{ $isLabAnalysis ? '' : 'hidden' }} bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
+                        @if($isLabAnalysis)
+                        <div id="labAnalysisExclusiveSections" class=" bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
 
                             <!-- SECTION 5 MAIN CONTAINER HEADER -->
                             <div class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -3377,6 +3364,7 @@
                             </div>
                             </div>
                         </div>
+                        @endif
 
                         <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
                         <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -5107,6 +5095,7 @@
                     exhibit_category: exhibitCat,
                     exhibit_type: block.querySelector('.exhibit-type-select')?.value || (exhibitCat === 'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit'),
                     drug_classification: block.querySelector('.drug-classification-select')?.value || 'N/A',
+                    other_exhibit_description: block.querySelector('.other-exhibit-description-input')?.value || block.querySelector('#newOtherExhibitDescription')?.value || '',
                     associated_person: finalAssocPerson,
                     suspect_ownership: selectedAssocPerson || 'All Suspects',
                     seizure_name: seizureName,
@@ -6280,7 +6269,7 @@
 
             // Update title
             const titleEl = clone.querySelector('.seizure-title');
-            if (titleEl) titleEl.innerText = `Seizure Item #${newIndex}`;
+            if (titleEl) titleEl.innerText = `Seized Item #${newIndex}`;
 
             // Reset inputs in clone
             clone.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea').forEach(input => {
@@ -6354,7 +6343,7 @@
                 block.setAttribute('data-seizure-index', num);
                 const titleEl = block.querySelector('.seizure-title');
                 const numberBadge = block.querySelector('.seizure-number-badge');
-                if (titleEl) titleEl.innerText = `Seizure Item #${num}`;
+                if (titleEl) titleEl.innerText = `Seized Item #${num}`;
                 if (numberBadge) numberBadge.innerText = num;
 
                 const removeBtn = block.querySelector('.remove-seizure-btn');
@@ -6685,6 +6674,11 @@
             if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
             if (ammoFieldsWrapper)   ammoFieldsWrapper.classList.add('hidden');
 
+            const otherDescriptionWrapper = root.querySelector('#otherExhibitDescriptionWrapper') || root.querySelector('.other-exhibit-description-wrapper');
+            const otherDescriptionInput   = root.querySelector('#newOtherExhibitDescription') || root.querySelector('.other-exhibit-description-input');
+            if (otherDescriptionWrapper) otherDescriptionWrapper.classList.add('hidden');
+            if (otherDescriptionInput) otherDescriptionInput.removeAttribute('required');
+
             [textInput, drugHidden, weaponHidden, currencyHidden, ammoHidden, deviceHidden, drugSearch, weaponSearch, currencySearch, ammoSearch, deviceSearch].forEach(el => {
                 if (el) {
                     el.removeAttribute('required');
@@ -6726,20 +6720,26 @@
                 };
                 if (textInput) textInput.placeholder = placeholders[category] || 'e.g. Primary Commodity Name';
 
+                if (otherDescriptionWrapper) {
+                    const isOther = category === 'Other Exhibits' || category === 'Other' || category === 'Other Contraband' || (category && category.toLowerCase().includes('other'));
+                    if (isOther) {
+                        otherDescriptionWrapper.classList.remove('hidden');
+                        if (otherDescriptionInput) {
+                            otherDescriptionInput.setAttribute('required', 'required');
+                        }
+                    }
+                }
+
                 if (category === 'Vehicles' && vehicleWrapper) {
                     vehicleWrapper.classList.remove('hidden');
                 }
             }
 
-            const isLabUser = (typeof isLabAnalysis !== 'undefined' && isLabAnalysis) || {{ $isLabAnalysis ? 'true' : 'false' }};
+            const isLabUser = false;
             const isDrugCase = {{ !empty($isDrugCase) ? 'true' : 'false' }};
             const labSec = document.getElementById('labAnalysisExclusiveSections');
             if (labSec) {
-                if (isLabUser && isDrugCase) {
-                    labSec.classList.remove('hidden');
-                } else {
-                    labSec.classList.add('hidden');
-                }
+                labSec.classList.add('hidden');
             }
         }
 
@@ -7745,7 +7745,7 @@
             const selectedDrugType = drugTypeSel ? (drugTypeSel.value || '').toLowerCase().trim() : '';
             if (!selectEl) return;
 
-            const isLabUser = (typeof isLabAnalysis !== 'undefined' && isLabAnalysis) || {{ $isLabAnalysis ? 'true' : 'false' }};
+            const isLabUser = false;
             const chk = document.getElementById('hasSeizuresCheckbox');
             const container = document.getElementById('seizuresDetailsContainer');
             const hasSeizures = chk && chk.checked;
@@ -8344,7 +8344,80 @@
                 }
             });
         }
-    </script>
+    
+        function getLabFormElements() {
+            const s4 = document.getElementById('section4Seizures') || 
+                       document.getElementById('seizuresDetailsContainer') || 
+                       document.getElementById('seizuresListContainer');
+
+            const s5List = [
+                document.getElementById('section5LabExamination'),
+                document.getElementById('section5FormContainer'),
+                document.getElementById('section5ReadOnlyDisplay'),
+                document.getElementById('labAnalysisExclusiveSections')
+            ].filter(el => el !== null);
+
+            return { s4, s5List };
+        }
+
+        window.toggleLabFormSections = function() {
+            const { s4, s5List } = getLabFormElements();
+            const masterTexts = document.querySelectorAll('.toggleLabFormTextSpan');
+            const s4Texts = document.querySelectorAll('.s4ToggleTextSpan');
+            const s5Texts = document.querySelectorAll('.s5ToggleTextSpan');
+
+            if (!s4 && s5List.length === 0) return;
+
+            const isS4Visible = s4 && !s4.classList.contains('hidden');
+            const isS5Visible = s5List.some(el => !el.classList.contains('hidden'));
+
+            if (isS4Visible || isS5Visible) {
+                if (s4) s4.classList.add('hidden');
+                s5List.forEach(el => el.classList.add('hidden'));
+                masterTexts.forEach(el => el.innerText = 'Show Both Sections');
+                s4Texts.forEach(el => el.innerText = 'Show Section 4');
+                s5Texts.forEach(el => el.innerText = 'Show Section 5');
+            } else {
+                if (s4) s4.classList.remove('hidden');
+                s5List.forEach(el => el.classList.remove('hidden'));
+                masterTexts.forEach(el => el.innerText = 'Hide Both Sections');
+                s4Texts.forEach(el => el.innerText = 'Hide Section 4');
+                s5Texts.forEach(el => el.innerText = 'Hide Section 5');
+            }
+        };
+
+        window.toggleSection4 = function() {
+            const s4 = document.getElementById('section4Seizures') || 
+                       document.getElementById('seizuresDetailsContainer') || 
+                       document.getElementById('seizuresListContainer');
+            const s4Texts = document.querySelectorAll('.s4ToggleTextSpan');
+            if (s4) {
+                if (s4.classList.contains('hidden')) {
+                    s4.classList.remove('hidden');
+                    s4Texts.forEach(el => el.innerText = 'Hide Section 4');
+                } else {
+                    s4.classList.add('hidden');
+                    s4Texts.forEach(el => el.innerText = 'Show Section 4');
+                }
+            }
+        };
+
+        window.toggleSection5 = function() {
+            const { s5List } = getLabFormElements();
+            const s5Texts = document.querySelectorAll('.s5ToggleTextSpan');
+            if (s5List.length === 0) return;
+
+            const isAnyVisible = s5List.some(el => !el.classList.contains('hidden'));
+            s5List.forEach(el => {
+                if (isAnyVisible) {
+                    el.classList.add('hidden');
+                } else {
+                    el.classList.remove('hidden');
+                }
+            });
+            s5Texts.forEach(el => el.innerText = isAnyVisible ? 'Show Section 5' : 'Hide Section 5');
+        };
+</script>
 
     <!-- EXECUTIVE SUCCESS POPOVER MESSAGE CONTAINER -->
     <div id="successPopoverModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
