@@ -47,6 +47,10 @@ class UnitDashboardsTest extends TestCase
         $respStaff->assertStatus(200);
         $respStaff->assertSee('DIGITAL &amp; PHYSICAL FORENSICS UNIT', false);
         $respStaff->assertSee('Digital &amp; Mobile Forensics Operations', false);
+
+        $respStatus = $this->actingAs($officer)->get('/Digital_Forensics/forensic-status');
+        $respStatus->assertStatus(200);
+        $respStatus->assertSee('Forensic &amp; Investigation Status', false);
     }
 
     #[Test]

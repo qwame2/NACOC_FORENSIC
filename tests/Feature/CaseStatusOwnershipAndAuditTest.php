@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\ForensicCase;
-use App\Models\CaseHandover;
 use App\Models\AuditLog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,7 +14,7 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function case_creation_sets_controller_user_id_and_creates_audit_log()
+    public function case_creation_sets_case_status_and_creates_audit_log()
     {
         $headUser = User::factory()->head()->create([
             'fullname' => 'Commanding Officer A',
@@ -42,7 +41,6 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
 
         $case = ForensicCase::where('case_number', 'CSS-2026-STATUS1')->first();
         $this->assertNotNull($case);
-        $this->assertEquals($headUser->id, $case->controller_user_id);
         $this->assertEquals('Under Investigation', $case->case_status);
 
         // Verify Audit Log
@@ -54,11 +52,16 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
     }
 
     #[Test]
-    public function authorized_controller_can_update_case_status()
+    public function any_unit_head_can_update_case_status()
     {
-        $controllerUser = User::factory()->head()->create([
-            'fullname' => 'Head Officer Alpha',
+        $cssHead = User::factory()->head()->create([
+            'fullname' => 'Head CSS',
             'unit' => 'Crime Scene Support',
+        ]);
+
+        $labHead = User::factory()->head()->create([
+            'fullname' => 'Head Lab',
+            'unit' => 'Lab Analysis',
         ]);
 
         $case = ForensicCase::create([
@@ -66,11 +69,11 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
             'title' => 'Republic vs Kwame Mensah',
             'suspect_name' => 'Kwame Mensah',
             'unit_name' => 'Crime Scene Support',
-            'controller_user_id' => $controllerUser->id,
             'case_status' => 'Under Investigation',
         ]);
 
-        $response = $this->actingAs($controllerUser)
+        // Lab Head (from another unit) updates status
+        $response = $this->actingAs($labHead)
             ->postJson("/cases/{$case->case_number}/case-status", [
                 'case_status' => 'In Court',
             ]);
@@ -87,21 +90,17 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
         $this->assertDatabaseHas('audit_logs', [
             'case_number' => 'CSS-2026-STATUS2',
             'action' => 'CASE_STATUS_CHANGED',
-            'user_id' => $controllerUser->id,
+            'user_id' => $labHead->id,
         ]);
     }
 
     #[Test]
-    public function unauthorized_user_cannot_update_case_status()
+    public function regular_staff_cannot_update_case_status()
     {
-        $controllerUser = User::factory()->head()->create([
-            'fullname' => 'Controller Officer',
+        $staffUser = User::factory()->create([
+            'fullname' => 'Staff Officer',
             'unit' => 'Crime Scene Support',
-        ]);
-
-        $unauthorizedUser = User::factory()->head()->create([
-            'fullname' => 'Other Unit Head',
-            'unit' => 'Lab Analysis',
+            'is_head' => false,
         ]);
 
         $case = ForensicCase::create([
@@ -109,176 +108,24 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
             'title' => 'Republic vs Akwasi Addo',
             'suspect_name' => 'Akwasi Addo',
             'unit_name' => 'Crime Scene Support',
-            'controller_user_id' => $controllerUser->id,
             'case_status' => 'Under Investigation',
         ]);
 
-        $response = $this->actingAs($unauthorizedUser)
+        $response = $this->actingAs($staffUser)
             ->postJson("/cases/{$case->case_number}/case-status", [
                 'case_status' => 'Case Dismissed',
             ]);
 
         $response->assertStatus(403)
             ->assertJson([
-                'message' => 'Unauthorized: You are not the current Case Status Controller for this case.',
+                'message' => 'Unauthorized: Only a Head of Unit or Admin can change the case status.',
             ]);
 
         $this->assertEquals('Under Investigation', $case->fresh()->case_status);
     }
 
     #[Test]
-    public function handover_workflow_initiation_and_acceptance_transfers_control()
-    {
-        $initiator = User::factory()->head()->create([
-            'fullname' => 'Head CSS',
-            'unit' => 'Crime Scene Support',
-        ]);
-
-        $receiver = User::factory()->head()->create([
-            'fullname' => 'Head Lab',
-            'unit' => 'Lab Analysis',
-        ]);
-
-        $otherUser = User::factory()->head()->create([
-            'fullname' => 'Head Evidence',
-            'unit' => 'Evidence Management',
-        ]);
-
-        $case = ForensicCase::create([
-            'case_number' => 'CSS-2026-HO1',
-            'title' => 'Republic vs Kofi Annan',
-            'suspect_name' => 'Kofi Annan',
-            'unit_name' => 'Crime Scene Support',
-            'controller_user_id' => $initiator->id,
-            'case_status' => 'Under Investigation',
-        ]);
-
-        // Step 1: Initiate Handover
-        $initiateRes = $this->actingAs($initiator)
-            ->postJson("/cases/{$case->case_number}/handover/initiate", [
-                'to_user_id' => $receiver->id,
-                'request_notes' => 'Transferring case status control for lab analysis phase.',
-            ]);
-
-        $initiateRes->assertStatus(200)
-            ->assertJson(['success' => true]);
-
-        $this->assertDatabaseHas('case_handovers', [
-            'case_number' => 'CSS-2026-HO1',
-            'from_user_id' => $initiator->id,
-            'to_user_id' => $receiver->id,
-            'status' => 'Pending Acknowledgement',
-        ]);
-
-        // Controller remains initiator while pending
-        $this->assertEquals($initiator->id, $case->fresh()->controller_user_id);
-
-        // Step 2: Other user (neither initiator nor receiver) cannot accept
-        $unauthAccept = $this->actingAs($otherUser)
-            ->postJson("/cases/{$case->case_number}/handover/respond", [
-                'action' => 'accept',
-            ]);
-        $unauthAccept->assertStatus(403);
-
-        // Step 3: Receiver accepts handover
-        $acceptRes = $this->actingAs($receiver)
-            ->postJson("/cases/{$case->case_number}/handover/respond", [
-                'action' => 'accept',
-                'response_notes' => 'Control accepted.',
-            ]);
-
-        $acceptRes->assertStatus(200)
-            ->assertJson(['success' => true]);
-
-        // Assert control transferred
-        $this->assertEquals($receiver->id, $case->fresh()->controller_user_id);
-
-        $this->assertDatabaseHas('case_handovers', [
-            'case_number' => 'CSS-2026-HO1',
-            'status' => 'Accepted',
-        ]);
-
-        $this->assertDatabaseHas('audit_logs', [
-            'case_number' => 'CSS-2026-HO1',
-            'action' => 'HANDOVER_ACCEPTED',
-            'user_id' => $receiver->id,
-        ]);
-
-        // Receiver can now update status
-        $statusRes = $this->actingAs($receiver)
-            ->postJson("/cases/{$case->case_number}/case-status", [
-                'case_status' => 'In Court',
-            ]);
-        $statusRes->assertStatus(200);
-        $this->assertEquals('In Court', $case->fresh()->case_status);
-    }
-
-    #[Test]
-    public function handover_workflow_decline_and_cancel()
-    {
-        $initiator = User::factory()->head()->create([
-            'fullname' => 'Head CSS',
-            'unit' => 'Crime Scene Support',
-        ]);
-
-        $receiver = User::factory()->head()->create([
-            'fullname' => 'Head Lab',
-            'unit' => 'Lab Analysis',
-        ]);
-
-        $case = ForensicCase::create([
-            'case_number' => 'CSS-2026-HO2',
-            'title' => 'Republic vs Yaw Mensah',
-            'suspect_name' => 'Yaw Mensah',
-            'unit_name' => 'Crime Scene Support',
-            'controller_user_id' => $initiator->id,
-            'case_status' => 'Under Investigation',
-        ]);
-
-        // 1. Test Decline
-        $this->actingAs($initiator)
-            ->postJson("/cases/{$case->case_number}/handover/initiate", [
-                'to_user_id' => $receiver->id,
-            ]);
-
-        $declineRes = $this->actingAs($receiver)
-            ->postJson("/cases/{$case->case_number}/handover/respond", [
-                'action' => 'decline',
-                'response_notes' => 'Case documentation incomplete.',
-            ]);
-
-        $declineRes->assertStatus(200);
-
-        $this->assertDatabaseHas('case_handovers', [
-            'case_number' => 'CSS-2026-HO2',
-            'status' => 'Declined',
-        ]);
-
-        // Controller remains initiator
-        $this->assertEquals($initiator->id, $case->fresh()->controller_user_id);
-
-        // 2. Test Cancel by initiator
-        $this->actingAs($initiator)
-            ->postJson("/cases/{$case->case_number}/handover/initiate", [
-                'to_user_id' => $receiver->id,
-            ]);
-
-        $cancelRes = $this->actingAs($initiator)
-            ->postJson("/cases/{$case->case_number}/handover/respond", [
-                'action' => 'cancel',
-            ]);
-
-        $cancelRes->assertStatus(200);
-
-        $this->assertDatabaseHas('case_handovers', [
-            'case_number' => 'CSS-2026-HO2',
-            'status' => 'Cancelled',
-        ]);
-        $this->assertEquals($initiator->id, $case->fresh()->controller_user_id);
-    }
-
-    #[Test]
-    public function unit_progression_does_not_transfer_case_status_ownership()
+    public function unit_progression_saves_audit_log()
     {
         $cssHead = User::factory()->head()->create([
             'fullname' => 'CSS Officer',
@@ -295,7 +142,6 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
             'title' => 'Republic vs Ama Boateng',
             'suspect_name' => 'Ama Boateng',
             'unit_name' => 'Crime Scene Support',
-            'controller_user_id' => $cssHead->id,
             'case_status' => 'Under Investigation',
         ]);
 
@@ -309,9 +155,6 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
             ]);
 
         $updateResponse->assertStatus(200);
-
-        // Verify controller_user_id has NOT changed
-        $this->assertEquals($cssHead->id, $case->fresh()->controller_user_id);
 
         // Verify WORKFLOW_UNIT_COMPLETED audit log was recorded
         $this->assertDatabaseHas('audit_logs', [
@@ -331,7 +174,6 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
             'title' => 'Republic vs Test Suspect',
             'suspect_name' => 'Test Suspect',
             'unit_name' => 'Crime Scene Support',
-            'controller_user_id' => $user->id,
         ]);
 
         AuditLog::create([

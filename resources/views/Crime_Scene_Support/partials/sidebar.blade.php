@@ -29,6 +29,7 @@
     }
 
     $isLabContext = str_contains(strtolower($sidebarUnit), 'lab');
+    $isDigitalContext = str_contains(strtolower($sidebarUnit), 'digital') || str_contains(strtolower($sidebarUnit), 'physical');
 
     $sidebarUnitUpper = strtoupper(str_replace([' Unit', ' unit'], '', $sidebarUnit));
     if (!str_contains($sidebarUnitUpper, 'UNIT')) {
@@ -90,10 +91,26 @@
                 </a>
                 
                 <!-- CASE DIRECTORY -->
-                <a href="{{ $caseDirectoryUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <a href="{{ $caseDirectoryUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') && !request()->is('*lab-result*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') && !request()->is('*lab-result*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <span class="text-xs">Case Directory</span>
                 </a>
+
+                @if($isLabContext)
+                <!-- LAB ANALYSIS RESULT (LAB ANALYSIS UNIT ONLY) -->
+                <a href="{{ url('/Lab_Analysis/lab-result') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white' : 'text-amber-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <span class="text-xs">Lab Analysis Result</span>
+                </a>
+                @endif
+
+                @if($isDigitalContext)
+                <!-- FORENSIC & INVESTIGATION STATUS (DIGITAL & PHYSICAL FORENSICS UNIT ONLY) -->
+                <a href="{{ url('/Digital_Forensics/forensic-status') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*forensic-status*') || request()->is('Digital_Forensics/forensic-status*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*forensic-status*') || request()->is('Digital_Forensics/forensic-status*') ? 'text-white' : 'text-cyan-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <span class="text-xs">Forensic &amp; Investigation Stat</span>
+                </a>
+                @endif
 
                 <!-- CASE HISTORY LOG -->
                 <a href="{{ url('/history') . '?from=' . urlencode($sidebarUnit) }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('history*') || request()->is('History*') || request()->is('*/history*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">

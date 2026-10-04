@@ -136,6 +136,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cases/{id}/suspect-disposition', [CaseController::class, 'updateSuspectDisposition']);
     Route::post('/cases/{id}/handover/initiate', [CaseController::class, 'initiateHandover']);
     Route::post('/cases/{id}/handover/respond', [CaseController::class, 'respondHandover']);
+    Route::post('/cases/{id}/upload-gsa-report', [CaseController::class, 'storeGsaReports']);
+    Route::post('/Lab_Analysis/gsa-reports/store', [CaseController::class, 'storeGsaReports']);
     Route::get('/cases/{id}/audit-trail', [CaseController::class, 'getAuditTrail']);
 
     // GENERAL DOCKET & EVENT ROUTES
@@ -252,15 +254,12 @@ Route::middleware(['auth'])->group(function () {
         return view('Lab_Analysis.lab_analysis');
     });
 
-    Route::get('/lab-result', function () {
-        $cases = ForensicCase::allCases();
-        return view('cases.landing', compact('cases'));
-    })->name('lab.result');
-
-    Route::get('/Lab_Analysis/lab-result', function () {
-        $cases = ForensicCase::allCases();
-        return view('cases.landing', compact('cases'));
-    });
+    Route::get('/lab-result', [CaseController::class, 'labResultPage'])->name('lab.result');
+    Route::get('/Lab_Analysis/lab-result', [CaseController::class, 'labResultPage']);
+    Route::get('/Lab_Analysis/certificate/{id}', [CaseController::class, 'showLabCertificate'])->name('lab.certificate');
+    Route::get('/lab-certificate/{id}', [CaseController::class, 'showLabCertificate']);
+    Route::get('/Lab_Analysis/analytical/{id}', [CaseController::class, 'showLabAnalytical'])->name('lab.analytical');
+    Route::get('/lab-analytical/{id}', [CaseController::class, 'showLabAnalytical']);
 
     Route::get('/Lab_Analysis/examination', function () {
         $case = \App\Models\ForensicCase::find(request('case_id'));
@@ -270,6 +269,29 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Lab_Analysis/create', function () {
         return view('Lab_Analysis.create');
     })->name('lab_analysis.create');
+
+    // GSA Report Upload — store files linked to a suspect
+    Route::post('/Lab_Analysis/gsa-reports/store', [CaseController::class, 'storeGsaReports'])
+         ->name('lab.gsa.store');
+
+    // GSA Report Fetch — get all active GSA files for a suspect (used in docket view)
+    Route::get('/Lab_Analysis/gsa-reports/{suspectId}', function ($suspectId) {
+        $reports = \App\Models\SuspectGsaReport::where('case_suspect_id', $suspectId)
+                    ->where('status', 'active')
+                    ->orderByDesc('created_at')
+                    ->get()
+                    ->map(fn($r) => [
+                        'id'                => $r->id,
+                        'original_filename' => $r->original_filename,
+                        'file_extension'    => $r->file_extension,
+                        'file_size_label'   => $r->file_size_label,
+                        'url'               => $r->url,
+                        'is_image'          => $r->is_image,
+                        'uploaded_at'       => $r->created_at->format('d M Y, H:i'),
+                    ]);
+        return response()->json(['success' => true, 'reports' => $reports]);
+    })->name('lab.gsa.fetch');
+
 
     // EVIDENCE MANAGEMENT UNIT DEDICATED ROUTES
     Route::get('/Evidence_Management', function () {
@@ -295,6 +317,14 @@ Route::middleware(['auth'])->group(function () {
     // DIGITAL & PHYSICAL FORENSICS UNIT DEDICATED ROUTES
     Route::get('/Digital_Forensics', function () {
         return view('Digital_Forensics.digital_forensics');
+    });
+
+    Route::get('/Digital_Forensics/forensic-status', function () {
+        return view('Digital_Forensics.forensic_status');
+    });
+
+    Route::get('/digital-forensics/forensic-status', function () {
+        return view('Digital_Forensics.forensic_status');
     });
 
     Route::get('/Digital_Forensics/create', function () {

@@ -97,8 +97,8 @@
             <div>
                 <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">
                     FORENSIC INVENTORY MANAGEMENT SYSTEM (FIMS)</div>
-                <div class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">NATIONAL NARCOTICS CONTROL
-                    COMMISSION &bull; FORENSICS DEPARTMENT</div>
+                <div class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">NARCOTICS CONTROL
+                    COMMISSION GHANA &bull; FORENSICS DEPARTMENT</div>
             </div>
         </div>
 

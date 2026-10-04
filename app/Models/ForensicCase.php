@@ -26,6 +26,7 @@ class ForensicCase extends Model
         'detected_substances' => 'array',
         'has_children' => 'boolean',
         'has_seizures' => 'boolean',
+        'phones' => 'array',
     ];
 
     /**
@@ -152,6 +153,7 @@ class ForensicCase extends Model
             $instance->nationality = $primarySuspect->nationality ?? 'Ghanaian';
             $instance->pob = $primarySuspect->pob ?? null;
             $instance->phone = $primarySuspect->phone ?? null;
+            $instance->phones = $primarySuspect->phones ?? ($recDocket['suspects'][0]['phones'] ?? ($recDocket['additional_phones'] ?? []));
             $instance->address = $primarySuspect->address ?? null;
             $instance->marital_status = $primarySuspect->marital_status ?? null;
             $instance->has_children = $primarySuspect->has_children ?? false;
@@ -223,6 +225,7 @@ class ForensicCase extends Model
                 'nationality'      => $s->nationality ?? 'Ghanaian',
                 'pob'              => $s->pob ?? null,
                 'phone'            => $s->phone ?? null,
+                'phones'           => $s->phones ?? null,
                 'address'          => $s->address ?? null,
                 'marital_status'   => $s->marital_status ?? null,
                 'has_children'     => !empty($s->has_children),
@@ -300,8 +303,9 @@ class ForensicCase extends Model
         foreach ($labResults as $lr) {
             $labExaminationsList[] = [
                 'suspect_name'             => $lr->suspect ? $lr->suspect->suspect_name : ($instance->suspect_name ?? 'Primary Suspect'),
+                'exhibit_owner_name'       => $lr->suspect ? $lr->suspect->suspect_name : ($instance->suspect_name ?? 'Primary Suspect'),
                 'laboratory_number'        => $lr->laboratory_number,
-                'exam_reference'           => (!empty($lr->exam_reference) && str_starts_with(trim($lr->exam_reference), 'GSA-FM-T')) ? $lr->exam_reference : ('GSA-FM-T' . rand(10, 99) . '-F'),
+                'exam_reference'           => !empty($recDocket['lab_examination']['exam_reference']) ? $recDocket['lab_examination']['exam_reference'] : ((!empty($lr->exam_reference) && str_starts_with(trim($lr->exam_reference), 'GSA-FM-T')) ? $lr->exam_reference : ('GSA-FM-T' . rand(10, 99) . '-F')),
                 'analyst'                  => $lr->analyst,
                 'date_received'            => $lr->date_received,
                 'date_started'             => $lr->date_started,
@@ -417,6 +421,7 @@ class ForensicCase extends Model
             'evidence_photos' => is_array($instance->evidence_photos) ? $instance->evidence_photos : [],
             'lab_examination' => $primaryLab ? [
                 'has_saved'                => $primaryLab->has_saved,
+                'exam_reference'           => !empty($primaryLab->exam_reference) ? $primaryLab->exam_reference : ($recDocket['lab_examination']['exam_reference'] ?? null),
                 'exhibit_owner_name'       => $primarySuspectLabel,
                 'analyst'                  => $primaryLab->analyst,
                 'presumptive_result'       => $primaryLab->presumptive_result,
@@ -427,13 +432,18 @@ class ForensicCase extends Model
                 'sample_weight_units'      => $primaryLab->sample_weight_units,
                 'sample_weight_taken'      => $primaryLab->sample_weight_taken,
                 'sample_weight_reserved'   => $primaryLab->sample_weight_reserved,
+                'remark'                   => $primaryLab->remark ?? ($recDocket['lab_examination']['remark'] ?? null),
                 'findings'                 => $primaryLab->findings,
-            ] : [
+            ] : (!empty($recDocket['lab_examination']) ? array_merge([
                 'has_saved'                => false,
                 'exhibit_owner_name'       => $primarySuspectLabel,
                 'confirmatory_result'      => 'YES',
-            ],
-            'lab_examinations_list' => $labExaminationsList,
+            ], $recDocket['lab_examination']) : [
+                'has_saved'                => false,
+                'exhibit_owner_name'       => $primarySuspectLabel,
+                'confirmatory_result'      => 'YES',
+            ]),
+            'lab_examinations_list' => !empty($labExaminationsList) ? $labExaminationsList : (!empty($recDocket['lab_examinations_list']) ? $recDocket['lab_examinations_list'] : (!empty($recDocket['lab_examination']) ? [$recDocket['lab_examination']] : [])),
             'associate_lab_examinations' => $assocLabsMap,
             'unit_progress' => $unitProgressWrap,
         ];
@@ -460,13 +470,12 @@ class ForensicCase extends Model
     }
 
     /**
-     * Check if a given user is the current Case Status Controller.
+     * Check if a given user has Case Status Control authority (Any Head of Unit or Admin).
      */
     public function isController($user): bool
     {
         if (!$user) return false;
-        $ctrlUser = $this->getControllerUser();
-        return $ctrlUser && (int)$ctrlUser->id === (int)$user->id;
+        return !empty($user->is_head) || strtolower($user->role ?? '') === 'admin' || (isset($user->unit) && str_contains(strtolower($user->unit), 'head'));
     }
 
     /**
@@ -679,6 +688,7 @@ class ForensicCase extends Model
                     'eye_color'                => $s['eye_color'] ?? null,
                     'nationality'              => $s['nationality'] ?? ($attributes['nationality'] ?? 'Ghanaian'),
                     'phone'                    => $s['phone'] ?? null,
+                    'phones'                   => $s['phones'] ?? ($s['additional_phones'] ?? null),
                     'address'                  => $s['address'] ?? null,
                     'holding_facility'         => $s['holding_facility'] ?? ($s['facility'] ?? ($attributes['holding_facility'] ?? null)),
                     'raid_location'            => $s['raid_location'] ?? ($s['location'] ?? ($attributes['raid_location'] ?? null)),
@@ -824,7 +834,7 @@ class ForensicCase extends Model
                             'suspect_id'              => $matchedSuspect ? $matchedSuspect->id : ($createdSuspects[0]->id ?? null),
                             'exhibit_id'              => $ex->id,
                             'laboratory_number'       => $sz['laboratory_number'] ?? ($multi->laboratory_number ?? ($labDataFromDocket['laboratory_number'] ?? null)),
-                            'presumptive_result'      => $sz['presumptive_result'] ?? ($labDataFromDocket['presumptive_result'] ?? null),
+                            'presumptive_result'      => $sz['presumptive_result'] ?? ($labDataFromDocket['presumptive_result'] ?? ($attributes['presumptive_result'] ?? ($attributes['presumptive_test_result'] ?? null))),
                             'confirmatory_result'     => $sz['confirmatory_result'] ?? ($labDataFromDocket['confirmatory_result'] ?? 'YES'),
                             'substance_identification'=> $sz['substance_identification'] ?? ($labDataFromDocket['substance_identification'] ?? ($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? null))),
                             'sample_weight_description'=> $sz['sample_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? ($labDataFromDocket['sample_weight_description'] ?? null)),
@@ -845,14 +855,14 @@ class ForensicCase extends Model
             }
 
             $labDataFromDocket = $docketData['lab_examination'] ?? [];
-            if (empty($hasCreatedLabFromSeizure) && (!empty($attributes['presumptive_test_result']) || !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket))) {
+            if (empty($hasCreatedLabFromSeizure) && (!empty($attributes['presumptive_result']) || !empty($attributes['presumptive_test_result']) || !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket))) {
                 LaboratoryExaminationResult::create([
                     'case_type'               => 'MULTIPLE',
                     'multiple_suspect_case_id'=> $multi->id,
                     'exhibit_id'              => $ex->id ?? null,
                     'laboratory_number'       => $multi->laboratory_number,
                     'analyst'                 => $attributes['analyst'] ?? ($labDataFromDocket['analyst'] ?? null),
-                    'presumptive_result'      => $attributes['presumptive_test_result'] ?? ($labDataFromDocket['presumptive_result'] ?? null),
+                    'presumptive_result'      => $attributes['presumptive_result'] ?? ($attributes['presumptive_test_result'] ?? ($labDataFromDocket['presumptive_result'] ?? null)),
                     'confirmatory_result'     => $attributes['confirmatory_test_result'] ?? ($labDataFromDocket['confirmatory_result'] ?? 'YES'),
                     'sample_weight_description'=> $attributes['sample_weight_description'] ?? ($labDataFromDocket['sample_weight_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? null)),
                     'sample_weight_units'     => $attributes['sample_weight_units'] ?? ($labDataFromDocket['sample_weight_units'] ?? ($labDataFromDocket['sample_weight']['units_packaging'] ?? null)),
@@ -928,6 +938,7 @@ class ForensicCase extends Model
             'nationality'          => $attributes['nationality'] ?? ($suspects[0]['nationality'] ?? null),
             'pob'                  => $attributes['place_of_birth'] ?? ($attributes['pob'] ?? ($suspects[0]['place_of_birth'] ?? ($suspects[0]['pob'] ?? null))),
             'phone'                => $attributes['phone'] ?? ($suspects[0]['phone'] ?? null),
+            'phones'               => $attributes['phones'] ?? ($suspects[0]['phones'] ?? ($suspects[0]['additional_phones'] ?? null)),
             'address'              => $attributes['address'] ?? ($suspects[0]['address'] ?? null),
             'marital_status'       => $attributes['marital_status'] ?? ($suspects[0]['marital_status'] ?? null),
             'has_children'         => !empty($attributes['has_children']) || ((int)($attributes['children_count'] ?? 0) > 0) || !empty($suspects[0]['has_children']) || ((int)($suspects[0]['children_count'] ?? 0) > 0),
@@ -1054,7 +1065,7 @@ class ForensicCase extends Model
         }
 
         $labDataFromDocket = $docketData['lab_examination'] ?? [];
-        if (!empty($attributes['presumptive_test_result']) || !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket)) {
+        if (!empty($attributes['presumptive_result']) || !empty($attributes['presumptive_test_result']) || !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket)) {
             // Derive weight fields from the exhibit when not provided
             $labSwDesc  = $attributes['sample_weight_description'] ?? ($labDataFromDocket['sample_weight_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? null));
             $labSwUnits = $attributes['sample_weight_units'] ?? ($labDataFromDocket['sample_weight_units'] ?? ($labDataFromDocket['sample_weight']['units_packaging'] ?? null));
@@ -1071,8 +1082,9 @@ class ForensicCase extends Model
                 'single_suspect_case_id'  => $single->id,
                 'exhibit_id'              => $ex->id ?? null,
                 'laboratory_number'       => $single->laboratory_number,
+                'exam_reference'          => $attributes['exam_reference'] ?? ($labDataFromDocket['exam_reference'] ?? null),
                 'analyst'                 => $attributes['analyst'] ?? ($labDataFromDocket['analyst'] ?? null),
-                'presumptive_result'      => $attributes['presumptive_test_result'] ?? ($labDataFromDocket['presumptive_result'] ?? null),
+                'presumptive_result'      => $attributes['presumptive_result'] ?? ($attributes['presumptive_test_result'] ?? ($labDataFromDocket['presumptive_result'] ?? null)),
                 'confirmatory_result'     => $attributes['confirmatory_test_result'] ?? ($labDataFromDocket['confirmatory_result'] ?? 'YES'),
                 'sample_weight_description'=> $labSwDesc,
                 'sample_weight_units'     => $labSwUnits,
@@ -1631,6 +1643,33 @@ class ForensicCase extends Model
     }
 
     /**
+     * Normalize suspect disposition string.
+     */
+    public static function normalizeSuspectDisposition(?string $disp): string
+    {
+        if (empty($disp)) {
+            return 'Active — Under Investigation';
+        }
+        $t = trim($disp);
+        if (str_contains($t, 'Active') || str_contains($t, 'â€”') || str_contains($t, 'Under Investigation')) {
+            return 'Active — Under Investigation';
+        }
+        if (str_contains($t, 'Cleared')) {
+            return 'Cleared / No Further Action';
+        }
+        if (str_contains($t, 'Released')) {
+            return 'Released from Case';
+        }
+        if (str_contains($t, 'Reclassified')) {
+            return 'Reclassified';
+        }
+        if (str_contains($t, 'Referred')) {
+            return 'Referred for Further Review';
+        }
+        return $t;
+    }
+
+    /**
      * Retrieve all formatted suspect records for this case.
      */
     public function getSuspectsList(): array
@@ -1643,9 +1682,16 @@ class ForensicCase extends Model
 
         // 1. If multi-suspect case in DB, query CaseSuspect model
         if ($this->underlyingRecord instanceof MultipleSuspectCase) {
-            $dbSuspects = CaseSuspect::where('multiple_suspect_case_id', $this->id)
+            $multiId = $this->underlyingRecord->id;
+            $dbSuspects = CaseSuspect::where('multiple_suspect_case_id', $multiId)
                 ->orderBy('suspect_number')
                 ->get();
+
+            if ($dbSuspects->isEmpty()) {
+                $dbSuspects = CaseSuspect::where('multiple_suspect_case_id', $this->id)
+                    ->orderBy('suspect_number')
+                    ->get();
+            }
 
             if ($dbSuspects->count() > 0) {
                 foreach ($dbSuspects as $idx => $s) {
@@ -1657,7 +1703,7 @@ class ForensicCase extends Model
                         'role'                   => $s->role ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect'),
                         'association_role'       => $s->role ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect'),
                         'associate_id'           => $s->associate_id,
-                        'suspect_disposition'    => $s->suspect_disposition ?? 'Active — Under Investigation',
+                        'suspect_disposition'    => self::normalizeSuspectDisposition($s->suspect_disposition),
                         'disposition_reason'     => $s->disposition_reason,
                         'disposition_updated_at' => $s->disposition_updated_at,
                         'disposition_updated_by' => $s->disposition_updated_by,
@@ -1665,6 +1711,7 @@ class ForensicCase extends Model
                         'gender'                 => $s->gender,
                         'dob'                    => $s->dob,
                         'phone'                  => $s->phone,
+                        'phones'                 => $s->phones ?? null,
                         'holding_facility'       => $s->holding_facility ?? ($this->holding_facility ?? null),
                         'raid_location'          => $s->raid_location ?? ($this->raid_location ?? null),
                         'offense_description'    => $s->offense_description ?? ($this->offense_description ?? null),
@@ -1694,14 +1741,15 @@ class ForensicCase extends Model
                     'role'                   => $role,
                     'association_role'       => $role,
                     'associate_id'           => $s['associate_id'] ?? null,
-                    'suspect_disposition'    => $s['suspect_disposition'] ?? 'Active — Under Investigation',
-                    'disposition_reason'     => $s['disposition_reason'] ?? null,
-                    'disposition_updated_at' => $s['disposition_updated_at'] ?? null,
-                    'disposition_updated_by' => $s['disposition_updated_by'] ?? null,
+                    'suspect_disposition'    => self::normalizeSuspectDisposition($s['suspect_disposition'] ?? ($idx === 0 ? ($this->suspect_disposition ?? ($this->underlyingRecord->suspect_disposition ?? null)) : null)),
+                    'disposition_reason'     => $s['disposition_reason'] ?? ($idx === 0 ? ($this->disposition_reason ?? ($this->underlyingRecord->disposition_reason ?? null)) : null),
+                    'disposition_updated_at' => $s['disposition_updated_at'] ?? ($idx === 0 ? ($this->disposition_updated_at ?? ($this->underlyingRecord->disposition_updated_at ?? null)) : null),
+                    'disposition_updated_by' => $s['disposition_updated_by'] ?? ($idx === 0 ? ($this->disposition_updated_by ?? ($this->underlyingRecord->disposition_updated_by ?? null)) : null),
                     'ghana_card'             => $s['ghana_card'] ?? null,
                     'gender'                 => $s['gender'] ?? null,
                     'dob'                    => $s['dob'] ?? null,
                     'phone'                  => $s['phone_number'] ?? ($s['phone'] ?? null),
+                    'phones'                 => $s['phones'] ?? ($s['additional_phones'] ?? null),
                     'holding_facility'       => $s['holding_facility'] ?? ($s['facility'] ?? ($this->holding_facility ?? null)),
                     'raid_location'          => $s['raid_location'] ?? ($s['location'] ?? ($this->raid_location ?? null)),
                     'offense_description'    => $s['offense_description'] ?? ($s['offense'] ?? ($this->offense_description ?? null)),
@@ -1717,7 +1765,7 @@ class ForensicCase extends Model
         }
 
         // 3. Fallback to single suspect on case model
-        $primaryDisp = $this->suspect_disposition ?? ($this->underlyingRecord->suspect_disposition ?? 'Active — Under Investigation');
+        $primaryDisp = self::normalizeSuspectDisposition($this->suspect_disposition ?? ($this->underlyingRecord->suspect_disposition ?? null));
         $list[] = [
             'id'                     => $this->id,
             'suspect_number'         => 1,
@@ -1734,6 +1782,7 @@ class ForensicCase extends Model
             'gender'                 => $this->gender ?? null,
             'dob'                    => $this->dob ?? null,
             'phone'                  => $this->phone ?? null,
+            'phones'                 => $this->phones ?? ($this->underlyingRecord->phones ?? null),
             'holding_facility'       => $this->holding_facility ?? null,
             'raid_location'          => $this->raid_location ?? null,
             'offense_description'    => $this->offense_description ?? null,
@@ -1751,14 +1800,14 @@ class ForensicCase extends Model
     public function getActiveSuspects(): array
     {
         return array_values(array_filter($this->getSuspectsList(), function($s) {
-            return ($s['suspect_disposition'] ?? 'Active — Under Investigation') === 'Active — Under Investigation';
+            return self::normalizeSuspectDisposition($s['suspect_disposition'] ?? null) === 'Active — Under Investigation';
         }));
     }
 
     public function getClearedSuspects(): array
     {
         return array_values(array_filter($this->getSuspectsList(), function($s) {
-            return ($s['suspect_disposition'] ?? 'Active — Under Investigation') !== 'Active — Under Investigation';
+            return self::normalizeSuspectDisposition($s['suspect_disposition'] ?? null) !== 'Active — Under Investigation';
         }));
     }
 
@@ -1816,6 +1865,9 @@ class ForensicCase extends Model
                 if (!$isMatch && empty($exSuspectId)) {
                     $hasOtherSpecificOwner = false;
                     $suspectsList = $this->getSuspectsList();
+                    $firstSuspectName = !empty($suspectsList[0]['suspect_name']) ? strtolower(trim($suspectsList[0]['suspect_name'])) : '';
+                    $isFirstSuspect = !empty($firstSuspectName) && ($cleanTargetName === $firstSuspectName);
+
                     $otherSuspectNames = [];
                     foreach ($suspectsList as $sItem) {
                         $sNameClean = strtolower(trim($sItem['suspect_name'] ?? ''));
@@ -1836,7 +1888,7 @@ class ForensicCase extends Model
                     }
 
                     if (!$hasOtherSpecificOwner) {
-                        if ($isPrimaryRole || count($suspectsList) <= 1) {
+                        if (count($suspectsList) <= 1 || $isFirstSuspect) {
                             $isMatch = true;
                         }
                     }
@@ -1896,6 +1948,16 @@ class ForensicCase extends Model
                         $arr['veh_country_reg'] = $ex->veh_country_reg;
                         $arr['veh_owner']       = $ex->veh_owner;
                         $arr['veh_driver']      = $ex->veh_driver;
+
+                        // Map device attributes
+                        $arr['dev_model']       = $ex->dev_model;
+                        $arr['dev_serial_no']   = $ex->dev_serial_no;
+                        $arr['dev_imei1']       = $ex->dev_imei1;
+                        $arr['dev_imei2']       = $ex->dev_imei2;
+                        $arr['dev_mac_address'] = $ex->dev_mac_address;
+                        $arr['dev_storage']     = $ex->dev_storage;
+                        $arr['dev_colour']      = $ex->dev_colour;
+                        $arr['dev_marks']       = $ex->dev_marks;
 
                         $matchedExhibits[] = $arr;
                     }
@@ -1964,7 +2026,11 @@ class ForensicCase extends Model
             // Fallback matching for docket exhibits without explicit suspect ID
             if (!$isMatch && empty($szSuspectId)) {
                 if (empty($szOwner) || $szOwner === 'primary suspect' || $szOwner === 'primary' || $szOwner === 'unassigned' || $szOwner === 'n/a') {
-                    if ($isPrimaryRole || count($this->getSuspectsList()) <= 1) {
+                    $allSuspectsInCase = $this->getSuspectsList();
+                    $firstSuspectName = !empty($allSuspectsInCase[0]['suspect_name']) ? strtolower(trim($allSuspectsInCase[0]['suspect_name'])) : '';
+                    $isFirstSuspect = !empty($firstSuspectName) && ($cleanTargetName === $firstSuspectName);
+
+                    if (count($allSuspectsInCase) <= 1 || $isFirstSuspect) {
                         $isMatch = true;
                     }
                 }

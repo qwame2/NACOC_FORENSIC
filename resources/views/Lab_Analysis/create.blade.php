@@ -22,7 +22,7 @@
         $caseRefAuto = 'NFC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
-        $isDrugCase = false;
+        $isDrugCase = true;
         $activeSuspectHasSavedResult = false;
         if (isset($case)) {
             $exCat = strtolower($case->exhibit_category ?? '');
@@ -334,7 +334,8 @@
                                         </svg>
                                     </span>
                                     <input type="text" id="caseTitleInput"
-                                        placeholder="e.g. Republic Vs Atto &amp; Ors" required
+                                        value="Republic vs "
+                                        placeholder="e.g. Republic vs Atto &amp; Ors" required
                                         class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                                 </div>
                             </div>
@@ -1037,8 +1038,8 @@
                                         </div>
                                     </div>
 
-                                    <!-- ROW 1: REF (READONLY), FULL NAME, ALIAS -->
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <!-- ROW 1: PRIMARY IDENTITY & NAME (3 COLS) -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10">
 
                                         <!-- RAID INCIDENT REFERENCE (READONLY) -->
                                         <div>
@@ -1108,79 +1109,50 @@
                                         </div>
                                     </div>
 
-                                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
-
+                                    <!-- ROW 2: IDENTIFICATION, DEMOGRAPHICS & BIOMETRICS (3 COLS) -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 relative z-40">
+                                        
                                         <!-- GHANA CARD # -->
                                         <div>
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                                Ghana Card #
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                                Ghana Card # 
                                             </label>
                                             <div class="relative flex items-center group">
-                                                <span
-                                                    class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z" />
-                                                    </svg>
+                                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
                                                 </span>
-                                                <input type="text" id="newArrestedID" placeholder="GHA-8840291-3"
-                                                    class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                                <input type="text" id="newArrestedID" placeholder="GHA-8840291-3" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                             </div>
                                         </div>
 
                                         <!-- CUSTOM GENDER DROPDOWN -->
                                         <div class="relative z-30">
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                                 Gender <span class="text-red-600 font-bold">*</span>
                                             </label>
-                                            <button type="button" id="genderDropdownTrigger"
-                                                onclick="toggleGenderDropdown(event)"
-                                                class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
+                                            <button type="button" id="genderDropdownTrigger" onclick="toggleGenderDropdown(event)" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 flex items-center justify-between hover:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all shadow-2xs group">
                                                 <div class="flex items-center space-x-2">
-                                                    <span id="selectedGenderIcon"
-                                                        class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
-                                                    <span id="selectedGenderLabel"
-                                                        class="font-bold text-slate-500 text-xs">Select Gender</span>
+                                                    <span id="selectedGenderIcon" class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                                    <span id="selectedGenderLabel" class="font-bold text-slate-500 text-xs">Select Gender</span>
                                                 </div>
                                                 <input type="hidden" id="newArrestedGender" value="">
-                                                <svg id="genderChevron"
-                                                    class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200"
-                                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
+                                                <svg id="genderChevron" class="w-4 h-4 text-slate-400 group-hover:text-black transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                             </button>
 
-                                            <div id="genderDropdownMenu"
-                                                class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
-                                                <button type="button"
-                                                    onclick="selectGender('', '?', 'bg-slate-100 text-slate-600', event)"
-                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1">
-                                                    <span
-                                                        class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                            <div id="genderDropdownMenu" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1">
+                                                <button type="button" onclick="selectGender('', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors border-b border-slate-100 mb-1">
+                                                    <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
                                                     <span>Select Gender</span>
                                                 </button>
-                                                <button type="button"
-                                                    onclick="selectGender('Male', '♂', 'bg-emerald-100 text-emerald-700', event)"
-                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                                    <span
-                                                        class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
+                                                <button type="button" onclick="selectGender('Male', '♂', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                                    <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
                                                     <span>Male</span>
                                                 </button>
-                                                <button type="button"
-                                                    onclick="selectGender('Female', '♀', 'bg-rose-100 text-rose-700', event)"
-                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                                    <span
-                                                        class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">♀</span>
+                                                <button type="button" onclick="selectGender('Female', '♀', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                                    <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">♀</span>
                                                     <span>Female</span>
                                                 </button>
-                                                <button type="button"
-                                                    onclick="selectGender('Other / Non-Binary', '⚧', 'bg-purple-100 text-purple-700', event)"
+                                                <button type="button" onclick="selectGender('Other / Non-Binary', '⚧', 'bg-purple-100 text-purple-700', event)"
                                                     class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
                                                     <span
                                                         class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">⚧</span>
@@ -1237,10 +1209,6 @@
                                                     class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
 
                                         <!-- HEIGHT -->
                                         <div>
@@ -1293,6 +1261,10 @@
                                                     class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <!-- ROW 3: ORIGIN & RESIDENTIAL ADDRESS (3 COLS) -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
 
                                         <!-- CUSTOM NATIONALITY DROPDOWN (MATCHING GENDER DROPDOWN DESIGN) -->
                                         <div class="relative z-30">
@@ -1438,13 +1410,8 @@
                                                 @endforeach
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
 
-                                <!-- ROW 3: PLACE OF BIRTH, CONTACT PHONE NUMBER, RESIDENTIAL ADDRESS -->
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                                    <!-- PLACE OF BIRTH (NEW) -->
+                                        <!-- PLACE OF BIRTH (NEW) -->
                                     <div>
                                         <label
                                             class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -1464,28 +1431,6 @@
                                             </span>
                                             <input type="text" id="newArrestedPOB"
                                                 placeholder="e.g. Kumasi, Ashanti Region" required
-                                                class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-
-                                    <!-- CONTACT PHONE NUMBER (NEW) -->
-                                    <div>
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                            Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newArrestedPhone"
-                                                placeholder="e.g. +233 24 555 0192" required
                                                 class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                         </div>
                                     </div>
@@ -1511,7 +1456,11 @@
                                                 class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                         </div>
                                     </div>
+                                </div>
 
+                                <!-- ROW 4: CONTACT PHONE NUMBERS CONTAINER (DEDICATED FULL WIDTH CARD) -->
+                                <div class="relative z-10 pt-1">
+                                    @include('partials.suspect-phone-input', ['unit' => 'lab_analysis'])
                                 </div>
                             </div>
 
@@ -1934,2744 +1883,2639 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>   
+                    <!-- SECTION 4: SEIZURES (COMMODITIES) -->
+                    <div
+                        class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
+                        <div
+                            class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                </div>
 
-
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures
+                                        (Commodities)</h3>
+                                    <p class="text-xs text-slate-500">Record illicit substance types,
+                                        Weight/quantity, street valuation, and evidence vault allocation</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <span
+                                    class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase tracking-wider shadow-2xs">
+                                    Contraband Inventory
+                                </span>
+                            </div>
                         </div>
 
+                        <!-- SEIZURE STATUS CHECKBOX CARD -->
+                        <div class="space-y-2.5">
+                            <label
+                                class="relative flex items-center space-x-3.5 p-4 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-300/80 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none overflow-hidden">
+                                <input type="checkbox" id="hasSeizuresCheckbox"
+                                    onchange="toggleSeizuresContainer()"
+                                    class="w-5 h-5 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600 shrink-0">
+                                <div class="flex flex-col min-w-0 flex-1">
+                                    <span class="text-xs font-extrabold text-slate-900">Seized Contraband /
+                                        Illicit Commodities Recorded During Arrest</span>
+                                    <span class="text-[11px] text-slate-500 font-medium">Check this box if any
+                                        narcotics, weapons, cash, or contraband commodities were confiscated from
+                                        this suspect</span>
+                                </div>
+                            </label>
+                        </div>
 
-                        <!-- SECTION 4: SEIZURES (COMMODITIES) -->
-                        <div
-                            class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
-                            <div
-                                class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div class="flex items-center space-x-3">
+                        <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
+                        <div id="seizuresDetailsContainer"
+                            class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
+
+                            <div class="flex items-center justify-between border-b border-slate-300/60 pb-3">
+                                <div class="flex items-center space-x-2.5">
                                     <div
-                                        class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                        class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                stroke-width="2"
                                                 d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                         </svg>
                                     </div>
-
                                     <div>
-                                        <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures
-                                            (Commodities)</h3>
-                                        <p class="text-xs text-slate-500">Record illicit substance types,
+                                        <h4
+                                            class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
+                                            Seized Commodities &amp; Contraband Manifest</h4>
+                                        <p class="text-[11px] text-black">Record illicit substance types,
                                             Weight/quantity, street valuation, and evidence vault allocation</p>
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2 shrink-0">
+                                <div class="flex items-center space-x-2">
                                     <span
-                                        class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase tracking-wider shadow-2xs">
-                                        Contraband Inventory
-                                    </span>
+                                        class="px-2.5 py-1 bg-emerald-100 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase">Evidence
+                                        Tagging Active</span>
+                                    <button type="button" onclick="addSeizureBlock()"
+                                        class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                stroke-width="2.5" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Seizure
+                                    </button>
                                 </div>
                             </div>
 
-                            <!-- SEIZURE STATUS CHECKBOX CARD -->
-                            <div class="space-y-2.5">
-                                <label
-                                    class="relative flex items-center space-x-3.5 p-4 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-300/80 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none overflow-hidden">
-                                    <input type="checkbox" id="hasSeizuresCheckbox"
-                                        onchange="toggleSeizuresContainer()"
-                                        class="w-5 h-5 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600 shrink-0">
-                                    <div class="flex flex-col min-w-0 flex-1">
-                                        <span class="text-xs font-extrabold text-slate-900">Seized Contraband /
-                                            Illicit Commodities Recorded During Arrest</span>
-                                        <span class="text-[11px] text-slate-500 font-medium">Check this box if any
-                                            narcotics, weapons, cash, or contraband commodities were confiscated from
-                                            this suspect</span>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
-                            <div id="seizuresDetailsContainer"
-                                class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
-
-                                <div class="flex items-center justify-between border-b border-slate-300/60 pb-3">
-                                    <div class="flex items-center space-x-2.5">
-                                        <div
-                                            class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                            </svg>
+                            <!-- SEIZURES LIST CONTAINER FOR MULTIPLE SEIZURES -->
+                            <div id="seizuresListContainer" class="space-y-6">
+                                <!-- SEIZURE BLOCK #1 -->
+                                <div class="seizure-block bg-white p-5 rounded-2xl border border-slate-300/80 shadow-2xs space-y-5 relative"
+                                    data-seizure-index="1">
+                                    <!-- SEIZURE ITEM HEADER -->
+                                    <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <span
+                                                class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center seizure-number-badge">1</span>
+                                            <h5
+                                                class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">
+                                                Seized Item #1</h5>
                                         </div>
-                                        <div>
-                                            <h4
-                                                class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
-                                                Seized Commodities &amp; Contraband Manifest</h4>
-                                            <p class="text-[11px] text-black">Record illicit substance types,
-                                                Weight/quantity, street valuation, and evidence vault allocation</p>
+                                        <div class="flex items-center space-x-2 seizure-header-right">
+                                            <span
+                                                class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200">ACTIVE
+                                                EXHIBIT</span>
+                                            <button type="button" onclick="removeSeizureBlock(this)"
+                                                class="remove-seizure-btn hidden text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                                title="Remove Seized Item">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg> Remove Item
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="flex items-center space-x-2">
-                                        <span
-                                            class="px-2.5 py-1 bg-emerald-100 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase">Evidence
-                                            Tagging Active</span>
-                                        <button type="button" onclick="addSeizureBlock()"
-                                            class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
-                                            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            Add Seizure
-                                        </button>
-                                    </div>
-                                </div>
 
-                                <!-- SEIZURES LIST CONTAINER FOR MULTIPLE SEIZURES -->
-                                <div id="seizuresListContainer" class="space-y-6">
-                                    <!-- SEIZURE BLOCK #1 -->
-                                    <div class="seizure-block bg-white p-5 rounded-2xl border border-slate-300/80 shadow-2xs space-y-5 relative"
-                                        data-seizure-index="1">
-                                        <!-- SEIZURE ITEM HEADER -->
-                                        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
-                                            <div class="flex items-center space-x-2">
-                                                <span
-                                                    class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center seizure-number-badge">1</span>
-                                                <h5
-                                                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">
-                                                    Seized Item #1</h5>
+                                    <!-- SEIZURES INPUT GRID -->
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                                        <!-- SUSPECT / OWNERSHIP SELECT DROPDOWN -->
+                                        <div class="relative z-30">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Suspect / Ownership <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <div class="relative">
+                                                <select onchange="this.setAttribute('data-user-selected', 'true')"
+                                                    class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
+                                                    <option value="All Suspects">All Suspects (Joint Ownership)
+                                                    </option>
+                                                </select>
                                             </div>
-                                            <div class="flex items-center space-x-2 seizure-header-right">
+                                        </div>
+
+
+                                        <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
+                                        <div class="relative z-[9999]" style="z-index: 9999;">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Exhibit (Commodity Category) <span
+                                                    class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <div id="exhibitSelectWrapper" class="relative z-[9999]"
+                                                style="z-index: 9999;">
+                                                <div class="relative">
+                                                    <span
+                                                        class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="text" id="exhibitSearchInput"
+                                                        value="Drugs"
+                                                        placeholder="Select or type exhibit category..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                        onclick="openExhibitListPanel(this)"
+                                                        oninput="filterExhibitList(this)"
+                                                        onfocus="openExhibitListPanel(this)">
+                                                    <input type="hidden" id="newSeizureCategory"
+                                                        value="Drugs">
+                                                </div>
+                                                <div id="exhibitListPanel"
+                                                    class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden"
+                                                    style="z-index: 9999;">
+                                                    <div
+                                                        class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="exhibitSearchInner"
+                                                            placeholder="Type to filter categories..."
+                                                            oninput="filterExhibitListInner(this)"
+                                                            class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    </div>
+                                                    <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <li class="exhibit-item"
+                                                            onclick="selectExhibitCategory('Drugs', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <div>
+                                                                    <div class="font-extrabold text-slate-900">
+                                                                        Drugs</div>
+                                                                    <div
+                                                                        class="text-[10px] text-slate-500 font-normal">
+                                                                        Narcotics, Synthetics, Opioids</div>
+                                                                </div>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-black px-2 py-0.5 rounded font-bold">DRG</span>
+                                                            </button>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- SPECIFIC COMMODITY / DRUG NAME (SMART FIELD) -->
+                                        <div id="commodityFieldWrapper">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Primary
+                                                Commodity Name <span
+                                                    class="text-red-600 font-bold">*</span></label>
+
+                                            <!-- TEXT INPUT (shown for non-drug categories) -->
+                                            <div id="commodityTextWrapper"
+                                                class="hidden relative flex items-center group">
                                                 <span
-                                                    class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200">ACTIVE
-                                                    EXHIBIT</span>
-                                                <button type="button" onclick="removeSeizureBlock(this)"
-                                                    class="remove-seizure-btn hidden text-red-600 hover:bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
-                                                    title="Remove Seized Item">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             stroke-width="2"
-                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg> Remove Item
-                                                </button>
+                                                            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                                    </svg>
+                                                </span>
+                                                <input type="text" id="newSeizureName"
+                                                    placeholder="e.g. Cocaine (High Purity Slabs)"
+                                                    class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+
+                                            <!-- DRUG SELECT DROPDOWN (matching Exhibit Category styling) -->
+                                            <div id="drugSelectWrapper" class="relative z-40">
+                                                <div class="relative">
+                                                    <span
+                                                        class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="text" id="drugSearchInput"
+                                                        placeholder="Select or type custom drug name..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                        onclick="openDrugListPanel(this)"
+                                                        oninput="filterDrugList(this)"
+                                                        onchange="filterDrugList(this)"
+                                                        onblur="filterDrugList(this)"
+                                                        onkeydown="handleCommoditySearchKeydown(event, this, 'drug')"
+                                                        onfocus="openDrugListPanel(this)">
+                                                    <input type="hidden" id="newSeizureNameDrug"
+                                                        name="newSeizureNameDrug" value="">
+                                                </div>
+                                                <div id="drugListPanel"
+                                                    class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                    style="max-height:240px;overflow-y:auto">
+                                                    <div
+                                                        class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="drugSearchInner"
+                                                            placeholder="Type to filter drugs..."
+                                                            oninput="filterDrugListInner(this)"
+                                                            class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    </div>
+                                                    <ul id="drugList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <!-- Opioids & Analgesics -->
+                                                        <li
+                                                            class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Opioids &amp; Analgesics</li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Heroin (Brown Sugar / Diacetylmorphine)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Heroin (Brown Sugar / Diacetylmorphine)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Fentanyl (Synthetic Opioid Patches / Powder)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Fentanyl (Synthetic Opioid Patches /
+                                                                    Powder)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Morphine (Raw Opium Extract)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Morphine (Raw Opium Extract)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Tramadol (High-Dose Tablets / Capsules)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Tramadol (High-Dose Tablets / Capsules)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Codeine (Cough Syrup Misuse / Purple Drank)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Codeine (Cough Syrup Misuse / Purple
+                                                                    Drank)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Oxycodone (OxyContin Tablets)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Oxycodone (OxyContin Tablets)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
+                                                            </button>
+                                                        </li>
+
+                                                        <!-- Stimulants & Cocaine-Class -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Stimulants &amp; Cocaine-Class</li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Cocaine (High-Purity Powder / Slabs)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Cocaine (High-Purity Powder / Slabs)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">COC</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Crack Cocaine (Rock Form / Freebase)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Crack Cocaine (Rock Form / Freebase)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">COC</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Methamphetamine (Crystal Meth / Ice)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Methamphetamine (Crystal Meth / Ice)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Amphetamine (Speed / Pep Pills)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Amphetamine (Speed / Pep Pills)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('MDMA (Ecstasy / Molly Tablets)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>MDMA (Ecstasy / Molly Tablets)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Khat (Catha Edulis Fresh Leaves / Bundles)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Khat (Catha Edulis Fresh Leaves /
+                                                                    Bundles)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
+                                                            </button>
+                                                        </li>
+
+                                                        <!-- Cannabis & Derivatives -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Cannabis &amp; Derivatives</li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Cannabis / Marijuana (Dried Flower / Weed)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Cannabis / Marijuana (Dried Flower /
+                                                                    Weed)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Cannabis Resin (Hashish / Black Hash Slabs)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Cannabis Resin (Hashish / Black Hash
+                                                                    Slabs)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Cannabis Oil / THC Concentrate (Wax / Dabs)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Cannabis Oil / THC Concentrate (Wax /
+                                                                    Dabs)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Synthetic Cannabinoids (Spice / K2 Herbal)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Synthetic Cannabinoids (Spice / K2
+                                                                    Herbal)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SYN</span>
+                                                            </button>
+                                                        </li>
+
+                                                        <!-- Sedatives & Depressants -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Sedatives &amp; Depressants</li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Rohypnol (Flunitrazepam / Date Rape Drug)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Rohypnol (Flunitrazepam / Date Rape
+                                                                    Drug)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('GHB (Gamma-Hydroxybutyrate / Liquid Ecstasy)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>GHB (Gamma-Hydroxybutyrate / Liquid
+                                                                    Ecstasy)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Diazepam / Valium (Benzodiazepine Tablets)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Diazepam / Valium (Benzodiazepine
+                                                                    Tablets)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Ketamine (Special K / Dissociative Anesthetic)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Ketamine (Special K / Dissociative
+                                                                    Anesthetic)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
+                                                            </button>
+                                                        </li>
+
+                                                        <!-- Hallucinogens & Psychedelics -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Hallucinogens &amp; Psychedelics</li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('LSD (Lysergic Acid Diethylamide / Acid Tabs)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>LSD (Lysergic Acid Diethylamide / Acid
+                                                                    Tabs)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Psilocybin (Magic Mushrooms / Shrooms)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Psilocybin (Magic Mushrooms / Shrooms)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('PCP (Phencyclidine / Angel Dust)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>PCP (Phencyclidine / Angel Dust)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
+                                                            </button>
+                                                        </li>
+
+                                                        <!-- Precursor Chemicals -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Precursor Chemicals</li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Ephedrine / Pseudoephedrine (Meth Precursor)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Ephedrine / Pseudoephedrine (Meth
+                                                                    Precursor)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Acetic Anhydride (Heroin Precursor Chemical)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Acetic Anhydride (Heroin Precursor
+                                                                    Chemical)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
+                                                            </button>
+                                                        </li>
+                                                        <li class="drug-item"
+                                                            onclick="selectDrugType('Phenylacetic Acid (Amphetamine Precursor)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                                <span>Phenylacetic Acid (Amphetamine
+                                                                    Precursor)</span>
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
+                                                            </button>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <!-- WEAPON SELECT DROPDOWN (matching Exhibit Category styling) -->
+                                            <div id="weaponSelectWrapper" class="hidden relative z-40">
+                                                <div class="relative">
+                                                    <span
+                                                        class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="text" id="weaponSearchInput"
+                                                        placeholder="Select or type custom weapon type..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                        onclick="openWeaponListPanel(this)"
+                                                        oninput="filterWeaponList(this)"
+                                                        onfocus="openWeaponListPanel(this)">
+                                                    <input type="hidden" id="newSeizureNameWeapon"
+                                                        name="newSeizureNameWeapon" value="">
+                                                </div>
+                                                <div id="weaponListPanel"
+                                                    class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                    style="max-height:240px;overflow-y:auto">
+                                                    <div
+                                                        class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="weaponSearchInner"
+                                                            placeholder="Type to filter weapons..."
+                                                            oninput="filterWeaponListInner(this)"
+                                                            class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    </div>
+                                                    <ul id="weaponList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <!-- Handguns & Pistols -->
+                                                        <li
+                                                            class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Handguns &amp; Pistols</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('AK-47 / AKM Shorty Pistol (7.62x39mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-47
+                                                                    / AKM Shorty Pistol (7.62x39mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Glock 17 Semi-Automatic Pistol (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Glock
+                                                                    17 Semi-Automatic Pistol (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Glock 19 Compact Tactical Pistol (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Glock
+                                                                    19 Compact Tactical Pistol (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Beretta 92FS / M9 Pistol (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Beretta
+                                                                    92FS / M9 Pistol (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('SIG Sauer P226 / P320 Pistol (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIG
+                                                                    Sauer P226 / P320 Pistol (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Colt M1911 / M1911A1 Pistol (.45 ACP)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Colt
+                                                                    M1911 / M1911A1 Pistol (.45 ACP)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Smith &amp; Wesson M&amp;P 9mm Pistol', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smith
+                                                                    &amp; Wesson M&amp;P 9mm Pistol</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Browning Hi-Power Pistol (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Browning
+                                                                    Hi-Power Pistol (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('CZ 75 / CZ P-10 C Tactical Pistol (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>CZ
+                                                                    75 / CZ P-10 C Tactical Pistol (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Tokarev TT-33 Pistol (7.62x25mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tokarev
+                                                                    TT-33 Pistol (7.62x25mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Makarov PM Concealed Pistol (9x18mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Makarov
+                                                                    PM Concealed Pistol (9x18mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Revolver (.38 Special / .357 Magnum)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Revolver
+                                                                    (.38 Special / .357 Magnum)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">REV</span></button>
+                                                        </li>
+
+                                                        <!-- Rifles & Assault Rifles -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Rifles &amp; Assault Rifles</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('AK-47 / AKM Kalashnikov Rifle (7.62x39mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-47
+                                                                    / AKM Kalashnikov Rifle (7.62x39mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('AK-74 Tactical Rifle (5.45x39mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-74
+                                                                    Tactical Rifle (5.45x39mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('M16A2 / M16A4 Military Assault Rifle (5.56mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M16A2
+                                                                    / M16A4 Military Assault Rifle
+                                                                    (5.56mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('M4A1 Carbine / AR-15 Platform (5.56x45mm NATO)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M4A1
+                                                                    Carbine / AR-15 Platform (5.56x45mm
+                                                                    NATO)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Heckler &amp; Koch HK416 Assault Rifle (5.56mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler
+                                                                    &amp; Koch HK416 Assault Rifle
+                                                                    (5.56mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('FN FAL Battle Rifle (7.62x51mm NATO)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN
+                                                                    FAL Battle Rifle (7.62x51mm NATO)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Heckler &amp; Koch G3 Battle Rifle (7.62x51mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler
+                                                                    &amp; Koch G3 Battle Rifle
+                                                                    (7.62x51mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Galil ARM / Tavor TAR-21 Assault Rifle (5.56mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Galil
+                                                                    ARM / Tavor TAR-21 Assault Rifle
+                                                                    (5.56mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Steyr AUG Bullpup Assault Rifle (5.56mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Steyr
+                                                                    AUG Bullpup Assault Rifle (5.56mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Type 56 Norinco Rifle (7.62x39mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Type
+                                                                    56 Norinco Rifle (7.62x39mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('SKS Semi-Automatic Carbine (7.62x39mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SKS
+                                                                    Semi-Automatic Carbine (7.62x39mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
+                                                        </li>
+
+                                                        <!-- Submachine Guns (SMGs) -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Submachine Guns (SMGs)</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Heckler &amp; Koch MP5 / MP5K SMG (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler
+                                                                    &amp; Koch MP5 / MP5K SMG (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Uzi / Mini-Uzi Submachine Gun (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Uzi
+                                                                    / Mini-Uzi Submachine Gun (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('CZ Scorpion EVO 3 Submachine Gun (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>CZ
+                                                                    Scorpion EVO 3 Submachine Gun (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('FN P90 Personal Defense Weapon (5.7x28mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN
+                                                                    P90 Personal Defense Weapon
+                                                                    (5.7x28mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('MAC-10 / MAC-11 Submachine Gun (.45 ACP / 9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>MAC-10
+                                                                    / MAC-11 Submachine Gun (.45 ACP /
+                                                                    9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Beretta M12 Submachine Gun (9mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Beretta
+                                                                    M12 Submachine Gun (9mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
+                                                        </li>
+
+                                                        <!-- Shotguns -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Shotguns</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Remington 870 Tactical Shotgun (12 Gauge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Remington
+                                                                    870 Tactical Shotgun (12 Gauge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Mossberg 500 / 590 Pump Shotgun (12 Gauge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mossberg
+                                                                    500 / 590 Pump Shotgun (12 Gauge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Benelli M4 Combat Shotgun (12 Gauge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Benelli
+                                                                    M4 Combat Shotgun (12 Gauge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Saiga-12 Semi-Auto Tactical Shotgun (12 Gauge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Saiga-12
+                                                                    Semi-Auto Tactical Shotgun (12
+                                                                    Gauge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Double-Barrel Break-Action Shotgun (Sawed-Off)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Double-Barrel
+                                                                    Break-Action Shotgun (Sawed-Off)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Single-Barrel Hunting Shotgun (12 Gauge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Barrel
+                                                                    Hunting Shotgun (12 Gauge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
+                                                        </li>
+
+                                                        <!-- Sniper & Precision Rifles -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Sniper &amp; Precision Rifles</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Barrett M82A1 / M107 Anti-Materiel (.50 BMG)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrett
+                                                                    M82A1 / M107 Anti-Materiel (.50 BMG)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Remington 700 / M24 Sniper Rifle (7.62 NATO)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Remington
+                                                                    700 / M24 Sniper Rifle (7.62 NATO)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Dragunov SVD Sniper Rifle (7.62x54mmR)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Dragunov
+                                                                    SVD Sniper Rifle (7.62x54mmR)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Accuracy International AWM / AWSM (.338 Lapua)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Accuracy
+                                                                    International AWM / AWSM (.338
+                                                                    Lapua)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
+                                                        </li>
+
+                                                        <!-- Machine Guns & Heavy Ordnance -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Machine Guns &amp; Heavy Ordnance</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('PKM / PKP General Purpose Machine Gun (7.62x54mmR)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>PKM
+                                                                    / PKP General Purpose Machine Gun
+                                                                    (7.62x54mmR)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('FN MAG / M240 Belt-Fed Machine Gun (7.62mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN
+                                                                    MAG / M240 Belt-Fed Machine Gun
+                                                                    (7.62mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('M249 SAW / FN Minimi Light Machine Gun (5.56mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M249
+                                                                    SAW / FN Minimi Light Machine Gun
+                                                                    (5.56mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Browning M2HB Heavy Machine Gun (.50 BMG)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Browning
+                                                                    M2HB Heavy Machine Gun (.50 BMG)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">HMG</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('RPG-7 Anti-Tank Rocket Launcher', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RPG-7
+                                                                    Anti-Tank Rocket Launcher</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">ORD</span></button>
+                                                        </li>
+
+                                                        <!-- Edged, Bladed & Impact Weapons -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Edged, Bladed &amp; Impact Weapons</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Combat / Tactical Military Knife', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Combat
+                                                                    / Tactical Military Knife</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Heavy Steel Machete / Cutlass', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heavy
+                                                                    Steel Machete / Cutlass</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Switchblade / Automatic Stiletto Knife', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Switchblade
+                                                                    / Automatic Stiletto Knife</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Dagger / Push Knife / Concealed Blade', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Dagger
+                                                                    / Push Knife / Concealed Blade</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Samurai Sword / Katana / Machete Blade', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Samurai
+                                                                    Sword / Katana / Machete Blade</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Brass Knuckles / Heavy Iron Knuckles', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Brass
+                                                                    Knuckles / Heavy Iron Knuckles</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">IMP</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Crossbow / Tactical Compound Bow', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crossbow
+                                                                    / Tactical Compound Bow</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BOW</span></button>
+                                                        </li>
+
+                                                        <!-- Explosives & Less-Lethal Tactical Devices -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Explosives &amp; Less-Lethal Tactical Devices</li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('High-Explosive Hand Grenade (Frag)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>High-Explosive
+                                                                    Hand Grenade (Frag)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">EXP</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Flashbang Grenade / Tactical Stun Grenade', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Flashbang
+                                                                    Grenade / Tactical Stun Grenade</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">TAC</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('C4 Plastic Explosive / Dynamite Blocks', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>C4
+                                                                    Plastic Explosive / Dynamite Blocks</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">EXP</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Improvised Explosive Device (IED / Pipe Bomb)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Improvised
+                                                                    Explosive Device (IED / Pipe Bomb)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">IED</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Taser Stun Gun / Electroshock Weapon', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Taser
+                                                                    Stun Gun / Electroshock Weapon</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">TSR</span></button>
+                                                        </li>
+                                                        <li class="weapon-item"
+                                                            onclick="selectWeaponType('Pepper Spray / OC Tear Gas Canister', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pepper
+                                                                    Spray / OC Tear Gas Canister</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">GAS</span></button>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <!-- CURRENCY SELECT2 DROPDOWN (shown when Money is selected) -->
+                                            <div id="currencySelectWrapper" class="hidden relative z-40">
+                                                <div class="relative">
+                                                    <span
+                                                        class="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="text" id="currencySearchInput"
+                                                        placeholder="Select currency..." autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
+                                                        readonly onclick="openCurrencyListPanel(this)"
+                                                        oninput="filterCurrencyList(this)"
+                                                        onfocus="openCurrencyListPanel(this)">
+                                                    <input type="hidden" id="newSeizureNameCurrency"
+                                                        name="newSeizureName">
+                                                </div>
+                                                <div id="currencyListPanel"
+                                                    class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-emerald-200 z-50 overflow-hidden"
+                                                    style="max-height:240px;overflow-y:auto">
+                                                    <div
+                                                        class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="currencySearchInner"
+                                                            placeholder="Type to filter currencies..."
+                                                            oninput="filterCurrencyListInner(this)"
+                                                            class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-300 transition-all">
+                                                    </div>
+                                                    <ul id="currencyList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <!-- West Africa -->
+                                                        <li
+                                                            class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
+                                                            West Africa</li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Ghana Cedi (GHS ₵)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ghana
+                                                                    Cedi</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GHS
+                                                                    ₵</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Nigerian Naira (NGN ₦)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Nigerian
+                                                                    Naira</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">NGN
+                                                                    ₦</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('CFA Franc BCEAO (XOF)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>CFA
+                                                                    Franc (BCEAO)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">XOF</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Sierra Leonean Leone (SLL)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Sierra
+                                                                    Leonean Leone</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SLL</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Liberian Dollar (LRD)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Liberian
+                                                                    Dollar</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">LRD</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Gambian Dalasi (GMD)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Gambian
+                                                                    Dalasi</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GMD</span></button>
+                                                        </li>
+
+                                                        <!-- Major Global -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
+                                                            Major Global Currencies</li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('US Dollar (USD $)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>US
+                                                                    Dollar</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">USD
+                                                                    $</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Euro (EUR €)')"><button
+                                                                type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Euro</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EUR
+                                                                    €</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('British Pound Sterling (GBP £)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>British
+                                                                    Pound Sterling</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GBP
+                                                                    £</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Swiss Franc (CHF)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Swiss
+                                                                    Franc</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CHF</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Japanese Yen (JPY ¥)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Japanese
+                                                                    Yen</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">JPY
+                                                                    ¥</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Chinese Yuan Renminbi (CNY ¥)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Chinese
+                                                                    Yuan (Renminbi)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CNY
+                                                                    ¥</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Canadian Dollar (CAD $)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Canadian
+                                                                    Dollar</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CAD
+                                                                    $</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Australian Dollar (AUD $)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Australian
+                                                                    Dollar</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AUD
+                                                                    $</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('UAE Dirham (AED)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>UAE
+                                                                    Dirham</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AED</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Saudi Riyal (SAR)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Saudi
+                                                                    Riyal</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SAR</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Indian Rupee (INR ₹)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Indian
+                                                                    Rupee</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">INR
+                                                                    ₹</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('South Korean Won (KRW ₩)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South
+                                                                    Korean Won</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KRW
+                                                                    ₩</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Singapore Dollar (SGD $)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Singapore
+                                                                    Dollar</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SGD
+                                                                    $</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Hong Kong Dollar (HKD $)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Hong
+                                                                    Kong Dollar</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">HKD
+                                                                    $</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Russian Ruble (RUB ₽)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Russian
+                                                                    Ruble</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">RUB
+                                                                    ₽</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Turkish Lira (TRY ₺)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Turkish
+                                                                    Lira</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TRY
+                                                                    ₺</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Brazilian Real (BRL R$)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Brazilian
+                                                                    Real</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">BRL
+                                                                    R$</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Mexican Peso (MXN $)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Mexican
+                                                                    Peso</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MXN
+                                                                    $</span></button></li>
+
+                                                        <!-- Africa -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
+                                                            Africa</li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('South African Rand (ZAR R)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South
+                                                                    African Rand</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZAR
+                                                                    R</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Kenyan Shilling (KES)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Kenyan
+                                                                    Shilling</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KES</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Ethiopian Birr (ETB)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethiopian
+                                                                    Birr</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ETB</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Egyptian Pound (EGP £)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Egyptian
+                                                                    Pound</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EGP
+                                                                    £</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Tanzanian Shilling (TZS)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tanzanian
+                                                                    Shilling</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TZS</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Moroccan Dirham (MAD)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Moroccan
+                                                                    Dirham</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MAD</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Angolan Kwanza (AOA)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Angolan
+                                                                    Kwanza</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AOA</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Congolese Franc (CDF)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Congolese
+                                                                    Franc</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CDF</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Zambian Kwacha (ZMW)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Zambian
+                                                                    Kwacha</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZMW</span></button>
+                                                        </li>
+
+                                                        <!-- Crypto -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
+                                                            Cryptocurrencies</li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Bitcoin (BTC ₿)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Bitcoin</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">BTC
+                                                                    ₿</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Ethereum (ETH Ξ)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethereum</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">ETH
+                                                                    Ξ</span></button></li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Tether (USDT)')"><button
+                                                                type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tether
+                                                                    (Stablecoin)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">USDT</span></button>
+                                                        </li>
+                                                        <li class="currency-item"
+                                                            onclick="selectCurrencyType('Monero (XMR – Privacy Coin)')">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Monero
+                                                                    (Privacy Coin)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">XMR</span></button>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <!-- AMMUNITION SELECT DROPDOWN (shown when Ammunition is selected) -->
+                                            <div id="ammoSelectWrapper" class="hidden relative z-40">
+                                                <div class="relative">
+                                                    <span
+                                                        class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="text" id="ammoSearchInput"
+                                                        placeholder="Select or type custom ammunition type..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                        onclick="openAmmoListPanel(this)"
+                                                        oninput="filterAmmoList(this)"
+                                                        onfocus="openAmmoListPanel(this)">
+                                                    <input type="hidden" id="newSeizureNameAmmo"
+                                                        name="newSeizureNameAmmo" value="">
+                                                </div>
+                                                <div id="ammoListPanel"
+                                                    class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                    style="max-height:240px;overflow-y:auto">
+                                                    <div
+                                                        class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="ammoSearchInner"
+                                                            placeholder="Type to filter ammunitions..."
+                                                            oninput="filterAmmoListInner(this)"
+                                                            class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    </div>
+                                                    <ul id="ammoList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <!-- Pistol & Handgun Ammunition -->
+                                                        <li
+                                                            class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Pistol &amp; Handgun Ammunition</li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('9x19mm Parabellum / NATO (9mm Luger)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x19mm
+                                                                    Parabellum / NATO (9mm Luger)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9MM</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.45 ACP (Automatic Colt Pistol / 11.43x23mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.45
+                                                                    ACP (Automatic Colt Pistol /
+                                                                    11.43x23mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.45</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.40 S&amp;W (Smith &amp; Wesson / 10x22mm)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.40
+                                                                    S&amp;W (Smith &amp; Wesson /
+                                                                    10x22mm)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.40</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.380 ACP (9mm Short / Browning)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.380
+                                                                    ACP (9mm Short / Browning)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.380</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.38 Special (9x29mmR Revolver Ammunition)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.38
+                                                                    Special (9x29mmR Revolver
+                                                                    Ammunition)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.38</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.357 Magnum (9x33mmR High Velocity)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.357
+                                                                    Magnum (9x33mmR High Velocity)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.357</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.44 Remington Magnum (10.9x33mmR)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.44
+                                                                    Remington Magnum (10.9x33mmR)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.44</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('7.62x25mm Tokarev (TT Pistol Cartridge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x25mm
+                                                                    Tokarev (TT Pistol Cartridge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">7.62</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('9x18mm Makarov (PM Round)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x18mm
+                                                                    Makarov (PM Round)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9x18</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('5.7x28mm (FN P90 / Five-seveN High-Velocity)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.7x28mm
+                                                                    (FN P90 / Five-seveN High-Velocity)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">5.7</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('10mm Auto (10x25mm Tactical)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>10mm
+                                                                    Auto (10x25mm Tactical)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">10MM</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.50 Action Express (.50 AE Desert Eagle)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50
+                                                                    Action Express (.50 AE Desert Eagle)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.50AE</span></button>
+                                                        </li>
+
+                                                        <!-- Rifle & Intermediate Ammunition -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Rifle &amp; Intermediate Ammunition</li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('7.62x39mm Soviet (AK-47 / SKS / Type 56)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x39mm
+                                                                    Soviet (AK-47 / SKS / Type 56)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('5.56x45mm NATO / .223 Remington (M16 / M4 / AR-15)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.56x45mm
+                                                                    NATO / .223 Remington (M16 / M4 /
+                                                                    AR-15)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.56</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('7.62x51mm NATO / .308 Winchester (FN FAL / G3)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x51mm
+                                                                    NATO / .308 Winchester (FN FAL / G3)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('5.45x39mm Soviet (AK-74 Assault Rifle)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.45x39mm
+                                                                    Soviet (AK-74 Assault Rifle)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.45</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('7.62x54mmR Russian (Dragunov SVD / PKM Belt)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x54mmR
+                                                                    Russian (Dragunov SVD / PKM Belt)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62R</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.300 AAC Blackout (7.62x35mm Subsonic / Supersonic)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300
+                                                                    AAC Blackout (7.62x35mm Subsonic /
+                                                                    Supersonic)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.300</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('6.5mm Creedmoor (Precision Long Range Match)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>6.5mm
+                                                                    Creedmoor (Precision Long Range
+                                                                    Match)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">6.5</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.30-06 Springfield (7.62x63mm Military Rifle)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.30-06
+                                                                    Springfield (7.62x63mm Military
+                                                                    Rifle)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.30-06</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.303 British (7.7x56mmR Lee-Enfield)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.303
+                                                                    British (7.7x56mmR Lee-Enfield)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.303</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('7.92x57mm Mauser (8mm Mauser Infantry)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.92x57mm
+                                                                    Mauser (8mm Mauser Infantry)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">8MM</span></button>
+                                                        </li>
+
+                                                        <!-- Shotgun Shells & Shotshell Cartridges -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Shotgun Shells &amp; Shotshell Cartridges</li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('12 Gauge Buckshot (00 Buck / 9 Pellets Tactical)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
+                                                                    Gauge Buckshot (00 Buck / 9 Pellets
+                                                                    Tactical)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('12 Gauge Rifled Slug (Heavy Solid Lead Penetrator)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
+                                                                    Gauge Rifled Slug (Heavy Solid Lead
+                                                                    Penetrator)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('12 Gauge Birdshot / Game Load Cartridges', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
+                                                                    Gauge Birdshot / Game Load
+                                                                    Cartridges</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('12 Gauge Less-Lethal Rubber Baton / Beanbag Round', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
+                                                                    Gauge Less-Lethal Rubber Baton / Beanbag
+                                                                    Round</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('20 Gauge Shotgun Cartridge (Buck &amp; Slug)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>20
+                                                                    Gauge Shotgun Cartridge (Buck &amp;
+                                                                    Slug)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">20GA</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('16 Gauge Shotgun Cartridge', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>16
+                                                                    Gauge Shotgun Cartridge</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">16GA</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.410 Bore Shotgun Shell (Buckshot / Slug)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.410
+                                                                    Bore Shotgun Shell (Buckshot / Slug)</span><span
+                                                                    class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">.410</span></button>
+                                                        </li>
+
+                                                        <!-- Heavy & Anti-Materiel Ammunition -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Heavy &amp; Anti-Materiel Ammunition</li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.50 BMG (12.7x99mm NATO Armor-Piercing Incendiary)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50
+                                                                    BMG (12.7x99mm NATO Armor-Piercing
+                                                                    Incendiary)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.50</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('12.7x108mm Russian Heavy Machine Gun Cartridge', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12.7x108mm
+                                                                    Russian Heavy Machine Gun Cartridge</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">12.7</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.338 Lapua Magnum (8.6x70mm Long-Range Sniper)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.338
+                                                                    Lapua Magnum (8.6x70mm Long-Range
+                                                                    Sniper)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.338</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.300 Winchester Magnum (.300 Win Mag Match)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300
+                                                                    Winchester Magnum (.300 Win Mag
+                                                                    Match)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.300</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('14.5x114mm Heavy Armor-Piercing Cartridge', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>14.5x114mm
+                                                                    Heavy Armor-Piercing Cartridge</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">14.5</span></button>
+                                                        </li>
+
+                                                        <!-- Rimfire & Specialty Ammunition -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Rimfire &amp; Specialty Ammunition</li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.22 Long Rifle (.22 LR Rimfire Round)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22
+                                                                    Long Rifle (.22 LR Rimfire Round)</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22LR</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('.22 WMR (.22 Magnum Rimfire Cartridge)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22
+                                                                    WMR (.22 Magnum Rimfire Cartridge)</span><span
+                                                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22WMR</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('40x46mm High-Explosive Grenade Round (M203 / M320)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>40x46mm
+                                                                    High-Explosive Grenade Round (M203 /
+                                                                    M320)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">40MM</span></button>
+                                                        </li>
+                                                        <li class="ammo-item"
+                                                            onclick="selectAmmoType('37mm / 40mm Tear Gas / CS Smoke / Flare Round', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>37mm
+                                                                    / 40mm Tear Gas / CS Smoke / Flare
+                                                                    Round</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">37MM</span></button>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <!-- ELECTRONIC DEVICE SELECT DROPDOWN (shown when Electronic Devices is selected) -->
+                                            <div id="deviceSelectWrapper" class="hidden relative z-40">
+                                                <div class="relative">
+                                                    <span
+                                                        class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="text" id="deviceSearchInput"
+                                                        placeholder="Select or type custom electronic device type..."
+                                                        autocomplete="off"
+                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                        onclick="openDeviceListPanel(this)"
+                                                        oninput="filterDeviceList(this)"
+                                                        onfocus="openDeviceListPanel(this)">
+                                                    <input type="hidden" id="newSeizureNameDevice"
+                                                        name="newSeizureNameDevice" value="">
+                                                </div>
+                                                <div id="deviceListPanel"
+                                                    class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                    style="max-height:240px;overflow-y:auto">
+                                                    <div
+                                                        class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                        <input type="text" id="deviceSearchInner"
+                                                            placeholder="Type to filter electronic devices..."
+                                                            oninput="filterDeviceListInner(this)"
+                                                            class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                    </div>
+                                                    <ul id="deviceList" class="py-1.5 space-y-0.5 px-1.5">
+                                                        <!-- Smartphones & Mobile Devices -->
+                                                        <li
+                                                            class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Smartphones &amp; Mobile Devices</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Apple iPhone (iOS Smartphone)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Apple
+                                                                    iPhone (iOS Smartphone)</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">IPHONE</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Android Smartphone (Samsung / Google Pixel / Xiaomi)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Android
+                                                                    Smartphone (Samsung / Google Pixel /
+                                                                    Xiaomi)</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">ANDROID</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Feature Phone / Burner Keypad Phone', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Feature
+                                                                    Phone / Burner Keypad Phone</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">BURNER</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Satellite Phone (Iridium / Thuraya / Inmarsat)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Satellite
+                                                                    Phone (Iridium / Thuraya / Inmarsat)</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SAT-PHONE</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Tablet / iPad (iOS / Android / Windows Tablet)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablet
+                                                                    / iPad (iOS / Android / Windows
+                                                                    Tablet)</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">TABLET</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Smartwatch / Wearable Fitness Tracker', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smartwatch
+                                                                    / Wearable Fitness Tracker</span><span
+                                                                    class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">WATCH</span></button>
+                                                        </li>
+
+                                                        <!-- Computers & Laptops -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Computers &amp; Laptops</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Laptop / Notebook Computer (MacBook / Windows / Linux)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Laptop
+                                                                    / Notebook Computer (MacBook / Windows /
+                                                                    Linux)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">LAPTOP</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Desktop PC / Workstation Computer', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Desktop
+                                                                    PC / Workstation Computer</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">DESKTOP</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Encrypted / Hardened Custom Laptop', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Encrypted
+                                                                    / Hardened Custom Laptop</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">ENCRYPTED</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Enterprise Server / Rackmount Server Unit', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Enterprise
+                                                                    Server / Rackmount Server Unit</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SERVER</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Single-Board Computer (Raspberry Pi / Arduino / Mini PC)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Board
+                                                                    Computer (Raspberry Pi / Arduino / Mini
+                                                                    PC)</span><span
+                                                                    class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SBC</span></button>
+                                                        </li>
+
+                                                        <!-- Storage & Memory Media -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Storage &amp; Memory Media</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('External Hard Drive (HDD / Portable Hard Disk)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>External
+                                                                    Hard Drive (HDD / Portable Hard
+                                                                    Disk)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">HDD</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Portable Solid State Drive (External SSD / NVMe)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Portable
+                                                                    Solid State Drive (External SSD /
+                                                                    NVMe)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SSD</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('USB Flash Drive / Thumb Drive / Pen Drive', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>USB
+                                                                    Flash Drive / Thumb Drive / Pen
+                                                                    Drive</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">USB</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Memory Card (SD Card / MicroSD / CF Card)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Memory
+                                                                    Card (SD Card / MicroSD / CF Card)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SD-CARD</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('NAS / Network Attached Storage Array', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>NAS
+                                                                    / Network Attached Storage Array</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">NAS</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Optical Media (CD / DVD / Blu-ray Disc)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Optical
+                                                                    Media (CD / DVD / Blu-ray Disc)</span><span
+                                                                    class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">DISC</span></button>
+                                                        </li>
+
+                                                        <!-- Skimming, Fraud & Hardware Attack Devices -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Skimming, Fraud &amp; Hardware Attack Devices</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('ATM Card Skimmer / Bezel Overlay Device', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>ATM
+                                                                    Card Skimmer / Bezel Overlay Device</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SKIMMER</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('POS Terminal / Handheld Card Reader', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>POS
+                                                                    Terminal / Handheld Card Reader</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">POS</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Magstripe Card Writer / Encoder (MSR / MSR605)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magstripe
+                                                                    Card Writer / Encoder (MSR / MSR605)</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ENCODER</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('SIM Box / Multi-SIM GSM Cellular Gateway', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIM
+                                                                    Box / Multi-SIM GSM Cellular Gateway</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SIMBOX</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('BadUSB / Hardware Keylogger / Rubber Ducky', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>BadUSB
+                                                                    / Hardware Keylogger / Rubber Ducky</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ATTACK-USB</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('RFID / NFC Cloner / Flipper Zero Device', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RFID
+                                                                    / NFC Cloner / Flipper Zero Device</span><span
+                                                                    class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">CLONER</span></button>
+                                                        </li>
+
+                                                        <!-- Crypto & Financial Hardware -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Crypto &amp; Financial Hardware</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Cryptocurrency Hardware Wallet (Ledger / Trezor / KeepKey)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cryptocurrency
+                                                                    Hardware Wallet (Ledger / Trezor /
+                                                                    KeepKey)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">HW-WALLET</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Crypto Mining Rig / ASIC Miner (Antminer / GPU Rig)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crypto
+                                                                    Mining Rig / ASIC Miner (Antminer / GPU
+                                                                    Rig)</span><span
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">MINER</span></button>
+                                                        </li>
+
+                                                        <!-- Cameras, Drones & Surveillance Equipment -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Cameras, Drones &amp; Surveillance Equipment</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Security Camera / CCTV DVR / NVR Unit', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Security
+                                                                    Camera / CCTV DVR / NVR Unit</span><span
+                                                                    class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CCTV</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Digital Camera / Camcorder / DSLR', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital
+                                                                    Camera / Camcorder / DSLR</span><span
+                                                                    class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CAMERA</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Covert Spy Camera / Hidden Camera Device', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Covert
+                                                                    Spy Camera / Hidden Camera Device</span><span
+                                                                    class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">SPY-CAM</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Drone / Unmanned Aerial Vehicle (DJI / FPV Drone)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drone
+                                                                    / Unmanned Aerial Vehicle (DJI / FPV
+                                                                    Drone)</span><span
+                                                                    class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">DRONE</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('GPS Tracking Bug / Tracker Tag (AirTag / GPS Unit)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>GPS
+                                                                    Tracking Bug / Tracker Tag (AirTag / GPS
+                                                                    Unit)</span><span
+                                                                    class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">GPS</span></button>
+                                                        </li>
+
+                                                        <!-- Networking & Communication Equipment -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Networking &amp; Communication Equipment</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Wi-Fi Router / Wireless Access Point / Modem', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wi-Fi
+                                                                    Router / Wireless Access Point /
+                                                                    Modem</span><span
+                                                                    class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">ROUTER</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Network Switch / Managed Network Hardware', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Network
+                                                                    Switch / Managed Network Hardware</span><span
+                                                                    class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">SWITCH</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Mobile Hotspot / MiFi Device / 4G-5G Dongle', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mobile
+                                                                    Hotspot / MiFi Device / 4G-5G Dongle</span><span
+                                                                    class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">MIFI</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Two-Way Radio / Walkie-Talkie (VHF / UHF Transceiver)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Two-Way
+                                                                    Radio / Walkie-Talkie (VHF / UHF
+                                                                    Transceiver)</span><span
+                                                                    class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">RADIO</span></button>
+                                                        </li>
+
+                                                        <!-- Gaming & Audio/Video Equipment -->
+                                                        <li
+                                                            class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                            Gaming &amp; Audio/Video Equipment</li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Gaming Console (PlayStation / Xbox / Nintendo)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gaming
+                                                                    Console (PlayStation / Xbox /
+                                                                    Nintendo)</span><span
+                                                                    class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">CONSOLE</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Handheld Gaming Unit (Steam Deck / ROG Ally)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Handheld
+                                                                    Gaming Unit (Steam Deck / ROG Ally)</span><span
+                                                                    class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">HANDHELD</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Digital Voice Recorder / Dictaphone', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital
+                                                                    Voice Recorder / Dictaphone</span><span
+                                                                    class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">AUDIO</span></button>
+                                                        </li>
+                                                        <li class="device-item"
+                                                            onclick="selectDeviceType('Smart TV / Media Streaming Dongle (Apple TV / Firestick)', event)">
+                                                            <button type="button"
+                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smart
+                                                                    TV / Media Streaming Dongle (Apple TV /
+                                                                    Firestick)</span><span
+                                                                    class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">MEDIA</span></button>
+                                                        </li>
+                                                    </ul>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <!-- SEIZURES INPUT GRID -->
-                                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-
-                                            <!-- SUSPECT / OWNERSHIP SELECT DROPDOWN -->
-                                            <div class="relative z-30">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Suspect / Ownership <span class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <div class="relative">
-                                                    <select onchange="this.setAttribute('data-user-selected', 'true')"
-                                                        class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
-                                                        <option value="All Suspects">All Suspects (Joint Ownership)
-                                                        </option>
-                                                    </select>
+                                        <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL (shown when Electronic Devices is selected) -->
+                                        <div id="deviceFieldsWrapper"
+                                            class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200/80 shadow-2xs space-y-3">
+                                            <div class="flex items-center space-x-2 text-slate-800">
+                                                <div
+                                                    class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                    <svg class="w-3.5 h-3.5" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                    </svg>
                                                 </div>
+                                                <span
+                                                    class="text-xs font-extrabold uppercase tracking-wider text-blue-950">Electronic
+                                                    Device Forensic Specifications</span>
                                             </div>
-
-
-                                            <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
-                                            <div class="relative z-[9999]" style="z-index: 9999;">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Exhibit (Commodity Category) <span
-                                                        class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <div id="exhibitSelectWrapper" class="relative z-[9999]"
-                                                    style="z-index: 9999;">
-                                                    <div class="relative">
-                                                        <span
-                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text" id="exhibitSearchInput"
-                                                            placeholder="Select or type exhibit category..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
-                                                            onclick="openExhibitListPanel(this)"
-                                                            oninput="filterExhibitList(this)"
-                                                            onfocus="openExhibitListPanel(this)">
-                                                        <input type="hidden" id="newSeizureCategory"
-                                                            value="">
-                                                    </div>
-                                                    <div id="exhibitListPanel"
-                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden"
-                                                        style="z-index: 9999;">
-                                                        <div
-                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="exhibitSearchInner"
-                                                                placeholder="Type to filter categories..."
-                                                                oninput="filterExhibitListInner(this)"
-                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Drugs', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Drugs</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Narcotics, Synthetics, Opioids</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-black px-2 py-0.5 rounded font-bold">DRG</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Money', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Money</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Cash, Foreign Currencies, Laundering</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">CASH</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Gold', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Gold</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Bullion, Bars, Smuggled Metals</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Vehicles', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Vehicles</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Automobiles, Vessels, Trucks</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">VEH</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Electronic Devices', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Electronic Devices</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Phones, Encrypted Laptops, Drives</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">ELEC</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Weapons', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Weapons</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Firearms, Handguns, Blades</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">WPN</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Ammunition', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Ammunition</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Bullets, Cartridges, Explosives</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-2 py-0.5 rounded font-bold">AMMO</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Other Exhibits', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <div>
-                                                                        <div class="font-extrabold text-slate-900">
-                                                                            Other Exhibits</div>
-                                                                        <div
-                                                                            class="text-[10px] text-slate-500 font-normal">
-                                                                            Hardware, Miscellaneous Devices</div>
-                                                                    </div>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">MISC</span>
-                                                                </button>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- SPECIFIC COMMODITY / DRUG NAME (SMART FIELD) -->
-                                            <div id="commodityFieldWrapper">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Primary
-                                                    Commodity Name <span
-                                                        class="text-red-600 font-bold">*</span></label>
-
-                                                <!-- TEXT INPUT (shown for non-drug categories) -->
-                                                <div id="commodityTextWrapper"
-                                                    class="relative flex items-center group">
-                                                    <span
-                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                                        </svg>
-                                                    </span>
-                                                    <input type="text" id="newSeizureName"
-                                                        placeholder="e.g. Cocaine (High Purity Slabs)"
-                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                </div>
-
-                                                <!-- DRUG SELECT DROPDOWN (matching Exhibit Category styling) -->
-                                                <div id="drugSelectWrapper" class="hidden relative z-40">
-                                                    <div class="relative">
-                                                        <span
-                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text" id="drugSearchInput"
-                                                            placeholder="Select or type custom drug name..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
-                                                            onclick="openDrugListPanel(this)"
-                                                            oninput="filterDrugList(this)"
-                                                            onchange="filterDrugList(this)"
-                                                            onblur="filterDrugList(this)"
-                                                            onkeydown="handleCommoditySearchKeydown(event, this, 'drug')"
-                                                            onfocus="openDrugListPanel(this)">
-                                                        <input type="hidden" id="newSeizureNameDrug"
-                                                            name="newSeizureNameDrug" value="">
-                                                    </div>
-                                                    <div id="drugListPanel"
-                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                        style="max-height:240px;overflow-y:auto">
-                                                        <div
-                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="drugSearchInner"
-                                                                placeholder="Type to filter drugs..."
-                                                                oninput="filterDrugListInner(this)"
-                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="drugList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <!-- Opioids & Analgesics -->
-                                                            <li
-                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Opioids &amp; Analgesics</li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Heroin (Brown Sugar / Diacetylmorphine)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Heroin (Brown Sugar / Diacetylmorphine)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Fentanyl (Synthetic Opioid Patches / Powder)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Fentanyl (Synthetic Opioid Patches /
-                                                                        Powder)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Morphine (Raw Opium Extract)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Morphine (Raw Opium Extract)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Tramadol (High-Dose Tablets / Capsules)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Tramadol (High-Dose Tablets / Capsules)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Codeine (Cough Syrup Misuse / Purple Drank)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Codeine (Cough Syrup Misuse / Purple
-                                                                        Drank)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Oxycodone (OxyContin Tablets)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Oxycodone (OxyContin Tablets)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span>
-                                                                </button>
-                                                            </li>
-
-                                                            <!-- Stimulants & Cocaine-Class -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Stimulants &amp; Cocaine-Class</li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Cocaine (High-Purity Powder / Slabs)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Cocaine (High-Purity Powder / Slabs)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">COC</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Crack Cocaine (Rock Form / Freebase)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Crack Cocaine (Rock Form / Freebase)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">COC</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Methamphetamine (Crystal Meth / Ice)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Methamphetamine (Crystal Meth / Ice)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Amphetamine (Speed / Pep Pills)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Amphetamine (Speed / Pep Pills)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('MDMA (Ecstasy / Molly Tablets)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>MDMA (Ecstasy / Molly Tablets)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Khat (Catha Edulis Fresh Leaves / Bundles)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Khat (Catha Edulis Fresh Leaves /
-                                                                        Bundles)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">STIM</span>
-                                                                </button>
-                                                            </li>
-
-                                                            <!-- Cannabis & Derivatives -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Cannabis &amp; Derivatives</li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Cannabis / Marijuana (Dried Flower / Weed)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Cannabis / Marijuana (Dried Flower /
-                                                                        Weed)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Cannabis Resin (Hashish / Black Hash Slabs)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Cannabis Resin (Hashish / Black Hash
-                                                                        Slabs)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Cannabis Oil / THC Concentrate (Wax / Dabs)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Cannabis Oil / THC Concentrate (Wax /
-                                                                        Dabs)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">CAN</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Synthetic Cannabinoids (Spice / K2 Herbal)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Synthetic Cannabinoids (Spice / K2
-                                                                        Herbal)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SYN</span>
-                                                                </button>
-                                                            </li>
-
-                                                            <!-- Sedatives & Depressants -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Sedatives &amp; Depressants</li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Rohypnol (Flunitrazepam / Date Rape Drug)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Rohypnol (Flunitrazepam / Date Rape
-                                                                        Drug)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('GHB (Gamma-Hydroxybutyrate / Liquid Ecstasy)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>GHB (Gamma-Hydroxybutyrate / Liquid
-                                                                        Ecstasy)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Diazepam / Valium (Benzodiazepine Tablets)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Diazepam / Valium (Benzodiazepine
-                                                                        Tablets)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Ketamine (Special K / Dissociative Anesthetic)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Ketamine (Special K / Dissociative
-                                                                        Anesthetic)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SED</span>
-                                                                </button>
-                                                            </li>
-
-                                                            <!-- Hallucinogens & Psychedelics -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Hallucinogens &amp; Psychedelics</li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('LSD (Lysergic Acid Diethylamide / Acid Tabs)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>LSD (Lysergic Acid Diethylamide / Acid
-                                                                        Tabs)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Psilocybin (Magic Mushrooms / Shrooms)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Psilocybin (Magic Mushrooms / Shrooms)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('PCP (Phencyclidine / Angel Dust)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>PCP (Phencyclidine / Angel Dust)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-pink-50 text-pink-700 px-1.5 py-0.5 rounded font-bold">PSY</span>
-                                                                </button>
-                                                            </li>
-
-                                                            <!-- Precursor Chemicals -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Precursor Chemicals</li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Ephedrine / Pseudoephedrine (Meth Precursor)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Ephedrine / Pseudoephedrine (Meth
-                                                                        Precursor)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Acetic Anhydride (Heroin Precursor Chemical)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Acetic Anhydride (Heroin Precursor
-                                                                        Chemical)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
-                                                                </button>
-                                                            </li>
-                                                            <li class="drug-item"
-                                                                onclick="selectDrugType('Phenylacetic Acid (Amphetamine Precursor)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                    <span>Phenylacetic Acid (Amphetamine
-                                                                        Precursor)</span>
-                                                                    <span
-                                                                        class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">CHEM</span>
-                                                                </button>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-
-                                                <!-- WEAPON SELECT DROPDOWN (matching Exhibit Category styling) -->
-                                                <div id="weaponSelectWrapper" class="hidden relative z-40">
-                                                    <div class="relative">
-                                                        <span
-                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text" id="weaponSearchInput"
-                                                            placeholder="Select or type custom weapon type..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
-                                                            onclick="openWeaponListPanel(this)"
-                                                            oninput="filterWeaponList(this)"
-                                                            onfocus="openWeaponListPanel(this)">
-                                                        <input type="hidden" id="newSeizureNameWeapon"
-                                                            name="newSeizureNameWeapon" value="">
-                                                    </div>
-                                                    <div id="weaponListPanel"
-                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                        style="max-height:240px;overflow-y:auto">
-                                                        <div
-                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="weaponSearchInner"
-                                                                placeholder="Type to filter weapons..."
-                                                                oninput="filterWeaponListInner(this)"
-                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="weaponList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <!-- Handguns & Pistols -->
-                                                            <li
-                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Handguns &amp; Pistols</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('AK-47 / AKM Shorty Pistol (7.62x39mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-47
-                                                                        / AKM Shorty Pistol (7.62x39mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Glock 17 Semi-Automatic Pistol (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Glock
-                                                                        17 Semi-Automatic Pistol (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Glock 19 Compact Tactical Pistol (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Glock
-                                                                        19 Compact Tactical Pistol (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Beretta 92FS / M9 Pistol (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Beretta
-                                                                        92FS / M9 Pistol (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('SIG Sauer P226 / P320 Pistol (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIG
-                                                                        Sauer P226 / P320 Pistol (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Colt M1911 / M1911A1 Pistol (.45 ACP)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Colt
-                                                                        M1911 / M1911A1 Pistol (.45 ACP)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Smith &amp; Wesson M&amp;P 9mm Pistol', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smith
-                                                                        &amp; Wesson M&amp;P 9mm Pistol</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Browning Hi-Power Pistol (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Browning
-                                                                        Hi-Power Pistol (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('CZ 75 / CZ P-10 C Tactical Pistol (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>CZ
-                                                                        75 / CZ P-10 C Tactical Pistol (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Tokarev TT-33 Pistol (7.62x25mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tokarev
-                                                                        TT-33 Pistol (7.62x25mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Makarov PM Concealed Pistol (9x18mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Makarov
-                                                                        PM Concealed Pistol (9x18mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Revolver (.38 Special / .357 Magnum)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Revolver
-                                                                        (.38 Special / .357 Magnum)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">REV</span></button>
-                                                            </li>
-
-                                                            <!-- Rifles & Assault Rifles -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Rifles &amp; Assault Rifles</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('AK-47 / AKM Kalashnikov Rifle (7.62x39mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-47
-                                                                        / AKM Kalashnikov Rifle (7.62x39mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('AK-74 Tactical Rifle (5.45x39mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>AK-74
-                                                                        Tactical Rifle (5.45x39mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('M16A2 / M16A4 Military Assault Rifle (5.56mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M16A2
-                                                                        / M16A4 Military Assault Rifle
-                                                                        (5.56mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('M4A1 Carbine / AR-15 Platform (5.56x45mm NATO)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M4A1
-                                                                        Carbine / AR-15 Platform (5.56x45mm
-                                                                        NATO)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Heckler &amp; Koch HK416 Assault Rifle (5.56mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler
-                                                                        &amp; Koch HK416 Assault Rifle
-                                                                        (5.56mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('FN FAL Battle Rifle (7.62x51mm NATO)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN
-                                                                        FAL Battle Rifle (7.62x51mm NATO)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Heckler &amp; Koch G3 Battle Rifle (7.62x51mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler
-                                                                        &amp; Koch G3 Battle Rifle
-                                                                        (7.62x51mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Galil ARM / Tavor TAR-21 Assault Rifle (5.56mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Galil
-                                                                        ARM / Tavor TAR-21 Assault Rifle
-                                                                        (5.56mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Steyr AUG Bullpup Assault Rifle (5.56mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Steyr
-                                                                        AUG Bullpup Assault Rifle (5.56mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Type 56 Norinco Rifle (7.62x39mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Type
-                                                                        56 Norinco Rifle (7.62x39mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('SKS Semi-Automatic Carbine (7.62x39mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SKS
-                                                                        Semi-Automatic Carbine (7.62x39mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">RFL</span></button>
-                                                            </li>
-
-                                                            <!-- Submachine Guns (SMGs) -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Submachine Guns (SMGs)</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Heckler &amp; Koch MP5 / MP5K SMG (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heckler
-                                                                        &amp; Koch MP5 / MP5K SMG (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Uzi / Mini-Uzi Submachine Gun (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Uzi
-                                                                        / Mini-Uzi Submachine Gun (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('CZ Scorpion EVO 3 Submachine Gun (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>CZ
-                                                                        Scorpion EVO 3 Submachine Gun (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('FN P90 Personal Defense Weapon (5.7x28mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN
-                                                                        P90 Personal Defense Weapon
-                                                                        (5.7x28mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('MAC-10 / MAC-11 Submachine Gun (.45 ACP / 9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>MAC-10
-                                                                        / MAC-11 Submachine Gun (.45 ACP /
-                                                                        9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Beretta M12 Submachine Gun (9mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Beretta
-                                                                        M12 Submachine Gun (9mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">SMG</span></button>
-                                                            </li>
-
-                                                            <!-- Shotguns -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Shotguns</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Remington 870 Tactical Shotgun (12 Gauge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Remington
-                                                                        870 Tactical Shotgun (12 Gauge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Mossberg 500 / 590 Pump Shotgun (12 Gauge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mossberg
-                                                                        500 / 590 Pump Shotgun (12 Gauge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Benelli M4 Combat Shotgun (12 Gauge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Benelli
-                                                                        M4 Combat Shotgun (12 Gauge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Saiga-12 Semi-Auto Tactical Shotgun (12 Gauge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Saiga-12
-                                                                        Semi-Auto Tactical Shotgun (12
-                                                                        Gauge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Double-Barrel Break-Action Shotgun (Sawed-Off)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Double-Barrel
-                                                                        Break-Action Shotgun (Sawed-Off)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Single-Barrel Hunting Shotgun (12 Gauge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Barrel
-                                                                        Hunting Shotgun (12 Gauge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-800 px-1.5 py-0.5 rounded font-bold">STG</span></button>
-                                                            </li>
-
-                                                            <!-- Sniper & Precision Rifles -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Sniper &amp; Precision Rifles</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Barrett M82A1 / M107 Anti-Materiel (.50 BMG)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrett
-                                                                        M82A1 / M107 Anti-Materiel (.50 BMG)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Remington 700 / M24 Sniper Rifle (7.62 NATO)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Remington
-                                                                        700 / M24 Sniper Rifle (7.62 NATO)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Dragunov SVD Sniper Rifle (7.62x54mmR)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Dragunov
-                                                                        SVD Sniper Rifle (7.62x54mmR)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Accuracy International AWM / AWSM (.338 Lapua)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Accuracy
-                                                                        International AWM / AWSM (.338
-                                                                        Lapua)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SNP</span></button>
-                                                            </li>
-
-                                                            <!-- Machine Guns & Heavy Ordnance -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Machine Guns &amp; Heavy Ordnance</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('PKM / PKP General Purpose Machine Gun (7.62x54mmR)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>PKM
-                                                                        / PKP General Purpose Machine Gun
-                                                                        (7.62x54mmR)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('FN MAG / M240 Belt-Fed Machine Gun (7.62mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>FN
-                                                                        MAG / M240 Belt-Fed Machine Gun
-                                                                        (7.62mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('M249 SAW / FN Minimi Light Machine Gun (5.56mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>M249
-                                                                        SAW / FN Minimi Light Machine Gun
-                                                                        (5.56mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">MG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Browning M2HB Heavy Machine Gun (.50 BMG)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Browning
-                                                                        M2HB Heavy Machine Gun (.50 BMG)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">HMG</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('RPG-7 Anti-Tank Rocket Launcher', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RPG-7
-                                                                        Anti-Tank Rocket Launcher</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-900 text-white px-1.5 py-0.5 rounded font-bold">ORD</span></button>
-                                                            </li>
-
-                                                            <!-- Edged, Bladed & Impact Weapons -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Edged, Bladed &amp; Impact Weapons</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Combat / Tactical Military Knife', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Combat
-                                                                        / Tactical Military Knife</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Heavy Steel Machete / Cutlass', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Heavy
-                                                                        Steel Machete / Cutlass</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Switchblade / Automatic Stiletto Knife', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Switchblade
-                                                                        / Automatic Stiletto Knife</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Dagger / Push Knife / Concealed Blade', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Dagger
-                                                                        / Push Knife / Concealed Blade</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Samurai Sword / Katana / Machete Blade', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Samurai
-                                                                        Sword / Katana / Machete Blade</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BLD</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Brass Knuckles / Heavy Iron Knuckles', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Brass
-                                                                        Knuckles / Heavy Iron Knuckles</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">IMP</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Crossbow / Tactical Compound Bow', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crossbow
-                                                                        / Tactical Compound Bow</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">BOW</span></button>
-                                                            </li>
-
-                                                            <!-- Explosives & Less-Lethal Tactical Devices -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Explosives &amp; Less-Lethal Tactical Devices</li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('High-Explosive Hand Grenade (Frag)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>High-Explosive
-                                                                        Hand Grenade (Frag)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">EXP</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Flashbang Grenade / Tactical Stun Grenade', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Flashbang
-                                                                        Grenade / Tactical Stun Grenade</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">TAC</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('C4 Plastic Explosive / Dynamite Blocks', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>C4
-                                                                        Plastic Explosive / Dynamite Blocks</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">EXP</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Improvised Explosive Device (IED / Pipe Bomb)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Improvised
-                                                                        Explosive Device (IED / Pipe Bomb)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">IED</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Taser Stun Gun / Electroshock Weapon', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Taser
-                                                                        Stun Gun / Electroshock Weapon</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">TSR</span></button>
-                                                            </li>
-                                                            <li class="weapon-item"
-                                                                onclick="selectWeaponType('Pepper Spray / OC Tear Gas Canister', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pepper
-                                                                        Spray / OC Tear Gas Canister</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">GAS</span></button>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-
-                                                <!-- CURRENCY SELECT2 DROPDOWN (shown when Money is selected) -->
-                                                <div id="currencySelectWrapper" class="hidden relative z-40">
-                                                    <div class="relative">
-                                                        <span
-                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text" id="currencySearchInput"
-                                                            placeholder="Select currency..." autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-300 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
-                                                            readonly onclick="openCurrencyListPanel(this)"
-                                                            oninput="filterCurrencyList(this)"
-                                                            onfocus="openCurrencyListPanel(this)">
-                                                        <input type="hidden" id="newSeizureNameCurrency"
-                                                            name="newSeizureName">
-                                                    </div>
-                                                    <div id="currencyListPanel"
-                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-emerald-200 z-50 overflow-hidden"
-                                                        style="max-height:240px;overflow-y:auto">
-                                                        <div
-                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="currencySearchInner"
-                                                                placeholder="Type to filter currencies..."
-                                                                oninput="filterCurrencyListInner(this)"
-                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-300 transition-all">
-                                                        </div>
-                                                        <ul id="currencyList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <!-- West Africa -->
-                                                            <li
-                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
-                                                                West Africa</li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Ghana Cedi (GHS ₵)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ghana
-                                                                        Cedi</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GHS
-                                                                        ₵</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Nigerian Naira (NGN ₦)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Nigerian
-                                                                        Naira</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">NGN
-                                                                        ₦</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('CFA Franc BCEAO (XOF)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>CFA
-                                                                        Franc (BCEAO)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">XOF</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Sierra Leonean Leone (SLL)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Sierra
-                                                                        Leonean Leone</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SLL</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Liberian Dollar (LRD)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Liberian
-                                                                        Dollar</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">LRD</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Gambian Dalasi (GMD)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Gambian
-                                                                        Dalasi</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GMD</span></button>
-                                                            </li>
-
-                                                            <!-- Major Global -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
-                                                                Major Global Currencies</li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('US Dollar (USD $)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>US
-                                                                        Dollar</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">USD
-                                                                        $</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Euro (EUR €)')"><button
-                                                                    type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Euro</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EUR
-                                                                        €</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('British Pound Sterling (GBP £)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>British
-                                                                        Pound Sterling</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GBP
-                                                                        £</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Swiss Franc (CHF)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Swiss
-                                                                        Franc</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CHF</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Japanese Yen (JPY ¥)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Japanese
-                                                                        Yen</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">JPY
-                                                                        ¥</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Chinese Yuan Renminbi (CNY ¥)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Chinese
-                                                                        Yuan (Renminbi)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CNY
-                                                                        ¥</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Canadian Dollar (CAD $)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Canadian
-                                                                        Dollar</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CAD
-                                                                        $</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Australian Dollar (AUD $)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Australian
-                                                                        Dollar</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AUD
-                                                                        $</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('UAE Dirham (AED)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>UAE
-                                                                        Dirham</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AED</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Saudi Riyal (SAR)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Saudi
-                                                                        Riyal</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SAR</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Indian Rupee (INR ₹)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Indian
-                                                                        Rupee</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">INR
-                                                                        ₹</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('South Korean Won (KRW ₩)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South
-                                                                        Korean Won</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KRW
-                                                                        ₩</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Singapore Dollar (SGD $)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Singapore
-                                                                        Dollar</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SGD
-                                                                        $</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Hong Kong Dollar (HKD $)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Hong
-                                                                        Kong Dollar</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">HKD
-                                                                        $</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Russian Ruble (RUB ₽)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Russian
-                                                                        Ruble</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">RUB
-                                                                        ₽</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Turkish Lira (TRY ₺)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Turkish
-                                                                        Lira</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TRY
-                                                                        ₺</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Brazilian Real (BRL R$)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Brazilian
-                                                                        Real</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">BRL
-                                                                        R$</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Mexican Peso (MXN $)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Mexican
-                                                                        Peso</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MXN
-                                                                        $</span></button></li>
-
-                                                            <!-- Africa -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
-                                                                Africa</li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('South African Rand (ZAR R)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South
-                                                                        African Rand</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZAR
-                                                                        R</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Kenyan Shilling (KES)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Kenyan
-                                                                        Shilling</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KES</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Ethiopian Birr (ETB)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethiopian
-                                                                        Birr</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ETB</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Egyptian Pound (EGP £)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Egyptian
-                                                                        Pound</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EGP
-                                                                        £</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Tanzanian Shilling (TZS)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tanzanian
-                                                                        Shilling</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TZS</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Moroccan Dirham (MAD)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Moroccan
-                                                                        Dirham</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MAD</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Angolan Kwanza (AOA)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Angolan
-                                                                        Kwanza</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AOA</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Congolese Franc (CDF)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Congolese
-                                                                        Franc</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CDF</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Zambian Kwacha (ZMW)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Zambian
-                                                                        Kwacha</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZMW</span></button>
-                                                            </li>
-
-                                                            <!-- Crypto -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">
-                                                                Cryptocurrencies</li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Bitcoin (BTC ₿)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Bitcoin</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">BTC
-                                                                        ₿</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Ethereum (ETH Ξ)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethereum</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">ETH
-                                                                        Ξ</span></button></li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Tether (USDT)')"><button
-                                                                    type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tether
-                                                                        (Stablecoin)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">USDT</span></button>
-                                                            </li>
-                                                            <li class="currency-item"
-                                                                onclick="selectCurrencyType('Monero (XMR – Privacy Coin)')">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Monero
-                                                                        (Privacy Coin)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">XMR</span></button>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-
-                                                <!-- AMMUNITION SELECT DROPDOWN (shown when Ammunition is selected) -->
-                                                <div id="ammoSelectWrapper" class="hidden relative z-40">
-                                                    <div class="relative">
-                                                        <span
-                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text" id="ammoSearchInput"
-                                                            placeholder="Select or type custom ammunition type..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
-                                                            onclick="openAmmoListPanel(this)"
-                                                            oninput="filterAmmoList(this)"
-                                                            onfocus="openAmmoListPanel(this)">
-                                                        <input type="hidden" id="newSeizureNameAmmo"
-                                                            name="newSeizureNameAmmo" value="">
-                                                    </div>
-                                                    <div id="ammoListPanel"
-                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                        style="max-height:240px;overflow-y:auto">
-                                                        <div
-                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="ammoSearchInner"
-                                                                placeholder="Type to filter ammunitions..."
-                                                                oninput="filterAmmoListInner(this)"
-                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="ammoList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <!-- Pistol & Handgun Ammunition -->
-                                                            <li
-                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Pistol &amp; Handgun Ammunition</li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('9x19mm Parabellum / NATO (9mm Luger)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x19mm
-                                                                        Parabellum / NATO (9mm Luger)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9MM</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.45 ACP (Automatic Colt Pistol / 11.43x23mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.45
-                                                                        ACP (Automatic Colt Pistol /
-                                                                        11.43x23mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.45</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.40 S&amp;W (Smith &amp; Wesson / 10x22mm)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.40
-                                                                        S&amp;W (Smith &amp; Wesson /
-                                                                        10x22mm)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.40</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.380 ACP (9mm Short / Browning)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.380
-                                                                        ACP (9mm Short / Browning)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.380</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.38 Special (9x29mmR Revolver Ammunition)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.38
-                                                                        Special (9x29mmR Revolver
-                                                                        Ammunition)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.38</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.357 Magnum (9x33mmR High Velocity)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.357
-                                                                        Magnum (9x33mmR High Velocity)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.357</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.44 Remington Magnum (10.9x33mmR)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.44
-                                                                        Remington Magnum (10.9x33mmR)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.44</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('7.62x25mm Tokarev (TT Pistol Cartridge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x25mm
-                                                                        Tokarev (TT Pistol Cartridge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">7.62</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('9x18mm Makarov (PM Round)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x18mm
-                                                                        Makarov (PM Round)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9x18</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('5.7x28mm (FN P90 / Five-seveN High-Velocity)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.7x28mm
-                                                                        (FN P90 / Five-seveN High-Velocity)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">5.7</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('10mm Auto (10x25mm Tactical)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>10mm
-                                                                        Auto (10x25mm Tactical)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">10MM</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.50 Action Express (.50 AE Desert Eagle)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50
-                                                                        Action Express (.50 AE Desert Eagle)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.50AE</span></button>
-                                                            </li>
-
-                                                            <!-- Rifle & Intermediate Ammunition -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Rifle &amp; Intermediate Ammunition</li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('7.62x39mm Soviet (AK-47 / SKS / Type 56)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x39mm
-                                                                        Soviet (AK-47 / SKS / Type 56)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('5.56x45mm NATO / .223 Remington (M16 / M4 / AR-15)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.56x45mm
-                                                                        NATO / .223 Remington (M16 / M4 /
-                                                                        AR-15)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.56</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('7.62x51mm NATO / .308 Winchester (FN FAL / G3)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x51mm
-                                                                        NATO / .308 Winchester (FN FAL / G3)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('5.45x39mm Soviet (AK-74 Assault Rifle)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.45x39mm
-                                                                        Soviet (AK-74 Assault Rifle)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.45</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('7.62x54mmR Russian (Dragunov SVD / PKM Belt)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x54mmR
-                                                                        Russian (Dragunov SVD / PKM Belt)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62R</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.300 AAC Blackout (7.62x35mm Subsonic / Supersonic)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300
-                                                                        AAC Blackout (7.62x35mm Subsonic /
-                                                                        Supersonic)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.300</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('6.5mm Creedmoor (Precision Long Range Match)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>6.5mm
-                                                                        Creedmoor (Precision Long Range
-                                                                        Match)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">6.5</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.30-06 Springfield (7.62x63mm Military Rifle)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.30-06
-                                                                        Springfield (7.62x63mm Military
-                                                                        Rifle)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.30-06</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.303 British (7.7x56mmR Lee-Enfield)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.303
-                                                                        British (7.7x56mmR Lee-Enfield)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.303</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('7.92x57mm Mauser (8mm Mauser Infantry)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.92x57mm
-                                                                        Mauser (8mm Mauser Infantry)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">8MM</span></button>
-                                                            </li>
-
-                                                            <!-- Shotgun Shells & Shotshell Cartridges -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Shotgun Shells &amp; Shotshell Cartridges</li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('12 Gauge Buckshot (00 Buck / 9 Pellets Tactical)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
-                                                                        Gauge Buckshot (00 Buck / 9 Pellets
-                                                                        Tactical)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('12 Gauge Rifled Slug (Heavy Solid Lead Penetrator)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
-                                                                        Gauge Rifled Slug (Heavy Solid Lead
-                                                                        Penetrator)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('12 Gauge Birdshot / Game Load Cartridges', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
-                                                                        Gauge Birdshot / Game Load
-                                                                        Cartridges</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('12 Gauge Less-Lethal Rubber Baton / Beanbag Round', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12
-                                                                        Gauge Less-Lethal Rubber Baton / Beanbag
-                                                                        Round</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('20 Gauge Shotgun Cartridge (Buck &amp; Slug)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>20
-                                                                        Gauge Shotgun Cartridge (Buck &amp;
-                                                                        Slug)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">20GA</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('16 Gauge Shotgun Cartridge', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>16
-                                                                        Gauge Shotgun Cartridge</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">16GA</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.410 Bore Shotgun Shell (Buckshot / Slug)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.410
-                                                                        Bore Shotgun Shell (Buckshot / Slug)</span><span
-                                                                        class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">.410</span></button>
-                                                            </li>
-
-                                                            <!-- Heavy & Anti-Materiel Ammunition -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Heavy &amp; Anti-Materiel Ammunition</li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.50 BMG (12.7x99mm NATO Armor-Piercing Incendiary)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50
-                                                                        BMG (12.7x99mm NATO Armor-Piercing
-                                                                        Incendiary)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.50</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('12.7x108mm Russian Heavy Machine Gun Cartridge', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12.7x108mm
-                                                                        Russian Heavy Machine Gun Cartridge</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">12.7</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.338 Lapua Magnum (8.6x70mm Long-Range Sniper)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.338
-                                                                        Lapua Magnum (8.6x70mm Long-Range
-                                                                        Sniper)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.338</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.300 Winchester Magnum (.300 Win Mag Match)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300
-                                                                        Winchester Magnum (.300 Win Mag
-                                                                        Match)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.300</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('14.5x114mm Heavy Armor-Piercing Cartridge', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>14.5x114mm
-                                                                        Heavy Armor-Piercing Cartridge</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">14.5</span></button>
-                                                            </li>
-
-                                                            <!-- Rimfire & Specialty Ammunition -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Rimfire &amp; Specialty Ammunition</li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.22 Long Rifle (.22 LR Rimfire Round)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22
-                                                                        Long Rifle (.22 LR Rimfire Round)</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22LR</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('.22 WMR (.22 Magnum Rimfire Cartridge)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22
-                                                                        WMR (.22 Magnum Rimfire Cartridge)</span><span
-                                                                        class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22WMR</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('40x46mm High-Explosive Grenade Round (M203 / M320)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>40x46mm
-                                                                        High-Explosive Grenade Round (M203 /
-                                                                        M320)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">40MM</span></button>
-                                                            </li>
-                                                            <li class="ammo-item"
-                                                                onclick="selectAmmoType('37mm / 40mm Tear Gas / CS Smoke / Flare Round', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>37mm
-                                                                        / 40mm Tear Gas / CS Smoke / Flare
-                                                                        Round</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">37MM</span></button>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-
-                                                <!-- ELECTRONIC DEVICE SELECT DROPDOWN (shown when Electronic Devices is selected) -->
-                                                <div id="deviceSelectWrapper" class="hidden relative z-40">
-                                                    <div class="relative">
-                                                        <span
-                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text" id="deviceSearchInput"
-                                                            placeholder="Select or type custom electronic device type..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
-                                                            onclick="openDeviceListPanel(this)"
-                                                            oninput="filterDeviceList(this)"
-                                                            onfocus="openDeviceListPanel(this)">
-                                                        <input type="hidden" id="newSeizureNameDevice"
-                                                            name="newSeizureNameDevice" value="">
-                                                    </div>
-                                                    <div id="deviceListPanel"
-                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                        style="max-height:240px;overflow-y:auto">
-                                                        <div
-                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="deviceSearchInner"
-                                                                placeholder="Type to filter electronic devices..."
-                                                                oninput="filterDeviceListInner(this)"
-                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="deviceList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <!-- Smartphones & Mobile Devices -->
-                                                            <li
-                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Smartphones &amp; Mobile Devices</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Apple iPhone (iOS Smartphone)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Apple
-                                                                        iPhone (iOS Smartphone)</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">IPHONE</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Android Smartphone (Samsung / Google Pixel / Xiaomi)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Android
-                                                                        Smartphone (Samsung / Google Pixel /
-                                                                        Xiaomi)</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">ANDROID</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Feature Phone / Burner Keypad Phone', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Feature
-                                                                        Phone / Burner Keypad Phone</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">BURNER</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Satellite Phone (Iridium / Thuraya / Inmarsat)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Satellite
-                                                                        Phone (Iridium / Thuraya / Inmarsat)</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SAT-PHONE</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Tablet / iPad (iOS / Android / Windows Tablet)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablet
-                                                                        / iPad (iOS / Android / Windows
-                                                                        Tablet)</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">TABLET</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Smartwatch / Wearable Fitness Tracker', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smartwatch
-                                                                        / Wearable Fitness Tracker</span><span
-                                                                        class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">WATCH</span></button>
-                                                            </li>
-
-                                                            <!-- Computers & Laptops -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Computers &amp; Laptops</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Laptop / Notebook Computer (MacBook / Windows / Linux)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Laptop
-                                                                        / Notebook Computer (MacBook / Windows /
-                                                                        Linux)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">LAPTOP</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Desktop PC / Workstation Computer', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Desktop
-                                                                        PC / Workstation Computer</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">DESKTOP</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Encrypted / Hardened Custom Laptop', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Encrypted
-                                                                        / Hardened Custom Laptop</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">ENCRYPTED</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Enterprise Server / Rackmount Server Unit', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Enterprise
-                                                                        Server / Rackmount Server Unit</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SERVER</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Single-Board Computer (Raspberry Pi / Arduino / Mini PC)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Board
-                                                                        Computer (Raspberry Pi / Arduino / Mini
-                                                                        PC)</span><span
-                                                                        class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SBC</span></button>
-                                                            </li>
-
-                                                            <!-- Storage & Memory Media -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Storage &amp; Memory Media</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('External Hard Drive (HDD / Portable Hard Disk)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>External
-                                                                        Hard Drive (HDD / Portable Hard
-                                                                        Disk)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">HDD</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Portable Solid State Drive (External SSD / NVMe)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Portable
-                                                                        Solid State Drive (External SSD /
-                                                                        NVMe)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SSD</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('USB Flash Drive / Thumb Drive / Pen Drive', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>USB
-                                                                        Flash Drive / Thumb Drive / Pen
-                                                                        Drive</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">USB</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Memory Card (SD Card / MicroSD / CF Card)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Memory
-                                                                        Card (SD Card / MicroSD / CF Card)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SD-CARD</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('NAS / Network Attached Storage Array', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>NAS
-                                                                        / Network Attached Storage Array</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">NAS</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Optical Media (CD / DVD / Blu-ray Disc)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Optical
-                                                                        Media (CD / DVD / Blu-ray Disc)</span><span
-                                                                        class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">DISC</span></button>
-                                                            </li>
-
-                                                            <!-- Skimming, Fraud & Hardware Attack Devices -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Skimming, Fraud &amp; Hardware Attack Devices</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('ATM Card Skimmer / Bezel Overlay Device', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>ATM
-                                                                        Card Skimmer / Bezel Overlay Device</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SKIMMER</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('POS Terminal / Handheld Card Reader', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>POS
-                                                                        Terminal / Handheld Card Reader</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">POS</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Magstripe Card Writer / Encoder (MSR / MSR605)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magstripe
-                                                                        Card Writer / Encoder (MSR / MSR605)</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ENCODER</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('SIM Box / Multi-SIM GSM Cellular Gateway', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIM
-                                                                        Box / Multi-SIM GSM Cellular Gateway</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SIMBOX</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('BadUSB / Hardware Keylogger / Rubber Ducky', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>BadUSB
-                                                                        / Hardware Keylogger / Rubber Ducky</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ATTACK-USB</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('RFID / NFC Cloner / Flipper Zero Device', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RFID
-                                                                        / NFC Cloner / Flipper Zero Device</span><span
-                                                                        class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">CLONER</span></button>
-                                                            </li>
-
-                                                            <!-- Crypto & Financial Hardware -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Crypto &amp; Financial Hardware</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Cryptocurrency Hardware Wallet (Ledger / Trezor / KeepKey)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cryptocurrency
-                                                                        Hardware Wallet (Ledger / Trezor /
-                                                                        KeepKey)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">HW-WALLET</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Crypto Mining Rig / ASIC Miner (Antminer / GPU Rig)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crypto
-                                                                        Mining Rig / ASIC Miner (Antminer / GPU
-                                                                        Rig)</span><span
-                                                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">MINER</span></button>
-                                                            </li>
-
-                                                            <!-- Cameras, Drones & Surveillance Equipment -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Cameras, Drones &amp; Surveillance Equipment</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Security Camera / CCTV DVR / NVR Unit', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Security
-                                                                        Camera / CCTV DVR / NVR Unit</span><span
-                                                                        class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CCTV</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Digital Camera / Camcorder / DSLR', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital
-                                                                        Camera / Camcorder / DSLR</span><span
-                                                                        class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CAMERA</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Covert Spy Camera / Hidden Camera Device', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Covert
-                                                                        Spy Camera / Hidden Camera Device</span><span
-                                                                        class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">SPY-CAM</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Drone / Unmanned Aerial Vehicle (DJI / FPV Drone)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drone
-                                                                        / Unmanned Aerial Vehicle (DJI / FPV
-                                                                        Drone)</span><span
-                                                                        class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">DRONE</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('GPS Tracking Bug / Tracker Tag (AirTag / GPS Unit)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>GPS
-                                                                        Tracking Bug / Tracker Tag (AirTag / GPS
-                                                                        Unit)</span><span
-                                                                        class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">GPS</span></button>
-                                                            </li>
-
-                                                            <!-- Networking & Communication Equipment -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Networking &amp; Communication Equipment</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Wi-Fi Router / Wireless Access Point / Modem', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wi-Fi
-                                                                        Router / Wireless Access Point /
-                                                                        Modem</span><span
-                                                                        class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">ROUTER</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Network Switch / Managed Network Hardware', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Network
-                                                                        Switch / Managed Network Hardware</span><span
-                                                                        class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">SWITCH</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Mobile Hotspot / MiFi Device / 4G-5G Dongle', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mobile
-                                                                        Hotspot / MiFi Device / 4G-5G Dongle</span><span
-                                                                        class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">MIFI</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Two-Way Radio / Walkie-Talkie (VHF / UHF Transceiver)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Two-Way
-                                                                        Radio / Walkie-Talkie (VHF / UHF
-                                                                        Transceiver)</span><span
-                                                                        class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">RADIO</span></button>
-                                                            </li>
-
-                                                            <!-- Gaming & Audio/Video Equipment -->
-                                                            <li
-                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                Gaming &amp; Audio/Video Equipment</li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Gaming Console (PlayStation / Xbox / Nintendo)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gaming
-                                                                        Console (PlayStation / Xbox /
-                                                                        Nintendo)</span><span
-                                                                        class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">CONSOLE</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Handheld Gaming Unit (Steam Deck / ROG Ally)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Handheld
-                                                                        Gaming Unit (Steam Deck / ROG Ally)</span><span
-                                                                        class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">HANDHELD</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Digital Voice Recorder / Dictaphone', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital
-                                                                        Voice Recorder / Dictaphone</span><span
-                                                                        class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">AUDIO</span></button>
-                                                            </li>
-                                                            <li class="device-item"
-                                                                onclick="selectDeviceType('Smart TV / Media Streaming Dongle (Apple TV / Firestick)', event)">
-                                                                <button type="button"
-                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smart
-                                                                        TV / Media Streaming Dongle (Apple TV /
-                                                                        Firestick)</span><span
-                                                                        class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">MEDIA</span></button>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL (shown when Electronic Devices is selected) -->
-                                            <div id="deviceFieldsWrapper"
-                                                class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200/80 shadow-2xs space-y-3">
-                                                <div class="flex items-center space-x-2 text-slate-800">
-                                                    <div
-                                                        class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </div>
-                                                    <span
-                                                        class="text-xs font-extrabold uppercase tracking-wider text-blue-950">Electronic
-                                                        Device Forensic Specifications</span>
-                                                </div>
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                                                    <!-- 1. MODEL -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevModel"
-                                                                placeholder="e.g. iPhone 15 Pro Max"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 2. SERIAL NUMBER -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
-                                                            Number</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                            <input type="text" id="newDevSerialNo"
-                                                                placeholder="e.g. F2LZX984K102"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 3. IMEI 1 -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
-                                                            1 <span
-                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
-                                                                applicable)</span></label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevImei1"
-                                                                placeholder="e.g. 356938035643809"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 4. IMEI 2 -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
-                                                            2 <span
-                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
-                                                                applicable)</span></label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevImei2"
-                                                                placeholder="e.g. 356938035643817"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 5. MAC ADDRESS -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">MAC
-                                                            Address <span
-                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
-                                                                applicable)</span></label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevMacAddress"
-                                                                placeholder="e.g. 00:1A:2B:3C:4D:5E"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 6. STORAGE CAPACITY -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage
-                                                            Capacity</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevStorage"
-                                                                placeholder="e.g. 256 GB / 1 TB NVMe SSD"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 7. COLOUR -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevColour"
-                                                                placeholder="e.g. Space Gray / Midnight Black"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 8. OTHER IDENTIFYING MARKS -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Other
-                                                            Identifying Marks</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevMarks"
-                                                                placeholder="e.g. Cracked back glass, custom sticker"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- OTHER EXHIBIT DESCRIPTION PANEL (shown when Other Exhibits is selected) -->
-                                            <div id="otherExhibitDescriptionWrapper"
-                                                class="other-exhibit-description-wrapper hidden col-span-full bg-slate-50/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
-                                                <div class="flex items-center space-x-2 text-slate-800">
-                                                    <div
-                                                        class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L19.828 4.828a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                                        </svg>
-                                                    </div>
-                                                    <span
-                                                        class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Specify
-                                                        Other Exhibit Description &amp; Details</span>
-                                                </div>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                                                <!-- 1. MODEL -->
                                                 <div>
                                                     <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                        Exhibit Description / Specifications <span
-                                                            class="text-red-600 font-bold">*</span>
-                                                    </label>
-                                                    <textarea id="newOtherExhibitDescription" name="other_exhibit_description" rows="3"
-                                                        placeholder="Type detailed description and specifications of this exhibit..."
-                                                        class="other-exhibit-description-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 font-sans"></textarea>
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevModel"
+                                                            placeholder="e.g. iPhone 15 Pro Max"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 2. SERIAL NUMBER -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
+                                                        Number</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
+                                                        <input type="text" id="newDevSerialNo"
+                                                            placeholder="e.g. F2LZX984K102"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 3. IMEI 1 -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
+                                                        1 <span
+                                                            class="text-[9px] text-slate-400 font-normal lowercase">(if
+                                                            applicable)</span></label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevImei1"
+                                                            placeholder="e.g. 356938035643809"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 4. IMEI 2 -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
+                                                        2 <span
+                                                            class="text-[9px] text-slate-400 font-normal lowercase">(if
+                                                            applicable)</span></label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevImei2"
+                                                            placeholder="e.g. 356938035643817"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 5. MAC ADDRESS -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">MAC
+                                                        Address <span
+                                                            class="text-[9px] text-slate-400 font-normal lowercase">(if
+                                                            applicable)</span></label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevMacAddress"
+                                                            placeholder="e.g. 00:1A:2B:3C:4D:5E"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 6. STORAGE CAPACITY -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage
+                                                        Capacity</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevStorage"
+                                                            placeholder="e.g. 256 GB / 1 TB NVMe SSD"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 7. COLOUR -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevColour"
+                                                            placeholder="e.g. Space Gray / Midnight Black"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 8. OTHER IDENTIFYING MARKS -->
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Other
+                                                        Identifying Marks</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="newDevMarks"
+                                                            placeholder="e.g. Cracked back glass, custom sticker"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    </div>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            <!-- ESTIMATED STREET VALUE -->
+                                        <!-- OTHER EXHIBIT DESCRIPTION PANEL (shown when Other Exhibits is selected) -->
+                                        <div id="otherExhibitDescriptionWrapper"
+                                            class="other-exhibit-description-wrapper hidden col-span-full bg-slate-50/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
+                                            <div class="flex items-center space-x-2 text-slate-800">
+                                                <div
+                                                    class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                    <svg class="w-3.5 h-3.5" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L19.828 4.828a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                                    </svg>
+                                                </div>
+                                                <span
+                                                    class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Specify
+                                                    Other Exhibit Description &amp; Details</span>
+                                            </div>
                                             <div>
                                                 <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Estimated
-                                                    Street Value</label>
-                                                <div class="relative flex items-center group">
-                                                    <span
-                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">₵</span>
-                                                    <input type="text" id="newSeizureValue"
-                                                        placeholder="e.g. GHS 1,500,000 / $120,000"
-                                                        class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Exhibit Description / Specifications <span
+                                                        class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <textarea id="newOtherExhibitDescription" name="other_exhibit_description" rows="3"
+                                                    placeholder="Type detailed description and specifications of this exhibit..."
+                                                    class="other-exhibit-description-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 font-sans"></textarea>
+                                            </div>
+                                        </div>
+
+                                        <!-- ESTIMATED STREET VALUE -->
+                                        <div>
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Estimated
+                                                Street Value</label>
+                                            <div class="relative flex items-center group">
+                                                <span
+                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">₵</span>
+                                                <input type="text" id="newSeizureValue"
+                                                    placeholder="e.g. GHS 1,500,000 / $120,000"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+
+                                        <!-- QUANTITY, PACKAGING TYPE, WEIGHT & UNIT METRICS PANEL -->
+                                        <div
+                                            class="col-span-full bg-white/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
+                                            <div class="flex items-center space-x-2 text-slate-800">
+                                                <div
+                                                    class="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                    <svg class="w-3.5 h-3.5" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
+                                                <span
+                                                    class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Seizure
+                                                    Quantification &amp; Packaging Metrics</span>
+                                            </div>
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                                                <!-- 1. QUANTITY -->
+                                                <div>
+                                                    <label id="quantityLabel"
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
+                                                        <input type="number" step="0.01"
+                                                            id="newSeizureQuantity" placeholder="e.g. 10"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 2. PACKAGING TYPE -->
+                                                <div class="relative z-30">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging
+                                                        Type</label>
+                                                    <div id="packagingSelectWrapper" class="relative">
+                                                        <div class="relative">
+                                                            <span
+                                                                class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="pkgSearchInput"
+                                                                placeholder="Select or type packaging..."
+                                                                autocomplete="off"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
+                                                                onclick="openPkgListPanel(this)"
+                                                                oninput="filterPackagingList(this)"
+                                                                onfocus="openPkgListPanel(this)">
+                                                            <input type="hidden" id="newSeizurePackaging"
+                                                                value="">
+                                                        </div>
+                                                        <div id="pkgListPanel"
+                                                            class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                            style="max-height:220px;overflow-y:auto">
+                                                            <div
+                                                                class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                                <input type="text" id="pkgSearchInner"
+                                                                    placeholder="Type to filter packaging..."
+                                                                    oninput="filterPackagingListInner(this)"
+                                                                    class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                            </div>
+                                                            <ul id="pkgList"
+                                                                class="py-1.5 space-y-0.5 px-1.5">
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Slabs', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Blocks', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Blocks</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLK</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Bundles', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Sacks', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Sacks</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SCK</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Cartons', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Boxes', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Boxes</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BOX</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Rounds', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rounds</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RND</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Magazines', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magazines</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">MAG</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Pieces', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Units', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Units</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">UNT</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Wraps', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Rolls', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rolls</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RLL</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Capsules', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Tablets', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablets</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">TAB</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Bags', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bags</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BAG</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Pouches', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pouches</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCH</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Drums', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drums</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">DRM</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Barrels', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrels</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BRL</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Vials', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Vials</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">VIL</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Ampoules', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ampoules</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">AMP</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Bottles', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bottles</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BTL</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Packets', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packets</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKT</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Envelopes', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Envelopes</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">ENV</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Parcels', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Parcels</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCL</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Packages', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packages</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKG</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Bales', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bales</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLE</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Jars', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Jars</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">JAR</span></button>
+                                                                </li>
+                                                                <li class="pkg-item"
+                                                                    onclick="selectPackagingType('Containers', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Containers</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTR</span></button>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- 3. Weight -->
+                                                <div>
+                                                    <label id="weightLabel"
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Weight</label>
+                                                    <div class="relative flex items-center group">
+                                                        <span
+                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">⚖</span>
+                                                        <input type="number" step="0.01"
+                                                            id="newSeizureWeight" placeholder="e.g. 25.50"
+                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+
+                                                <!-- 4. MEASUREMENT UNIT -->
+                                                <div class="relative z-20">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Measurement
+                                                        Unit</label>
+                                                    <div id="unitSelectWrapper" class="relative">
+                                                        <div class="relative">
+                                                            <span
+                                                                class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="unitSearchInput"
+                                                                placeholder="Select or type unit..."
+                                                                autocomplete="off"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
+                                                                onclick="openUnitListPanel(this)"
+                                                                oninput="filterUnitList(this)"
+                                                                onfocus="openUnitListPanel(this)">
+                                                            <input type="hidden" id="newSeizureUnit"
+                                                                value="">
+                                                        </div>
+                                                        <div id="unitListPanel"
+                                                            class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                            style="max-height:220px;overflow-y:auto">
+                                                            <div
+                                                                class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                                <input type="text" id="unitSearchInner"
+                                                                    placeholder="Type to filter units..."
+                                                                    oninput="filterUnitListInner(this)"
+                                                                    class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                            </div>
+                                                            <ul id="unitList"
+                                                                class="py-1.5 space-y-0.5 px-1.5">
+                                                                <li
+                                                                    class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                    Weight &amp; Mass</li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Kilograms (kg)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Kilograms</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">kg</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Grams (g)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Grams</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">g</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Tonnes (t)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tonnes</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">t</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Milligrams (mg)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Milligrams</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mg</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Pounds (lbs)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pounds</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">lbs</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Ounces (oz)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ounces</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">oz</span></button>
+                                                                </li>
+                                                                <li
+                                                                    class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                    Volume &amp; Liquid</li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Litres (L)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Litres</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">L</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Millilitres (mL)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Millilitres</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mL</span></button>
+                                                                </li>
+                                                                <li class="unit-item"
+                                                                    onclick="selectUnit('Gallons (gal)', event)">
+                                                                    <button type="button"
+                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gallons</span><span
+                                                                            class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">gal</span></button>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            <!-- QUANTITY, PACKAGING TYPE, WEIGHT & UNIT METRICS PANEL -->
-                                            <div
-                                                class="col-span-full bg-white/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
-                                                <div class="flex items-center space-x-2 text-slate-800">
-                                                    <div
-                                                        class="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </div>
-                                                    <span
-                                                        class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Seizure
-                                                        Quantification &amp; Packaging Metrics</span>
-                                                </div>
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                                                    <!-- 1. QUANTITY -->
-                                                    <div>
-                                                        <label id="quantityLabel"
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                            <input type="number" step="0.01"
-                                                                id="newSeizureQuantity" placeholder="e.g. 10"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 2. PACKAGING TYPE -->
-                                                    <div class="relative z-30">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging
-                                                            Type</label>
-                                                        <div id="packagingSelectWrapper" class="relative">
-                                                            <div class="relative">
-                                                                <span
-                                                                    class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                                    <svg class="w-3.5 h-3.5" fill="none"
-                                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="2"
-                                                                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                                                    </svg>
-                                                                </span>
-                                                                <input type="text" id="pkgSearchInput"
-                                                                    placeholder="Select or type packaging..."
-                                                                    autocomplete="off"
-                                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
-                                                                    onclick="openPkgListPanel(this)"
-                                                                    oninput="filterPackagingList(this)"
-                                                                    onfocus="openPkgListPanel(this)">
-                                                                <input type="hidden" id="newSeizurePackaging"
-                                                                    value="">
-                                                            </div>
-                                                            <div id="pkgListPanel"
-                                                                class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                                style="max-height:220px;overflow-y:auto">
-                                                                <div
-                                                                    class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                                    <input type="text" id="pkgSearchInner"
-                                                                        placeholder="Type to filter packaging..."
-                                                                        oninput="filterPackagingListInner(this)"
-                                                                        class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                                </div>
-                                                                <ul id="pkgList"
-                                                                    class="py-1.5 space-y-0.5 px-1.5">
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Slabs', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Blocks', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Blocks</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLK</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Bundles', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Sacks', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Sacks</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SCK</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Cartons', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Boxes', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Boxes</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BOX</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Rounds', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rounds</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RND</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Magazines', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magazines</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">MAG</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Pieces', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Units', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Units</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">UNT</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Wraps', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Rolls', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rolls</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RLL</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Capsules', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Tablets', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablets</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">TAB</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Bags', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bags</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BAG</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Pouches', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pouches</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCH</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Drums', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drums</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">DRM</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Barrels', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrels</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BRL</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Vials', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Vials</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">VIL</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Ampoules', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ampoules</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">AMP</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Bottles', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bottles</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BTL</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Packets', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packets</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKT</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Envelopes', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Envelopes</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">ENV</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Parcels', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Parcels</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCL</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Packages', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packages</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKG</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Bales', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bales</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLE</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Jars', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Jars</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">JAR</span></button>
-                                                                    </li>
-                                                                    <li class="pkg-item"
-                                                                        onclick="selectPackagingType('Containers', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Containers</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTR</span></button>
-                                                                    </li>
-                                                                </ul>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 3. Weight -->
-                                                    <div>
-                                                        <label id="weightLabel"
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Weight</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">⚖</span>
-                                                            <input type="number" step="0.01"
-                                                                id="newSeizureWeight" placeholder="e.g. 25.50"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 4. MEASUREMENT UNIT -->
-                                                    <div class="relative z-20">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Measurement
-                                                            Unit</label>
-                                                        <div id="unitSelectWrapper" class="relative">
-                                                            <div class="relative">
-                                                                <span
-                                                                    class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                                    <svg class="w-3.5 h-3.5" fill="none"
-                                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="2"
-                                                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                                    </svg>
-                                                                </span>
-                                                                <input type="text" id="unitSearchInput"
-                                                                    placeholder="Select or type unit..."
-                                                                    autocomplete="off"
-                                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
-                                                                    onclick="openUnitListPanel(this)"
-                                                                    oninput="filterUnitList(this)"
-                                                                    onfocus="openUnitListPanel(this)">
-                                                                <input type="hidden" id="newSeizureUnit"
-                                                                    value="">
-                                                            </div>
-                                                            <div id="unitListPanel"
-                                                                class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                                style="max-height:220px;overflow-y:auto">
-                                                                <div
-                                                                    class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                                    <input type="text" id="unitSearchInner"
-                                                                        placeholder="Type to filter units..."
-                                                                        oninput="filterUnitListInner(this)"
-                                                                        class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                                </div>
-                                                                <ul id="unitList"
-                                                                    class="py-1.5 space-y-0.5 px-1.5">
-                                                                    <li
-                                                                        class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                        Weight &amp; Mass</li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Kilograms (kg)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Kilograms</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">kg</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Grams (g)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Grams</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">g</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Tonnes (t)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tonnes</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">t</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Milligrams (mg)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Milligrams</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mg</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Pounds (lbs)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pounds</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">lbs</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Ounces (oz)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ounces</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">oz</span></button>
-                                                                    </li>
-                                                                    <li
-                                                                        class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                        Volume &amp; Liquid</li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Litres (L)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Litres</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">L</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Millilitres (mL)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Millilitres</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mL</span></button>
-                                                                    </li>
-                                                                    <li class="unit-item"
-                                                                        onclick="selectUnit('Gallons (gal)', event)">
-                                                                        <button type="button"
-                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gallons</span><span
-                                                                                class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">gal</span></button>
-                                                                    </li>
-                                                                </ul>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
+                                        <!-- SEIZURE DETAILS GRID: CONCEALMENT, DATE, TIME & LOCATION SEIZED -->
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-2.5 col-span-full">
                                             <!-- CONCEALMENT METHOD -->
-                                            <div>
+                                            <div class="sm:col-span-2 md:col-span-2">
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Concealment
                                                     &amp; Packaging Notes</label>
@@ -4691,51 +4535,48 @@
                                                 </div>
                                             </div>
 
-                                            <!-- DATE & TIME SEIZED -->
-                                            <div class="grid grid-cols-2 gap-2">
-                                                <!-- DATE SEIZED -->
-                                                <div>
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date
-                                                        Seized <span class="text-red-600 font-bold">*</span></label>
-                                                    <div class="relative flex items-center group">
-                                                        <span
-                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                            <svg class="w-4 h-4" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="date" id="newSeizureDate"
-                                                            class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
+                                            <!-- DATE SEIZED -->
+                                            <div class="sm:col-span-1 md:col-span-1">
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date
+                                                    Seized <span class="text-red-600 font-bold">*</span></label>
+                                                <div class="relative flex items-center group">
+                                                    <span
+                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                        <svg class="w-4 h-4" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="date" id="newSeizureDate"
+                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
+                                            </div>
 
-                                                <!-- TIME SEIZED -->
-                                                <div>
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time
-                                                        Seized</label>
-                                                    <div class="relative flex items-center group">
-                                                        <span
-                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                            <svg class="w-4 h-4" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="time" id="newSeizureTime"
-                                                            class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                    </div>
+                                            <!-- TIME SEIZED -->
+                                            <div class="sm:col-span-1 md:col-span-1">
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time
+                                                    Seized</label>
+                                                <div class="relative flex items-center group">
+                                                    <span
+                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                        <svg class="w-4 h-4" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </span>
+                                                    <input type="time" id="newSeizureTime"
+                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                                                 </div>
                                             </div>
 
                                             <!-- LOCATION SEIZED -->
-                                            <div>
+                                            <div class="sm:col-span-2 md:col-span-2">
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location
                                                     Seized <span class="text-red-600 font-bold">*</span></label>
@@ -4757,1266 +4598,1376 @@
                                                         class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
-
-                                            <!-- SEIZING OFFICERS (MULTI-ROW) -->
-                                            <div class="col-span-full md:col-span-2">
-                                                <div class="flex items-center justify-between mb-1.5">
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                        Seizing Officer(s) <span
-                                                            class="text-red-600 font-bold">*</span>
-                                                    </label>
-                                                    <button type="button" onclick="addSeizureOfficerRow()"
-                                                        class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
-                                                        <svg class="w-3 h-3 mr-1" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                                        </svg>
-                                                        Add Seizing Officer
-                                                    </button>
-                                                </div>
-
-                                                <!-- OFFICER ROWS CONTAINER -->
-                                                <div id="seizureOfficersContainer" class="space-y-2">
-                                                    <!-- Row 1 -->
-                                                    <div
-                                                        class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
-                                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                            <div class="relative flex items-center group">
-                                                                <span
-                                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                    <svg class="w-3.5 h-3.5" fill="none"
-                                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="2"
-                                                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                                    </svg>
-                                                                </span>
-                                                                <input type="text"
-                                                                    class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400"
-                                                                    placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
-                                                            </div>
-                                                            <div class="flex items-center gap-1.5">
-                                                                <div class="relative flex-1 flex items-center group">
-                                                                    <span
-                                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                                            stroke="currentColor"
-                                                                            viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round"
-                                                                                stroke-linejoin="round"
-                                                                                stroke-width="2"
-                                                                                d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4" />
-                                                                        </svg>
-                                                                    </span>
-                                                                    <input type="text"
-                                                                        class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code"
-                                                                        placeholder="Service ID / Badge No (e.g. SD-0042)">
-                                                                </div>
-                                                                <button type="button"
-                                                                    onclick="removeSeizureOfficerRow(this)"
-                                                                    class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer"
-                                                                    title="Remove Officer">
-                                                                    <svg class="w-4 h-4" fill="none"
-                                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="2"
-                                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                    </svg>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- REASON FOR SEIZURE -->
-                                            <div class="col-span-full md:col-span-1">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason
-                                                    for Seizure <span class="text-red-600 font-bold">*</span></label>
-                                                <div class="relative flex items-start group">
-                                                    <span
-                                                        class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                        </svg>
-                                                    </span>
-                                                    <textarea id="newSeizureReason" rows="3"
-                                                        placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop."
-                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
-                                                </div>
-                                            </div>
-
                                         </div>
 
-                                        <!-- VEHICLE SPECIFIC FIELDS -->
-                                        <div id="vehicleFieldsWrapper"
-                                            class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
-                                            <div class="flex items-center gap-2 mb-2">
-                                                <div
-                                                    class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
+                                        <!-- SEIZING OFFICERS (MULTI-ROW) -->
+                                        <div class="col-span-full md:col-span-2">
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                    Seizing Officer(s) <span
+                                                        class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <button type="button" onclick="addSeizureOfficerRow()"
+                                                    class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
+                                                    <svg class="w-3 h-3 mr-1" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                                            stroke-width="2.5" d="M12 4v16m8-8H4" />
                                                     </svg>
-                                                </div>
-                                                <h4
-                                                    class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
-                                                    Vehicle Specific Details</h4>
+                                                    Add Seizing Officer
+                                                </button>
                                             </div>
 
-                                            <!-- 1. Basic Identification -->
-                                            <div class="space-y-3">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    1. Basic Identification</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Make
-                                                            <span class="text-red-600 font-bold">*</span></label>
-                                                        <input type="text" id="vehMake"
-                                                            placeholder="e.g. Toyota"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model
-                                                            <span class="text-red-600 font-bold">*</span></label>
-                                                        <input type="text" id="vehModel"
-                                                            placeholder="e.g. Hilux"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div class="relative z-20" id="vehTypeSelectWrapper">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Vehicle
-                                                            Type</label>
-                                                        <div class="relative">
+                                            <!-- OFFICER ROWS CONTAINER -->
+                                            <div id="seizureOfficersContainer" class="space-y-2">
+                                                <!-- Row 1 -->
+                                                <div
+                                                    class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        <div class="relative flex items-center group">
                                                             <span
-                                                                class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
                                                                 <svg class="w-3.5 h-3.5" fill="none"
                                                                     stroke="currentColor" viewBox="0 0 24 24">
                                                                     <path stroke-linecap="round"
                                                                         stroke-linejoin="round" stroke-width="2"
-                                                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                                 </svg>
                                                             </span>
-                                                            <input type="text" id="vehTypeSearchInput"
-                                                                placeholder="Select vehicle type..."
-                                                                autocomplete="off"
-                                                                class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
-                                                                readonly onclick="openVehTypeListPanel(this)"
-                                                                oninput="filterVehTypeList(this)"
-                                                                onfocus="openVehTypeListPanel(this)">
-                                                            <input type="hidden" id="vehType" value="">
+                                                            <input type="text"
+                                                                class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400"
+                                                                placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
                                                         </div>
-                                                        <div id="vehTypeListPanel"
-                                                            class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
-                                                            style="max-height:220px;overflow-y:auto">
-                                                            <div
-                                                                class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                                <input type="text" id="vehTypeSearchInner"
-                                                                    placeholder="Type to filter..."
-                                                                    oninput="filterVehTypeListInner(this)"
-                                                                    class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                        <div class="flex items-center gap-1.5">
+                                                            <div class="relative flex-1 flex items-center group">
+                                                                <span
+                                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                    <svg class="w-3.5 h-3.5" fill="none"
+                                                                        stroke="currentColor"
+                                                                        viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round"
+                                                                            stroke-linejoin="round"
+                                                                            stroke-width="2"
+                                                                            d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4" />
+                                                                    </svg>
+                                                                </span>
+                                                                <input type="text"
+                                                                    class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code"
+                                                                    placeholder="Service ID / Badge No (e.g. SD-0042)">
                                                             </div>
-                                                            <ul id="vehTypeList" class="py-1.5 space-y-0.5 px-1.5">
-                                                                <li
-                                                                    class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                    Passenger Vehicles</li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Sedan / Saloon', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Sedan
-                                                                        / Saloon</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Hatchback', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Hatchback</button>
-                                                                </li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('SUV / Crossover', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">SUV
-                                                                        / Crossover</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Coupe / Sports Car', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Coupe
-                                                                        / Sports Car</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Convertible', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Convertible</button>
-                                                                </li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Station Wagon / Estate', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Station
-                                                                        Wagon / Estate</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Minivan / MPV', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Minivan
-                                                                        / MPV</button></li>
-
-                                                                <li
-                                                                    class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                    Commercial &amp; Utility</li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Pickup Truck', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Pickup
-                                                                        Truck</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Panel Van / Cargo Van', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Panel
-                                                                        Van / Cargo Van</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Minibus / Trotro', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Minibus
-                                                                        / Trotro</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Large Bus / Coach', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Large
-                                                                        Bus / Coach</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Box Truck / Rigid Truck', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Box
-                                                                        Truck / Rigid Truck</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Heavy Duty / Articulated Truck', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Heavy
-                                                                        Duty / Articulated Truck</button></li>
-
-                                                                <li
-                                                                    class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
-                                                                    Other Types</li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Motorcycle / Motorbike', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Motorcycle
-                                                                        / Motorbike</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Tricycle (Aboboyaa / Pragya)', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Tricycle
-                                                                        (Aboboyaa / Pragya)</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Trailer / Caravan', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Trailer
-                                                                        / Caravan</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Agricultural / Tractor', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Agricultural
-                                                                        / Tractor</button></li>
-                                                                <li class="veh-type-item"
-                                                                    onclick="selectVehType('Construction Equipment', event)">
-                                                                    <button type="button"
-                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Construction
-                                                                        Equipment</button></li>
-                                                            </ul>
+                                                            <button type="button"
+                                                                onclick="removeSeizureOfficerRow(this)"
+                                                                class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer"
+                                                                title="Remove Officer">
+                                                                <svg class="w-4 h-4" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                            </button>
                                                         </div>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Year
-                                                            of Manufacture</label>
-                                                        <input type="text" id="vehYear"
-                                                            placeholder="e.g. 2019"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
-                                                        <input type="text" id="vehColour"
-                                                            placeholder="e.g. White"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registration
-                                                            Number <span
-                                                                class="text-red-600 font-bold">*</span></label>
-                                                        <input type="text" id="vehRegNo"
-                                                            placeholder="e.g. GT 1234-21"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">VIN
-                                                            / Chassis Number</label>
-                                                        <input type="text" id="vehVIN"
-                                                            placeholder="e.g. JT11234567890ABC"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Engine
-                                                            Number</label>
-                                                        <input type="text" id="vehEngineNo"
-                                                            placeholder="e.g. 1TR1234567"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Country
-                                                            of Registration</label>
-                                                        <input type="text" id="vehCountryReg"
-                                                            placeholder="e.g. Ghana"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- 2. Ownership & Possession -->
-                                            <div class="space-y-3">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    2. Ownership &amp; Possession</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registered
-                                                            Owner</label>
-                                                        <input type="text" id="vehOwner"
-                                                            placeholder="e.g. John Doe"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Driver
-                                                            / Person in Possession</label>
-                                                        <input type="text" id="vehDriver"
-                                                            placeholder="e.g. Kwame Mensah"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Owner's
-                                                            Contact</label>
-                                                        <input type="text" id="vehOwnerContact"
-                                                            placeholder="e.g. 0244123456"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Docs
-                                                            Available?</label>
-                                                        <select id="vehDocsAvailable"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                            <option value="">Select...</option>
-                                                            <option value="Yes">Yes</option>
-                                                            <option value="No">No</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="md:col-span-2">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reg/Title
-                                                            Doc Reference</label>
-                                                        <input type="text" id="vehDocRef"
-                                                            placeholder="e.g. DVLA Title #998877"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- 3. Vehicle Condition -->
-                                            <div class="space-y-3">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    3. Vehicle Condition</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Overall
-                                                            Condition</label>
-                                                        <select id="vehCondition"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                            <option value="">Select...</option>
-                                                            <option value="Excellent">Excellent / Driveable</option>
-                                                            <option value="Good">Good</option>
-                                                            <option value="Fair">Fair</option>
-                                                            <option value="Poor">Poor / Damaged</option>
-                                                            <option value="Non-Driveable">Non-Driveable / Towed
-                                                            </option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Fuel
-                                                            Level</label>
-                                                        <select id="vehFuel"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                            <option value="">Select...</option>
-                                                            <option value="Full">Full</option>
-                                                            <option value="3/4">3/4</option>
-                                                            <option value="Half">Half (1/2)</option>
-                                                            <option value="1/4">1/4</option>
-                                                            <option value="Empty">Empty (Light on)</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Keys
-                                                            Received?</label>
-                                                        <div class="flex items-center gap-2 mt-1">
-                                                            <select id="vehKeysRecv"
-                                                                class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                                <option value="">Select...</option>
-                                                                <option value="Yes">Yes</option>
-                                                                <option value="No">No</option>
-                                                            </select>
-                                                            <input type="number" id="vehKeyCount"
-                                                                placeholder="Qty" min="0"
-                                                                class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-                                                    <div class="md:col-span-3">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Existing
-                                                            Damage</label>
-                                                        <input type="text" id="vehDamage"
-                                                            placeholder="e.g. Scratches on front right bumper, cracked left taillight"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div class="md:col-span-3">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Visible
-                                                            Modifications / Compartments</label>
-                                                        <input type="text" id="vehMods"
-                                                            placeholder="e.g. False floor welded in trunk, tinted windows"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div class="md:col-span-3">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Notable
-                                                            Identifying Features</label>
-                                                        <input type="text" id="vehFeatures"
-                                                            placeholder="e.g. Custom alloy wheels, stickers on rear window"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- WEAPON SPECIFIC FIELDS -->
-                                        <div id="weaponFieldsWrapper"
-                                            class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
-                                            <div class="flex items-center gap-2 mb-2">
-                                                <div
-                                                    class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2" d="M12 4v16m8-8H4" />
-                                                    </svg>
-                                                </div>
-                                                <h4
-                                                    class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
-                                                    Weapon / Firearm Specific Details</h4>
-                                            </div>
-
-                                            <!-- 1. Weapon Identification & Physical Specs -->
-                                            <div class="space-y-3">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    1. Identification &amp; Specifications</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
-                                                        <input type="text" id="wpnModel"
-                                                            placeholder="e.g. 19 Gen 5, M&P 9, Type 56, Glock 17"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
-                                                            Number</label>
-                                                        <input type="text" id="wpnSerialNo"
-                                                            placeholder="e.g. G17-984210X / Defaced"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Calibre
-                                                            / Gauge</label>
-                                                        <input type="text" id="wpnCalibre"
-                                                            placeholder="e.g. 9mm, 7.62x39mm, 12-Gauge, .45 ACP"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
-                                                        <input type="text" id="wpnColour"
-                                                            placeholder="e.g. Matte Black, Silver, Camouflage"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Approx.
-                                                            Size / Length</label>
-                                                        <input type="text" id="wpnSize"
-                                                            placeholder="e.g. 18.5 cm (Overall), Short Barrel, 87 cm"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- 2. Recovery Condition & Status -->
-                                            <div class="space-y-3 pt-2">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    2. Recovery Condition &amp; Location</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Loaded
-                                                            Status</label>
-                                                        <select id="wpnLoadedStatus"
-                                                            class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
-                                                            <option value=""
-                                                                class="text-slate-400 font-normal">Select...</option>
-                                                            <option value="Loaded"
-                                                                class="font-semibold text-slate-900">Loaded</option>
-                                                            <option value="Unloaded"
-                                                                class="font-semibold text-slate-900">Unloaded</option>
-                                                            <option value="Round in Chamber"
-                                                                class="font-semibold text-slate-900">Round in Chamber
-                                                            </option>
-                                                            <option value="Magazine Attached (Loaded)"
-                                                                class="font-semibold text-slate-900">Magazine Attached
-                                                                (Loaded)</option>
-                                                            <option value="Magazine Attached (Empty)"
-                                                                class="font-semibold text-slate-900">Magazine Attached
-                                                                (Empty)</option>
-                                                            <option value="Unknown / Unspecified"
-                                                                class="font-semibold text-slate-900">Unknown /
-                                                                Unspecified</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition
-                                                            at Recovery</label>
-                                                        <select id="wpnCondition"
-                                                            class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
-                                                            <option value=""
-                                                                class="text-slate-400 font-normal">Select...</option>
-                                                            <option value="Operable / Good Condition"
-                                                                class="font-semibold text-slate-900">Operable / Good
-                                                                Condition</option>
-                                                            <option value="Fair / Used Condition"
-                                                                class="font-semibold text-slate-900">Fair / Used
-                                                                Condition</option>
-                                                            <option value="Rusty / Corroded"
-                                                                class="font-semibold text-slate-900">Rusty / Corroded
-                                                            </option>
-                                                            <option value="Damaged / Inoperable"
-                                                                class="font-semibold text-slate-900">Damaged /
-                                                                Inoperable</option>
-                                                            <option value="Serial Defaced / Tampered"
-                                                                class="font-semibold text-slate-900">Serial Defaced /
-                                                                Tampered</option>
-                                                            <option value="Modified / Sawed-Off"
-                                                                class="font-semibold text-slate-900">Modified /
-                                                                Sawed-Off</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Exact
-                                                            Location Found</label>
-                                                        <input type="text" id="wpnLocationFound"
-                                                            placeholder="e.g. Bedroom closet, Under vehicle driver seat, Roadside ditch"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div class="md:col-span-3">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Distinguishing
-                                                            Marks / Features</label>
-                                                        <textarea id="wpnMarks" rows="2"
-                                                            placeholder="e.g. Scratch on left grip, custom insignia engraved, missing safety switch"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- AMMUNITION SPECIFIC FIELDS -->
-                                        <div id="ammoFieldsWrapper"
-                                            class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
-                                            <div class="flex items-center gap-2 mb-2">
-                                                <div
-                                                    class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                        <!-- REASON FOR SEIZURE -->
+                                        <div class="col-span-full md:col-span-1">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason
+                                                for Seizure <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="relative flex items-start group">
+                                                <span
+                                                    class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             stroke-width="2"
-                                                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
-                                                </div>
-                                                <h4
-                                                    class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
-                                                    Ammunition Specific Details</h4>
-                                            </div>
-
-                                            <!-- 1. Physical Description -->
-                                            <div class="space-y-3">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    1. Physical Description</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
-                                                            Appearance</label>
-                                                        <input type="text" id="ammoCartridgeAppearance"
-                                                            placeholder="e.g. Brass casing, FMJ, Nickel-plated"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Projectile
-                                                            / Bullet Type</label>
-                                                        <input type="text" id="ammoProjectileType"
-                                                            placeholder="e.g. Full Metal Jacket (FMJ), Hollow Point, Lead Round Nose"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
-                                                            Case Material</label>
-                                                        <input type="text" id="ammoCaseMaterial"
-                                                            placeholder="e.g. Brass, Steel, Aluminium, Plastic"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour
-                                                            / Markings</label>
-                                                        <input type="text" id="ammoColourMarkings"
-                                                            placeholder="e.g. Headstamp CBC 9mm LUGER, Red primer sealant"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition</label>
-                                                        <select id="ammoCondition"
-                                                            onchange="toggleAmmoOtherCondition(this)"
-                                                            class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
-                                                            <option value=""
-                                                                class="text-slate-400 font-normal">Select Condition...
-                                                            </option>
-                                                            <option value="Intact"
-                                                                class="font-semibold text-slate-900">Intact</option>
-                                                            <option value="Damaged"
-                                                                class="font-semibold text-slate-900">Damaged</option>
-                                                            <option value="Corroded"
-                                                                class="font-semibold text-slate-900">Corroded</option>
-                                                            <option value="Deformed"
-                                                                class="font-semibold text-slate-900">Deformed</option>
-                                                            <option value="Other"
-                                                                class="font-semibold text-slate-900">Other</option>
-                                                        </select>
-                                                    </div>
-                                                    <div id="ammoOtherConditionWrapper" class="hidden">
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Describe
-                                                            Other Condition</label>
-                                                        <input type="text" id="ammoOtherCondition"
-                                                            placeholder="Specify condition details..."
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- 2. Packaging & Sealing -->
-                                            <div class="space-y-3 pt-2">
-                                                <h5
-                                                    class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
-                                                    2. Packaging &amp; Sealing</h5>
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging
-                                                            Type</label>
-                                                        <input type="text" id="ammoPackagingType"
-                                                            placeholder="e.g. Cardboard Box, Plastic Ammo Can, Loose Bag"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seal
-                                                            / Tamper-Evident Condition</label>
-                                                        <input type="text" id="ammoSealCondition"
-                                                            placeholder="e.g. Intact Tamper-Evident Bag #SEAL-90812"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Package
-                                                            / Reference Number</label>
-                                                        <input type="text" id="ammoPackageReferenceNumber"
-                                                            placeholder="e.g. PKG-2026-AM01"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition
-                                                            When Received</label>
-                                                        <input type="text" id="ammoConditionWhenReceived"
-                                                            placeholder="e.g. Sealed and untampered"
-                                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                </div>
+                                                </span>
+                                                <textarea id="newSeizureReason" rows="3"
+                                                    placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop."
+                                                    class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
                                             </div>
                                         </div>
 
-                                        <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
-                                        <div class="pt-2 border-t border-slate-300/60 space-y-3">
-                                            <div class="flex items-center justify-between">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                    Upload Seized Exhibit Photos / Evidence Images <span
-                                                        class="text-slate-400 font-normal">(Multiple Supported)</span>
-                                                </label>
-                                                <span id="seizurePhotosCount"
-                                                    class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300">0
-                                                    Photos Uploaded</span>
-                                            </div>
-
-                                            <!-- DROPZONE BOX -->
-                                            <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload()"
-                                                class="w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
-                                                <div id="placeholderSeizureBox"
-                                                    class="flex flex-col items-center space-y-1 text-slate-400 group-hover:text-black transition-colors">
-                                                    <div
-                                                        class="w-9 h-9 rounded-full bg-emerald-50 text-black flex items-center justify-center mb-0.5">
-                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </div>
-                                                    <span
-                                                        class="text-xs font-extrabold text-slate-800 group-hover:text-black">Click
-                                                        or drag &amp; drop to upload exhibit photos</span>
-                                                    <span class="text-[10px] text-slate-500">Select one or multiple
-                                                        PNG, JPG, WEBP evidence photos (up to 15MB each)</span>
-                                                </div>
-                                            </div>
-                                            <input type="file" id="fileSeizurePhoto" accept="image/*" multiple
-                                                class="hidden" onchange="previewSeizurePhotos(event)">
-
-                                            <!-- DYNAMIC MULTIPLE PHOTOS GALLERY GRID -->
-                                            <div id="seizurePhotosGrid"
-                                                class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
-                                            </div>
-                                        </div>
                                     </div>
-                                    <!-- END SEIZURES LIST CONTAINER -->
 
-                                    <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
-                                    <div
-                                        class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
-                                        <button type="button" onclick="addSeizureBlock()"
-                                            class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                                            <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"
-                                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            + Add Another Seized Item
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
-                            <div
-                                class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-                                <div class="flex items-center space-x-3">
-                                    <div
-                                        class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">
-                                            Sections 1–4 Docket Actions</h4>
-                                        <p class="text-[11px] text-slate-500 font-medium">Save case file or store as
-                                            Draft to resume Sections 1 to 4 operations later.</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
-                                    <button type="button" onclick="handleDraftAndContinueLater()"
-                                        class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
-                                        Draft and Continue Later
-                                    </button>
-                                    <button type="button" onclick="processNewArrested()"
-                                        id="submitSection1To4DocketBtn"
-                                        class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                        </svg>
-                                        <span>Save Case</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5: FORENSIC EXAMINATION & LABORATORY ANALYSIS -->
-                            <div id="labAnalysisExclusiveSections"
-                                class="{{ $isLabAnalysis ? '' : 'hidden' }} bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
-
-                                <!-- SECTION 5 MAIN CONTAINER HEADER -->
-                                <div
-                                    class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div class="flex items-center space-x-3">
-                                        <div
-                                            class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2"
-                                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="font-extrabold text-slate-900 text-base">Section 5: Forensic
-                                                Examination &amp; Laboratory Analysis</h3>
-                                            <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis
-                                                Directorate — Forensic Examination, Screening &amp; Confirmatory Testing
-                                                Log</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center space-x-2 shrink-0">
-                                        <span
-                                            class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                                            LAB ANALYSIS EXCLUSIVE
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <!-- EXAMINATION INFORMATION CONTAINER (HIDDEN WHEN RESULT EXISTS FOR ACTIVE SUSPECT/EXHIBIT) -->
-                                <div id="section5FormContainer"
-                                    class="space-y-5 {{ $activeSuspectHasSavedResult ? 'hidden' : '' }}">
-                                    <!-- SUB-SECTION 5A: EXAMINATION INFORMATION -->
-                                    <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
-                                        <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
-                                            <h4
-                                                class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
-                                                <span
-                                                    class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5A</span>
-                                                <span>Examination Information</span>
-                                            </h4>
-                                        </div>
-
-                                        <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 4 SEIZED COMMODITIES MANIFEST -->
-                                        <div
-                                            class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <!-- DRUG TYPE SELECTOR -->
-
-
-                                                <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
-                                                <div>
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                        <span class="flex items-center space-x-2">
-                                                            <svg class="w-4 h-4 text-emerald-600" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                            </svg>
-                                                            <span>Select Seized Exhibit (Manifest Sync)</span>
-                                                            <span class="text-red-600 font-bold">*</span>
-                                                        </span>
-                                                        <span id="labExhibitCountBadge"
-                                                            class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                                                            No exhibit saved yet
-                                                        </span>
-                                                    </label>
-                                                    <select id="labExhibitSelect" name="lab_selected_exhibit_index"
-                                                        onchange="onLabExhibitSelected()"
-                                                        class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
-                                                        <option value="" selected>Select Seized Exhibit
-                                                            (Manifest Sync)...</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <p
-                                                class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
-                                                <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none"
-                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <!-- VEHICLE SPECIFIC FIELDS -->
+                                    <div id="vehicleFieldsWrapper"
+                                        class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
                                                         stroke-width="2"
-                                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                                                 </svg>
-                                                <span>Select a drug type and exhibit above to view its manifest details
-                                                    and process forensic examination separately.</span>
-                                            </p>
+                                            </div>
+                                            <h4
+                                                class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
+                                                Vehicle Specific Details</h4>
                                         </div>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                            <!-- Analysis/Examination Reference — auto-generated -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                    <span>Analysis / Examination Reference</span>
-                                                    <span
-                                                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
-                                                </label>
-                                                <div class="relative flex items-center">
-                                                    <input type="text" id="labExamReferenceInput"
-                                                        name="lab_exam_reference" value="{{ $examRefAuto }}"
-                                                        readonly
-                                                        class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                        <!-- 1. Basic Identification -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                1. Basic Identification</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Make
+                                                        <span class="text-red-600 font-bold">*</span></label>
+                                                    <input type="text" id="vehMake"
+                                                        placeholder="e.g. Toyota"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
-                                            </div>
-
-                                            <!-- Case Reference — auto-linked -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                    <span>Case Reference</span>
-                                                    <span
-                                                        class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
-                                                </label>
-                                                <div class="relative flex items-center">
-                                                    <input type="text" id="labCaseReferenceInput"
-                                                        name="lab_case_reference" value="{{ $caseRefAuto }}"
-                                                        readonly
-                                                        class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model
+                                                        <span class="text-red-600 font-bold">*</span></label>
+                                                    <input type="text" id="vehModel"
+                                                        placeholder="e.g. Hilux"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
-                                            </div>
+                                                <div class="relative z-20" id="vehTypeSelectWrapper">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Vehicle
+                                                        Type</label>
+                                                    <div class="relative">
+                                                        <span
+                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round"
+                                                                    stroke-linejoin="round" stroke-width="2"
+                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="vehTypeSearchInput"
+                                                            placeholder="Select vehicle type..."
+                                                            autocomplete="off"
+                                                            class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-pointer"
+                                                            readonly onclick="openVehTypeListPanel(this)"
+                                                            oninput="filterVehTypeList(this)"
+                                                            onfocus="openVehTypeListPanel(this)">
+                                                        <input type="hidden" id="vehType" value="">
+                                                    </div>
+                                                    <div id="vehTypeListPanel"
+                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                        style="max-height:220px;overflow-y:auto">
+                                                        <div
+                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                            <input type="text" id="vehTypeSearchInner"
+                                                                placeholder="Type to filter..."
+                                                                oninput="filterVehTypeListInner(this)"
+                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                        </div>
+                                                        <ul id="vehTypeList" class="py-1.5 space-y-0.5 px-1.5">
+                                                            <li
+                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                Passenger Vehicles</li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Sedan / Saloon', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Sedan
+                                                                    / Saloon</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Hatchback', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Hatchback</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('SUV / Crossover', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">SUV
+                                                                    / Crossover</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Coupe / Sports Car', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Coupe
+                                                                    / Sports Car</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Convertible', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Convertible</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Station Wagon / Estate', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Station
+                                                                    Wagon / Estate</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Minivan / MPV', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Minivan
+                                                                    / MPV</button></li>
 
-                                            <!-- Exhibit Number — auto-linked -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                    <span>Exhibit Number</span>
-                                                    <span
-                                                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
-                                                </label>
-                                                <div class="relative flex items-center">
-                                                    <input type="text" id="labExhibitNumberInput"
-                                                        name="lab_exhibit_number" value="{{ $exhibitRefAuto }}"
-                                                        readonly
-                                                        class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                                            <li
+                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                Commercial &amp; Utility</li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Pickup Truck', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Pickup
+                                                                    Truck</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Panel Van / Cargo Van', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Panel
+                                                                    Van / Cargo Van</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Minibus / Trotro', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Minibus
+                                                                    / Trotro</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Large Bus / Coach', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Large
+                                                                    Bus / Coach</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Box Truck / Rigid Truck', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Box
+                                                                    Truck / Rigid Truck</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Heavy Duty / Articulated Truck', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Heavy
+                                                                    Duty / Articulated Truck</button></li>
+
+                                                            <li
+                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                Other Types</li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Motorcycle / Motorbike', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Motorcycle
+                                                                    / Motorbike</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Tricycle (Aboboyaa / Pragya)', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Tricycle
+                                                                    (Aboboyaa / Pragya)</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Trailer / Caravan', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Trailer
+                                                                    / Caravan</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Agricultural / Tractor', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Agricultural
+                                                                    / Tractor</button></li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Construction Equipment', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Construction
+                                                                    Equipment</button></li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Year
+                                                        of Manufacture</label>
+                                                    <input type="text" id="vehYear"
+                                                        placeholder="e.g. 2019"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                    <input type="text" id="vehColour"
+                                                        placeholder="e.g. White"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registration
+                                                        Number <span
+                                                            class="text-red-600 font-bold">*</span></label>
+                                                    <input type="text" id="vehRegNo"
+                                                        placeholder="e.g. GT 1234-21"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">VIN
+                                                        / Chassis Number</label>
+                                                    <input type="text" id="vehVIN"
+                                                        placeholder="e.g. JT11234567890ABC"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Engine
+                                                        Number</label>
+                                                    <input type="text" id="vehEngineNo"
+                                                        placeholder="e.g. 1TR1234567"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Country
+                                                        of Registration</label>
+                                                    <input type="text" id="vehCountryReg"
+                                                        placeholder="e.g. Ghana"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                            <!-- Exhibit Description -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                    <span>Exhibit Description</span>
-                                                    <span
-                                                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched
-                                                        from Manifest</span>
-                                                </label>
-                                                <textarea id="labExhibitDescriptionInput" name="lab_exhibit_description" rows="3"
-                                                    placeholder="No drug exhibit saved yet"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400">No drug exhibit saved yet</textarea>
-                                            </div>
-
-                                            <!-- Laboratory Number -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                    <span>Laboratory Number</span>
-                                                    <span
-                                                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
-                                                </label>
-                                                <input type="text" id="labNumberInput" name="laboratory_number"
-                                                    value="{{ $labNumberAuto }}" readonly
-                                                    class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
-                                            </div>
-
-                                            <!-- Analyst / Examiner -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                                                    <span>Analyst / Examiner</span>
-                                                    <span
-                                                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner
-                                                        Name</span>
-                                                </label>
-                                                <input type="text" id="labAnalystInput" name="lab_analyst"
-                                                    value="{{ auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName)) }}"
-                                                    class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
-                                                    placeholder="e.g. John Adu">
+                                        <!-- 2. Ownership & Possession -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                2. Ownership &amp; Possession</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registered
+                                                        Owner</label>
+                                                    <input type="text" id="vehOwner"
+                                                        placeholder="e.g. John Doe"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Driver
+                                                        / Person in Possession</label>
+                                                    <input type="text" id="vehDriver"
+                                                        placeholder="e.g. Kwame Mensah"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Owner's
+                                                        Contact</label>
+                                                    <input type="text" id="vehOwnerContact"
+                                                        placeholder="e.g. 0244123456"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Docs
+                                                        Available?</label>
+                                                    <select id="vehDocsAvailable"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Yes">Yes</option>
+                                                        <option value="No">No</option>
+                                                    </select>
+                                                </div>
+                                                <div class="md:col-span-2">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reg/Title
+                                                        Doc Reference</label>
+                                                    <input type="text" id="vehDocRef"
+                                                        placeholder="e.g. DVLA Title #998877"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div
-                                            class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
-                                            <!-- Date Received -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                                    Date Received <span class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <input type="date" id="labDateReceivedInput"
-                                                    name="lab_date_received" value="{{ $todayDate }}"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
-                                            </div>
-
-                                            <!-- Date Examination Started -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                                    Date Examination Started <span
-                                                        class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <input type="date" id="labDateStartedInput"
-                                                    name="lab_date_started" value="{{ $todayDate }}"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
-                                            </div>
-
-                                            <!-- Date Examination Completed -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                                    Date Examination Completed <span
-                                                        class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <input type="date" id="labDateCompletedInput"
-                                                    name="lab_date_completed" value="{{ $todayDate }}"
-                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                        <!-- 3. Vehicle Condition -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                3. Vehicle Condition</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Overall
+                                                        Condition</label>
+                                                    <select id="vehCondition"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Excellent">Excellent / Driveable</option>
+                                                        <option value="Good">Good</option>
+                                                        <option value="Fair">Fair</option>
+                                                        <option value="Poor">Poor / Damaged</option>
+                                                        <option value="Non-Driveable">Non-Driveable / Towed
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Fuel
+                                                        Level</label>
+                                                    <select id="vehFuel"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Full">Full</option>
+                                                        <option value="3/4">3/4</option>
+                                                        <option value="Half">Half (1/2)</option>
+                                                        <option value="1/4">1/4</option>
+                                                        <option value="Empty">Empty (Light on)</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Keys
+                                                        Received?</label>
+                                                    <div class="flex items-center gap-2 mt-1">
+                                                        <select id="vehKeysRecv"
+                                                            class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                            <option value="">Select...</option>
+                                                            <option value="Yes">Yes</option>
+                                                            <option value="No">No</option>
+                                                        </select>
+                                                        <input type="number" id="vehKeyCount"
+                                                            placeholder="Qty" min="0"
+                                                            class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Existing
+                                                        Damage</label>
+                                                    <input type="text" id="vehDamage"
+                                                        placeholder="e.g. Scratches on front right bumper, cracked left taillight"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Visible
+                                                        Modifications / Compartments</label>
+                                                    <input type="text" id="vehMods"
+                                                        placeholder="e.g. False floor welded in trunk, tinted windows"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Notable
+                                                        Identifying Features</label>
+                                                    <input type="text" id="vehFeatures"
+                                                        placeholder="e.g. Custom alloy wheels, stickers on rear window"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <!-- SUB-SECTION 5B: PRESUMPTIVE TEST -->
-                                    <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
-                                        <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <!-- WEAPON SPECIFIC FIELDS -->
+                                    <div id="weaponFieldsWrapper"
+                                        class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M12 4v16m8-8H4" />
+                                                </svg>
+                                            </div>
                                             <h4
-                                                class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                                class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
+                                                Weapon / Firearm Specific Details</h4>
+                                        </div>
+
+                                        <!-- 1. Weapon Identification & Physical Specs -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                1. Identification &amp; Specifications</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
+                                                    <input type="text" id="wpnModel"
+                                                        placeholder="e.g. 19 Gen 5, M&P 9, Type 56, Glock 17"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
+                                                        Number</label>
+                                                    <input type="text" id="wpnSerialNo"
+                                                        placeholder="e.g. G17-984210X / Defaced"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Calibre
+                                                        / Gauge</label>
+                                                    <input type="text" id="wpnCalibre"
+                                                        placeholder="e.g. 9mm, 7.62x39mm, 12-Gauge, .45 ACP"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                    <input type="text" id="wpnColour"
+                                                        placeholder="e.g. Matte Black, Silver, Camouflage"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Approx.
+                                                        Size / Length</label>
+                                                    <input type="text" id="wpnSize"
+                                                        placeholder="e.g. 18.5 cm (Overall), Short Barrel, 87 cm"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 2. Recovery Condition & Status -->
+                                        <div class="space-y-3 pt-2">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                2. Recovery Condition &amp; Location</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Loaded
+                                                        Status</label>
+                                                    <select id="wpnLoadedStatus"
+                                                        class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                        <option value=""
+                                                            class="text-slate-400 font-normal">Select...</option>
+                                                        <option value="Loaded"
+                                                            class="font-semibold text-slate-900">Loaded</option>
+                                                        <option value="Unloaded"
+                                                            class="font-semibold text-slate-900">Unloaded</option>
+                                                        <option value="Round in Chamber"
+                                                            class="font-semibold text-slate-900">Round in Chamber
+                                                        </option>
+                                                        <option value="Magazine Attached (Loaded)"
+                                                            class="font-semibold text-slate-900">Magazine Attached
+                                                            (Loaded)</option>
+                                                        <option value="Magazine Attached (Empty)"
+                                                            class="font-semibold text-slate-900">Magazine Attached
+                                                            (Empty)</option>
+                                                        <option value="Unknown / Unspecified"
+                                                            class="font-semibold text-slate-900">Unknown /
+                                                            Unspecified</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition
+                                                        at Recovery</label>
+                                                    <select id="wpnCondition"
+                                                        class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                        <option value=""
+                                                            class="text-slate-400 font-normal">Select...</option>
+                                                        <option value="Operable / Good Condition"
+                                                            class="font-semibold text-slate-900">Operable / Good
+                                                            Condition</option>
+                                                        <option value="Fair / Used Condition"
+                                                            class="font-semibold text-slate-900">Fair / Used
+                                                            Condition</option>
+                                                        <option value="Rusty / Corroded"
+                                                            class="font-semibold text-slate-900">Rusty / Corroded
+                                                        </option>
+                                                        <option value="Damaged / Inoperable"
+                                                            class="font-semibold text-slate-900">Damaged /
+                                                            Inoperable</option>
+                                                        <option value="Serial Defaced / Tampered"
+                                                            class="font-semibold text-slate-900">Serial Defaced /
+                                                            Tampered</option>
+                                                        <option value="Modified / Sawed-Off"
+                                                            class="font-semibold text-slate-900">Modified /
+                                                            Sawed-Off</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Exact
+                                                        Location Found</label>
+                                                    <input type="text" id="wpnLocationFound"
+                                                        placeholder="e.g. Bedroom closet, Under vehicle driver seat, Roadside ditch"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Distinguishing
+                                                        Marks / Features</label>
+                                                    <textarea id="wpnMarks" rows="2"
+                                                        placeholder="e.g. Scratch on left grip, custom insignia engraved, missing safety switch"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- AMMUNITION SPECIFIC FIELDS -->
+                                    <div id="ammoFieldsWrapper"
+                                        class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                </svg>
+                                            </div>
+                                            <h4
+                                                class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
+                                                Ammunition Specific Details</h4>
+                                        </div>
+
+                                        <!-- 1. Physical Description -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                1. Physical Description</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
+                                                        Appearance</label>
+                                                    <input type="text" id="ammoCartridgeAppearance"
+                                                        placeholder="e.g. Brass casing, FMJ, Nickel-plated"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Projectile
+                                                        / Bullet Type</label>
+                                                    <input type="text" id="ammoProjectileType"
+                                                        placeholder="e.g. Full Metal Jacket (FMJ), Hollow Point, Lead Round Nose"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
+                                                        Case Material</label>
+                                                    <input type="text" id="ammoCaseMaterial"
+                                                        placeholder="e.g. Brass, Steel, Aluminium, Plastic"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour
+                                                        / Markings</label>
+                                                    <input type="text" id="ammoColourMarkings"
+                                                        placeholder="e.g. Headstamp CBC 9mm LUGER, Red primer sealant"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition</label>
+                                                    <select id="ammoCondition"
+                                                        onchange="toggleAmmoOtherCondition(this)"
+                                                        class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                        <option value=""
+                                                            class="text-slate-400 font-normal">Select Condition...
+                                                        </option>
+                                                        <option value="Intact"
+                                                            class="font-semibold text-slate-900">Intact</option>
+                                                        <option value="Damaged"
+                                                            class="font-semibold text-slate-900">Damaged</option>
+                                                        <option value="Corroded"
+                                                            class="font-semibold text-slate-900">Corroded</option>
+                                                        <option value="Deformed"
+                                                            class="font-semibold text-slate-900">Deformed</option>
+                                                        <option value="Other"
+                                                            class="font-semibold text-slate-900">Other</option>
+                                                    </select>
+                                                </div>
+                                                <div id="ammoOtherConditionWrapper" class="hidden">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Describe
+                                                        Other Condition</label>
+                                                    <input type="text" id="ammoOtherCondition"
+                                                        placeholder="Specify condition details..."
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 2. Packaging & Sealing -->
+                                        <div class="space-y-3 pt-2">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                2. Packaging &amp; Sealing</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging
+                                                        Type</label>
+                                                    <input type="text" id="ammoPackagingType"
+                                                        placeholder="e.g. Cardboard Box, Plastic Ammo Can, Loose Bag"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seal
+                                                        / Tamper-Evident Condition</label>
+                                                    <input type="text" id="ammoSealCondition"
+                                                        placeholder="e.g. Intact Tamper-Evident Bag #SEAL-90812"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Package
+                                                        / Reference Number</label>
+                                                    <input type="text" id="ammoPackageReferenceNumber"
+                                                        placeholder="e.g. PKG-2026-AM01"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition
+                                                        When Received</label>
+                                                    <input type="text" id="ammoConditionWhenReceived"
+                                                        placeholder="e.g. Sealed and untampered"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
+                                    <div class="pt-2 border-t border-slate-300/60 space-y-3">
+                                        <div class="flex items-center justify-between">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                Upload Seized Exhibit Photos / Evidence Images <span
+                                                    class="text-slate-400 font-normal">(Multiple Supported)</span>
+                                            </label>
+                                            <span id="seizurePhotosCount"
+                                                class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300">0
+                                                Photos Uploaded</span>
+                                        </div>
+
+                                        <!-- DROPZONE BOX -->
+                                        <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload()"
+                                            class="w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
+                                            <div id="placeholderSeizureBox"
+                                                class="flex flex-col items-center space-y-1 text-slate-400 group-hover:text-black transition-colors">
+                                                <div
+                                                    class="w-9 h-9 rounded-full bg-emerald-50 text-black flex items-center justify-center mb-0.5">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
                                                 <span
-                                                    class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5B</span>
-                                                <span>Presumptive Test</span>
-                                            </h4>
+                                                    class="text-xs font-extrabold text-slate-800 group-hover:text-black">Click
+                                                    or drag &amp; drop to upload exhibit photos</span>
+                                                <span class="text-[10px] text-slate-500">Select one or multiple
+                                                    PNG, JPG, WEBP evidence photos (up to 15MB each)</span>
+                                            </div>
+                                        </div>
+                                        <input type="file" id="fileSeizurePhoto" accept="image/*" multiple
+                                            class="hidden" onchange="previewSeizurePhotos(event)">
+
+                                        <!-- DYNAMIC MULTIPLE PHOTOS GALLERY GRID -->
+                                        <div id="seizurePhotosGrid"
+                                            class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- END SEIZURES LIST CONTAINER -->
+
+                                <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
+                                <div
+                                    class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
+                                    <button type="button" onclick="addSeizureBlock()"
+                                        class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                                        <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"
+                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                stroke-width="2.5" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        + Add Another Seized Item
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
+                        <div
+                            class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">
+                                        Sections 1–4 Docket Actions</h4>
+                                    <p class="text-[11px] text-slate-500 font-medium">Save case file or store as
+                                        Draft to resume Sections 1 to 4 operations later.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                                <button type="button" onclick="handleDraftAndContinueLater()"
+                                    class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+                                    Draft and Continue Later
+                                </button>
+                                <button type="button" onclick="processNewArrested()"
+                                    id="submitSection1To4DocketBtn"
+                                    class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                    </svg>
+                                    <span>Save Case</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div> 
+                    <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5: FORENSIC EXAMINATION & LABORATORY ANALYSIS -->
+                    <div id="labAnalysisExclusiveSections"
+                        class="bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
+
+                        <!-- SECTION 5 MAIN CONTAINER HEADER -->
+                        <div
+                            class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <div
+                                    class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-base">Section 5: Forensic
+                                        Examination &amp; Laboratory Analysis</h3>
+                                    <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis
+                                        Directorate — Forensic Examination, Screening &amp; Confirmatory Testing
+                                        Log</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0">
+                                <span
+                                    class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                    LAB ANALYSIS EXCLUSIVE
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- EXAMINATION INFORMATION CONTAINER -->
+                        <div id="section5FormContainer"
+                            class="space-y-5 ">
+                            <!-- SUB-SECTION 5A: EXAMINATION INFORMATION -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4
+                                        class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span
+                                            class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5A</span>
+                                        <span>Examination Information</span>
+                                    </h4>
+                                </div>
+
+                                <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 4 SEIZED COMMODITIES MANIFEST -->
+                                <div
+                                    class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- DRUG TYPE SELECTOR -->
+
+
+                                        <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
+                                        <div>
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                                <span class="flex items-center space-x-2">
+                                                    <svg class="w-4 h-4 text-emerald-600" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span>Select Seized Exhibit (Manifest Sync)</span>
+                                                    <span class="text-red-600 font-bold">*</span>
+                                                </span>
+                                                <span id="labExhibitCountBadge"
+                                                    class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                    No exhibit saved yet
+                                                </span>
+                                            </label>
+                                            <select id="labExhibitSelect" name="lab_selected_exhibit_index"
+                                                onchange="onLabExhibitSelected()"
+                                                class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p
+                                        class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
+                                        <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none"
+                                            stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>Select a drug type and exhibit above to view its manifest details
+                                            and process forensic examination separately.</span>
+                                    </p>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <!-- Analysis/Examination Reference — auto-generated -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Analysis / Examination Reference</span>
                                             <span
-                                                class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                                                SCREENING RESULT
+                                                class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <input type="text" id="labExamReferenceInput"
+                                                name="lab_exam_reference" value="{{ $examRefAuto }}"
+                                                readonly
+                                                class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                        </div>
+                                    </div>
+
+                                    <!-- Case Reference — auto-linked -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Case Reference</span>
+                                            <span
+                                                class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <input type="text" id="labCaseReferenceInput"
+                                                name="lab_case_reference" value="{{ $caseRefAuto }}"
+                                                readonly
+                                                class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                        </div>
+                                    </div>
+
+                                    <!-- Exhibit Number — auto-linked -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Exhibit Number</span>
+                                            <span
+                                                class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                                        </label>
+                                        <div class="relative flex items-center">
+                                            <input type="text" id="labExhibitNumberInput"
+                                                name="lab_exhibit_number" value="{{ $exhibitRefAuto }}"
+                                                readonly
+                                                class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                    <!-- Exhibit Description -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Exhibit Description</span>
+                                            <span
+                                                class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched
+                                                from Manifest</span>
+                                        </label>
+                                        <textarea id="labExhibitDescriptionInput" name="lab_exhibit_description" rows="3"
+                                            placeholder="No drug exhibit saved yet"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs placeholder:text-slate-400">No drug exhibit saved yet</textarea>
+                                    </div>
+
+                                    <!-- Laboratory Number -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Laboratory Number</span>
+                                            <span
+                                                class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                                        </label>
+                                        <input type="text" id="labNumberInput" name="laboratory_number"
+                                            value="{{ $labNumberAuto }}" readonly
+                                            class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                                    </div>
+
+                                    <!-- Analyst / Examiner -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span>Analyst / Examiner</span>
+                                            <span
+                                                class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner
+                                                Name</span>
+                                        </label>
+                                        <input type="text" id="labAnalystInput" name="lab_analyst"
+                                            value="{{ auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName)) }}"
+                                            class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
+                                            placeholder="e.g. John Adu">
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
+                                    <!-- Date Received -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            Date Received <span class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <input type="date" id="labDateReceivedInput"
+                                            name="lab_date_received" value="{{ $todayDate }}"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                    </div>
+
+                                    <!-- Date Examination Started -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            Date Examination Started <span
+                                                class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <input type="date" id="labDateStartedInput"
+                                            name="lab_date_started" value="{{ $todayDate }}"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                    </div>
+
+                                    <!-- Date Examination Completed -->
+                                    <div>
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                            Date Examination Completed <span
+                                                class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <input type="date" id="labDateCompletedInput"
+                                            name="lab_date_completed" value="{{ $todayDate }}"
+                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SUB-SECTION 5B: PRESUMPTIVE TEST -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4
+                                        class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span
+                                            class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5B</span>
+                                        <span>Presumptive Test</span>
+                                    </h4>
+                                    <span
+                                        class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                        SCREENING RESULT
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label
+                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
+                                        Presumptive Test Reaction Result <span
+                                            class="text-red-600 font-bold">*</span>
+                                    </label>
+
+                                    <div class="flex items-center space-x-3">
+                                        <!-- YES CHECKBOX -->
+                                        <label
+                                            class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                            <input type="checkbox" id="presumptiveTestYes"
+                                                name="presumptive_test_yes" value="YES"
+                                                onchange="togglePresumptiveTest('YES')"
+                                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                                <span
+                                                    class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- NO CHECKBOX -->
+                                        <label
+                                            class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                            <input type="checkbox" id="presumptiveTestNo"
+                                                name="presumptive_test_no" value="NO" checked
+                                                onchange="togglePresumptiveTest('NO')"
+                                                class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                                <span
+                                                    class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- DROPDOWN / MULTI-ROW INPUT BOXES FOR PRESUMPTIVE TEST REACTION DETAILS -->
+                                    <div id="presumptiveReactionDetailsContainer"
+                                        class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
+                                        <div
+                                            class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                            <div
+                                                class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
+                                                <svg class="w-4 h-4 text-emerald-600 shrink-0"
+                                                    fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                                </svg>
+                                                <span>Presumptive Test Reaction Result Details &amp; Field
+                                                    Spec</span>
+                                            </div>
+                                            <span
+                                                class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                                MULTIPLE SPECIMEN SUPPORT
                                             </span>
                                         </div>
 
-                                        <div>
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
-                                                Presumptive Test Reaction Result <span
-                                                    class="text-red-600 font-bold">*</span>
-                                            </label>
-
-                                            <div class="flex items-center space-x-3">
-                                                <!-- YES CHECKBOX -->
-                                                <label
-                                                    class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
-                                                    <input type="checkbox" id="presumptiveTestYes"
-                                                        name="presumptive_test_yes" value="YES"
-                                                        onchange="togglePresumptiveTest('YES')"
-                                                        class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                                                    <div class="flex items-center space-x-1.5">
-                                                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-                                                        <span
-                                                            class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                                        <!-- DYNAMIC TEST ROWS CONTAINER -->
+                                        <div id="presumptiveTestRowsContainer" class="space-y-3">
+                                            <div
+                                                class="presumptive-test-row p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
+                                                <div
+                                                    class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                                                    <span class="test-row-title">Test Result #1</span>
+                                                    <button type="button"
+                                                        onclick="removePresumptiveTestRow(this)"
+                                                        class="remove-test-row-btn hidden px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
+                                                        &times; Remove
+                                                    </button>
+                                                </div>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Presence of <span
+                                                                class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <input type="text"
+                                                            class="presumptive-presence-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
+                                                            onchange="updatePresumptiveReactionText()"
+                                                            oninput="updatePresumptiveReactionText()"
+                                                            placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine">
                                                     </div>
-                                                </label>
-
-                                                <!-- NO CHECKBOX -->
-                                                <label
-                                                    class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
-                                                    <input type="checkbox" id="presumptiveTestNo"
-                                                        name="presumptive_test_no" value="NO" checked
-                                                        onchange="togglePresumptiveTest('NO')"
-                                                        class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
-                                                    <div class="flex items-center space-x-1.5">
-                                                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                                                        <span
-                                                            class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Percentage (%) <span
+                                                                class="text-red-600 font-bold">*</span>
+                                                        </label>
+                                                        <div
+                                                            class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                                                            <input type="text"
+                                                                class="presumptive-percentage-input w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code"
+                                                                onchange="updatePresumptiveReactionText()"
+                                                                oninput="updatePresumptiveReactionText()"
+                                                                placeholder="e.g. 85.5">
+                                                            <span
+                                                                class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                                                        </div>
                                                     </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- ADD MORE TEST RESULT BUTTON -->
+                                        <div class="pt-1 flex items-center justify-between">
+                                            <button type="button" onclick="addPresumptiveTestRow()"
+                                                class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border-none space-x-1.5">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2.5" d="M12 4v16m8-8H4" />
+                                                </svg>
+                                                <span>+ Add More Test Result</span>
+                                            </button>
+                                            <span class="text-[10px] text-slate-500 font-medium italic">Click
+                                                to log additional chemical/substance reaction test
+                                                results</span>
+                                        </div>
+
+                                        <!-- Hidden Presumptive Reaction Result for Form Submission -->
+                                        <input type="hidden" id="presumptiveReactionResultInput"
+                                            name="presumptive_reaction_result_input"
+                                            value="YES (Positive Colorimetric Reaction)">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SUB-SECTION 5C: CONFIRMATORY TEST -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4
+                                        class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span
+                                            class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5C</span>
+                                        <span>Confirmatory Test</span>
+                                    </h4>
+                                    <span
+                                        class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                        LAB VERIFICATION
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label
+                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
+                                        Confirmatory Test Conducted <span
+                                            class="text-red-600 font-bold">*</span>
+                                    </label>
+
+                                    <div class="flex items-center space-x-3">
+                                        <!-- YES CHECKBOX -->
+                                        <label
+                                            class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                            <input type="checkbox" id="confirmatoryTestYes"
+                                                name="confirmatory_test_yes" value="YES"
+                                                onchange="toggleConfirmatoryTest('YES')"
+                                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                                <span
+                                                    class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                                            </div>
+                                        </label>
+
+                                        <!-- NO CHECKBOX -->
+                                        <label
+                                            class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                            <input type="checkbox" id="confirmatoryTestNo"
+                                                name="confirmatory_test_no" value="NO" checked
+                                                onchange="toggleConfirmatoryTest('NO')"
+                                                class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                                <span
+                                                    class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <!-- Hidden Confirmatory Test Result Input -->
+                                    <input type="hidden" id="confirmatoryTestResultInput"
+                                        name="confirmatory_test_result" value="NO">
+
+                                    <!-- SAMPLE WEIGHT GROUP INPUT CONTAINER (DYNAMICALLY SHOWN WHEN CONFIRMATORY TEST IS YES) -->
+                                    <div id="sampleWeightContainer"
+                                        class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
+                                        <div
+                                            class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                            <div
+                                                class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                                <svg class="w-4 h-4 text-emerald-600 shrink-0"
+                                                    fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                                </svg>
+                                                <span>SAMPLE WEIGHT</span>
+                                            </div>
+                                            <span
+                                                class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                                CONFIRMATORY METROLOGY &amp; MASS
+                                            </span>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <!-- DESCRIPTION -->
+                                            <div class="md:col-span-2">
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Description <span
+                                                            class="text-red-600 font-bold">*</span></span>
+                                                    <span
+                                                        class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                                 </label>
+                                                <input type="text" id="sampleWeightDescription"
+                                                    name="sample_weight_description" readonly
+                                                    placeholder="Fetched from drug manifest"
+                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed">
                                             </div>
 
-                                            <!-- DROPDOWN / MULTI-ROW INPUT BOXES FOR PRESUMPTIVE TEST REACTION DETAILS -->
-                                            <div id="presumptiveReactionDetailsContainer"
-                                                class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
-                                                <div
-                                                    class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
-                                                    <div
-                                                        class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
-                                                        <svg class="w-4 h-4 text-emerald-600 shrink-0"
-                                                            fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                                                        </svg>
-                                                        <span>Presumptive Test Reaction Result Details &amp; Field
-                                                            Spec</span>
-                                                    </div>
+                                            <!-- NUMBER OF UNITS -->
+                                            <div>
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Number of Units <span
+                                                            class="text-red-600 font-bold">*</span></span>
                                                     <span
-                                                        class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                                                        MULTIPLE SPECIMEN SUPPORT
+                                                        class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                </label>
+                                                <input type="text" id="sampleWeightUnits"
+                                                    name="sample_weight_units" readonly
+                                                    placeholder="Fetched from drug manifest"
+                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
+                                            </div>
+
+                                            <!-- GROSS WEIGHT -->
+                                            <div>
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Gross Weight <span
+                                                            class="text-red-600 font-bold">*</span></span>
+                                                    <span
+                                                        class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                </label>
+                                                <input type="text" id="sampleWeightGross"
+                                                    name="sample_weight_gross" readonly
+                                                    placeholder="Fetched from drug manifest"
+                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
+                                            </div>
+
+                                            <!-- SAMPLE TAKEN -->
+                                            <div>
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Sample Taken <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <div class="relative flex rounded-xl shadow-2xs">
+                                                    <input type="text" id="sampleWeightTaken"
+                                                        name="sample_weight_taken" placeholder="e.g. 10"
+                                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0">
+                                                    <span id="sampleWeightTakenUnitAddon"
+                                                        class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0 transition-colors duration-200">
+                                                        Kilograms (kg)
                                                     </span>
                                                 </div>
-
-                                                <!-- DYNAMIC TEST ROWS CONTAINER -->
-                                                <div id="presumptiveTestRowsContainer" class="space-y-3">
-                                                    <div
-                                                        class="presumptive-test-row p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
-                                                        <div
-                                                            class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
-                                                            <span class="test-row-title">Test Result #1</span>
-                                                            <button type="button"
-                                                                onclick="removePresumptiveTestRow(this)"
-                                                                class="remove-test-row-btn hidden px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
-                                                                &times; Remove
-                                                            </button>
-                                                        </div>
-                                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                            <div>
-                                                                <label
-                                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                                    Presence of <span
-                                                                        class="text-red-600 font-bold">*</span>
-                                                                </label>
-                                                                <input type="text"
-                                                                    class="presumptive-presence-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
-                                                                    onchange="updatePresumptiveReactionText()"
-                                                                    oninput="updatePresumptiveReactionText()"
-                                                                    placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine">
-                                                            </div>
-                                                            <div>
-                                                                <label
-                                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                                    Percentage (%) <span
-                                                                        class="text-red-600 font-bold">*</span>
-                                                                </label>
-                                                                <div
-                                                                    class="flex items-center rounded-xl shadow-2xs overflow-hidden">
-                                                                    <input type="text"
-                                                                        class="presumptive-percentage-input w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code"
-                                                                        onchange="updatePresumptiveReactionText()"
-                                                                        oninput="updatePresumptiveReactionText()"
-                                                                        placeholder="e.g. 85.5">
-                                                                    <span
-                                                                        class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <!-- ADD MORE TEST RESULT BUTTON -->
-                                                <div class="pt-1 flex items-center justify-between">
-                                                    <button type="button" onclick="addPresumptiveTestRow()"
-                                                        class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border-none space-x-1.5">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                                        </svg>
-                                                        <span>+ Add More Test Result</span>
-                                                    </button>
-                                                    <span class="text-[10px] text-slate-500 font-medium italic">Click
-                                                        to log additional chemical/substance reaction test
-                                                        results</span>
-                                                </div>
-
-                                                <!-- Hidden Presumptive Reaction Result for Form Submission -->
-                                                <input type="hidden" id="presumptiveReactionResultInput"
-                                                    name="presumptive_reaction_result_input"
-                                                    value="YES (Positive Colorimetric Reaction)">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- SUB-SECTION 5C: CONFIRMATORY TEST -->
-                                    <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
-                                        <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
-                                            <h4
-                                                class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
-                                                <span
-                                                    class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5C</span>
-                                                <span>Confirmatory Test</span>
-                                            </h4>
-                                            <span
-                                                class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                                                LAB VERIFICATION
-                                            </span>
-                                        </div>
-
-                                        <div>
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
-                                                Confirmatory Test Conducted <span
-                                                    class="text-red-600 font-bold">*</span>
-                                            </label>
-
-                                            <div class="flex items-center space-x-3">
-                                                <!-- YES CHECKBOX -->
-                                                <label
-                                                    class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
-                                                    <input type="checkbox" id="confirmatoryTestYes"
-                                                        name="confirmatory_test_yes" value="YES"
-                                                        onchange="toggleConfirmatoryTest('YES')"
-                                                        class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                                                    <div class="flex items-center space-x-1.5">
-                                                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-                                                        <span
-                                                            class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
-                                                    </div>
-                                                </label>
-
-                                                <!-- NO CHECKBOX -->
-                                                <label
-                                                    class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
-                                                    <input type="checkbox" id="confirmatoryTestNo"
-                                                        name="confirmatory_test_no" value="NO" checked
-                                                        onchange="toggleConfirmatoryTest('NO')"
-                                                        class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
-                                                    <div class="flex items-center space-x-1.5">
-                                                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                                                        <span
-                                                            class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
-                                                    </div>
-                                                </label>
+                                                <p id="sampleWeightTakenError"
+                                                    class="text-[11px] text-red-600 font-extrabold mt-1.5 hidden flex items-center space-x-1 animate-in fade-in duration-200">
+                                                    <svg class="w-3.5 h-3.5 shrink-0 text-red-600"
+                                                        fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2.5"
+                                                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span>Sample taken cannot exceed the gross weight</span>
+                                                </p>
                                             </div>
 
-                                            <!-- Hidden Confirmatory Test Result Input -->
-                                            <input type="hidden" id="confirmatoryTestResultInput"
-                                                name="confirmatory_test_result" value="NO">
+                                            <!-- RESERVED SAMPLES -->
+                                            <div>
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Reserved Samples <span
+                                                            class="text-red-600 font-bold">*</span></span>
+                                                    <span
+                                                        class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
+                                                </label>
+                                                <input type="text" id="sampleWeightReserved"
+                                                    name="sample_weight_reserved" readonly
+                                                    placeholder="Auto-calculated (Gross Weight - Sample Taken)"
+                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed">
+                                            </div>
 
-                                            <!-- SAMPLE WEIGHT GROUP INPUT CONTAINER (DYNAMICALLY SHOWN WHEN CONFIRMATORY TEST IS YES) -->
-                                            <div id="sampleWeightContainer"
-                                                class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 hidden">
+                                            <!-- RESULT SECTION (UNDERNEATH SAMPLE WEIGHT) -->
+                                            <div
+                                                class="md:col-span-2 pt-4 border-t border-emerald-200/80 space-y-4">
                                                 <div
                                                     class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
                                                     <div
@@ -6024,211 +5975,98 @@
                                                         <svg class="w-4 h-4 text-emerald-600 shrink-0"
                                                             fill="none" stroke="currentColor"
                                                             viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                                            <path stroke-linecap="round"
+                                                                stroke-linejoin="round" stroke-width="2"
+                                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                         </svg>
-                                                        <span>SAMPLE WEIGHT</span>
+                                                        <span>RESULT / CONFIRMATORY ANALYSIS</span>
                                                     </div>
                                                     <span
                                                         class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                                                        CONFIRMATORY METROLOGY &amp; MASS
+                                                        ANALYTICAL FINDINGS &amp; SPECS
                                                     </span>
                                                 </div>
 
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <!-- DESCRIPTION -->
-                                                    <div class="md:col-span-2">
+                                                <div class="space-y-4">
+                                                    <!-- 1. SUBSTANCE IDENTIFICATION -->
+                                                    <div>
                                                         <label
                                                             class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                            <span>Description <span
+                                                            <span>Substance Identification <span
                                                                     class="text-red-600 font-bold">*</span></span>
                                                             <span
                                                                 class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                                                         </label>
-                                                        <input type="text" id="sampleWeightDescription"
-                                                            name="sample_weight_description" readonly
-                                                            placeholder="Fetched from drug manifest"
+                                                        <input type="text"
+                                                            id="confirmatorySubstanceIdentification"
+                                                            name="confirmatory_substance_identification"
+                                                            readonly placeholder="Fetched from drug manifest"
                                                             class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed">
                                                     </div>
 
-                                                    <!-- NUMBER OF UNITS -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                            <span>Number of Units <span
-                                                                    class="text-red-600 font-bold">*</span></span>
-                                                            <span
-                                                                class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                                                        </label>
-                                                        <input type="text" id="sampleWeightUnits"
-                                                            name="sample_weight_units" readonly
-                                                            placeholder="Fetched from drug manifest"
-                                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
+                                                    <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
+                                                    <div class="space-y-2">
+                                                        <div class="flex items-center justify-between">
+                                                            <label
+                                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                                Result (Detected Substances &amp; Purity %)
+                                                                <span class="text-red-600 font-bold">*</span>
+                                                            </label>
+                                                            <button type="button"
+                                                                onclick="addDetectedSubstanceRow()"
+                                                                class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-2xs transition-all flex items-center space-x-1 border-none cursor-pointer">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor"
+                                                                    viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round"
+                                                                        stroke-width="2.5"
+                                                                        d="M12 4v16m8-8H4" />
+                                                                </svg>
+                                                                <span>Add More</span>
+                                                            </button>
+                                                        </div>
+                                                        <div id="detectedSubstancesListContainer"
+                                                            class="space-y-2.5">
+                                                            <!-- Dynamic rows added via JS -->
+                                                        </div>
                                                     </div>
 
-                                                    <!-- GROSS WEIGHT -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                            <span>Gross Weight <span
-                                                                    class="text-red-600 font-bold">*</span></span>
-                                                            <span
-                                                                class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                                                        </label>
-                                                        <input type="text" id="sampleWeightGross"
-                                                            name="sample_weight_gross" readonly
-                                                            placeholder="Fetched from drug manifest"
-                                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
-                                                    </div>
-
-                                                    <!-- SAMPLE TAKEN -->
+                                                    <!-- 3. TEST METHODS INPUT -->
                                                     <div>
                                                         <label
                                                             class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                            Sample Taken <span class="text-red-600 font-bold">*</span>
+                                                            Test Methods <span
+                                                                class="text-red-600 font-bold">*</span>
                                                         </label>
-                                                        <div class="relative flex rounded-xl shadow-2xs">
-                                                            <input type="text" id="sampleWeightTaken"
-                                                                name="sample_weight_taken" placeholder="e.g. 10"
-                                                                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0">
-                                                            <span id="sampleWeightTakenUnitAddon"
-                                                                class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0 transition-colors duration-200">
-                                                                Kilograms (kg)
-                                                            </span>
-                                                        </div>
-                                                        <p id="sampleWeightTakenError"
-                                                            class="text-[11px] text-red-600 font-extrabold mt-1.5 hidden flex items-center space-x-1 animate-in fade-in duration-200">
-                                                            <svg class="w-3.5 h-3.5 shrink-0 text-red-600"
-                                                                fill="none" stroke="currentColor"
-                                                                viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2.5"
-                                                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                            <span>Sample taken cannot exceed the gross weight</span>
-                                                        </p>
+                                                        <input type="text" id="confirmatoryTestMethods"
+                                                            name="confirmatory_test_methods"
+                                                            placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
                                                     </div>
 
-                                                    <!-- RESERVED SAMPLES -->
+                                                    <!-- 4. SPECIFICATIONS TEXTAREA INPUT -->
                                                     <div>
                                                         <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                            <span>Reserved Samples <span
-                                                                    class="text-red-600 font-bold">*</span></span>
-                                                            <span
-                                                                class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Specifications <span
+                                                                class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
                                                         </label>
-                                                        <input type="text" id="sampleWeightReserved"
-                                                            name="sample_weight_reserved" readonly
-                                                            placeholder="Auto-calculated (Gross Weight - Sample Taken)"
-                                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed">
+                                                        <textarea id="confirmatorySpecifications" name="confirmatory_specifications" rows="3"
+                                                            placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
                                                     </div>
 
-                                                    <!-- RESULT SECTION (UNDERNEATH SAMPLE WEIGHT) -->
-                                                    <div
-                                                        class="md:col-span-2 pt-4 border-t border-emerald-200/80 space-y-4">
-                                                        <div
-                                                            class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
-                                                            <div
-                                                                class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
-                                                                <svg class="w-4 h-4 text-emerald-600 shrink-0"
-                                                                    fill="none" stroke="currentColor"
-                                                                    viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                </svg>
-                                                                <span>RESULT / CONFIRMATORY ANALYSIS</span>
-                                                            </div>
-                                                            <span
-                                                                class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                                                                ANALYTICAL FINDINGS &amp; SPECS
-                                                            </span>
-                                                        </div>
-
-                                                        <div class="space-y-4">
-                                                            <!-- 1. SUBSTANCE IDENTIFICATION -->
-                                                            <div>
-                                                                <label
-                                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                                    <span>Substance Identification <span
-                                                                            class="text-red-600 font-bold">*</span></span>
-                                                                    <span
-                                                                        class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                                                                </label>
-                                                                <input type="text"
-                                                                    id="confirmatorySubstanceIdentification"
-                                                                    name="confirmatory_substance_identification"
-                                                                    readonly placeholder="Fetched from drug manifest"
-                                                                    class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed">
-                                                            </div>
-
-                                                            <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
-                                                            <div class="space-y-2">
-                                                                <div class="flex items-center justify-between">
-                                                                    <label
-                                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                                        Result (Detected Substances &amp; Purity %)
-                                                                        <span class="text-red-600 font-bold">*</span>
-                                                                    </label>
-                                                                    <button type="button"
-                                                                        onclick="addDetectedSubstanceRow()"
-                                                                        class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-2xs transition-all flex items-center space-x-1 border-none cursor-pointer">
-                                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                                            stroke="currentColor"
-                                                                            viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round"
-                                                                                stroke-linejoin="round"
-                                                                                stroke-width="2.5"
-                                                                                d="M12 4v16m8-8H4" />
-                                                                        </svg>
-                                                                        <span>Add More</span>
-                                                                    </button>
-                                                                </div>
-                                                                <div id="detectedSubstancesListContainer"
-                                                                    class="space-y-2.5">
-                                                                    <!-- Dynamic rows added via JS -->
-                                                                </div>
-                                                            </div>
-
-                                                            <!-- 3. TEST METHODS INPUT -->
-                                                            <div>
-                                                                <label
-                                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                                    Test Methods <span
-                                                                        class="text-red-600 font-bold">*</span>
-                                                                </label>
-                                                                <input type="text" id="confirmatoryTestMethods"
-                                                                    name="confirmatory_test_methods"
-                                                                    placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
-                                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
-                                                            </div>
-
-                                                            <!-- 4. SPECIFICATIONS TEXTAREA INPUT -->
-                                                            <div>
-                                                                <label
-                                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                                    Specifications <span
-                                                                        class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
-                                                                </label>
-                                                                <textarea id="confirmatorySpecifications" name="confirmatory_specifications" rows="3"
-                                                                    placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
-                                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
-                                                            </div>
-
-                                                            <!-- 5. REMARK TEXTAREA INPUT -->
-                                                            <div>
-                                                                <label
-                                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                                    Remark <span
-                                                                        class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
-                                                                </label>
-                                                                <textarea id="confirmatoryRemark" name="confirmatory_remark" rows="3"
-                                                                    placeholder="Enter any additional remarks or observations regarding the confirmatory analysis..."
-                                                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
-                                                            </div>
-                                                        </div>
+                                                    <!-- 5. REMARK TEXTAREA INPUT -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Remark <span
+                                                                class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
+                                                        </label>
+                                                        <textarea id="confirmatoryRemark" name="confirmatory_remark" rows="3"
+                                                            placeholder="Enter any additional remarks or observations regarding the confirmatory analysis..."
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
                                                     </div>
                                                 </div>
                                             </div>
@@ -6236,45 +6074,45 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
+                    <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
+                    <div
+                        class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3">
                             <div
-                                class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-                                <div class="flex items-center space-x-3">
-                                    <div
-                                        class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">
-                                            Finalize &amp; Save Docket File</h4>
-                                        <p class="text-[11px] text-slate-500 font-medium">Save this case docket to
-                                            enable inter-unit forensic workflow and real-time HOF tracking.</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
-                                    <button type="button" onclick="handleDraftAndContinueLater()"
-                                        class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">Draft
-                                        and Continue Later</button>
-                                    <button type="button" onclick="processNewArrested()"
-                                        id="submitArrestDocketBtn"
-                                        class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                        </svg>
-                                        <span>Save Case</span>
-                                    </button>
-                                </div>
+                                class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
                             </div>
+                            <div>
+                                <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">
+                                    Finalize &amp; Save Docket File</h4>
+                                <p class="text-[11px] text-slate-500 font-medium">Save this case docket to
+                                    enable inter-unit forensic workflow and real-time HOF tracking.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                            <button type="button" onclick="handleDraftAndContinueLater()"
+                                class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">Draft
+                                and Continue Later</button>
+                            <button type="button" onclick="processNewArrested()"
+                                id="submitArrestDocketBtn"
+                                class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                </svg>
+                                <span>Save Case</span>
+                            </button>
+                        </div>
+                    </div>
                 </form>
-
-
             </main>
         </div>
     </div>
@@ -6903,8 +6741,8 @@
                         </div>
                     </div>
 
-                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
+                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE, HEIGHT, EYE COLOR -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 relative z-40">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Ghana Card #
@@ -6976,10 +6814,7 @@
                                 <input type="number" data-field="age" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                             </div>
                         </div>
-                    </div>
 
-                    <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Height (cm / ft-in)
@@ -7010,7 +6845,10 @@
                                 <input type="text" data-field="eye_color" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
+                    </div>
 
+                    <!-- ROW 3: NATIONALITY, PLACE OF BIRTH, RESIDENTIAL ADDRESS -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                         <!-- DYNAMIC CUSTOM NATIONALITY DROPDOWN -->
                         <div class="relative z-30">
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
@@ -7043,17 +6881,7 @@
                                 @endforeach
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
-                <div class="space-y-4 pt-2 relative z-20">
-                    <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Place of Birth <span class="text-red-600 font-bold">*</span>
@@ -7068,18 +6896,6 @@
 
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                </span>
-                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Residential Address / GPS <span class="text-red-600 font-bold">*</span>
                             </label>
                             <div class="relative flex items-center group">
@@ -7089,6 +6905,29 @@
                                 <input type="text" data-field="address" placeholder="e.g. H/No 14 East Legon, Accra (GA-142-8809)" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
+                    </div>
+
+                    <!-- ROW 4: CONTACT PHONE NUMBER(S) -->
+                    <div class="relative z-10 pt-1">
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                </span>
+                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
+                <div class="space-y-4 pt-2 relative z-20">
+                    <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-30">
@@ -7452,6 +7291,8 @@
                     nationality: s1Nat,
                     pob: s1POB,
                     phone: s1Phone,
+                    phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
+                    additional_phones: typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
                     address: s1Address,
                     marital_status: s1Marital,
                     has_children: s1HasKids,
@@ -7891,6 +7732,9 @@
             if (!validateSuspectDocketForm()) {
                 return;
             }
+            if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
+                return;
+            }
 
             const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
             const name = document.getElementById('newArrestedName')?.value?.trim() || '';
@@ -7920,8 +7764,9 @@
             const facility = document.getElementById('newArrestedFacility')?.value || 'NACOC Holding Cell';
             const caseTitleInput = document.getElementById('caseTitleInput')?.value;
 
-            const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' ? caseTitleInput.trim() :
-            `Republic Vs ${name}`;
+            const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
+                ? caseTitleInput.trim()
+                : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
             const caseRef = 'CSS-2026-' + Math.floor(1000 + Math.random() * 9000);
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
@@ -8264,6 +8109,7 @@
                 eye_color: eyeColor,
                 pob: pob,
                 phone: phone,
+                phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
                 address: address,
                 marital_status: marital,
                 spouse_summary: spouseSummary,
@@ -8339,6 +8185,9 @@
                             .getElementById('newArrestedNationality')?.value || 'Ghanaian',
                         pob: pob,
                         phone: phone,
+                        additional_phones: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
+                        additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
+                        phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
                         address: address,
 
                         // Family & Marital
@@ -8575,6 +8424,7 @@
             };
 
             draft['_seizedExhibitDataUrls'] = seizedExhibitDataUrls;
+            draft['_additionalPhonesList'] = typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [];
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -8657,10 +8507,22 @@
                 const maritalVal = document.getElementById('newArrestedMarital')?.value || '';
                 handleMaritalChange(maritalVal);
 
-                const seizureCat = document.getElementById('newSeizureCategory')?.value;
-                if (seizureCat) updateCommodityField(seizureCat);
+                const seizureCat = document.getElementById('newSeizureCategory')?.value || 'Drugs';
+                if (seizureCat && typeof updateCommodityField === 'function') updateCommodityField(seizureCat);
 
                 calculateAgeFromDOB();
+
+                if (draft['_additionalPhonesList'] && Array.isArray(draft['_additionalPhonesList'])) {
+                    const phoneListEl = document.getElementById('suspectPhonesList');
+                    if (phoneListEl) {
+                        phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
+                        draft['_additionalPhonesList'].forEach(item => {
+                            if (typeof addSuspectPhoneRow === 'function') {
+                                addSuspectPhoneRow(item.label, item.number);
+                            }
+                        });
+                    }
+                }
 
                 if (restoredCount > 0) {
                     const notice = document.getElementById('docketDraftNotice');
@@ -8679,12 +8541,21 @@
 
         function clearDocketFormDraftAndReset() {
             clearDocketFormDraft();
+            const phoneListEl = document.getElementById('suspectPhonesList');
+            if (phoneListEl) {
+                phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
+            }
             seizedExhibitDataUrls = [];
             renderSeizurePhotosGrid();
             const notice = document.getElementById('docketDraftNotice');
             if (notice) notice.classList.add('hidden');
             const form = document.querySelector('form');
             if (form) form.reset();
+            const caseTitleReset = document.getElementById('caseTitleInput');
+            if (caseTitleReset) {
+                caseTitleReset.value = 'Republic vs ';
+                delete caseTitleReset.dataset.userEdited;
+            }
             const mInput = document.getElementById('newArrestedMarital');
             if (mInput) mInput.value = '';
             const mLabel = document.getElementById('selectedMaritalLabel');
@@ -9857,7 +9728,7 @@
             const isDrugCase = {{ !empty($isDrugCase) ? 'true' : 'false' }};
             const labSec = document.getElementById('labAnalysisExclusiveSections');
             if (labSec) {
-                if (isLabUser && isDrugCase) {
+                if (isLabUser || isDrugCase) {
                     labSec.classList.remove('hidden');
                 } else {
                     labSec.classList.add('hidden');
@@ -10469,6 +10340,41 @@
         document.addEventListener('DOMContentLoaded', function() {
             restoreDocketFormDraft();
 
+            // Setup Case Title default "Republic vs " & cursor helper
+            const caseTitleEl = document.getElementById('caseTitleInput');
+            if (caseTitleEl) {
+                if (!caseTitleEl.value || caseTitleEl.value.trim() === '') {
+                    caseTitleEl.value = 'Republic vs ';
+                }
+                const setCursorToEnd = function() {
+                    if (caseTitleEl.value === 'Republic vs ' || caseTitleEl.value.trim() === 'Republic vs') {
+                        const len = caseTitleEl.value.length;
+                        caseTitleEl.setSelectionRange(len, len);
+                    }
+                };
+                caseTitleEl.addEventListener('focus', function() {
+                    setTimeout(setCursorToEnd, 10);
+                });
+                caseTitleEl.addEventListener('click', function() {
+                    if (caseTitleEl.value === 'Republic vs ' || caseTitleEl.value.trim() === 'Republic vs') {
+                        setCursorToEnd();
+                    }
+                });
+            }
+
+            const suspectNameEl = document.getElementById('newArrestedName');
+            if (suspectNameEl && caseTitleEl) {
+                suspectNameEl.addEventListener('input', function() {
+                    if (caseTitleEl.dataset.userEdited !== 'true') {
+                        const sVal = this.value.trim();
+                        caseTitleEl.value = sVal ? `Republic vs ${sVal}` : 'Republic vs ';
+                    }
+                });
+                caseTitleEl.addEventListener('input', function() {
+                    caseTitleEl.dataset.userEdited = 'true';
+                });
+            }
+
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality
             if (document.getElementById('caseEntryTypeSelect')) {
                 document.getElementById('caseEntryTypeSelect').value = '';
@@ -11017,14 +10923,9 @@
                     }
                 }
 
-                let optionText = displayName;
-                if (qty || weight) optionText +=
-                    ` — ${qty ? qty + ' ' + (pkg || 'qty') : ''}${weight ? ' ' + weight + ' ' + (unit || '') : ''}`;
-                if (owner) optionText += ` (Owner: ${owner})`;
-
                 const opt = document.createElement('option');
                 opt.value = itemNum.toString();
-                opt.innerText = optionText;
+                opt.innerText = displayName;
                 opt.setAttribute('data-name', displayName);
                 opt.setAttribute('data-cat', cat);
                 opt.setAttribute('data-qty', qty);
@@ -11057,7 +10958,7 @@
             const placeholderOpt = document.createElement('option');
             placeholderOpt.value = '';
             placeholderOpt.innerText = 'Select Seized Exhibit (Manifest Sync)...';
-            selectEl.insertBefore(placeholderOpt, selectEl.firstChild);
+            // placeholderOpt omitted (show only selected drug exhibits)
 
             if (labSec) {
                 if (isLabUser) {
@@ -11073,8 +10974,8 @@
 
             if (currentVal && selectEl.querySelector(`option[value="${currentVal}"]`)) {
                 selectEl.value = currentVal;
-            } else {
-                selectEl.value = '';
+            } else if (selectEl.options.length > 0) {
+                selectEl.options[0].selected = true;
             }
 
             onLabExhibitSelected();

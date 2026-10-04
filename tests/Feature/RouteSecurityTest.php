@@ -24,14 +24,14 @@ class RouteSecurityTest extends TestCase
     public function protected_case_directory_redirects_unauthenticated_users()
     {
         $response = $this->get('/cases');
-        $response->assertRedirect('/');
+        $response->assertRedirect('/login');
     }
 
     #[Test]
     public function protected_examination_log_redirects_unauthenticated_users()
     {
         $response = $this->get('/Lab_Analysis/examination');
-        $response->assertRedirect('/');
+        $response->assertRedirect('/login');
     }
 
     #[Test]

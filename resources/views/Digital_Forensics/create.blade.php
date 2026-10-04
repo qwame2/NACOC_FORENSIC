@@ -256,7 +256,8 @@
                                     <input 
                                         type="text" 
                                         id="caseTitleInput" 
-                                        placeholder="e.g. Republic Vs Atto &amp; Ors" 
+                                        value="Republic vs "
+                                        placeholder="e.g. Republic vs Atto &amp; Ors" 
                                         required 
                                         class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal"
                                     >
@@ -649,7 +650,7 @@
                             <div id="suspectCard-1" class="space-y-6">
 
                         <!-- SUB-HEADER 3A: LEGAL IDENTITY -->
-                        <div class="space-y-4 relative z-30">
+                        <div class="space-y-5 relative z-30">
                             <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
                                 <span>3A. Legal Identity</span>
@@ -684,8 +685,8 @@
                                 </div>
                             </div>
 
-                            <!-- ROW 1: REF (READONLY), FULL NAME, ALIAS -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <!-- ROW 1: PRIMARY IDENTITY & NAME (3 COLS) -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10">
                                 
                                 <!-- RAID INCIDENT REFERENCE (READONLY) -->
                                 <div>
@@ -728,8 +729,8 @@
                                 </div>
                             </div>
 
-                            <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
+                            <!-- ROW 2: IDENTIFICATION, DEMOGRAPHICS & BIOMETRICS (3 COLS) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 relative z-40">
                                 
                                 <!-- GHANA CARD # -->
                                 <div>
@@ -806,11 +807,7 @@
                                         <input type="number" id="newArrestedAge" value="" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
-                                
                                 <!-- HEIGHT -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -843,6 +840,10 @@
                                         <input type="text" id="newArrestedEyeColor" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- ROW 3: ORIGIN & RESIDENTIAL ADDRESS (3 COLS) -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                                 
                                 <!-- CUSTOM NATIONALITY DROPDOWN (MATCHING GENDER DROPDOWN DESIGN) -->
                                 <div class="relative z-30">
@@ -964,12 +965,8 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- ROW 3: PLACE OF BIRTH, CONTACT PHONE NUMBER, RESIDENTIAL ADDRESS -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                
-                                <!-- PLACE OF BIRTH (NEW) -->
+                                <!-- PLACE OF BIRTH -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                         Place of Birth <span class="text-red-600 font-bold">*</span>
@@ -982,20 +979,7 @@
                                     </div>
                                 </div>
 
-                                <!-- CONTACT PHONE NUMBER (NEW) -->
-                                <div>
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <div class="relative flex items-center group">
-                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                        </span>
-                                        <input type="text" id="newArrestedPhone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                                    </div>
-                                </div>
-
-                                <!-- RESIDENTIAL ADDRESS (NEW) -->
+                                <!-- RESIDENTIAL ADDRESS / GPS -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                         Residential Address / GPS <span class="text-red-600 font-bold">*</span>
@@ -1007,7 +991,11 @@
                                         <input type="text" id="newArrestedAddress" placeholder="e.g. H/No 14 East Legon, Accra (GA-142-8809)" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
+                            </div>
 
+                            <!-- ROW 4: CONTACT PHONE NUMBERS CONTAINER (DEDICATED FULL WIDTH CARD) -->
+                            <div class="relative z-10 pt-1">
+                                @include('partials.suspect-phone-input', ['unit' => 'digital_forensics'])
                             </div>
                         </div>
 
@@ -1264,7 +1252,7 @@
                                 </div>
                             <div>
                                 <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures (Commodities)</h3>
-                                <p class="text-xs text-slate-500">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
+                                <p class="text-xs text-slate-500">Record illicit substance types, street valuation, and evidence vault allocation</p>
                             </div>
                         </div>
                         <div class="flex items-center space-x-2 shrink-0">
@@ -1295,7 +1283,7 @@
                                         </div>
                                         <div>
                                             <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Seized Commodities &amp; Contraband Manifest</h4>
-                                            <p class="text-[11px] text-black">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
+                                            <p class="text-[11px] text-black">Record illicit substance types, street valuation, and evidence vault allocation</p>
                                         </div>
                                     </div>
                                     <div class="flex items-center space-x-2">
@@ -1357,6 +1345,7 @@
                                                 <input
                                                     type="text"
                                                     id="exhibitSearchInput"
+                                                    value="Electronic Devices"
                                                     placeholder="Select or type exhibit category..."
                                                     autocomplete="off"
                                                     class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
@@ -1364,59 +1353,17 @@
                                                     oninput="filterExhibitList(this)"
                                                     onfocus="openExhibitListPanel(this)"
                                                 >
-                                                <input type="hidden" id="newSeizureCategory" value="">
+                                                <input type="hidden" id="newSeizureCategory" value="Electronic Devices">
                                             </div>
                                             <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden" style="z-index: 9999;">
                                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
                                                     <input type="text" id="exhibitSearchInner" placeholder="Type to filter categories..." oninput="filterExhibitListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
                                                 </div>
                                                 <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Drugs', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Drugs</div><div class="text-[10px] text-slate-500 font-normal">Narcotics, Synthetics, Opioids</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-emerald-50 text-black px-2 py-0.5 rounded font-bold">DRG</span>
-                                                        </button>
-                                                    </li>
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Money', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Money</div><div class="text-[10px] text-slate-500 font-normal">Cash, Foreign Currencies, Laundering</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">CASH</span>
-                                                        </button>
-                                                    </li>
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Gold', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Gold</div><div class="text-[10px] text-slate-500 font-normal">Bullion, Bars, Smuggled Metals</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
-                                                        </button>
-                                                    </li>
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Vehicles', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Vehicles</div><div class="text-[10px] text-slate-500 font-normal">Automobiles, Vessels, Trucks</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">VEH</span>
-                                                        </button>
-                                                    </li>
                                                     <li class="exhibit-item" onclick="selectExhibitCategory('Electronic Devices', event)">
                                                         <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
                                                             <div><div class="font-extrabold text-slate-900">Electronic Devices</div><div class="text-[10px] text-slate-500 font-normal">Phones, Encrypted Laptops, Drives</div></div>
                                                             <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">ELEC</span>
-                                                        </button>
-                                                    </li>
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Weapons', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Weapons</div><div class="text-[10px] text-slate-500 font-normal">Firearms, Handguns, Blades</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">WPN</span>
-                                                        </button>
-                                                    </li>
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Ammunition', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Ammunition</div><div class="text-[10px] text-slate-500 font-normal">Bullets, Cartridges, Explosives</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-2 py-0.5 rounded font-bold">AMMO</span>
-                                                        </button>
-                                                    </li>
-                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Other Exhibits', event)">
-                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                            <div><div class="font-extrabold text-slate-900">Other Exhibits</div><div class="text-[10px] text-slate-500 font-normal">Hardware, Miscellaneous Devices</div></div>
-                                                            <span class="text-[10px] font-mono-code bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">MISC</span>
                                                         </button>
                                                     </li>
                                                 </ul>
@@ -2115,134 +2062,6 @@
                                         <div class="relative flex items-center group">
                                             <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">₵</span>
                                             <input type="text" id="newSeizureValue" placeholder="e.g. GHS 1,500,000 / $120,000" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-
-                                    <!-- QUANTITY, PACKAGING TYPE, WEIGHT & UNIT METRICS PANEL -->
-                                    <div class="col-span-full bg-white/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
-                                        <div class="flex items-center space-x-2 text-slate-800">
-                                            <div class="w-6 h-6 rounded-md bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                                            </div>
-                                            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Seizure Quantification &amp; Packaging Metrics</span>
-                                        </div>
-                                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                                            <!-- 1. QUANTITY -->
-                                            <div>
-                                                <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity</label>
-                                                <div class="relative flex items-center group">
-                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                    <input type="number" step="0.01" id="newSeizureQuantity" placeholder="e.g. 10" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                </div>
-                                            </div>
-
-                                            <!-- 2. PACKAGING TYPE -->
-                                            <div class="relative z-30">
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging Type</label>
-                                                <div id="packagingSelectWrapper" class="relative">
-                                                    <div class="relative">
-                                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                                                        </span>
-                                                        <input
-                                                            type="text"
-                                                            id="pkgSearchInput"
-                                                            placeholder="Select or type packaging..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
-                                                            onclick="openPkgListPanel(this)"
-                                                            oninput="filterPackagingList(this)"
-                                                            onfocus="openPkgListPanel(this)"
-                                                        >
-                                                        <input type="hidden" id="newSeizurePackaging" value="">
-                                                    </div>
-                                                    <div id="pkgListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
-                                                        <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="pkgSearchInner" placeholder="Type to filter packaging..." oninput="filterPackagingListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="pkgList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <li class="pkg-item" onclick="selectPackagingType('Slabs', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Slabs</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SLB</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Blocks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLK</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Bundles', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bundles</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BDL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Sacks', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Sacks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">SCK</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Cartons', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cartons</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTN</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Boxes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Boxes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BOX</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Rounds', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rounds</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RND</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Magazines', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magazines</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">MAG</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Pieces', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pieces</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCS</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Units', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Units</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">UNT</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Wraps', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wraps</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">WRP</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Rolls', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Rolls</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">RLL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Capsules', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Capsules</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CAP</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Tablets', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">TAB</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Bags', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bags</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BAG</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Pouches', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pouches</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCH</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Drums', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drums</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">DRM</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Barrels', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Barrels</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BRL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Vials', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Vials</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">VIL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Ampoules', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ampoules</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">AMP</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Bottles', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bottles</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BTL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Packets', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packets</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKT</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Envelopes', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Envelopes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">ENV</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Parcels', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Parcels</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PCL</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Packages', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Packages</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">PKG</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Bales', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Bales</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">BLE</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Jars', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Jars</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">JAR</span></button></li>
-                                                            <li class="pkg-item" onclick="selectPackagingType('Containers', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Containers</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">CTR</span></button></li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- 3. Weight -->
-                                            <div>
-                                                <label id="weightLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Weight</label>
-                                                <div class="relative flex items-center group">
-                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">⚖</span>
-                                                    <input type="number" step="0.01" id="newSeizureWeight" placeholder="e.g. 25.50" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                </div>
-                                            </div>
-
-                                            <!-- 4. MEASUREMENT UNIT -->
-                                            <div class="relative z-20">
-                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Measurement Unit</label>
-                                                <div id="unitSelectWrapper" class="relative">
-                                                    <div class="relative">
-                                                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                                        </span>
-                                                        <input
-                                                            type="text"
-                                                            id="unitSearchInput"
-                                                            placeholder="Select or type unit..."
-                                                            autocomplete="off"
-                                                            class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
-                                                            onclick="openUnitListPanel(this)"
-                                                            oninput="filterUnitList(this)"
-                                                            onfocus="openUnitListPanel(this)"
-                                                        >
-                                                        <input type="hidden" id="newSeizureUnit" value="">
-                                                    </div>
-                                                    <div id="unitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
-                                                        <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                            <input type="text" id="unitSearchInner" placeholder="Type to filter units..." oninput="filterUnitListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
-                                                        </div>
-                                                        <ul id="unitList" class="py-1.5 space-y-0.5 px-1.5">
-                                                            <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Weight &amp; Mass</li>
-                                                            <li class="unit-item" onclick="selectUnit('Kilograms (kg)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Kilograms</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">kg</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Grams (g)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Grams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">g</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Tonnes (t)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tonnes</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">t</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Milligrams (mg)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Milligrams</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mg</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Pounds (lbs)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Pounds</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">lbs</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Ounces (oz)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Ounces</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">oz</span></button></li>
-                                                            <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Volume &amp; Liquid</li>
-                                                            <li class="unit-item" onclick="selectUnit('Litres (L)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Litres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">L</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Millilitres (mL)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Millilitres</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">mL</span></button></li>
-                                                            <li class="unit-item" onclick="selectUnit('Gallons (gal)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gallons</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">gal</span></button></li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 
@@ -3991,8 +3810,8 @@
                         </div>
                     </div>
 
-                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
+                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE, HEIGHT, EYE COLOR -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 relative z-40">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Ghana Card #
@@ -4064,10 +3883,7 @@
                                 <input type="number" data-field="age" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                             </div>
                         </div>
-                    </div>
 
-                    <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Height (cm / ft-in)
@@ -4098,7 +3914,10 @@
                                 <input type="text" data-field="eye_color" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
+                    </div>
 
+                    <!-- ROW 3: NATIONALITY, PLACE OF BIRTH, RESIDENTIAL ADDRESS -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                         <!-- DYNAMIC CUSTOM NATIONALITY DROPDOWN -->
                         <div class="relative z-30">
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
@@ -4131,17 +3950,7 @@
                                 @endforeach
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
-                <div class="space-y-4 pt-2 relative z-20">
-                    <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Place of Birth <span class="text-red-600 font-bold">*</span>
@@ -4156,18 +3965,6 @@
 
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                </span>
-                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Residential Address / GPS <span class="text-red-600 font-bold">*</span>
                             </label>
                             <div class="relative flex items-center group">
@@ -4177,6 +3974,29 @@
                                 <input type="text" data-field="address" placeholder="e.g. H/No 14 East Legon, Accra (GA-142-8809)" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
+                    </div>
+
+                    <!-- ROW 4: CONTACT PHONE NUMBER(S) -->
+                    <div class="relative z-10 pt-1">
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                </span>
+                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
+                <div class="space-y-4 pt-2 relative z-20">
+                    <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-30">
@@ -4535,6 +4355,8 @@
                     nationality:      s1Nat,
                     pob:              s1POB,
                     phone:            s1Phone,
+                    phones:           typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
+                    additional_phones:typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
                     address:          s1Address,
                     marital_status:   s1Marital,
                     has_children:     s1HasKids,
@@ -4924,6 +4746,9 @@
             if (!validateSuspectDocketForm()) {
                 return;
             }
+            if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
+                return;
+            }
 
             const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
             const name = document.getElementById('newArrestedName')?.value?.trim() || '';
@@ -4949,7 +4774,9 @@
             const facility = document.getElementById('newArrestedFacility')?.value || 'NACOC Holding Cell';
             const caseTitleInput = document.getElementById('caseTitleInput')?.value;
 
-            const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' ? caseTitleInput.trim() : `Republic Vs ${name}`;
+            const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
+                ? caseTitleInput.trim()
+                : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
             const caseRef = 'CSS-2026-' + Math.floor(1000 + Math.random() * 9000);
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
@@ -4996,14 +4823,14 @@
                     const genName = block.querySelector('#newSeizureName')?.value || '';
 
                     const seizureName = drugName || wpnName || currName || ammoName || devName || genName || '';
-                    const seizureQty = block.querySelector('#newSeizureQuantity')?.value || '';
-                    const seizurePackaging = block.querySelector('#pkgSearchInput')?.value || block.querySelector('#newSeizurePackaging')?.value || '';
-                    const seizureWeight = block.querySelector('#newSeizureWeight')?.value || '';
-                    const seizureUnit = block.querySelector('#unitSearchInput')?.value || block.querySelector('#newSeizureUnit')?.value || '';
+                    const seizureQty = '';
+                    const seizurePackaging = '';
+                    const seizureWeight = '';
+                    const seizureUnit = '';
                     const seizureValue = block.querySelector('#newSeizureValue')?.value || '';
 
                     // Skip empty seizure block if no category, name, or metric was entered
-                    if (!rawExhibitCat && !seizureName && !seizureQty && !seizureWeight && !seizureValue) {
+                    if (!rawExhibitCat && !seizureName && !seizureValue) {
                         return;
                     }
 
@@ -5249,6 +5076,7 @@
                 eye_color: eyeColor,
                 pob: pob,
                 phone: phone,
+                phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
                 address: address,
                 marital_status: marital,
                 spouse_summary: spouseSummary,
@@ -5320,6 +5148,9 @@
                     nationality: document.getElementById('nationalitySelect')?.value || document.getElementById('newArrestedNationality')?.value || 'Ghanaian',
                     pob: pob,
                     phone: phone,
+                    additional_phones: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
+                    additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
+                    phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
                     address: address,
 
                     // Family & Marital
@@ -5548,6 +5379,7 @@
             };
 
             draft['_seizedExhibitDataUrls'] = seizedExhibitDataUrls;
+            draft['_additionalPhonesList'] = typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [];
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -5633,6 +5465,18 @@
 
                 calculateAgeFromDOB();
 
+                if (draft['_additionalPhonesList'] && Array.isArray(draft['_additionalPhonesList'])) {
+                    const phoneListEl = document.getElementById('suspectPhonesList');
+                    if (phoneListEl) {
+                        phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
+                        draft['_additionalPhonesList'].forEach(item => {
+                            if (typeof addSuspectPhoneRow === 'function') {
+                                addSuspectPhoneRow(item.label, item.number);
+                            }
+                        });
+                    }
+                }
+
                 if (restoredCount > 0) {
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
@@ -5650,12 +5494,21 @@
 
         function clearDocketFormDraftAndReset() {
             clearDocketFormDraft();
+            const phoneListEl = document.getElementById('suspectPhonesList');
+            if (phoneListEl) {
+                phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
+            }
             seizedExhibitDataUrls = [];
             renderSeizurePhotosGrid();
             const notice = document.getElementById('docketDraftNotice');
             if (notice) notice.classList.add('hidden');
             const form = document.querySelector('form');
             if (form) form.reset();
+            const caseTitleReset = document.getElementById('caseTitleInput');
+            if (caseTitleReset) {
+                caseTitleReset.value = 'Republic vs ';
+                delete caseTitleReset.dataset.userEdited;
+            }
             const mInput = document.getElementById('newArrestedMarital');
             if (mInput) mInput.value = '';
             const mLabel = document.getElementById('selectedMaritalLabel');
@@ -6309,7 +6162,17 @@
             if (ammoFieldsWrapper) ammoFieldsWrapper.classList.add('hidden');
 
             const commodityTextWrapper = clone.querySelector('#commodityTextWrapper');
-            if (commodityTextWrapper) commodityTextWrapper.classList.remove('hidden');
+            if (commodityTextWrapper) commodityTextWrapper.classList.add('hidden');
+            if (deviceWrapper) deviceWrapper.classList.remove('hidden');
+            if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
+
+            const categoryInput = clone.querySelector('#newSeizureCategory');
+            const categoryDisplay = clone.querySelector('#exhibitSearchInput');
+            if (categoryInput) categoryInput.value = 'Electronic Devices';
+            if (categoryDisplay) categoryDisplay.value = 'Electronic Devices';
+            if (typeof updateCommodityField === 'function') {
+                updateCommodityField('Electronic Devices', clone);
+            }
 
             container.appendChild(clone);
             updateSeizureBlockNumbers();
@@ -6660,7 +6523,6 @@
             const currencySearch  = root.querySelector('#currencySearchInput');
             const ammoSearch      = root.querySelector('#ammoSearchInput');
             const deviceSearch    = root.querySelector('#deviceSearchInput');
-            const quantityLabel   = root.querySelector('#quantityLabel');
 
             // Hide all first
             if (textWrapper)         textWrapper.classList.add('hidden');
@@ -6687,25 +6549,20 @@
             });
 
             if (category === 'Drugs') {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (drugWrapper) drugWrapper.classList.remove('hidden');
                 if (drugSearch)  { drugSearch.setAttribute('required', 'required'); drugSearch.placeholder = 'Select or type custom drug name...'; }
             } else if (category === 'Weapons') {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (weaponWrapper) weaponWrapper.classList.remove('hidden');
                 if (weaponFieldsWrapper) weaponFieldsWrapper.classList.remove('hidden');
                 if (weaponSearch)  { weaponSearch.setAttribute('required', 'required'); weaponSearch.placeholder = 'Select or type custom weapon type...'; }
             } else if (category === 'Money') {
-                if (quantityLabel) quantityLabel.innerText = 'Amount';
                 if (currencyWrapper) currencyWrapper.classList.remove('hidden');
                 if (currencySearch)  { currencySearch.setAttribute('required', 'required'); currencySearch.placeholder = 'Select or type custom currency...'; }
             } else if (category === 'Ammunition') {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';
                 if (ammoWrapper) ammoWrapper.classList.remove('hidden');
                 if (ammoFieldsWrapper) ammoFieldsWrapper.classList.remove('hidden');
                 if (ammoSearch)  { ammoSearch.setAttribute('required', 'required'); ammoSearch.placeholder = 'Select or type custom ammunition type...'; }
             } else if (category === 'Electronic Devices') {
-                if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
                 if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
                 if (deviceSearch)  { deviceSearch.setAttribute('required', 'required'); deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
@@ -7319,6 +7176,49 @@
         document.addEventListener('DOMContentLoaded', function() {
             restoreDocketFormDraft();
 
+            const sCatIn = document.getElementById('newSeizureCategory');
+            const sCatDis = document.getElementById('exhibitSearchInput');
+            if (sCatIn && (!sCatIn.value || sCatIn.value === '')) sCatIn.value = 'Electronic Devices';
+            if (sCatDis && (!sCatDis.value || sCatDis.value === '')) sCatDis.value = 'Electronic Devices';
+            if (typeof updateCommodityField === 'function') {
+                updateCommodityField('Electronic Devices');
+            }
+
+            // Setup Case Title default "Republic vs " & cursor helper
+            const caseTitleEl = document.getElementById('caseTitleInput');
+            if (caseTitleEl) {
+                if (!caseTitleEl.value || caseTitleEl.value.trim() === '') {
+                    caseTitleEl.value = 'Republic vs ';
+                }
+                const setCursorToEnd = function() {
+                    if (caseTitleEl.value === 'Republic vs ' || caseTitleEl.value.trim() === 'Republic vs') {
+                        const len = caseTitleEl.value.length;
+                        caseTitleEl.setSelectionRange(len, len);
+                    }
+                };
+                caseTitleEl.addEventListener('focus', function() {
+                    setTimeout(setCursorToEnd, 10);
+                });
+                caseTitleEl.addEventListener('click', function() {
+                    if (caseTitleEl.value === 'Republic vs ' || caseTitleEl.value.trim() === 'Republic vs') {
+                        setCursorToEnd();
+                    }
+                });
+            }
+
+            const suspectNameEl = document.getElementById('newArrestedName');
+            if (suspectNameEl && caseTitleEl) {
+                suspectNameEl.addEventListener('input', function() {
+                    if (caseTitleEl.dataset.userEdited !== 'true') {
+                        const sVal = this.value.trim();
+                        caseTitleEl.value = sVal ? `Republic vs ${sVal}` : 'Republic vs ';
+                    }
+                });
+                caseTitleEl.addEventListener('input', function() {
+                    caseTitleEl.dataset.userEdited = 'true';
+                });
+            }
+
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality
             if (document.getElementById('caseEntryTypeSelect')) {
                 document.getElementById('caseEntryTypeSelect').value = '';
@@ -7805,10 +7705,10 @@
                            block.querySelector('#currencySearchInput')?.value || 
                            '';
 
-                const qty = block.querySelector('#newSeizureQuantity')?.value || '';
-                const pkg = block.querySelector('#newSeizurePackaging')?.value || block.querySelector('#pkgSearchInput')?.value || '';
-                const weight = block.querySelector('#newSeizureWeight')?.value || '';
-                const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value || '';
+                const qty = '';
+                const pkg = '';
+                const weight = '';
+                const unit = '';
                 const reason = block.querySelector('#newSeizureReason')?.value || '';
                 const owner = block.querySelector('#newSeizureAssociatedPerson')?.value || '';
 
@@ -7825,7 +7725,6 @@
                 }
 
                 let optionText = displayName;
-                if (qty || weight) optionText += ` — ${qty ? qty + ' ' + (pkg || 'qty') : ''}${weight ? ' ' + weight + ' ' + (unit || '') : ''}`;
                 if (owner) optionText += ` (Owner: ${owner})`;
 
                 const opt = document.createElement('option');

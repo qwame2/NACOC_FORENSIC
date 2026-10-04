@@ -109,6 +109,7 @@
                                     <th class="py-3.5 px-5">Case #</th>
                                     <th class="py-3.5 px-5">Title</th>
                                     <th class="py-3.5 px-5">Suspect Name</th>
+                                    <th class="py-3.5 px-5">Suspect Disposition</th>
                                     <th class="py-3.5 px-5">Status</th>
                                     <th class="py-3.5 px-5 text-right">Actions</th>
                                 </tr>
@@ -119,6 +120,34 @@
                                     <td class="py-3.5 px-5 font-bold font-mono-code text-purple-700">{{ $c->case_number }}</td>
                                     <td class="py-3.5 px-5 font-semibold text-slate-900">{{ $c->title }}</td>
                                     <td class="py-3.5 px-5 text-slate-600">{{ $c->suspect_name ?? 'N/A' }}</td>
+                                    <td class="py-3.5 px-5 whitespace-nowrap">
+                                        @php
+                                            $sDispListDfu = $c->getSuspectsList();
+                                        @endphp
+                                        <div class="space-y-1">
+                                            @foreach ($sDispListDfu as $sObj)
+                                                @php
+                                                    $dispVal = $sObj['suspect_disposition'] ?? 'Active — Under Investigation';
+                                                    $dispReason = $sObj['disposition_reason'] ?? '';
+                                                    $dispBadge = match (true) {
+                                                        str_contains($dispVal, 'Cleared') => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                                                        str_contains($dispVal, 'Released') => 'bg-blue-100 text-blue-800 border-blue-300',
+                                                        str_contains($dispVal, 'Reclassified') => 'bg-purple-100 text-purple-800 border-purple-300',
+                                                        str_contains($dispVal, 'Referred') => 'bg-amber-100 text-amber-800 border-amber-300',
+                                                        default => 'bg-slate-100 text-slate-700 border-slate-300',
+                                                    };
+                                                @endphp
+                                                <div class="flex items-center gap-1.5" title="{{ !empty($dispReason) ? 'Reason: ' . $dispReason : $dispVal }}">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[9.5px] font-bold font-mono-code border {{ $dispBadge }}">
+                                                        @if (count($sDispListDfu) > 1)
+                                                            <span class="font-extrabold text-slate-900 mr-1">{{ $sObj['suspect_name'] }}:</span>
+                                                        @endif
+                                                        {{ $dispVal }}
+                                                    </span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </td>
                                     <td class="py-3.5 px-5">
                                         <span class="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono-code bg-purple-50 text-purple-700 border border-purple-200">{{ $c->status }}</span>
                                     </td>
@@ -128,7 +157,7 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="5" class="py-6 text-center text-slate-400 font-semibold">No digital forensics cases registered yet.</td>
+                                    <td colspan="6" class="py-6 text-center text-slate-400 font-semibold">No digital forensics cases registered yet.</td>
                                 </tr>
                                 @endforelse
                             </tbody>

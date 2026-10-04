@@ -287,12 +287,14 @@
                                         <!-- TITLE & SUSPECT -->
                                         <td class="py-3.5 px-4 max-w-xs">
                                             <div class="font-extrabold text-slate-900 text-xs truncate" title="{{ $c->title }}">{{ $c->title }}</div>
+                                            @php
+                                                $allSuspectNamesHist = !empty($dData['suspects']) && is_array($dData['suspects'])
+                                                    ? implode(', ', array_filter(array_column($dData['suspects'], 'suspect_name')))
+                                                    : ($c->suspect_name ?: 'N/A');
+                                            @endphp
                                             <div class="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                                                 <span class="font-bold text-slate-700">Suspect:</span>
-                                                <span class="truncate max-w-[150px]">{{ $c->suspect_name }}</span>
-                                                @if($sSuspects > 1)
-                                                    <span class="px-1.5 py-0.2 bg-slate-100 text-slate-700 font-mono-code text-[9px] rounded font-extrabold">+{{ $sSuspects - 1 }} More</span>
-                                                @endif
+                                                <span class="truncate max-w-[220px]" title="{{ $allSuspectNamesHist }}">{{ $allSuspectNamesHist }}</span>
                                             </div>
                                         </td>
 

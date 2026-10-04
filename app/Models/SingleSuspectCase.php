@@ -32,6 +32,7 @@ class SingleSuspectCase extends Model
         'nationality',
         'pob',
         'phone',
+        'phones',
         'address',
         'marital_status',
         'has_children',
@@ -70,6 +71,7 @@ class SingleSuspectCase extends Model
     protected $casts = [
         'extra_mugshots' => 'array',
         'has_children'   => 'boolean',
+        'phones'         => 'array',
     ];
 
     public function user()

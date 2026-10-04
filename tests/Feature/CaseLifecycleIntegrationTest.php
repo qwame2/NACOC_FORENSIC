@@ -824,9 +824,9 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertStringContainsString('CSS-2026-DRUG01', $html);
         $this->assertStringContainsString('Eric Mensah', $html);
 
-        // Unified directory also displays non-drug weapon case
-        $this->assertStringContainsString('CSS-2026-GUN01', $html);
-        $this->assertStringContainsString('James Bond', $html);
+        // Non-drug cases (weapons, digital forensics) are strictly excluded from drug directory
+        $this->assertStringNotContainsString('CSS-2026-GUN01', $html);
+        $this->assertStringNotContainsString('James Bond', $html);
     }
 
     #[Test]
@@ -886,5 +886,101 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertStringContainsString('Diacetylmorphine (Heroin)', $reviewHtml);
         $this->assertStringContainsString('Gas Chromatography-Mass Spectrometry (GC-MS)', $reviewHtml);
     }
+
+    #[Test]
+    public function lab_certificate_page_shows_laboratory_examination_result_of_suspect()
+    {
+        $user = User::factory()->head()->create();
+        $case = ForensicCase::create([
+            'case_number' => 'CERT-2026-9001',
+            'title' => 'Republic vs Ben Adu',
+            'suspect_name' => 'Ben Adu',
+            'unit_name' => 'Lab Analysis',
+            'exhibit_category' => 'Drugs',
+            'seizure_name_drug' => 'Cocaine Hydrochloride',
+            'exhibits_summary' => '12.5 Kilograms (kg)',
+            'status' => 'Under Multi-Unit Processing',
+            'docket_data' => [
+                'laboratory_number' => 'Lab No. 99/FS01/2026',
+                'suspects' => [
+                    ['suspect_name' => 'Ben Adu', 'suspect_alias' => 'Kofi Ghana', 'ghana_card' => 'GHA-78920194-2', 'gender' => 'Male', 'role' => 'Primary Suspect']
+                ],
+                'lab_examination' => [
+                    'has_saved' => true,
+                    'exam_reference' => 'GSA-FM-T99-F',
+                    'exhibit_number' => 'EXH-01',
+                    'laboratory_number' => 'Lab No. 99/FS01/2026',
+                    'analyst' => 'Dr. E. Quaye',
+                    'date_received' => '2026-10-01',
+                    'date_started' => '2026-10-01',
+                    'date_completed' => '2026-10-01',
+                    'presumptive_result' => 'YES (Presence of: Cocaine - Purity/Percentage: 88%)',
+                    'confirmatory_result' => 'YES',
+                    'substance_identification' => 'Cocaine Hydrochloride',
+                    'specifications' => 'Schedule II Controlled Substance',
+                    'remark' => 'High purity sample verified under GC-MS analysis.',
+                ]
+            ]
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/certificate/' . $case->case_number);
+        $response->assertStatus(200);
+        $html = $response->getContent();
+
+        $this->assertStringContainsString('3. LABORATORY EXAMINATION RESULT OF THE SUSPECT', $html);
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — BEN ADU', $html);
+        $this->assertStringContainsString('GSA-FM-T99-F', $html);
+        $this->assertStringContainsString('Cocaine Hydrochloride', $html);
+        $this->assertStringContainsString('High purity sample verified under GC-MS analysis.', $html);
+    }
+
+    #[Test]
+    public function lab_analytical_page_shows_laboratory_examination_result_and_report_dropdown()
+    {
+        $user = User::factory()->head()->create();
+        $case = ForensicCase::create([
+            'case_number' => 'CSS-2026-6730',
+            'title' => 'Republic vs Kojo Adu',
+            'suspect_name' => 'Kojo Adu',
+            'unit_name' => 'Lab Analysis',
+            'exhibit_category' => 'Drugs',
+            'seizure_name_drug' => 'Heroin (Brown Sugar / Diacetylmorphine)',
+            'exhibits_summary' => '90 Kilograms (kg)',
+            'status' => 'Under Multi-Unit Processing',
+            'docket_data' => [
+                'laboratory_number' => 'Lab No. 41/FS09/2026',
+                'suspects' => [
+                    ['suspect_name' => 'Kojo Adu', 'suspect_alias' => 'Kofi Ghana', 'ghana_card' => 'GHA-78920194-2', 'gender' => 'Male', 'role' => 'Primary Suspect']
+                ],
+                'lab_examination' => [
+                    'has_saved' => true,
+                    'exam_reference' => 'GSA-FM-T51-F',
+                    'exhibit_number' => '1',
+                    'laboratory_number' => 'Lab No. 41/FS09/2026',
+                    'analyst' => 'John Mensah',
+                    'date_received' => '2026-09-29',
+                    'date_started' => '2026-09-29',
+                    'date_completed' => '2026-09-30',
+                    'presumptive_result' => 'YES (Presence of: Colorimetric Reaction - Purity/Percentage: Heroin (Brown Sugar / Diacetylmorphine))',
+                    'confirmatory_result' => 'YES',
+                    'substance_identification' => 'Heroin (Brown Sugar / Diacetylmorphine)',
+                    'specifications' => 'GFGJFGKFGFJ',
+                    'remark' => 'GFJGFGJFKGHGKHGKYGYG',
+                    'findings' => 'Submitted via Laboratory Analysis & Case Registration Workspace'
+                ]
+            ]
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/analytical/' . $case->case_number);
+        $response->assertStatus(200);
+        $html = $response->getContent();
+
+        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT', $html);
+        $this->assertStringContainsString('GSA-FM-T51-F', $html);
+        $this->assertStringContainsString('Heroin (Brown Sugar / Diacetylmorphine)', $html);
+        $this->assertStringContainsString('GSA Report', $html);
+        $this->assertStringContainsString('NLR Report', $html);
+    }
 }
+
 

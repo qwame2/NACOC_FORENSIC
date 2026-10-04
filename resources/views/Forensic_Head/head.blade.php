@@ -1624,27 +1624,47 @@
         }
     }
 
-    /* ── Toast Notification ──────────────────────── */
+    /* ── Toast Notification (Bootstrap Design) ──────────────────────── */
     function showToast(msg) {
-        const t = document.createElement('div');
-        t.textContent = msg;
-        Object.assign(t.style, {
-            position: 'fixed', bottom: '24px', right: '24px', zIndex: '9999',
-            background: 'linear-gradient(135deg, #0e1829, #0d1e3a)',
-            border: '1px solid rgba(59,130,246,0.35)',
-            color: '#93c5fd', padding: '12px 18px', borderRadius: '12px',
-            fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", fontWeight: '600',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 0 20px rgba(59,130,246,0.15)',
-            maxWidth: '400px', lineHeight: '1.5',
-            transform: 'translateY(20px)', opacity: '0',
-            transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-        });
-        document.body.appendChild(t);
-        requestAnimationFrame(() => { t.style.transform = 'translateY(0)'; t.style.opacity = '1'; });
+        let container = document.getElementById('bsToastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'bsToastContainer';
+            container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            container.style.zIndex = '999999';
+            document.body.appendChild(container);
+        }
+
+        const isError = msg.includes('❌') || msg.toLowerCase().includes('error') || msg.toLowerCase().includes('cannot') || msg.toLowerCase().includes('failed');
+        const isSuccess = msg.includes('✔') || msg.toLowerCase().includes('success');
+
+        let bgClass = 'bg-dark';
+        if (isError) bgClass = 'bg-danger';
+        else if (isSuccess) bgClass = 'bg-success';
+
+        const toastEl = document.createElement('div');
+        toastEl.className = `toast align-items-center text-white ${bgClass} border-0 shadow-lg mb-2 show fade`;
+        toastEl.setAttribute('role', 'alert');
+        toastEl.setAttribute('aria-live', 'assertive');
+        toastEl.setAttribute('aria-atomic', 'true');
+
+        toastEl.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="toast-body font-monospace text-xs py-2.5 px-3" style="font-size: 13px; line-height: 1.4;">
+                    ${msg}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button>
+            </div>
+        `;
+
+        container.appendChild(toastEl);
+
         setTimeout(() => {
-            t.style.transform = 'translateY(10px)'; t.style.opacity = '0';
-            setTimeout(() => t.remove(), 400);
-        }, 4000);
+            if (toastEl.parentNode) {
+                toastEl.classList.remove('show');
+                setTimeout(() => toastEl.remove(), 300);
+            }
+        }, 4500);
     }
 
     /* ── Ctrl + K Search ─────────────────────────── */

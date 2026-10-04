@@ -1021,6 +1021,44 @@
                 $sNat   = $sItem['nationality'] ?? ($sNum == 1 ? ($case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')) : 'Ghanaian');
                 $sPOB   = $sItem['place_of_birth'] ?? ($sItem['hometown'] ?? ($sItem['pob'] ?? ($sNum == 1 ? ($case->pob ?? ($docketData['pob'] ?? 'N/A')) : 'N/A')));
                 $sPhone = $sItem['phone_number'] ?? ($sItem['contact_phone'] ?? ($sItem['phone'] ?? ($sNum == 1 ? ($case->phone ?? ($docketData['phone'] ?? 'N/A')) : 'N/A')));
+                $rawPhones = $sItem['phones'] ?? ($sItem['additional_phones'] ?? ($sNum == 1 ? ($case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? []))) : []));
+                if (is_string($rawPhones)) {
+                    $rawPhones = json_decode($rawPhones, true) ?: [];
+                }
+                $sPhones = [];
+                if (is_array($rawPhones)) {
+                    foreach ($rawPhones as $rItem) {
+                        if (is_array($rItem)) {
+                            $rNum = trim((string)($rItem['number'] ?? ($rItem['phone'] ?? '')));
+                            if ($rNum !== '') {
+                                $sPhones[] = [
+                                    'label'  => trim((string)($rItem['label'] ?? 'Alternate')) ?: 'Alternate',
+                                    'number' => $rNum,
+                                ];
+                            }
+                        } elseif (is_string($rItem) && trim($rItem) !== '') {
+                            $sPhones[] = [
+                                'label'  => 'Alternate',
+                                'number' => trim($rItem),
+                            ];
+                        }
+                    }
+                }
+                if (!empty($sPhone) && $sPhone !== 'N/A') {
+                    $hasPrim = false;
+                    foreach ($sPhones as $spEntry) {
+                        if ($spEntry['number'] === $sPhone) {
+                            $hasPrim = true;
+                            break;
+                        }
+                    }
+                    if (!$hasPrim) {
+                        array_unshift($sPhones, [
+                            'label'  => 'Primary',
+                            'number' => $sPhone,
+                        ]);
+                    }
+                }
                 $sAddr  = $sItem['residential_address'] ?? ($sItem['address'] ?? ($sNum == 1 ? ($case->address ?? ($docketData['address'] ?? 'N/A')) : 'N/A'));
                 $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null);
                 $sSpouseN = $sItem['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
@@ -1147,18 +1185,26 @@
                             <td class="pdf-value-cell font-mono-code font-black text-blue-900">{{ $sCard }}</td>
                         </tr>
                         <tr>
-                            <td class="pdf-label-cell">Gender &amp; Age / DOB:</td>
-                            <td class="pdf-value-cell font-bold text-slate-900">
-                                {{ $sGender }}
-                                @if(!empty($sAge)) • Age: {{ $sAge }} @endif
-                                @if(!empty($sDOB)) • DOB: {{ $sDOB }} @endif
+                            <td class="pdf-label-cell">Gender:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ !empty($sGender) ? $sGender : 'N/A' }}</td>
+                            <td class="pdf-label-cell">Age:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ !empty($sAge) ? $sAge . ' Yrs' : 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Date of Birth (DOB):</td>
+                            <td class="pdf-value-cell font-bold font-mono-code text-slate-900">
+                                @if(!empty($sDOB))
+                                    {{ strtotime($sDOB) !== false ? date('d/m/Y', strtotime($sDOB)) : $sDOB }}
+                                @else
+                                    N/A
+                                @endif
                             </td>
-                            <td class="pdf-label-cell">Physical Specs:</td>
-                            <td class="pdf-value-cell font-bold text-slate-900">
-                                @if(!empty($sHeight)) Height: {{ $sHeight }} @endif
-                                @if(!empty($sEye)) @if(!empty($sHeight)) • @endif Eyes: {{ $sEye }} @endif
-                                @if(empty($sHeight) && empty($sEye)) N/A @endif
-                            </td>
+                            <td class="pdf-label-cell">Height:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ !empty($sHeight) ? $sHeight : 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Eye Color:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ !empty($sEye) ? $sEye : 'N/A' }}</td>
                         </tr>
                         <tr>
                             <td class="pdf-label-cell">Nationality:</td>
@@ -1168,50 +1214,58 @@
                         </tr>
                         <tr>
                             <td class="pdf-label-cell">Contact Phone:</td>
-                            <td class="pdf-value-cell font-mono-code font-bold text-slate-900">{{ $sPhone }}</td>
+                            <td class="pdf-value-cell font-mono-code font-bold text-slate-900">
+                                @if(!empty($sPhones) && count($sPhones) > 0)
+                                    <div class="space-y-0.5">
+                                        @foreach($sPhones as $pItem)
+                                            <div>
+                                                <span class="text-[9px] uppercase px-1 py-0.5 bg-slate-100 border border-slate-300 rounded font-bold text-slate-700">{{ $pItem['label'] }}</span>
+                                                <span class="ml-1 text-xs font-bold text-slate-900">{{ $pItem['number'] }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    {{ $sPhone }}
+                                @endif
+                            </td>
                             <td class="pdf-label-cell">Residential Address:</td>
                             <td class="pdf-value-cell font-bold text-slate-900">{{ $sAddr }}</td>
                         </tr>
                         <tr>
                             <td class="pdf-label-cell">Marital Status:</td>
                             <td class="pdf-value-cell font-bold text-slate-900">{{ $sMarital ?: 'N/A' }}</td>
-                            <td class="pdf-label-cell">Spouse &amp; Family:</td>
+                            <td class="pdf-label-cell">Spouse Details:</td>
                             <td class="pdf-value-cell text-slate-900">
-                                @php
-                                    $spName = $sSpouseN ?: ($sPartnerN ?: null);
-                                    $spPhone = $sSpouseP ?: ($sPartnerP ?: null);
-                                    $spInfo = $sSpouseI ?: ($sPartnerI ?: null);
-                                    $spLabel = !empty($sSpouseN) ? 'Spouse' : (!empty($sPartnerN) ? 'Partner' : 'Spouse');
-                                    $hasSpouse = !empty($spName) || !empty($spPhone) || !empty($spInfo);
-                                    $hasDependents = !empty($sDependents) && $sDependents !== 'N/A';
-                                @endphp
-
-                                @if($hasSpouse || $hasDependents)
-                                    <div class="space-y-1 my-0.5">
-                                        @if($hasSpouse)
-                                            <div class="leading-tight">
-                                                <span class="font-extrabold text-slate-700 font-mono-code text-[10px] uppercase tracking-wider">{{ $spLabel }}:</span>
-                                                <span class="font-bold text-slate-950">{{ $spName ?: 'N/A' }}</span>
-                                                @if(!empty($spPhone))
-                                                    <span class="font-mono-code text-slate-700 font-semibold text-[11px]">({{ $spPhone }})</span>
-                                                @endif
-                                                @if(!empty($spInfo))
-                                                    <span class="text-slate-600 font-normal italic text-[10px] block mt-0.5">— {{ $spInfo }}</span>
-                                                @endif
-                                            </div>
-                                        @endif
-
-                                        @if($hasDependents)
-                                            <div class="leading-tight {{ $hasSpouse ? 'pt-1 border-t border-slate-200' : '' }}">
-                                                <span class="font-extrabold text-slate-700 font-mono-code text-[10px] uppercase tracking-wider">Dependents:</span>
-                                                <span class="font-bold text-slate-950">{{ $sDependents }}</span>
-                                            </div>
-                                        @endif
-                                    </div>
+                                @if(!empty($sSpouseN))
+                                    <span class="font-extrabold text-slate-950">{{ $sSpouseN }}</span>
+                                    @if(!empty($sSpouseP))
+                                        <span class="font-mono-code text-slate-700 font-semibold text-[11px]">({{ $sSpouseP }})</span>
+                                    @endif
+                                    @if(!empty($sSpouseI))
+                                        <span class="text-slate-600 font-normal italic text-[10px] block mt-0.5">— {{ $sSpouseI }}</span>
+                                    @endif
                                 @else
-                                    <span class="font-bold text-slate-500">N/A</span>
+                                    <span class="font-bold text-slate-400">N/A</span>
                                 @endif
                             </td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Partner Details:</td>
+                            <td class="pdf-value-cell text-slate-900">
+                                @if(!empty($sPartnerN))
+                                    <span class="font-extrabold text-slate-950">{{ $sPartnerN }}</span>
+                                    @if(!empty($sPartnerP))
+                                        <span class="font-mono-code text-slate-700 font-semibold text-[11px]">({{ $sPartnerP }})</span>
+                                    @endif
+                                    @if(!empty($sPartnerI))
+                                        <span class="text-slate-600 font-normal italic text-[10px] block mt-0.5">— {{ $sPartnerI }}</span>
+                                    @endif
+                                @else
+                                    <span class="font-bold text-slate-400">N/A</span>
+                                @endif
+                            </td>
+                            <td class="pdf-label-cell">Children &amp; Dependents:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900">{{ $sDependents }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -1227,9 +1281,15 @@
                         <tr>
                             <td class="pdf-label-cell w-1/5">Arrest Scene Location:</td>
                             <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $sRaid }}</td>
-                            <td class="pdf-label-cell w-1/5">Arrest Date &amp; Time:</td>
-                            <td class="pdf-value-cell font-bold w-3/10">
-                                {{ $sArrestDate ? \Carbon\Carbon::parse($sArrestDate)->format('M d, Y') : 'N/A' }} {{ $sArrestTime ? "@ {$sArrestTime}" : '' }}
+                            <td class="pdf-label-cell w-1/5">Arrest Date:</td>
+                            <td class="pdf-value-cell font-bold font-mono-code w-3/10">
+                                {{ $sArrestDate ? \Carbon\Carbon::parse($sArrestDate)->format('d/m/Y') : 'N/A' }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Arrest Time:</td>
+                            <td class="pdf-value-cell font-bold font-mono-code text-slate-900" colspan="3">
+                                {{ !empty($sArrestTime) ? $sArrestTime : 'N/A' }}
                             </td>
                         </tr>
                         <tr>
@@ -1313,16 +1373,14 @@
                                     <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $pName }}</td>
                                 </tr>
                                 <tr>
-                                    <td class="pdf-label-cell">Quantity &amp; Weight:</td>
+                                    <td class="pdf-label-cell">Quantity:</td>
                                     <td class="pdf-value-cell font-mono-code font-black text-slate-950">
-                                        @if(!empty($pQty) || !empty($pWt))
-                                            {{ implode(' • ', array_filter([!empty($pQty) ? "Qty: {$pQty}" : null, !empty($pWt) ? "Wt: {$pWt} {$pUnit}" : null])) }}
-                                        @else
-                                            N/A
-                                        @endif
+                                        {{ !empty($pQty) ? $pQty : 'N/A' }}
                                     </td>
-                                    <td class="pdf-label-cell">Packaging &amp; Container:</td>
-                                    <td class="pdf-value-cell font-bold text-slate-900">{{ $pPkg ?: 'N/A' }}</td>
+                                    <td class="pdf-label-cell">Gross Weight:</td>
+                                    <td class="pdf-value-cell font-mono-code font-black text-slate-950">
+                                        {{ !empty($pWt) ? trim("{$pWt} {$pUnit}") : 'N/A' }}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td class="pdf-label-cell">Estimated Valuation:</td>
@@ -1331,16 +1389,14 @@
                                     <td class="pdf-value-cell font-bold text-slate-900">{{ $pConceal }}</td>
                                 </tr>
                                 <tr>
-                                    <td class="pdf-label-cell">Seizure Date &amp; Time:</td>
-                                    <td class="pdf-value-cell font-bold text-slate-900">
-                                        @if(!empty($pDate) || !empty($pTime))
-                                            {{ $pDate ? \Carbon\Carbon::parse($pDate)->format('M d, Y') : '' }} {{ $pTime ? "@ {$pTime}" : '' }}
-                                        @else
-                                            N/A
-                                        @endif
+                                    <td class="pdf-label-cell">Seizure Date:</td>
+                                    <td class="pdf-value-cell font-bold font-mono-code text-slate-900">
+                                        {{ $pDate ? \Carbon\Carbon::parse($pDate)->format('d/m/Y') : 'N/A' }}
                                     </td>
-                                    <td class="pdf-label-cell">Seizure Scene Location:</td>
-                                    <td class="pdf-value-cell font-bold text-slate-900">{{ $pLoc }}</td>
+                                    <td class="pdf-label-cell">Seizure Time:</td>
+                                    <td class="pdf-value-cell font-bold font-mono-code text-slate-900">
+                                        {{ !empty($pTime) ? $pTime : 'N/A' }}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td class="pdf-label-cell">Seizing Officer:</td>
@@ -1685,10 +1741,14 @@
                             $isJointPdfOwner = true;
                         }
                     }
+                    if (!$isJointPdfOwner && (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1 || (!empty($docketData['suspects']) && count($docketData['suspects']) > 1))) {
+                        $isJointPdfOwner = true;
+                    }
 
                     $pdfLabDossierBadge = $isJointPdfOwner ? 'PRIMARY & CO-SUSPECT DOSSIER' : 'PRIMARY SUSPECT DOSSIER';
+                    $displayLabExamOwnerPdf = $isJointPdfOwner ? ($primarySuspectsCombinedNames ?: $savedLabExamOwnerPdf) : $savedLabExamOwnerPdf;
                 @endphp
-                <span>{{ $pdfLabDossierBadge }} &bull; SUSPECT: {{ strtoupper($savedLabExamOwnerPdf) }} &bull; LABORATORY EXAMINATION RESULT — {{ strtoupper($savedLabExamOwnerPdf) }}</span>
+                <span>{{ $pdfLabDossierBadge }} &bull; {{ $isJointPdfOwner ? 'SUSPECTS' : 'SUSPECT' }}: {{ strtoupper($displayLabExamOwnerPdf) }} &bull; LABORATORY EXAMINATION RESULT — {{ strtoupper($displayLabExamOwnerPdf) }}</span>
                 <span class="text-[10px] font-mono-code font-black {{ $hasSavedLabData ? 'text-emerald-900' : 'text-slate-600' }} uppercase">
                     {{ $hasSavedLabData ? 'OFFICIAL VERIFIED CERTIFICATE (✓ LAB COMPLETED)' : ($labStatus === 'IN_PROGRESS' ? '⏳ LAB IN PROGRESS' : '⭕ LAB PENDING — AWAITING LAB ANALYSIS') }}
                 </span>

@@ -459,6 +459,7 @@
                                     <th class="py-3.5 px-5 font-extrabold">Case Reference #</th>
                                     <th class="py-3.5 px-5 font-extrabold">Evidence Details</th>
                                     <th class="py-3.5 px-5 font-extrabold">Suspect</th>
+                                    <th class="py-3.5 px-5 font-extrabold">Suspect Disposition</th>
                                     <th class="py-3.5 px-5 font-extrabold">Assigned Unit &amp; Head</th>
                                     <th class="py-3.5 px-5 font-extrabold">Handling Officer</th>
                                     <th class="py-3.5 px-5 font-extrabold text-center">Case Stat</th>
@@ -566,17 +567,68 @@
                                                     @endforeach
                                                 </div>
                                                 <div class="min-w-0">
-                                                    <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]" title="{{ $suspectDisplayName }}">{{ $suspectDisplayName }}</div>
-                                                    <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]">
-                                                        <span class="text-slate-400">ALIAS:</span> {{ $aliasDisplay }}
-                                                    </div>
-                                                    @if(count($suspectPics) > 1)
-                                                        <div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200/60 text-blue-700 text-[9px] font-mono-code font-bold">
-                                                            <svg class="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                                            <span>{{ count($suspectPics) }} Suspects</span>
+                                                    @if (count($suspectPics) > 1)
+                                                        <div class="space-y-1">
+                                                            @foreach ($suspectPics as $spIdx => $sp)
+                                                                <div class="flex items-center gap-1.5 leading-tight">
+                                                                    <span class="font-extrabold text-xs {{ $sp['is_associate'] ? 'text-slate-800' : 'text-slate-950 font-black' }} truncate max-w-[170px]"
+                                                                        title="{{ $sp['name'] }}">
+                                                                        {{ $sp['name'] }}
+                                                                    </span>
+                                                                    @if ($sp['is_associate'])
+                                                                        <span
+                                                                            class="px-1.5 py-0.2 rounded text-[8px] font-mono-code font-extrabold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">CO/ASSOC</span>
+                                                                    @else
+                                                                        <span
+                                                                            class="px-1.5 py-0.2 rounded text-[8px] font-mono-code font-extrabold bg-blue-100 text-blue-800 border border-blue-300 shrink-0">PRIMARY</span>
+                                                                    @endif
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                        @if (!empty($aliasDisplay) && $aliasDisplay !== 'N/A')
+                                                            <div
+                                                                class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[200px]">
+                                                                <span class="text-slate-400">ALIAS:</span> {{ $aliasDisplay }}
+                                                            </div>
+                                                        @endif
+                                                    @else
+                                                        <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]"
+                                                            title="{{ $suspectDisplayName }}">{{ $suspectDisplayName }}
+                                                        </div>
+                                                        <div
+                                                            class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]">
+                                                            <span class="text-slate-400">ALIAS:</span> {{ $aliasDisplay }}
                                                         </div>
                                                     @endif
                                                 </div>
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-5 whitespace-nowrap">
+                                            @php
+                                                $sDispListHead = $case->getSuspectsList();
+                                            @endphp
+                                            <div class="space-y-1">
+                                                @foreach ($sDispListHead as $sObj)
+                                                    @php
+                                                        $dispVal = $sObj['suspect_disposition'] ?? 'Active — Under Investigation';
+                                                        $dispReason = $sObj['disposition_reason'] ?? '';
+                                                        $dispBadge = match (true) {
+                                                            str_contains($dispVal, 'Cleared') => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                                                            str_contains($dispVal, 'Released') => 'bg-blue-100 text-blue-800 border-blue-300',
+                                                            str_contains($dispVal, 'Reclassified') => 'bg-purple-100 text-purple-800 border-purple-300',
+                                                            str_contains($dispVal, 'Referred') => 'bg-amber-100 text-amber-800 border-amber-300',
+                                                            default => 'bg-slate-100 text-slate-700 border-slate-300',
+                                                        };
+                                                    @endphp
+                                                    <div class="flex items-center gap-1.5" title="{{ !empty($dispReason) ? 'Reason: ' . $dispReason : $dispVal }}">
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[9.5px] font-bold font-mono-code border {{ $dispBadge }}">
+                                                            @if (count($sDispListHead) > 1)
+                                                                <span class="font-extrabold text-slate-900 mr-1">{{ $sObj['suspect_name'] }}:</span>
+                                                            @endif
+                                                            {{ $dispVal }}
+                                                        </span>
+                                                    </div>
+                                                @endforeach
                                             </div>
                                         </td>
                                         <td class="py-4 px-5">
@@ -1284,12 +1336,29 @@
                         }
 
                         let suspectsList = [];
-                        let dData = c.docket_data;
-                        if (typeof dData === 'string') {
-                            try { dData = JSON.parse(dData); } catch(e) { dData = {}; }
+                        if (Array.isArray(c.suspects_list) && c.suspects_list.length > 0) {
+                            suspectsList = c.suspects_list.filter(s => s && s.suspect_name);
                         }
-                        if (dData && Array.isArray(dData.suspects) && dData.suspects.length > 0) {
-                            suspectsList = dData.suspects.filter(s => s && s.suspect_name);
+                        if (suspectsList.length === 0) {
+                            let dData = c.docket_data;
+                            if (typeof dData === 'string') {
+                                try { dData = JSON.parse(dData); } catch(e) { dData = {}; }
+                            }
+                            if (dData && Array.isArray(dData.suspects) && dData.suspects.length > 0) {
+                                suspectsList = dData.suspects.filter(s => s && s.suspect_name);
+                            }
+                        }
+                        if (suspectsList.length === 0 && c.suspect_name && c.suspect_name.includes(',')) {
+                            const parts = c.suspect_name.split(',').map(p => p.trim()).filter(Boolean);
+                            if (parts.length > 1) {
+                                suspectsList = parts.map((pName, pIdx) => ({
+                                    suspect_name: pName,
+                                    suspect_alias: pIdx === 0 ? suspectAlias : 'N/A',
+                                    mugshot_front: pIdx === 0 ? frontPic : null,
+                                    is_associate: pIdx > 0,
+                                    role: pIdx === 0 ? 'Primary Suspect' : 'Co-Suspect'
+                                }));
+                            }
                         }
                         if (suspectsList.length === 0) {
                             suspectsList = [{
@@ -1343,8 +1412,83 @@
                         const aliasStr = aliasArray.length > 0 ? aliasArray.join(', ') : suspectAlias;
                         const stackClass = suspectsList.length > 1 ? '-space-x-3.5 hover:space-x-1 transition-all duration-300' : '';
 
-                        const rowText = `${c.case_number} ${suspectDisplayName} ${c.title} ${c.unit_name} ${c.submitting_officer} ${c.status}`.toLowerCase();
+                        const allSuspectsNamesStr = suspectsList.map(s => s.suspect_name || '').join(' ');
+                        const rowText = `${c.case_number} ${suspectDisplayName} ${allSuspectsNamesStr} ${c.title} ${c.unit_name} ${c.submitting_officer} ${c.status}`.toLowerCase();
                         const matchesSearch = !searchInput || rowText.includes(searchInput);
+
+                        let suspectsNamesHtml = '';
+                        if (suspectsList.length > 1) {
+                            suspectsNamesHtml = `
+                                <div class="space-y-1">
+                                    ${suspectsList.map((sItem, sIdx) => {
+                                        const sName = sItem.suspect_name || `Suspect #${sIdx + 1}`;
+                                        const roleStr = (sItem.association_role || sItem.role || '').toLowerCase();
+                                        const isAssoc = sItem.is_associate || (roleStr && roleStr !== 'primary suspect') || sIdx > 0;
+                                        const badgeLabel = roleStr.includes('co-suspect')
+                                            ? 'CO-SUSPECT'
+                                            : (isAssoc ? 'CO/ASSOC' : 'PRIMARY');
+                                        const badgeClass = isAssoc
+                                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                            : 'bg-blue-100 text-blue-800 border-blue-300';
+                                        return `
+                                            <div class="flex items-center gap-1.5 leading-tight">
+                                                <span class="font-extrabold text-xs ${isAssoc ? 'text-slate-800' : 'text-slate-950 font-black'} truncate max-w-[170px]" title="${sName.replace(/"/g, '&quot;')}">
+                                                    ${sName}
+                                                </span>
+                                                <span class="px-1.5 py-0.2 rounded text-[8px] font-mono-code font-extrabold ${badgeClass} border shrink-0">${badgeLabel}</span>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                ${aliasStr && aliasStr !== 'N/A' ? `
+                                    <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[200px]">
+                                        <span class="text-slate-400">ALIAS:</span> ${aliasStr}
+                                    </div>
+                                ` : ''}
+                            `;
+                                } else {
+                            suspectsNamesHtml = `
+                                <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]" title="${suspectDisplayName.replace(/"/g, '&quot;')}">${suspectDisplayName}</div>
+                                <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]"><span class="text-slate-400">ALIAS:</span> ${aliasStr}</div>
+                            `;
+                        }
+
+                        let suspectDispHtml = '';
+                        const sDispList = (Array.isArray(c.suspects_list) && c.suspects_list.length > 0) ? c.suspects_list : suspectsList;
+                        if (sDispList && sDispList.length > 0) {
+                            suspectDispHtml = '<div class="space-y-1">';
+                            sDispList.forEach(sObj => {
+                                const dVal = sObj.suspect_disposition || 'Active — Under Investigation';
+                                const dReason = sObj.disposition_reason || '';
+                                let dBadge = 'bg-slate-100 text-slate-700 border-slate-300';
+                                if (dVal.includes('Cleared')) dBadge = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                                else if (dVal.includes('Released')) dBadge = 'bg-blue-100 text-blue-800 border-blue-300';
+                                else if (dVal.includes('Reclassified')) dBadge = 'bg-purple-100 text-purple-800 border-purple-300';
+                                else if (dVal.includes('Referred')) dBadge = 'bg-amber-100 text-amber-800 border-amber-300';
+
+                                const sName = (sObj.suspect_name || '').replace(/"/g, '&quot;');
+                                const namePrefix = sDispList.length > 1 ? `<span class="font-extrabold text-slate-900 mr-1">${sName}:</span>` : '';
+                                const titleAttr = dReason ? `Reason: ${dReason.replace(/"/g, '&quot;')}` : dVal.replace(/"/g, '&quot;');
+                                suspectDispHtml += `<div class="flex items-center gap-1.5" title="${titleAttr}">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[9.5px] font-bold font-mono-code border ${dBadge}">
+                                        ${namePrefix}${dVal}
+                                    </span>
+                                </div>`;
+                            });
+                            suspectDispHtml += '</div>';
+                        } else {
+                            suspectDispHtml = `<div class="space-y-1"><div class="flex items-center gap-1.5"><span class="inline-flex items-center px-2 py-0.5 rounded text-[9.5px] font-bold font-mono-code border bg-slate-100 text-slate-700 border-slate-300">Active — Under Investigation</span></div></div>`;
+                        }
+
+                        const cStatVal = c.case_status || 'Under Investigation';
+                        let cStatCls = 'bg-amber-50 text-amber-800 border-amber-300';
+                        if (cStatVal === 'On Remand') cStatCls = 'bg-purple-50 text-purple-800 border-purple-300';
+                        else if (cStatVal === 'On Bail') cStatCls = 'bg-indigo-50 text-indigo-800 border-indigo-300';
+                        else if (cStatVal === 'In Court') cStatCls = 'bg-blue-50 text-blue-800 border-blue-300';
+                        else if (cStatVal === 'Verdict Passed — Imprisoned') cStatCls = 'bg-rose-50 text-rose-800 border-rose-300';
+                        else if (cStatVal === 'Verdict Passed — Acquitted') cStatCls = 'bg-emerald-50 text-emerald-800 border-emerald-300';
+                        else if (cStatVal === 'Case Dismissed') cStatCls = 'bg-slate-100 text-slate-700 border-slate-300';
+                        else if (cStatVal === 'Case Closed') cStatCls = 'bg-slate-800 text-slate-100 border-slate-700';
 
                         html += `<tr class="table-row-hover transition-colors case-row" data-unit="${c.unit_name || ''}" data-status="${c.status || ''}" style="${matchesSearch ? '' : 'display:none;'}">
                             <td class="py-4 px-5 whitespace-nowrap">
@@ -1365,11 +1509,12 @@
                                         ${avatarsGroupHtml}
                                     </div>
                                     <div class="min-w-0">
-                                        <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]" title="${suspectDisplayName.replace(/"/g, '&quot;')}">${suspectDisplayName}</div>
-                                        <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]"><span class="text-slate-400">ALIAS:</span> ${aliasStr}</div>
-                                        ${suspectsList.length > 1 ? `<div class="mt-1 inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200/60 text-blue-700 text-[9px] font-mono-code font-bold"><svg class="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg><span>${suspectsList.length} Suspects</span></div>` : ''}
+                                        ${suspectsNamesHtml}
                                     </div>
                                 </div>
+                            </td>
+                            <td class="py-4 px-5 whitespace-nowrap">
+                                ${suspectDispHtml}
                             </td>
                             <td class="py-4 px-5">
                                 <div class="font-extrabold ${unitColor} text-xs">${c.unit_name || 'Forensic Directorate'}</div>
@@ -1378,6 +1523,9 @@
                             <td class="py-4 px-5">
                                 <div class="font-bold text-slate-900 text-xs">${c.submitting_officer || c.commanding_officer || 'Handling Officer'}</div>
                                 <div class="text-[10px] text-slate-500">Handling Officer</div>
+                            </td>
+                            <td class="py-4 px-5 text-center whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cStatCls}">${cStatVal}</span>
                             </td>
                             <td class="py-4 px-5 whitespace-nowrap">${statusBadge}</td>
                             <td class="py-4 px-5 text-right whitespace-nowrap">

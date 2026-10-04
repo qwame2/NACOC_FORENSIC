@@ -10,7 +10,7 @@ class CaseSuspect extends Model
     use HasFactory;
 
     protected $attributes = [
-        'suspect_disposition' => 'Active — Under Investigation',
+        'suspect_disposition' => 'Active â€” Under Investigation',
     ];
 
     protected $fillable = [
@@ -30,6 +30,7 @@ class CaseSuspect extends Model
         'nationality',
         'pob',
         'phone',
+        'phones',
         'address',
         'marital_status',
         'has_children',
@@ -60,6 +61,7 @@ class CaseSuspect extends Model
     protected $casts = [
         'extra_mugshots' => 'array',
         'has_children'   => 'boolean',
+        'phones'         => 'array',
     ];
 
     public function multipleCase()
@@ -76,4 +78,10 @@ class CaseSuspect extends Model
     {
         return $this->hasMany(LaboratoryExaminationResult::class, 'suspect_id');
     }
+
+    public function gsaReports()
+    {
+        return $this->hasMany(SuspectGsaReport::class, 'case_suspect_id');
+    }
 }
+

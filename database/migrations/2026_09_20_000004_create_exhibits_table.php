@@ -65,6 +65,9 @@ return new class extends Migration
             $table->text('dev_imei1')->nullable();
             $table->text('dev_imei2')->nullable();
             $table->text('dev_mac_address')->nullable();
+            $table->text('dev_storage')->nullable();
+            $table->text('dev_colour')->nullable();
+            $table->text('dev_marks')->nullable();
 
             // Media Evidence Photos (base64 images can be very large)
             $table->longText('evidence_photos')->nullable();

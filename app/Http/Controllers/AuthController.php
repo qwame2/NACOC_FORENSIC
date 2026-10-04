@@ -41,7 +41,7 @@ class AuthController extends Controller
         }
 
         if (str_contains($unitLower, 'lab') || str_contains($unitLower, 'cflu')) {
-            return '/Lab_Analysis/examination';
+            return '/Lab_Analysis/create';
         }
 
         if (str_contains($unitLower, 'evidence') || str_contains($unitLower, 'emu')) {

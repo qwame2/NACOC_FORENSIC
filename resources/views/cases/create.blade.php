@@ -258,7 +258,8 @@
                                     <input 
                                         type="text" 
                                         id="caseTitleInput" 
-                                        placeholder="e.g. Republic Vs Atto &amp; Ors" 
+                                        value="Republic vs "
+                                        placeholder="e.g. Republic vs Atto &amp; Ors" 
                                         required 
                                         class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal"
                                     >
@@ -651,7 +652,7 @@
                             <div id="suspectCard-1" class="space-y-6">
 
                         <!-- SUB-HEADER 3A: LEGAL IDENTITY -->
-                        <div class="space-y-4 relative z-30">
+                        <div class="space-y-5 relative z-30">
                             <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3 3 0 00-3 3h6a3 3 0 00-3-3z"/></svg>
                                 <span>3A. Legal Identity</span>
@@ -686,8 +687,8 @@
                                 </div>
                             </div>
 
-                            <!-- ROW 1: REF (READONLY), FULL NAME, ALIAS -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <!-- ROW 1: PRIMARY IDENTITY & NAME (3 COLS) -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10">
                                 
                                 <!-- RAID INCIDENT REFERENCE (READONLY) -->
                                 <div>
@@ -730,8 +731,8 @@
                                 </div>
                             </div>
 
-                            <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
+                            <!-- ROW 2: IDENTIFICATION, DEMOGRAPHICS & BIOMETRICS (3 COLS) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 relative z-40">
                                 
                                 <!-- GHANA CARD # -->
                                 <div>
@@ -808,11 +809,7 @@
                                         <input type="number" id="newArrestedAge" value="" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
-                                
                                 <!-- HEIGHT -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -845,6 +842,10 @@
                                         <input type="text" id="newArrestedEyeColor" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- ROW 3: ORIGIN & RESIDENTIAL ADDRESS (3 COLS) -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                                 
                                 <!-- CUSTOM NATIONALITY DROPDOWN (MATCHING GENDER DROPDOWN DESIGN) -->
                                 <div class="relative z-30">
@@ -966,12 +967,8 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- ROW 3: PLACE OF BIRTH, CONTACT PHONE NUMBER, RESIDENTIAL ADDRESS -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                
-                                <!-- PLACE OF BIRTH (NEW) -->
+                                <!-- PLACE OF BIRTH -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                         Place of Birth <span class="text-red-600 font-bold">*</span>
@@ -984,20 +981,7 @@
                                     </div>
                                 </div>
 
-                                <!-- CONTACT PHONE NUMBER (NEW) -->
-                                <div>
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <div class="relative flex items-center group">
-                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                        </span>
-                                        <input type="text" id="newArrestedPhone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                                    </div>
-                                </div>
-
-                                <!-- RESIDENTIAL ADDRESS (NEW) -->
+                                <!-- RESIDENTIAL ADDRESS / GPS -->
                                 <div>
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                         Residential Address / GPS <span class="text-red-600 font-bold">*</span>
@@ -1009,7 +993,11 @@
                                         <input type="text" id="newArrestedAddress" placeholder="e.g. H/No 14 East Legon, Accra (GA-142-8809)" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
+                            </div>
 
+                            <!-- ROW 4: CONTACT PHONE NUMBERS CONTAINER (DEDICATED FULL WIDTH CARD) -->
+                            <div class="relative z-10 pt-1">
+                                @include('partials.suspect-phone-input', ['unit' => 'cases'])
                             </div>
                         </div>
 
@@ -3991,8 +3979,8 @@
                         </div>
                     </div>
 
-                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 relative z-40">
+                    <!-- ROW 2: GHANA CARD, GENDER, DOB, AGE, HEIGHT, EYE COLOR -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 relative z-40">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Ghana Card #
@@ -4064,10 +4052,7 @@
                                 <input type="number" data-field="age" placeholder="Auto-calculated age..." min="0" max="120" readonly required class="w-full pl-10 pr-3.5 py-3 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed select-none focus:outline-none shadow-2xs placeholder:text-slate-400 placeholder:font-normal">
                             </div>
                         </div>
-                    </div>
 
-                    <!-- ROW 3: HEIGHT, EYE COLOR, NATIONALITY -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Height (cm / ft-in)
@@ -4098,7 +4083,10 @@
                                 <input type="text" data-field="eye_color" placeholder="e.g. Brown / Black / Blue" class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
+                    </div>
 
+                    <!-- ROW 3: NATIONALITY, PLACE OF BIRTH, RESIDENTIAL ADDRESS -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-30">
                         <!-- DYNAMIC CUSTOM NATIONALITY DROPDOWN -->
                         <div class="relative z-30">
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
@@ -4131,17 +4119,7 @@
                                 @endforeach
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
-                <div class="space-y-4 pt-2 relative z-20">
-                    <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Place of Birth <span class="text-red-600 font-bold">*</span>
@@ -4156,18 +4134,6 @@
 
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                </span>
-                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Residential Address / GPS <span class="text-red-600 font-bold">*</span>
                             </label>
                             <div class="relative flex items-center group">
@@ -4177,6 +4143,29 @@
                                 <input type="text" data-field="address" placeholder="e.g. H/No 14 East Legon, Accra (GA-142-8809)" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                             </div>
                         </div>
+                    </div>
+
+                    <!-- ROW 4: CONTACT PHONE NUMBER(S) -->
+                    <div class="relative z-10 pt-1">
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
+                            </label>
+                            <div class="relative flex items-center group">
+                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                </span>
+                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUB-HEADER 3B: FAMILY & MARITAL RECORDS -->
+                <div class="space-y-4 pt-2 relative z-20">
+                    <div class="flex items-center space-x-2 text-xs font-extrabold text-black uppercase tracking-wider border-b border-slate-100 pb-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        <span>3B. Marital Record, Spouse / Partner Details &amp; Dependents (Suspect #${suspectCount})</span>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-30">
@@ -4535,6 +4524,8 @@
                     nationality:      s1Nat,
                     pob:              s1POB,
                     phone:            s1Phone,
+                    phones:           typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []),
+                    additional_phones:typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
                     address:          s1Address,
                     marital_status:   s1Marital,
                     has_children:     s1HasKids,
@@ -4924,6 +4915,9 @@
             if (!validateSuspectDocketForm()) {
                 return;
             }
+            if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
+                return;
+            }
 
             const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
             const name = document.getElementById('newArrestedName')?.value?.trim() || '';
@@ -4949,7 +4943,9 @@
             const facility = document.getElementById('newArrestedFacility')?.value || 'NACOC Holding Cell';
             const caseTitleInput = document.getElementById('caseTitleInput')?.value;
 
-            const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' ? caseTitleInput.trim() : `Republic Vs ${name}`;
+            const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
+                ? caseTitleInput.trim()
+                : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
             const caseRef = 'CSS-2026-' + Math.floor(1000 + Math.random() * 9000);
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
@@ -5249,6 +5245,7 @@
                 eye_color: eyeColor,
                 pob: pob,
                 phone: phone,
+                phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []),
                 address: address,
                 marital_status: marital,
                 spouse_summary: spouseSummary,
@@ -5320,6 +5317,9 @@
                     nationality: document.getElementById('nationalitySelect')?.value || document.getElementById('newArrestedNationality')?.value || 'Ghanaian',
                     pob: pob,
                     phone: phone,
+                    additional_phones: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
+                    additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
+                    phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []),
                     address: address,
 
                     // Family & Marital
@@ -5538,6 +5538,7 @@
                 }
             });
 
+            draft['_additionalPhonesList'] = typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [];
             draft['_custom_labels'] = {
                 selectedGenderLabel: document.getElementById('selectedGenderLabel')?.innerText,
                 selectedGenderIcon: document.getElementById('selectedGenderIcon')?.innerText,
@@ -5633,6 +5634,18 @@
 
                 calculateAgeFromDOB();
 
+                if (draft['_additionalPhonesList'] && Array.isArray(draft['_additionalPhonesList'])) {
+                    const phoneListEl = document.getElementById('suspectPhonesList');
+                    if (phoneListEl) {
+                        phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
+                        draft['_additionalPhonesList'].forEach(item => {
+                            if (typeof addSuspectPhoneRow === 'function') {
+                                addSuspectPhoneRow(item.label, item.number);
+                            }
+                        });
+                    }
+                }
+
                 if (restoredCount > 0) {
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
@@ -5656,6 +5669,15 @@
             if (notice) notice.classList.add('hidden');
             const form = document.querySelector('form');
             if (form) form.reset();
+            const phoneListEl = document.getElementById('suspectPhonesList');
+            if (phoneListEl) {
+                phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
+            }
+            const caseTitleReset = document.getElementById('caseTitleInput');
+            if (caseTitleReset) {
+                caseTitleReset.value = 'Republic vs ';
+                delete caseTitleReset.dataset.userEdited;
+            }
             const mInput = document.getElementById('newArrestedMarital');
             if (mInput) mInput.value = '';
             const mLabel = document.getElementById('selectedMaritalLabel');
@@ -7314,9 +7336,131 @@
             }
         }
 
+        /**
+         * Dynamic Suspect Multi-Phone Manager
+         */
+        function addSuspectPhoneRow(label = 'Alternate', number = '') {
+            const list = document.getElementById('suspectPhonesList');
+            const template = document.getElementById('suspectPhoneRowTemplate');
+            if (!list || !template) return null;
+
+            const clone = template.content.cloneNode(true);
+            const row = clone.querySelector('.suspect-phone-row');
+            const select = clone.querySelector('select[name="additional_phone_labels[]"]');
+            const input = clone.querySelector('input[name="additional_phones[]"]');
+
+            if (select && label) select.value = label;
+            if (input && number) input.value = number;
+
+            list.appendChild(clone);
+            if (!number && input) input.focus();
+            if (typeof saveDocketFormDraft === 'function') saveDocketFormDraft();
+            return row;
+        }
+
+        function removeSuspectPhoneRow(btn) {
+            if (!btn) return;
+            const row = btn.closest('.suspect-phone-row');
+            const list = document.getElementById('suspectPhonesList');
+            if (!row || !list) return;
+
+            const allRows = list.querySelectorAll('.suspect-phone-row');
+            if (allRows.length > 0 && allRows[0] === row) return; // Guard: row #1 is primary
+
+            row.remove();
+            if (typeof saveDocketFormDraft === 'function') saveDocketFormDraft();
+        }
+
+        function hydrateAdditionalPhonesFromOld() {
+            const oldAdditional = @json(old('additional_phones', []));
+            const oldLabels = @json(old('additional_phone_labels', []));
+
+            if (Array.isArray(oldAdditional) && oldAdditional.length > 0) {
+                oldAdditional.forEach((num, idx) => {
+                    const lbl = (oldLabels && oldLabels[idx]) ? oldLabels[idx] : 'Alternate';
+                    addSuspectPhoneRow(lbl, num);
+                });
+            }
+        }
+
+        function getAdditionalPhonesPayload() {
+            const list = document.getElementById('suspectPhonesList');
+            if (!list) return [];
+            const rows = list.querySelectorAll('.suspect-phone-row');
+            const phones = [];
+            for (let i = 1; i < rows.length; i++) {
+                const labelEl = rows[i].querySelector('select[name="additional_phone_labels[]"]');
+                const numEl = rows[i].querySelector('input[name="additional_phones[]"]');
+                const num = numEl?.value?.trim() || '';
+                if (num) {
+                    phones.push({ label: labelEl?.value || 'Alternate', number: num });
+                }
+            }
+            return phones;
+        }
+
+        function validateSuspectPhones() {
+            const list = document.getElementById('suspectPhonesList');
+            if (!list) return true;
+            const inputs = list.querySelectorAll('input[type="text"]');
+            const seen = new Set();
+            for (const input of inputs) {
+                const clean = input.value.replace(/[\s\-\(\)]/g, '').trim();
+                if (clean) {
+                    if (seen.has(clean)) {
+                        if (typeof showToast === 'function') {
+                            showToast('⚠ Duplicate suspect phone number detected: ' + input.value);
+                        } else {
+                            alert('Duplicate suspect phone number detected: ' + input.value);
+                        }
+                        input.focus();
+                        return false;
+                    }
+                    seen.add(clean);
+                }
+            }
+            return true;
+        }
+
         // Auto-read URL query ref parameter & calculate initial age if DOB exists + Setup Drag & Drop & Draft Restoration
         document.addEventListener('DOMContentLoaded', function() {
             restoreDocketFormDraft();
+            hydrateAdditionalPhonesFromOld();
+
+            // Setup Case Title default "Republic vs " & cursor helper
+            const caseTitleEl = document.getElementById('caseTitleInput');
+            if (caseTitleEl) {
+                if (!caseTitleEl.value || caseTitleEl.value.trim() === '') {
+                    caseTitleEl.value = 'Republic vs ';
+                }
+                const setCursorToEnd = function() {
+                    if (caseTitleEl.value === 'Republic vs ' || caseTitleEl.value.trim() === 'Republic vs') {
+                        const len = caseTitleEl.value.length;
+                        caseTitleEl.setSelectionRange(len, len);
+                    }
+                };
+                caseTitleEl.addEventListener('focus', function() {
+                    setTimeout(setCursorToEnd, 10);
+                });
+                caseTitleEl.addEventListener('click', function() {
+                    if (caseTitleEl.value === 'Republic vs ' || caseTitleEl.value.trim() === 'Republic vs') {
+                        setCursorToEnd();
+                    }
+                });
+            }
+
+            const suspectNameEl = document.getElementById('newArrestedName');
+            if (suspectNameEl && caseTitleEl) {
+                suspectNameEl.addEventListener('input', function() {
+                    if (caseTitleEl.dataset.userEdited !== 'true') {
+                        const sVal = this.value.trim();
+                        caseTitleEl.value = sVal ? `Republic vs ${sVal}` : 'Republic vs ';
+                    }
+                });
+                caseTitleEl.addEventListener('input', function() {
+                    caseTitleEl.dataset.userEdited = 'true';
+                });
+            }
 
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality
             if (document.getElementById('caseEntryTypeSelect')) {
