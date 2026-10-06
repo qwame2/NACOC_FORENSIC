@@ -3209,7 +3209,16 @@ class CaseController extends Controller
             ]);
         }
         $this->repairExhibitAssociations($case);
-        return view('cases.show_review', compact('case'));
+        $gsaReports = \App\Models\SuspectGsaReport::forCase(
+            $case->case_number ?: $id,
+            $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null
+        );
+        $nlrReports = \App\Models\SuspectNlrReport::forCase(
+            $case->case_number ?: $id,
+            $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $case->id : null
+        );
+        return view('cases.show_review', compact('case', 'gsaReports', 'nlrReports'));
+
     }
 
     /**
@@ -3349,17 +3358,347 @@ class CaseController extends Controller
         }
         $this->repairExhibitAssociations($case);
 
-        $gsaReports = \App\Models\SuspectGsaReport::where(function ($q) use ($case, $id) {
-            if (!empty($case->case_number)) {
-                $q->orWhere('case_number', $case->case_number);
-            }
-            if (!empty($case->id)) {
-                $q->orWhere('multiple_suspect_case_id', $case->id);
-            }
-            $q->orWhere('case_number', $id);
-        })->active()->orderBy('created_at', 'desc')->get();
+        $gsaReports = \App\Models\SuspectGsaReport::forCase(
+            $case->case_number ?: $id,
+            $case->id ?: $id
+        );
+        $nlrReports = \App\Models\SuspectNlrReport::forCase(
+            $case->case_number ?: $id,
+            $case->id ?: $id
+        );
 
-        return view('Lab_Analysis.analytical', compact('case', 'gsaReports'));
+        return view('Lab_Analysis.analytical', compact('case', 'gsaReports', 'nlrReports'));
+    }
+
+    /**
+     * Dedicated NACOC Lab Result (NLR) Report PDF / Printable View
+     */
+    public function showNlrReportPdf($id)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            $dbHead = \App\Models\User::where('is_head', true)->first();
+            $headName = $dbHead ? $dbHead->fullname : 'Anita Johnson';
+            $case = new ForensicCase([
+                'case_number'       => $id,
+                'title'             => 'Directorate High Priority Forensic Docket',
+                'unit_name'         => 'Forensic Directorate',
+                'commanding_officer'=> $headName,
+                'submitting_officer'=> 'Insp. Eric Ofori',
+                'suspect_name'      => 'KOJO ADU',
+                'priority'          => 'HIGH',
+                'status'            => 'Approved',
+                'location'          => 'NACOC Central Vault Safe A-01',
+                'description'       => 'Detailed forensic analysis, exhibits chain of custody log, and analytical examination report.',
+                'exhibits_summary'  => '90 Kilograms (kg) Heroin (Brown Sugar / Diacetylmorphine)',
+                'hash_log'          => 'HASH-' . strtoupper(substr(md5($id), 0, 8)) . '-VERIFIED',
+                'incident_date'     => now(),
+            ]);
+        }
+        $this->repairExhibitAssociations($case);
+
+        $gsaReports = \App\Models\SuspectGsaReport::forCase(
+            $case->case_number ?: $id,
+            $case->id ?: $id
+        );
+        $nlrReports = \App\Models\SuspectNlrReport::forCase(
+            $case->case_number ?: $id,
+            $case->id ?: $id
+        );
+
+        return view('Lab_Analysis.nlr_report_pdf', compact('case', 'gsaReports', 'nlrReports'));
+
+    }
+
+    /**
+     * Store / Update NLR Report data (detailed_exhibit_description & condition_of_reserved_sample)
+     */
+    public function storeNlrReport(Request $request)
+    {
+        $validated = $request->validate([
+            'case_id'                       => 'nullable',
+            'case_number'                   => 'nullable|string',
+            'laboratory_number'             => 'nullable|string',
+            'detailed_exhibit_description'  => 'required|string',
+            'condition_of_reserved_sample'  => 'nullable|string',
+            'suspect_id'                    => 'nullable',
+            'nlr_code'                      => 'nullable|string',
+        ]);
+
+        $caseId = $request->input('case_id');
+        $caseNo = $request->input('case_number');
+        $labNo  = $request->input('laboratory_number');
+
+        $singleId = null;
+        $multipleId = null;
+        $case = null;
+
+        if ($caseId) {
+            $case = $this->findCase($caseId);
+            if ($case && $case->underlyingRecord) {
+                if ($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                    $multipleId = $case->id;
+                } else {
+                    $singleId = $case->id;
+                }
+                $caseNo = $caseNo ?: $case->case_number;
+                $labNo  = $labNo ?: $case->laboratory_number;
+            }
+        }
+
+        $report = \App\Models\NlrReport::forCase($caseId, $caseNo, $labNo);
+
+        if (!$report) {
+            $report = new \App\Models\NlrReport();
+        }
+
+        // Determine / Generate NLR Code for the NLR report (never use GSA-FM-T51-F)
+        $inputCode = $request->input('nlr_code');
+        if (!empty($inputCode)) {
+            $report->nlr_code = str_starts_with($inputCode, 'GSA-') ? str_replace('GSA-', 'NLR-', $inputCode) : $inputCode;
+        } elseif (empty($report->nlr_code)) {
+            $rawRef = $case ? $case->lab_exam_reference : null;
+            if (!empty($rawRef)) {
+                $report->nlr_code = str_starts_with($rawRef, 'GSA-') ? str_replace('GSA-', 'NLR-', $rawRef) : $rawRef;
+            } else {
+                $report->nlr_code = 'NLR-FM-T51-F';
+            }
+        }
+
+        $report->single_suspect_case_id       = $singleId ?: $report->single_suspect_case_id;
+        $report->multiple_suspect_case_id     = $multipleId ?: $report->multiple_suspect_case_id;
+        $report->case_number                 = $caseNo ?: $report->case_number;
+        $report->laboratory_number           = $labNo ?: $report->laboratory_number;
+        $report->suspect_id                  = $request->input('suspect_id') ?: $report->suspect_id;
+        $report->detailed_exhibit_description = $validated['detailed_exhibit_description'];
+        $report->condition_of_reserved_sample = $validated['condition_of_reserved_sample'] ?? $report->condition_of_reserved_sample;
+        $report->user_id                     = auth()->id();
+        $report->analyst                     = auth()->user() ? auth()->user()->fullname : null;
+        $report->save();
+
+        if (isset($case) && $case && $case->underlyingRecord) {
+            $rec = $case->underlyingRecord;
+            if (\Illuminate\Support\Facades\Schema::hasColumn($rec->getTable(), 'docket_data')) {
+                $dData = is_array($rec->docket_data) ? $rec->docket_data : (json_decode($rec->docket_data ?? '[]', true) ?: []);
+                $dData['detailed_exhibit_description'] = $validated['detailed_exhibit_description'];
+                if (!empty($validated['condition_of_reserved_sample'])) {
+                    $dData['condition_of_reserved_sample'] = $validated['condition_of_reserved_sample'];
+                }
+                $rec->docket_data = $dData;
+                $rec->save();
+            }
+        }
+
+        // Attach NLR Report PDF to the suspect(s) record (same attachment style as GSA Report)
+        $this->attachNlrReportToSuspects($case, $report, $request);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'NLR Report detailed exhibit description saved successfully.',
+                'data'    => $report,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'NLR Report detailed exhibit description saved successfully.');
+    }
+
+    /**
+     * Attach/Link the NLR Report PDF to suspect(s) in suspect_gsa_reports table.
+     */
+    protected function attachNlrReportToSuspects($case, $report, Request $request)
+    {
+        $caseNo = $report->case_number ?: ($case ? $case->case_number : null);
+        $caseId = $case ? $case->id : ($report->multiple_suspect_case_id ?: $report->single_suspect_case_id);
+
+        $multiCase = null;
+        if ($case && $case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+            $multiCase = $case->underlyingRecord;
+        } elseif ($report->multiple_suspect_case_id) {
+            $multiCase = \App\Models\MultipleSuspectCase::find($report->multiple_suspect_case_id);
+        }
+        if (!$multiCase && $caseNo) {
+            $multiCase = \App\Models\MultipleSuspectCase::where('case_number', (string) $caseNo)->first();
+        }
+
+        if (!$multiCase) {
+            $cNum = (string) ($caseNo ?: ($case ? $case->case_number : ($caseId ?: 'CAS-UNKNOWN')));
+            $sName = $case ? ($case->suspect_name ?? 'Primary Suspect') : 'Primary Suspect';
+            $multiCase = \App\Models\MultipleSuspectCase::create([
+                'case_number'        => $cNum,
+                'title'              => $case->title ?? 'Forensic Case ' . $cNum,
+                'unit_name'          => $case->unit_name ?? 'Forensic Laboratory',
+                'suspect_name'       => $sName,
+                'controller_user_id' => auth()->id(),
+            ]);
+        }
+
+        // Collect all suspect names associated with this case
+        $suspectNames = [];
+        if ($case && !empty($case->docket_data)) {
+            $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data, true) ?: []);
+            if (!empty($dData['suspects']) && is_array($dData['suspects'])) {
+                foreach ($dData['suspects'] as $sDoc) {
+                    if (!empty($sDoc['suspect_name'])) {
+                        $suspectNames[] = trim($sDoc['suspect_name']);
+                    }
+                }
+            }
+        }
+        if (empty($suspectNames) && $case && !empty($case->suspect_name)) {
+            $suspectNames[] = trim($case->suspect_name);
+        }
+        if (empty($suspectNames) && !empty($multiCase->suspect_name)) {
+            $suspectNames[] = trim($multiCase->suspect_name);
+        }
+        if (empty($suspectNames)) {
+            $suspectNames[] = 'Primary Suspect';
+        }
+        $suspectNames = array_values(array_unique($suspectNames));
+
+        $caseSuspects = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)
+            ->orderBy('suspect_number')
+            ->get();
+
+        // Only populate initial suspect records if none exist yet for this case
+        if ($caseSuspects->count() === 0) {
+            foreach ($suspectNames as $sIdx => $sName) {
+                $norm = strtolower(preg_replace('/\s+/', ' ', $sName));
+                $found = $caseSuspects->first(function ($s) use ($norm) {
+                    return strtolower(preg_replace('/\s+/', ' ', (string) $s->suspect_name)) === $norm;
+                });
+
+                if (!$found) {
+                    $created = \App\Models\CaseSuspect::create([
+                        'multiple_suspect_case_id' => $multiCase->id,
+                        'suspect_number'           => $sIdx + 1,
+                        'role'                     => $sIdx === 0 ? 'Primary Suspect' : 'Co-Suspect',
+                        'suspect_name'             => $sName,
+                    ]);
+                    $caseSuspects->push($created);
+                }
+            }
+        }
+
+        $targetSuspects = [];
+        $reqSuspectId = $request->input('suspect_id') ?: $report->suspect_id;
+        $reqSuspectName = $request->input('suspect_name');
+
+        if ($reqSuspectId) {
+            $found = \App\Models\CaseSuspect::find((int) $reqSuspectId) ?: $caseSuspects->firstWhere('id', (int) $reqSuspectId);
+            if ($found) {
+                $targetSuspects = [$found];
+            }
+        }
+
+        if (empty($targetSuspects) && $reqSuspectName) {
+            $normReq = strtolower(preg_replace('/\s+/', ' ', trim($reqSuspectName)));
+            $found = $caseSuspects->first(function ($s) use ($normReq) {
+                return strtolower(preg_replace('/\s+/', ' ', trim((string) $s->suspect_name))) === $normReq;
+            });
+            if ($found) {
+                $targetSuspects = [$found];
+            }
+        }
+
+        if (empty($targetSuspects)) {
+            $primary = $caseSuspects->firstWhere('role', 'Primary Suspect') ?: $caseSuspects->first();
+            if ($primary) {
+                $targetSuspects = [$primary];
+            } else {
+                $targetSuspects = $caseSuspects->all();
+            }
+        }
+
+        $pdfUrlPath   = 'Lab_Analysis/nlr-report-pdf/' . ($caseId ?: $multiCase->id);
+        $filename     = 'NLR_Report_' . ($report->nlr_code ?: ($report->laboratory_number ?: 'NACOC')) . '.pdf';
+        $finalCaseNo  = $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null));
+        $singleCaseId = ($case && !($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase)) ? $case->id : ($report->single_suspect_case_id ?: null);
+
+        if (empty($targetSuspects)) {
+            $existingReport = \App\Models\SuspectNlrReport::where(function ($q) use ($multiCase, $singleCaseId, $finalCaseNo) {
+                if ($multiCase) $q->orWhere('multiple_suspect_case_id', $multiCase->id);
+                if ($singleCaseId) $q->orWhere('single_suspect_case_id', $singleCaseId);
+                if ($finalCaseNo) $q->orWhere('case_number', $finalCaseNo);
+            })
+            ->where(function ($q) use ($pdfUrlPath) {
+                $q->where('file_path', $pdfUrlPath)
+                  ->orWhere('file_path', '/' . ltrim($pdfUrlPath, '/'))
+                  ->orWhere('original_filename', 'LIKE', 'NLR_Report%');
+            })
+            ->first();
+
+            if ($existingReport) {
+                $existingReport->update([
+                    'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+                    'single_suspect_case_id'   => $singleCaseId,
+                    'lab_number'               => $report->laboratory_number ?: $finalCaseNo,
+                    'case_number'              => $finalCaseNo,
+                    'original_filename'        => $filename,
+                    'file_path'                => $pdfUrlPath,
+                    'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: 'NLR-FM-T51-F') . ')',
+                    'status'                   => 'active',
+                ]);
+            } else {
+                \App\Models\SuspectNlrReport::create([
+                    'case_suspect_id'          => null,
+                    'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+                    'single_suspect_case_id'   => $singleCaseId,
+                    'uploaded_by'              => auth()->id(),
+                    'original_filename'        => $filename,
+                    'stored_filename'          => 'nlr_report_' . $report->id . '.pdf',
+                    'file_path'                => $pdfUrlPath,
+                    'file_type'                => 'application/pdf',
+                    'file_extension'           => 'pdf',
+                    'file_size'                => 0,
+                    'lab_number'               => $report->laboratory_number ?: $finalCaseNo,
+                    'case_number'              => $finalCaseNo,
+                    'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: 'NLR-FM-T51-F') . ')',
+                    'status'                   => 'active',
+                ]);
+            }
+        } else {
+            foreach ($targetSuspects as $s) {
+                $existingReport = \App\Models\SuspectNlrReport::where('case_suspect_id', $s->id)
+                    ->where(function ($q) use ($pdfUrlPath) {
+                        $q->where('file_path', $pdfUrlPath)
+                          ->orWhere('file_path', '/' . ltrim($pdfUrlPath, '/'))
+                          ->orWhere('original_filename', 'LIKE', 'NLR_Report%');
+                    })
+                    ->first();
+
+                if ($existingReport) {
+                    $existingReport->update([
+                        'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+                        'single_suspect_case_id'   => $singleCaseId,
+                        'lab_number'        => $report->laboratory_number ?: $finalCaseNo,
+                        'case_number'       => $finalCaseNo,
+                        'original_filename' => $filename,
+                        'file_path'         => $pdfUrlPath,
+                        'notes'             => 'Attached NLR Report PDF (' . ($report->nlr_code ?: 'NLR-FM-T51-F') . ')',
+                        'status'            => 'active',
+                    ]);
+                } else {
+                    \App\Models\SuspectNlrReport::create([
+                        'case_suspect_id'          => $s->id,
+                        'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+                        'single_suspect_case_id'   => $singleCaseId,
+                        'uploaded_by'              => auth()->id(),
+                        'original_filename'        => $filename,
+                        'stored_filename'          => 'nlr_report_' . $report->id . '.pdf',
+                        'file_path'                => $pdfUrlPath,
+                        'file_type'                => 'application/pdf',
+                        'file_extension'           => 'pdf',
+                        'file_size'                => 0,
+                        'lab_number'               => $report->laboratory_number ?: $finalCaseNo,
+                        'case_number'              => $finalCaseNo,
+                        'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: 'NLR-FM-T51-F') . ')',
+                        'status'                   => 'active',
+                    ]);
+                }
+            }
+        }
+
     }
 
     /**
@@ -4624,14 +4963,60 @@ class CaseController extends Controller
      * POST /Lab_Analysis/gsa-reports/store
      * Fields: case_suspect_id, multiple_suspect_case_id, gsa_report_images[], lab_number, case_number, notes
      */
-    public function storeGsaReports(\Illuminate\Http\Request $request)
+    public function storeGsaReports(\Illuminate\Http\Request $request, $id = null)
     {
         $request->validate([
-            'case_suspect_id'          => 'required|exists:case_suspects,id',
-            'multiple_suspect_case_id' => 'required|exists:multiple_suspect_cases,id',
+            'case_suspect_id'          => 'nullable|integer',
+            'suspect_name'             => 'nullable|string|max:255',
+            'multiple_suspect_case_id' => 'nullable|integer',
             'gsa_report_images'        => 'required|array|min:1',
             'gsa_report_images.*'      => 'required|file|max:10240|mimes:jpg,jpeg,png,webp,pdf,docx,csv',
         ]);
+
+        // ── Resolve the parent multi-suspect case ──────────────────────────
+        $caseNumber = $request->input('case_number') ?: $id;
+        $multiCase  = null;
+        if ($request->filled('multiple_suspect_case_id')) {
+            $multiCase = \App\Models\MultipleSuspectCase::find($request->input('multiple_suspect_case_id'));
+            // Guard against an id that belongs to a different case number
+            if ($multiCase && $caseNumber && $multiCase->case_number !== (string) $caseNumber) {
+                $multiCase = null;
+            }
+        }
+        if (!$multiCase && $caseNumber) {
+            $multiCase = \App\Models\MultipleSuspectCase::where('case_number', (string) $caseNumber)->first();
+        }
+        if (!$multiCase) {
+            return response()->json([
+                'success' => false,
+                'message' => 'GSA reports can only be attached to a registered multi-suspect case. No matching case record was found.',
+            ], 422);
+        }
+
+        // ── Resolve the suspect this report belongs to ─────────────────────
+        $caseSuspects = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)
+            ->orderBy('suspect_number')
+            ->get();
+
+        $suspect = null;
+        if ($request->filled('case_suspect_id')) {
+            $suspect = $caseSuspects->firstWhere('id', (int) $request->input('case_suspect_id'));
+        }
+        if (!$suspect && $request->filled('suspect_name')) {
+            $wanted  = strtolower(preg_replace('/\s+/', ' ', trim($request->input('suspect_name'))));
+            $suspect = $caseSuspects->first(function ($s) use ($wanted) {
+                return strtolower(preg_replace('/\s+/', ' ', trim((string) $s->suspect_name))) === $wanted;
+            });
+        }
+        if (!$suspect) {
+            $suspect = $caseSuspects->firstWhere('role', 'Primary Suspect') ?: $caseSuspects->first();
+        }
+        if (!$suspect) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No suspect record is registered for this case, so the GSA report cannot be attached.',
+            ], 422);
+        }
 
         $saved  = [];
         $folder = 'gsa_reports/' . now()->format('Y/m');
@@ -4642,8 +5027,8 @@ class CaseController extends Controller
             $path     = $file->storeAs($folder, $stored, 'public');
 
             $record = \App\Models\SuspectGsaReport::create([
-                'case_suspect_id'          => $request->case_suspect_id,
-                'multiple_suspect_case_id' => $request->multiple_suspect_case_id,
+                'case_suspect_id'          => $suspect->id,
+                'multiple_suspect_case_id' => $multiCase->id,
                 'uploaded_by'              => auth()->id(),
                 'original_filename'        => $file->getClientOriginalName(),
                 'stored_filename'          => $stored,

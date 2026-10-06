@@ -5,7 +5,8 @@
         : (json_decode($case->docket_data ?? '[]', true) ?:
         []);
 
-    $labNo = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'Lab No. 41/FS09/2026');
+    $rawLab = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'Lab No. 72/FS09/2026');
+    $labNo = str_starts_with($rawLab, 'Lab No.') ? $rawLab : 'Lab No. ' . $rawLab;
     $caseNo = $case->case_number ?? 'CSS-2026-6730';
     $raidLoc =
         $case->raid_location ??
@@ -18,10 +19,24 @@
     $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? '90 Kilograms (kg)');
 
     $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'Det. Insp. K. Mensah');
-    $analystName = $docketData['analyst'] ?? ($case->submitting_officer ?? 'John Mensah');
+
+    $rawAnalyst = $docketData['analyst'] 
+        ?? ($docketData['lab_examination']['analyst'] 
+        ?? ($case->analyst 
+        ?? ($case->lab_analyst 
+        ?? null)));
+
+    if (!empty($rawAnalyst) && $rawAnalyst !== $submittingOfficer) {
+        $analystName = $rawAnalyst;
+    } elseif ($authUser && (str_contains(strtolower($authUser->unit ?? ''), 'lab') || !empty($authUser->fullname))) {
+        $analystName = $authUser->fullname;
+    } else {
+        $analystName = 'John Mensah';
+    }
 
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
     $headName = $dbLabHead ? $dbLabHead->fullname : 'Dr. Samuel Atta (Head of Forensic Laboratory)';
+
 
     // Unified Presumptive Result Parser Helper
     $parsePresumptiveResult = function ($raw) use ($drugName) {
@@ -463,13 +478,12 @@
             }
         }
 
-        // Fallbacks for display
-        $examRef = !empty($labExamData['exam_reference'])
+        $rawExamRef = !empty($labExamData['exam_reference'])
             ? $labExamData['exam_reference']
             : (!empty($labExamData['analysis_reference'])
                 ? $labExamData['analysis_reference']
-                : ($case->lab_exam_reference ?:
-                'GSA-FM-T51-F'));
+                : ($case->lab_exam_reference ?: 'NLR-FM-T51-F'));
+        $examRef = str_starts_with($rawExamRef, 'GSA-') ? str_replace('GSA-', 'NLR-', $rawExamRef) : $rawExamRef;
         $exhibitNo = $labExamData['exhibit_number'] ?? '1';
         $lNo = $labExamData['laboratory_number'] ?? $labNo;
         $analyst = $labExamData['analyst'] ?? $analystName;
@@ -689,6 +703,38 @@
         }, $dossierGroups),
     );
 
+    $allGsaFilesForCase = \App\Models\SuspectGsaReport::forCase($caseNo ?? ($case->case_number ?? $case->id), $case->id ?? null);
+    $allNlrFilesForCase = \App\Models\SuspectNlrReport::forCase($caseNo ?? ($case->case_number ?? $case->id), $case->id ?? null);
+
+    $getSuspectId = function ($sInfo) {
+        if (empty($sInfo)) return null;
+        if (is_object($sInfo)) return $sInfo->id ?? null;
+        if (is_array($sInfo)) return $sInfo['id'] ?? null;
+        return null;
+    };
+
+    $allGroupsHaveReports = true;
+    if (empty($dossierGroups) || count($dossierGroups) === 0) {
+        $allGroupsHaveReports = ($allGsaFilesForCase->count() > 0 || $allNlrFilesForCase->count() > 0);
+    } else {
+        foreach ($dossierGroups as $checkG) {
+            $checkMemGsa = collect();
+            foreach ($checkG['members'] as $gMem) {
+                $sId = $getSuspectId($gMem['suspect_info'] ?? null);
+                $sName = $gMem['suspect_name'] ?? null;
+                $checkMemGsa = $checkMemGsa->merge(
+                    \App\Models\SuspectGsaReport::filterForSuspect($allGsaFilesForCase, $sId, $sName)
+                )->merge(
+                    \App\Models\SuspectNlrReport::filterForSuspect($allNlrFilesForCase, $sId, $sName)
+                );
+            }
+            if ($checkMemGsa->count() === 0) {
+                $allGroupsHaveReports = false;
+                break;
+            }
+        }
+    }
+
     $certNo = 'CERT-LAB-' . date('Y') . '-' . strtoupper(substr(md5($caseNo . $labNo), 0, 6));
     $isLabAnalysis = true;
 @endphp
@@ -787,6 +833,39 @@
                 margin: 0 !important;
             }
 
+            #nlrReportModal {
+                position: fixed !important;
+                inset: 0 !important;
+                z-index: 999999 !important;
+                background: white !important;
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+            }
+
+            #nlrReportModal > div {
+                box-shadow: none !important;
+                border: none !important;
+                max-width: 100% !important;
+                max-height: none !important;
+                border-radius: 0 !important;
+            }
+
+            #nlrReportDocumentContainer {
+                padding: 0 !important;
+                background: white !important;
+                overflow: visible !important;
+            }
+
+            #nlrReportSheet {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+            }
+
             .print-shadow-none {
                 box-shadow: none !important;
             }
@@ -806,9 +885,14 @@
                 padding: 0 !important;
             }
 
+            .page-break {
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+
             @page {
-                size: A4 landscape;
-                margin: 8mm;
+                size: A4 portrait;
+                margin: 10mm;
             }
         }
     </style>
@@ -833,19 +917,8 @@
                 <div class="flex items-center gap-3 flex-1 min-w-0">
                     <nav
                         class="flex items-center gap-1.5 text-xs font-mono-code text-slate-500 overflow-x-auto whitespace-nowrap custom-scrollbar py-1">
-                        <a href="{{ url('/Lab_Analysis') }}"
-                            class="hover:text-emerald-700 font-semibold flex items-center gap-1 transition-colors shrink-0">
-                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                            </svg>
-                            <span>Lab Headquarters</span>
-                        </a>
-                        <span class="text-slate-300">/</span>
-                        <a href="{{ url('/lab-result') }}"
-                            class="hover:text-emerald-700 font-semibold transition-colors shrink-0">Drug Register</a>
-                        <span class="text-slate-300">/</span>
+                        
+                        
                         <span
                             class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">{{ $caseNo }}</span>
                     </nav>
@@ -873,27 +946,47 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
-                        <span class="hidden sm:inline">Register</span>
+                        <span class="hidden sm:inline">Back</span>
                     </a>
 
-                    <button type="button" onclick="showGsaReportUploadSection()"
-                        class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
-                        <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>GSA Report Upload</span>
-                    </button>
+                    @if ($allGroupsHaveReports)
+                        <button type="button" disabled title="Reports have already been generated and attached for all suspects in this case."
+                            class="px-3.5 py-2 bg-slate-100 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-200 opacity-60 cursor-not-allowed flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>GSA Report Upload</span>
+                        </button>
 
-                    <!-- GENERATE NLR REPORT BUTTON -->
-                    <button type="button" onclick="openNlrReportModal()"
-                        class="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
-                        <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span>Generate NLR Report</span>
-                    </button>
+                        <button type="button" disabled title="Reports have already been generated and attached for all suspects in this case."
+                            class="px-3.5 sm:px-4 py-2 bg-slate-100 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-200 opacity-60 cursor-not-allowed flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>Generate NLR Report</span>
+                        </button>
+                    @else
+                        <button type="button" onclick="showGsaReportUploadSection()"
+                            class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
+                            <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>GSA Report Upload</span>
+                        </button>
+
+                        <!-- GENERATE NLR REPORT BUTTON -->
+                        <button type="button" onclick="openNlrReportModal()"
+                            class="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
+                            <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>Generate NLR Report</span>
+                        </button>
+                    @endif
 
 
                 </div>
@@ -1396,6 +1489,29 @@
                                 </table>
                             </div>
 
+                            {{-- ATTACHED GSA / NLR REPORT FILES FOR THIS DOSSIER'S SUSPECT(S) --}}
+                            @php
+                                $cardGsaFiles = collect();
+                                foreach ($group['members'] as $gsaMem) {
+                                    $sId = $getSuspectId($gsaMem['suspect_info'] ?? null);
+                                    $sName = $gsaMem['suspect_name'] ?? null;
+                                    $cardGsaFiles = $cardGsaFiles->merge(
+                                        \App\Models\SuspectGsaReport::filterForSuspect($allGsaFilesForCase, $sId, $sName)
+                                    )->merge(
+                                        \App\Models\SuspectNlrReport::filterForSuspect($allNlrFilesForCase, $sId, $sName)
+                                    );
+                                }
+                                $cardGsaFiles = $cardGsaFiles->unique(function ($item) {
+                                    return get_class($item) . '_' . $item->id;
+                                })->values();
+                                $cardGsaNames = implode(', ', array_column($group['members'], 'suspect_name'));
+                                $hasCardReportAttached = (count($cardGsaFiles) > 0);
+                            @endphp
+                            @include('partials.gsa_report_files', [
+                                'gsaFiles' => $cardGsaFiles,
+                                'gsaForName' => $cardGsaNames,
+                            ])
+
                             <!-- FOOTER ACTION BAR -->
                             <div
                                 class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 no-print border-t border-slate-100">
@@ -1403,14 +1519,26 @@
                                     Registered Under NACOC Protocols &bull; Ref: {{ $certNo }}
                                 </span>
                                 <div class="flex items-center gap-2 justify-end">
-                                    <button type="button" onclick="openGsaReportModal()"
-                                        class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 transition-colors cursor-pointer">
-                                        GSA Report Upload
-                                    </button>
-                                    <button type="button" onclick="openNlrReportModal()"
-                                        class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition-colors cursor-pointer">
-                                        NLR Report 
-                                    </button>
+                                    @if ($hasCardReportAttached)
+                                        <button type="button" disabled title="A report has already been generated and attached."
+                                            class="px-3.5 py-1.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 opacity-60 cursor-not-allowed">
+                                            GSA Report Upload
+                                        </button>
+                                        <button type="button" disabled title="A report has already been generated and attached."
+                                            class="px-3.5 py-1.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 opacity-60 cursor-not-allowed">
+                                            NLR Report 
+                                        </button>
+                                    @else
+                                        <button type="button"
+                                            onclick="openGsaReportModal({{ \Illuminate\Support\Js::from($group['members'][0]['suspect_name'] ?? '') }}, {{ \Illuminate\Support\Js::from($group['members'][0]['suspect_info']['id'] ?? null) }})"
+                                            class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 transition-colors cursor-pointer">
+                                            GSA Report Upload
+                                        </button>
+                                        <button type="button" onclick="openNlrReportModal({{ \Illuminate\Support\Js::from($res) }})"
+                                            class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition-colors cursor-pointer">
+                                            NLR Report 
+                                        </button>
+                                    @endif
                                 </div>
                             </div>
 
@@ -1447,6 +1575,8 @@
                                 </div>
                                 <p class="text-[11px] text-slate-500 font-mono-code mt-0.5">Attach scans, photos, or
                                     documents of the signed GSA Report Upload</p>
+                                <p id="gsaActiveSuspectLabel"
+                                    class="hidden text-[11px] text-blue-700 font-mono-code font-bold mt-0.5"></p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -1457,7 +1587,7 @@
                                 class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold rounded-lg border border-red-200 transition-colors cursor-pointer">Clear
                                 All</button>
                             <button type="button" id="saveGsaFilesBtn" onclick="saveGsaReportFiles()"
-                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-0">
+                                @if ($allGroupsHaveReports) disabled title="Reports have already been generated and attached for all suspects in this case." class="px-4 py-2 bg-slate-200 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-300 opacity-60 cursor-not-allowed flex items-center gap-1.5" @else class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-0" @endif>
                                 <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1514,8 +1644,15 @@
                             multiple class="hidden" onchange="gsaHandleFileSelect(this)">
                     </div>
 
-                    {{-- SAVED ATTACHED GSA REPORT FILES --}}
-                    @if (!empty($gsaReports) && count($gsaReports) > 0)
+                    {{-- SAVED ATTACHED GSA / NLR REPORT FILES --}}
+                    @php
+                        $gsaReportsLive = \App\Models\SuspectGsaReport::forCase($caseNo ?? ($case->case_number ?? $case->id), $case->id ?? null);
+                        $nlrReportsLive = \App\Models\SuspectNlrReport::forCase($caseNo ?? ($case->case_number ?? $case->id), $case->id ?? null);
+                        $allReportsLive = collect($gsaReportsLive)->merge($nlrReportsLive)->unique(function ($item) {
+                            return get_class($item) . '_' . $item->id;
+                        })->values();
+                    @endphp
+                    @if (!empty($allReportsLive) && count($allReportsLive) > 0)
                         <div class="pt-4 border-t border-slate-100 space-y-3">
                             <div
                                 class="flex items-center justify-between text-xs font-bold text-slate-800 font-mono-code">
@@ -1525,19 +1662,19 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
-                                    ATTACHED GSA REPORT FILES ({{ count($gsaReports) }})
+                                    ATTACHED REPORT FILES ({{ count($allReportsLive) }})
                                 </span>
                                 <span class="text-[11px] text-slate-400 font-mono-code">Saved for Case
                                     #{{ $caseNo }}</span>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                @foreach ($gsaReports as $gsaF)
+                                @foreach ($allReportsLive as $gsaF)
                                     <div
                                         class="bg-blue-50/60 border border-blue-200/90 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
                                         <div class="flex items-center gap-2.5 min-w-0">
                                             <div
-                                                class="w-9 h-9 bg-blue-600 text-white rounded-xl flex items-center justify-center font-mono-code text-xs font-bold shrink-0">
-                                                {{ strtoupper(substr($gsaF->file_extension ?? 'PDF', 0, 3)) }}
+                                                class="w-9 h-9 {{ ($gsaF instanceof \App\Models\SuspectNlrReport || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR')) ? 'bg-emerald-600' : 'bg-blue-600' }} text-white rounded-xl flex items-center justify-center font-mono-code text-xs font-bold shrink-0">
+                                                {{ ($gsaF instanceof \App\Models\SuspectNlrReport || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR')) ? 'NLR' : strtoupper(substr($gsaF->file_extension ?? 'PDF', 0, 3)) }}
                                             </div>
                                             <div class="min-w-0">
                                                 <div class="text-xs font-bold text-slate-900 truncate"
@@ -1550,7 +1687,7 @@
                                             </div>
                                         </div>
                                         <a href="{{ $gsaF->url }}" target="_blank"
-                                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-extrabold font-mono-code rounded-xl transition-colors shrink-0">
+                                            class="px-3 py-1.5 {{ ($gsaF instanceof \App\Models\SuspectNlrReport || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR')) ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700' }} text-white text-[10px] font-extrabold font-mono-code rounded-xl transition-colors shrink-0">
                                             Open File
                                         </a>
                                     </div>
@@ -1681,22 +1818,15 @@
                         </div>
 
                         <!-- ADDITIONAL FIELDS ROW -->
-                        <div class="max-w-xs">
+                        <div class="w-full">
 
                             <div class="space-y-1.5">
                                 <label for="conditionOfReservedSample"
                                     class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">Condition
                                     of Reserved Sample</label>
-                                <select id="conditionOfReservedSample" name="condition_of_reserved_sample"
-                                    class="w-full px-3.5 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-xs text-slate-900 font-sans focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all cursor-pointer">
-                                    <option value="">— Select Condition —</option>
-                                    <option value="good">Good / Unaltered</option>
-                                    <option value="sealed">Sealed &amp; Labelled</option>
-                                    <option value="partially_used">Partially Used</option>
-                                    <option value="degraded">Degraded</option>
-                                    <option value="contaminated">Contaminated</option>
-                                    <option value="destroyed">Destroyed / Expended</option>
-                                </select>
+                                <textarea id="conditionOfReservedSample" name="condition_of_reserved_sample" rows="3"
+                                    placeholder="Enter condition of reserved sample(s)... (e.g., Sealed in tamper-evident forensic bag, intact, unaltered)"
+                                    class="w-full px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-xs text-slate-900 font-sans leading-relaxed focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-y placeholder-slate-300">{{ old('condition_of_reserved_sample') }}</textarea>
                             </div>
                         </div>
 
@@ -1718,12 +1848,12 @@
                                     Reset
                                 </button>
                                 <button type="submit" id="saveDescBtn"
-                                    class="inline-flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer">
+                                    @if ($allGroupsHaveReports) disabled title="Reports have already been generated and attached for all suspects in this case." class="inline-flex items-center gap-2 px-5 py-2 bg-slate-200 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-300 opacity-60 cursor-not-allowed" @else class="inline-flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer" @endif>
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                                     </svg>
-                                    Save Exhibit Description
+                                    Save &amp; Attach NLR Report
                                 </button>
                             </div>
                         </div>
@@ -1743,7 +1873,12 @@
             }
         }
 
+        window.allGroupsHaveReports = @json($allGroupsHaveReports);
+
         function showGsaReportUploadSection() {
+            if (window.allGroupsHaveReports) {
+                return;
+            }
             const sec = document.getElementById('gsaUploadSection');
             if (sec) {
                 if (sec.classList.contains('hidden')) {
@@ -1760,7 +1895,36 @@
             }
         }
 
-        function openGsaReportModal() {
+        // Suspect the GSA upload section is currently attached to (set by the dossier card button)
+        let gsaActiveSuspect = {
+            name: '',
+            id: null
+        };
+
+        function openGsaReportModal(suspectName, suspectId) {
+            const newName = suspectName || '';
+            const newId = suspectId || null;
+            const suspectChanged = newName !== gsaActiveSuspect.name || newId !== gsaActiveSuspect.id;
+            gsaActiveSuspect = {
+                name: newName,
+                id: newId
+            };
+
+            const label = document.getElementById('gsaActiveSuspectLabel');
+            if (label) {
+                label.textContent = newName ? 'Attaching to suspect: ' + newName : '';
+                label.classList.toggle('hidden', !newName);
+            }
+
+            const sec = document.getElementById('gsaUploadSection');
+            // If the section is already open for a different suspect, keep it open instead of toggling closed
+            if (sec && !sec.classList.contains('hidden') && suspectChanged) {
+                sec.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                return;
+            }
             showGsaReportUploadSection();
         }
 
@@ -1768,7 +1932,30 @@
             // Unused
         }
 
-        function openNlrReportModal() {
+        window.suspectLabResults = @json($suspectLabResults);
+        window.selectedSuspectQuery = @json($selectedSuspectQuery ?? '');
+        window.activeNlrLabData = null;
+
+        if (window.selectedSuspectQuery && window.suspectLabResults && window.suspectLabResults.length > 0) {
+            const norm = str => (str || '').toLowerCase().replace(/\s+/g, ' ').trim();
+            const sel = norm(window.selectedSuspectQuery);
+            window.activeNlrLabData = window.suspectLabResults.find(r => {
+                const sName = norm(r.suspect_name);
+                return sName.includes(sel) || sel.includes(sName);
+            });
+        }
+
+        if (!window.activeNlrLabData && window.suspectLabResults && window.suspectLabResults.length > 0) {
+            window.activeNlrLabData = window.suspectLabResults[0];
+        }
+
+        function openNlrReportModal(labData) {
+            if (!labData && window.allGroupsHaveReports) {
+                return;
+            }
+            if (labData) {
+                window.activeNlrLabData = labData;
+            }
             const descSec = document.getElementById('exhibitDescriptionSection');
             if (descSec) {
                 if (descSec.classList.contains('hidden')) {
@@ -1785,8 +1972,21 @@
             }
         }
 
+        function showNlrReportModal(labData) {
+            syncFormToNlrReport(labData || window.activeNlrLabData);
+            const modal = document.getElementById('nlrReportModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
         function closeNlrReportModal() {
-            // Unused
+            const modal = document.getElementById('nlrReportModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
         }
 
         function filterSuspectDossiers(query) {
@@ -2005,6 +2205,12 @@
             formData.append('case_number', @json($caseNo));
             formData.append('multiple_suspect_case_id', @json($case->id));
             formData.append('lab_number', @json($labNo));
+            if (gsaActiveSuspect.id) {
+                formData.append('case_suspect_id', gsaActiveSuspect.id);
+            }
+            if (gsaActiveSuspect.name) {
+                formData.append('suspect_name', gsaActiveSuspect.name);
+            }
             formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
                 '{{ csrf_token() }}');
 
@@ -2135,41 +2341,280 @@
             });
         }
 
+        function syncFormToNlrReport(labData) {
+            if (!labData && window.suspectLabResults && window.suspectLabResults.length > 0) {
+                labData = window.suspectLabResults[0];
+            }
+
+            const descEl = document.getElementById('detailedExhibitDescription');
+            const condEl = document.getElementById('conditionOfReservedSample');
+
+            const narrativeTarget = document.getElementById('nlrReportNarrative');
+            const conditionTarget = document.getElementById('nlrReportCondition');
+
+            if (descEl && narrativeTarget) {
+                const text = descEl.value.trim();
+                narrativeTarget.innerText = text || (labData && labData.sample_weight ? labData.sample_weight.description : "Inside the box were two large ziplock bags.\n• One of the ziplock bags labelled 'A' contained one hundred and six (106) wraps of plant-like substances.\n• The second ziplock bag contained one transparent polythene bag and a small ziplock bag labeled 'B' and 'C' respectively. The transparent polythene contained quantities of loose plant-like material while the small ziplock bag contained six (6) rolls of plant-like substances.\n\nSamples were taken for analysis.");
+            }
+
+            if (condEl && conditionTarget) {
+                const condText = condEl.value && condEl.value.trim() ? condEl.value.trim() : 'Good / Unaltered';
+                conditionTarget.innerText = condText;
+            }
+
+            if (labData) {
+                const rawNlrRef = labData.nlr_code || labData.exam_reference || '';
+                const nlrCode = rawNlrRef ? (rawNlrRef.startsWith('GSA-') ? rawNlrRef.replace(/^GSA-/, 'NLR-') : rawNlrRef) : 'NLR-FM-T51-F';
+                if (document.getElementById('nlrExamRef')) document.getElementById('nlrExamRef').innerText = nlrCode;
+                if (document.getElementById('nlrExamRefBadge')) document.getElementById('nlrExamRefBadge').innerText = 'Ref: ' + nlrCode;
+                if (document.getElementById('nlrDocNo')) document.getElementById('nlrDocNo').innerText = nlrCode;
+                if (document.getElementById('nlrExhibitNo')) document.getElementById('nlrExhibitNo').innerText = labData.exhibit_number || '1';
+                const rawLabVal = labData.laboratory_number || '{{ $labNo }}';
+                const formattedLabVal = rawLabVal.startsWith('Lab No.') ? rawLabVal : ('Lab No. ' + rawLabVal);
+                if (document.getElementById('nlrLabNo')) document.getElementById('nlrLabNo').innerText = formattedLabVal;
+                if (document.getElementById('coverLabNo')) document.getElementById('coverLabNo').innerText = formattedLabVal;
+                if (document.getElementById('nlrBottomLabNo')) document.getElementById('nlrBottomLabNo').innerText = formattedLabVal;
+                if (document.getElementById('nlrCoverFooterLabNo')) document.getElementById('nlrCoverFooterLabNo').innerText = formattedLabVal;
+                if (document.getElementById('nlrPage2FooterLabNo')) document.getElementById('nlrPage2FooterLabNo').innerText = formattedLabVal;
+                if (document.getElementById('nlrExhibitDesc') && labData.sample_weight) document.getElementById('nlrExhibitDesc').innerText = labData.sample_weight.description || '{{ $drugName }}';
+                if (document.getElementById('nlrAnalyst')) document.getElementById('nlrAnalyst').innerText = labData.analyst || '{{ $analystName }}';
+                if (document.getElementById('nlrDateReceived')) document.getElementById('nlrDateReceived').innerText = labData.date_received || '';
+                if (document.getElementById('nlrDateStarted')) document.getElementById('nlrDateStarted').innerText = labData.date_started || '';
+                if (document.getElementById('nlrDateCompleted')) document.getElementById('nlrDateCompleted').innerText = labData.date_completed || '';
+                
+                if (document.getElementById('nlrConfirmatory')) document.getElementById('nlrConfirmatory').innerText = (labData.confirmatory !== 'NO') ? 'YES' : 'NO';
+                
+                if (labData.sample_weight) {
+                    if (document.getElementById('nlrUnitsPackaging')) document.getElementById('nlrUnitsPackaging').innerText = labData.sample_weight.units_packaging || '';
+                    if (document.getElementById('nlrGrossWeight')) document.getElementById('nlrGrossWeight').innerText = labData.sample_weight.gross_weight || '';
+                    if (document.getElementById('nlrSampleTaken')) document.getElementById('nlrSampleTaken').innerText = labData.sample_weight.sample_taken || '';
+                    if (document.getElementById('nlrReservedSamples')) document.getElementById('nlrReservedSamples').innerText = labData.sample_weight.reserved_samples || '';
+                    
+                    const swRows = document.getElementById('nlrSampleWeightRows');
+                    if (swRows && labData.sample_weight) {
+                        let units = (labData.sample_weight.units_packaging || labData.sample_weight.sample_weight_units || '').trim();
+                        let pkg = (labData.sample_weight.packaging_type || labData.seizure_packaging || labData.packaging || '').trim();
+                        let gross = (labData.sample_weight.gross_weight || '').trim();
+                        let taken = (labData.sample_weight.sample_taken || '—').trim();
+                        let reserved = (labData.sample_weight.reserved_samples || '—').trim();
+
+                        let formattedUnits = units;
+                        if (units && pkg && /^\d+(\.\d+)?$/.test(units)) {
+                            formattedUnits = `${units} ${pkg}`;
+                        } else if (!units && pkg) {
+                            formattedUnits = pkg;
+                        }
+
+                        let detectedUnit = '';
+                        const allText = `${gross} ${taken} ${reserved} ${labData.quantity_str || ''}`;
+                        if (/\b(kg|kgs|kilogram|kilograms)\b/i.test(allText)) detectedUnit = 'kg';
+                        else if (/\b(g|gm|gms|gram|grams)\b/i.test(allText) && !/\b(kg|mg)\b/i.test(allText)) detectedUnit = 'g';
+                        else if (/\b(mg|mgs|milligram|milligrams)\b/i.test(allText)) detectedUnit = 'mg';
+
+                        const attachUnit = (val, u) => {
+                            if (!val || val === '—') return '—';
+                            if (/[a-zA-Z]/.test(val) || !u) return val;
+                            return `${val} ${u}`;
+                        };
+
+                        let formattedGross = attachUnit(gross, detectedUnit);
+                        let formattedTaken = attachUnit(taken, detectedUnit);
+                        let formattedReserved = attachUnit(reserved, detectedUnit);
+
+                        let unitsGross = '—';
+                        if (formattedUnits && formattedGross && formattedGross !== '—') {
+                            unitsGross = formattedUnits.includes('(') ? formattedUnits : `${formattedUnits} (${formattedGross})`;
+                        } else if (formattedGross && formattedGross !== '—') {
+                            unitsGross = formattedGross;
+                        } else if (formattedUnits) {
+                            unitsGross = formattedUnits;
+                        }
+
+                        swRows.innerHTML = `
+                            <tr class="border-b border-slate-200 last:border-b-0">
+                                <td class="py-1.5 px-2 text-center font-bold border-r border-slate-300">${labData.exhibit_number || 'A'}</td>
+                                <td class="py-1.5 px-2 font-medium border-r border-slate-300">${labData.sample_weight.description || '{{ $drugName }}'}</td>
+                                <td class="py-1.5 px-2 text-center font-medium border-r border-slate-300">${unitsGross}</td>
+                                <td class="py-1.5 px-2 text-center font-semibold text-emerald-800 border-r border-slate-300">${formattedTaken}</td>
+                                <td class="py-1.5 px-2 text-center font-medium">${formattedReserved}</td>
+                            </tr>
+                        `;
+                    }
+                }
+
+                if (document.getElementById('nlrSubstanceId')) document.getElementById('nlrSubstanceId').innerText = labData.substance_identification || '{{ $drugName }}';
+                if (document.getElementById('nlrSpecifications')) document.getElementById('nlrSpecifications').innerText = labData.specifications || 'Official Forensic Standard ISO/IEC 17025 Compliant';
+                if (document.getElementById('nlrTestMethods')) document.getElementById('nlrTestMethods').innerText = labData.test_methods || 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay';
+                if (document.getElementById('nlrAnalysisRemark')) document.getElementById('nlrAnalysisRemark').innerText = labData.remark || 'Controlled Narcotic Substance verified under strict laboratory chain of custody protocol.';
+                const condMap = {
+                    'good': 'Good / Unaltered',
+                    'sealed': 'Sealed & Labelled',
+                    'partially_used': 'Partially Used',
+                    'degraded': 'Degraded',
+                    'contaminated': 'Contaminated',
+                    'destroyed': 'Destroyed / Expended'
+                };
+                const rawCond = labData.condition_of_reserved_sample || 'Sealed & Labelled';
+                const condDisplay = condMap[String(rawCond).toLowerCase()] || rawCond;
+                if (document.getElementById('nlrConditionReservedSample')) document.getElementById('nlrConditionReservedSample').innerText = condDisplay;
+                if (document.getElementById('nlrAnalyticalFindings')) document.getElementById('nlrAnalyticalFindings').innerText = labData.findings || 'Certified chemical analysis confirms positive identification. High Court Admissible.';
+
+                // Sync presumptive reaction table rows
+                const pContainer = document.getElementById('nlrPresumptiveRows');
+                if (pContainer && labData.presumptive_rows && labData.presumptive_rows.length > 0) {
+                    pContainer.innerHTML = labData.presumptive_rows.map(r => `
+                        <tr class="border-b border-slate-200 last:border-b-0">
+                            <td class="py-1.5 px-2 border-r border-slate-300 font-extrabold ${r.result === 'YES' ? 'text-emerald-800' : 'text-slate-900'}">${r.result || 'YES'}</td>
+                            <td class="py-1.5 px-2 border-r border-slate-300 font-bold text-slate-900">${r.presence || ''}</td>
+                            <td class="py-1.5 px-2 font-bold text-slate-900">${r.purity || '—'}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Sync detected substances table rows
+                const detSubContainer = document.getElementById('nlrDetectedSubstancesRows');
+                if (detSubContainer) {
+                    let dsRows = [];
+                    if (labData.detected_substances && Array.isArray(labData.detected_substances) && labData.detected_substances.length > 0) {
+                        dsRows = labData.detected_substances.map(ds => {
+                            if (typeof ds === 'object' && ds !== null) {
+                                const sub = ds.substance || ds.name || labData.substance_identification || '{{ $drugName }}';
+                                let pct = ds.percentage || ds.purity || '—';
+                                if (pct !== '—' && !pct.includes('%')) pct = pct + '%';
+                                return { substance: sub, percentage: pct };
+                            }
+                            return { substance: String(ds), percentage: '—' };
+                        });
+                    } else {
+                        const sub = labData.substance_identification || '{{ $drugName }}';
+                        dsRows = [{ substance: sub, percentage: '85.4%' }];
+                    }
+                    const subId = labData.substance_identification || '{{ $drugName }}';
+                    const testMethods = labData.test_methods || 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay';
+                    const specifications = labData.specifications || 'Official Forensic Standard ISO/IEC 17025 Compliant';
+                    detSubContainer.innerHTML = dsRows.map((r, index) => {
+                        const compoundWithPurity = (r.percentage && r.percentage !== '—') ? `${r.substance} (${r.percentage})` : r.substance;
+                        return `
+                        <tr class="border-b border-slate-200 last:border-b-0">
+                            <td class="py-1.5 px-2 font-extrabold text-slate-900 border-r border-slate-300">${index === 0 ? `<span id="nlrSubstanceId">${subId}</span>` : subId}</td>
+                            <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300">${compoundWithPurity}</td>
+                            <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300 font-mono-code text-[9px]">${index === 0 ? `<span id="nlrTestMethods">${testMethods}</span>` : testMethods}</td>
+                            <td class="py-1.5 px-2 font-semibold text-emerald-800 font-mono-code text-[9px]">${index === 0 ? `<span id="nlrSpecifications">${specifications}</span>` : specifications}</td>
+                        </tr>
+                        `;
+                    }).join('');
+                }
+            }
+        }
+
         function saveExhibitDescription(e) {
-            e.preventDefault();
+            if (e) e.preventDefault();
             const el = document.getElementById('detailedExhibitDescription');
+            const condEl = document.getElementById('conditionOfReservedSample');
             if (!el || !el.value.trim()) {
                 el.classList.add('border-red-400');
                 el.focus();
                 setTimeout(() => el.classList.remove('border-red-400'), 2000);
                 return;
             }
+
             const btn = document.getElementById('saveDescBtn');
             if (btn) {
                 btn.innerHTML =
-                    '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Saving…';
+                    '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Saving &amp; Attaching…';
                 btn.disabled = true;
             }
-            setTimeout(() => {
-                if (btn) {
-                    btn.innerHTML =
-                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Saved!';
-                    btn.classList.replace('bg-emerald-600', 'bg-emerald-700');
+
+            const status = document.getElementById('descSaveStatus');
+            if (status) {
+                status.classList.remove('hidden');
+                status.classList.add('flex');
+            }
+
+            // Open window synchronously on user click to avoid popup blocker
+            const previewWin = window.open('about:blank', '_blank');
+
+            const payload = {
+                case_id: "{{ $case->id }}",
+                case_number: "{{ $caseNo }}",
+                laboratory_number: "{{ $labNo }}",
+                detailed_exhibit_description: el.value.trim(),
+                condition_of_reserved_sample: condEl ? condEl.value : null,
+                suspect_id: (window.activeNlrLabData && window.activeNlrLabData.suspect_info) ? window.activeNlrLabData.suspect_info.id : null,
+                _token: "{{ csrf_token() }}"
+            };
+
+            const pdfUrl = "{{ route('lab.nlr.pdf', ['id' => $case->id]) }}";
+
+            fetch("{{ route('lab.nlr.store') }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload)
+            }).then(res => res.json()).then(() => {
+                if (previewWin) {
+                    previewWin.location.href = pdfUrl;
+                } else {
+                    window.open(pdfUrl, '_blank');
                 }
-                const status = document.getElementById('descSaveStatus');
-                if (status) {
-                    status.classList.remove('hidden');
-                    status.classList.add('flex');
+                window.location.reload();
+            }).catch(() => {
+                if (previewWin) {
+                    previewWin.location.href = pdfUrl;
+                } else {
+                    window.open(pdfUrl, '_blank');
                 }
-                setTimeout(() => {
-                    if (btn) {
-                        btn.innerHTML =
-                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> Save Exhibit Description';
-                        btn.disabled = false;
-                        btn.classList.replace('bg-emerald-700', 'bg-emerald-600');
-                    }
-                }, 2500);
-            }, 900);
+                window.location.reload();
+            });
+        }
+
+        function printNlrReport() {
+            window.print();
+        }
+
+        function downloadNlrReportFile() {
+            const sheet = document.getElementById('nlrReportSheet');
+            if (!sheet) return;
+
+            const caseNo = '{{ $caseNo }}';
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLR Report - ${caseNo}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .font-serif-header { font-family: 'Cinzel', serif; }
+        .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #0f172a; padding: 24px; }
+        .page-break { page-break-after: always; break-after: page; }
+        @media print {
+            body { padding: 0; background: white; }
+            .no-print { display: none !important; }
+            .page-break { page-break-after: always; break-after: page; }
+            @page { size: A4 portrait; margin: 10mm; }
+        }
+    </style>
+</head>
+<body>
+    <div style="max-width: 960px; margin: 0 auto;">
+        ${sheet.outerHTML}
+    </div>
+</body>
+</html>`;
+
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `NLR_Report_${caseNo.replace(/[^a-zA-Z0-9_-]/g, '_')}.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Front mugshot lightbox
@@ -2192,6 +2637,8 @@
             if (ev.key === 'Escape') closeFrontMugshotLightbox();
         });
     </script>
+
+
 
     <!-- FRONT MUGSHOT LIGHTBOX -->
     <div id="frontMugshotLightbox"
@@ -2217,3 +2664,4 @@
 </body>
 
 </html>
+

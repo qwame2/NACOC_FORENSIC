@@ -63,6 +63,15 @@ class SuspectGsaReport extends Model
     /** Public URL to the stored file */
     public function getUrlAttribute(): string
     {
+        if (empty($this->file_path)) {
+            return '#';
+        }
+        if (str_starts_with($this->file_path, 'http://') || str_starts_with($this->file_path, 'https://')) {
+            return $this->file_path;
+        }
+        if (str_starts_with($this->file_path, '/') || str_starts_with($this->file_path, 'Lab_Analysis/')) {
+            return url($this->file_path);
+        }
         return asset('storage/' . $this->file_path);
     }
 
@@ -77,5 +86,51 @@ class SuspectGsaReport extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    // ── Lookup helpers (used by docket & analytical report views) ─────────
+
+    public static function forCase($caseNumber = null, $multipleSuspectCaseId = null)
+    {
+        if (empty($caseNumber) && empty($multipleSuspectCaseId)) {
+            return collect();
+        }
+
+        $cStr = (string) $caseNumber;
+        $mId = !empty($multipleSuspectCaseId) ? (int) $multipleSuspectCaseId : null;
+
+        return static::with('suspect:id,suspect_name')
+            ->where(function ($q) use ($cStr, $mId) {
+                if (!empty($cStr)) {
+                    $q->orWhere('case_number', $cStr);
+                }
+                if (!empty($mId)) {
+                    $q->orWhere('multiple_suspect_case_id', $mId);
+                }
+            })
+            ->active()
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
+    /** Filter a collection of GSA files down to one suspect, by DB id first, then by name. */
+    public static function filterForSuspect($files, $suspectId = null, $suspectName = null)
+    {
+        $norm = fn($v) => strtolower(preg_replace('/\s+/', ' ', trim((string) $v)));
+        $wantedName = $norm($suspectName);
+
+        return collect($files)->filter(function ($f) use ($suspectId, $wantedName, $norm) {
+            if (!empty($suspectId) && !empty($f->case_suspect_id)) {
+                return (int) $f->case_suspect_id === (int) $suspectId;
+            }
+            $fName = !empty($f->suspect) ? ($f->suspect->suspect_name ?? null) : null;
+            if ($wantedName !== '' && !empty($fName) && $norm($fName) === $wantedName) {
+                return true;
+            }
+            if (empty($f->case_suspect_id)) {
+                return true;
+            }
+            return false;
+        })->values();
     }
 }

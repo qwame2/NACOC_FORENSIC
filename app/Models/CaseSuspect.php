@@ -83,5 +83,11 @@ class CaseSuspect extends Model
     {
         return $this->hasMany(SuspectGsaReport::class, 'case_suspect_id');
     }
+
+    public function nlrReports()
+    {
+        return $this->hasMany(SuspectNlrReport::class, 'case_suspect_id');
+    }
 }
+
 

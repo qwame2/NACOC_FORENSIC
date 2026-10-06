@@ -8349,6 +8349,24 @@
             }
         }
 
+        function updateDetectedSubstanceRemoveButtons() {
+            const container = document.getElementById('detectedSubstancesListContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.detected-substance-row');
+            rows.forEach(r => {
+                const btn = r.querySelector('button[title="Remove Row"]');
+                if (btn) {
+                    if (rows.length <= 1) {
+                        btn.classList.add('hidden');
+                        btn.style.display = 'none';
+                    } else {
+                        btn.classList.remove('hidden');
+                        btn.style.display = '';
+                    }
+                }
+            });
+        }
+
         function addDetectedSubstanceRow(substance = '', percentage = '') {
             const container = document.getElementById('detectedSubstancesListContainer');
             if (!container) return;
@@ -8371,11 +8389,20 @@
                 </button>
             `;
             container.appendChild(rowDiv);
+            updateDetectedSubstanceRemoveButtons();
         }
 
         function removeDetectedSubstanceRow(btn) {
+            const container = document.getElementById('detectedSubstancesListContainer');
+            if (container) {
+                const rows = container.querySelectorAll('.detected-substance-row');
+                if (rows.length <= 1) return;
+            }
             const row = btn.closest('.detected-substance-row');
-            if (row) row.remove();
+            if (row) {
+                row.remove();
+                updateDetectedSubstanceRemoveButtons();
+            }
         }
 
         function getDetectedSubstancesData() {
@@ -8421,8 +8448,12 @@
             });
 
             const detContainer = document.getElementById('detectedSubstancesListContainer');
-            if (detContainer && detContainer.children.length === 0) {
-                addDetectedSubstanceRow('', '');
+            if (detContainer) {
+                if (detContainer.children.length === 0) {
+                    addDetectedSubstanceRow('', '');
+                } else {
+                    updateDetectedSubstanceRemoveButtons();
+                }
             }
 
             // Listener to keep Suspect/Ownership dropdown options synced with suspect names

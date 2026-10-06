@@ -5427,6 +5427,111 @@
                             </div>
                         </div>
                     </div> 
+
+                    <!-- SECTION 4 TO 5 ACTION & REPORT GENERATION NAVIGATION BAR -->
+                    <div class="bg-slate-100/90 p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
+                                    Report &amp; Laboratory Examination Modules
+                                </h4>
+                                <p class="text-[11px] text-slate-500 font-medium">
+                                    Switch between uploading GSA Report Files and filling Section 5 Examination Information (NLR)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end shrink-0">
+                            <!-- UPLOAD GSA FILE BUTTON -->
+                            <button type="button" id="toggleGsaReportBtn" onclick="switchToGsaUploadSection()"
+                                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center space-x-2 cursor-pointer border-none">
+                                <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Upload GSA File</span>
+                            </button>
+
+                            <!-- EXAMINATION INFORMATION (NLR) BUTTON -->
+                            <button type="button" id="toggleNlrReportBtn" onclick="switchToNlrExamSection()"
+                                class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-2 cursor-pointer border-none ring-2 ring-emerald-400">
+                                <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                </svg>
+                                <span>Examination Information (NLR)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- GSA REPORT UPLOAD SECTION -->
+                    <div id="gsaUploadSection" class="hidden bg-white p-6 rounded-2xl border border-blue-200/90 shadow-sm space-y-6 relative z-20">
+                        <!-- Section Header -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center shadow-md shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">GSA FILES</span>
+                                        <h3 class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight">GSA Report Upload</h3>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 font-mono-code mt-0.5">Attach scans, photos, or documents of the signed GSA Report Upload</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span id="gsaFileCount" class="hidden px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-full">0 files</span>
+                                <button type="button" onclick="clearAllGsaFiles()" id="gsaClearAllBtn" class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold rounded-lg border border-red-200 transition-colors cursor-pointer">Clear All</button>
+                                <button type="button" id="saveGsaFilesBtn" onclick="saveGsaReportFiles()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-0">
+                                    <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                    </svg>
+                                    <span>Save &amp; Attach GSA Report</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- DROP ZONE -->
+                        <div id="gsaDropZone" ondragover="gsaDragOver(event)" ondragleave="gsaDragLeave(event)" ondrop="gsaHandleDrop(event)" class="relative w-full border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:border-blue-400 transition-all overflow-hidden">
+                            <!-- FILE LIST (inside the zone) -->
+                            <div id="gsaFileGrid" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 p-3"></div>
+
+                            <!-- FULL PROMPT — shown when no files -->
+                            <div id="gsaFullPrompt" onclick="document.getElementById('gsaReportImageInput').click()" class="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center cursor-pointer group hover:bg-blue-50/60 transition-all">
+                                <div class="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center group-hover:bg-blue-50 group-hover:border-blue-300 transition-all">
+                                    <svg class="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-600 group-hover:text-blue-800">Click to add files or drag &amp; drop</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5 font-mono-code">JPG &middot; PNG &middot; WEBP &middot; PDF &middot; DOCX &middot; CSV &nbsp;|&nbsp; Max 10 MB each</p>
+                                </div>
+                            </div>
+
+                            <!-- COMPACT ADD-MORE STRIP — shown when files exist -->
+                            <div id="gsaAddMoreStrip" onclick="document.getElementById('gsaReportImageInput').click()" class="hidden items-center justify-center gap-2 py-2.5 px-4 border-t border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/60 hover:border-blue-400 transition-all cursor-pointer group">
+                                <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-[11px] font-bold text-slate-500 group-hover:text-blue-800 font-mono-code">Click to add more files or drag &amp; drop</span>
+                            </div>
+
+                            <!-- Hidden file input -->
+                            <input type="file" id="gsaReportImageInput" name="gsa_report_images[]" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,.csv,.docx" multiple class="hidden" onchange="gsaHandleFileSelect(this)">
+                        </div>
+                    </div>
+
                     <!-- LAB ANALYSIS UNIT EXCLUSIVES: SECTION 5: FORENSIC EXAMINATION & LABORATORY ANALYSIS -->
                     <div id="labAnalysisExclusiveSections"
                         class="bg-white p-6 rounded-2xl border border-emerald-200/90 shadow-sm space-y-6 relative z-20">
@@ -5995,13 +6100,15 @@
                                                             <span>Substance Identification <span
                                                                     class="text-red-600 font-bold">*</span></span>
                                                             <span
-                                                                class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                                                class="text-[9px] font-mono-code font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">EDITABLE SPECIFICATION</span>
                                                         </label>
                                                         <input type="text"
                                                             id="confirmatorySubstanceIdentification"
                                                             name="confirmatory_substance_identification"
-                                                            readonly placeholder="Fetched from drug manifest"
-                                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed">
+                                                            placeholder="Enter substance identification (e.g. Heroin, Cocaine, Cannabis)"
+                                                            oninput="this.setAttribute('data-user-edited', 'true')"
+                                                            onchange="this.setAttribute('data-user-edited', 'true')"
+                                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans">
                                                     </div>
 
                                                     <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
@@ -6118,6 +6225,270 @@
     </div>
 
     <script>
+        /* ── Section 4 Module Switcher (GSA File Upload vs Section 5 NLR Examination) ── */
+        function switchToGsaUploadSection() {
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('labAnalysisExclusiveSections');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (gsaSec) gsaSec.classList.remove('hidden');
+            if (nlrSec) nlrSec.classList.add('hidden');
+
+            if (gsaBtn) {
+                gsaBtn.classList.add('ring-2', 'ring-blue-400');
+            }
+            if (nlrBtn) {
+                nlrBtn.classList.remove('ring-2', 'ring-emerald-400');
+            }
+
+            if (gsaSec) {
+                gsaSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function switchToNlrExamSection() {
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('labAnalysisExclusiveSections');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (nlrSec) nlrSec.classList.remove('hidden');
+            if (gsaSec) gsaSec.classList.add('hidden');
+
+            if (nlrBtn) {
+                nlrBtn.classList.add('ring-2', 'ring-emerald-400');
+            }
+            if (gsaBtn) {
+                gsaBtn.classList.remove('ring-2', 'ring-blue-400');
+            }
+
+            if (nlrSec) {
+                nlrSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        /* ── GSA Report multi-file upload helpers for create.blade.php ── */
+        let gsaFilesMap = {}; // id -> {file, dataUrl}
+        let gsaFileIdCounter = 0;
+
+        function gsaDragOver(e) {
+            e.preventDefault();
+            const zone = document.getElementById('gsaDropZone');
+            if (zone) {
+                zone.classList.add('border-blue-500', 'bg-blue-50/80');
+                zone.classList.remove('border-slate-300', 'bg-slate-50');
+            }
+        }
+
+        function gsaDragLeave(e) {
+            const zone = document.getElementById('gsaDropZone');
+            if (zone) {
+                zone.classList.remove('border-blue-500', 'bg-blue-50/80');
+                zone.classList.add('border-slate-300', 'bg-slate-50');
+            }
+        }
+
+        function gsaHandleDrop(e) {
+            e.preventDefault();
+            gsaDragLeave(e);
+            Array.from(e.dataTransfer.files).forEach(f => gsaAddFile(f));
+        }
+
+        function gsaHandleFileSelect(input) {
+            Array.from(input.files).forEach(f => gsaAddFile(f));
+            input.value = '';
+        }
+
+        function gsaAddFile(file) {
+            const maxMB = 10;
+            if (file.size > maxMB * 1024 * 1024) {
+                alert('"' + file.name + '" exceeds ' + maxMB + ' MB limit and was skipped.');
+                return;
+            }
+            const id = 'gsa_' + (++gsaFileIdCounter);
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            gsaFilesMap[id] = { file };
+
+            const grid = document.getElementById('gsaFileGrid');
+            if (grid) {
+                const card = document.createElement('div');
+                card.id = 'gsaCard_' + id;
+                card.className = 'relative bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group/card';
+                card.innerHTML = gsaBuildCardInner(id, file.name, file.size, ext, null);
+                grid.appendChild(card);
+
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const thumbWrapper = document.getElementById('gsaThumb_' + id);
+                        if (thumbWrapper) {
+                            thumbWrapper.innerHTML = '<img src="' + ev.target.result + '" class="w-full h-24 object-cover" alt="preview">';
+                        }
+                        gsaFilesMap[id].dataUrl = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+            gsaUpdateCount();
+        }
+
+        function gsaBuildCardInner(id, name, size, ext, dataUrl) {
+            const sizeStr = (size / 1024).toFixed(0) + ' KB';
+            const shortName = name.length > 16 ? name.substring(0, 13) + '...' : name;
+            const cfg = gsaIconConfig(ext);
+
+            let thumbHtml;
+            if (dataUrl) {
+                thumbHtml = '<img src="' + dataUrl + '" class="w-full h-24 object-cover" alt="preview">';
+            } else {
+                thumbHtml = '<div class="w-full h-24 flex flex-col items-center justify-center gap-1 ' + cfg.bg + '">' +
+                    '<svg class="w-7 h-7 ' + cfg.color + '" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="' + cfg.path + '"/></svg>' +
+                    '<span class="text-[10px] font-extrabold ' + cfg.color + ' font-mono-code tracking-wider">' + ext.toUpperCase() + '</span>' +
+                    '</div>';
+            }
+
+            const thumb = '<div id="gsaThumb_' + id + '" class="overflow-hidden">' + thumbHtml + '</div>';
+            const badge = '<span class="absolute top-1.5 left-1.5 w-5 h-5 ' + cfg.badgeBg + ' text-white rounded-full flex items-center justify-center text-[9px] shadow">✓</span>';
+            const removeBtn = '<button type="button" onclick="gsaRemoveFile(\'' + id + '\', event)" ' +
+                'class="absolute top-1.5 right-1.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full ' +
+                'flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity cursor-pointer shadow">' +
+                '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>' +
+                '</button>';
+
+            const info = '<div class="px-2 py-1.5">' +
+                '<p class="text-[11px] font-bold text-slate-800 font-mono-code truncate leading-tight" title="' + name + '">' + shortName + '</p>' +
+                '<p class="text-[10px] text-slate-400 font-mono-code">' + sizeStr + '</p>' +
+                '</div>';
+
+            return thumb + badge + removeBtn + info;
+        }
+
+        function gsaIconConfig(ext) {
+            if (ext === 'pdf') return { bg: 'bg-red-50', border: 'border-red-300', color: 'text-red-600', badgeBg: 'bg-red-600', path: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' };
+            if (ext === 'docx') return { bg: 'bg-blue-50', border: 'border-blue-300', color: 'text-blue-600', badgeBg: 'bg-blue-600', path: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' };
+            if (ext === 'csv') return { bg: 'bg-emerald-50', border: 'border-emerald-300', color: 'text-emerald-700', badgeBg: 'bg-emerald-600', path: 'M3 10h18M3 14h18M10 3v18M6 3h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z' };
+            return { bg: 'bg-emerald-50', border: 'border-emerald-300', color: 'text-emerald-700', badgeBg: 'bg-emerald-600', path: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' };
+        }
+
+        function gsaRemoveFile(id, e) {
+            if (e) e.stopPropagation();
+            delete gsaFilesMap[id];
+            const card = document.getElementById('gsaCard_' + id);
+            if (card) card.remove();
+            gsaUpdateCount();
+        }
+
+        function clearAllGsaFiles() {
+            gsaFilesMap = {};
+            const grid = document.getElementById('gsaFileGrid');
+            if (grid) grid.innerHTML = '';
+            const input = document.getElementById('gsaReportImageInput');
+            if (input) input.value = '';
+            gsaUpdateCount();
+        }
+
+        function gsaUpdateCount() {
+            const count = Object.keys(gsaFilesMap).length;
+            const badge = document.getElementById('gsaFileCount');
+            const clearBtn = document.getElementById('gsaClearAllBtn');
+            const prompt = document.getElementById('gsaFullPrompt');
+            const strip = document.getElementById('gsaAddMoreStrip');
+            if (badge) {
+                badge.textContent = count + (count === 1 ? ' file' : ' files');
+                badge.classList.toggle('hidden', count === 0);
+            }
+            if (clearBtn) clearBtn.classList.toggle('hidden', count === 0);
+            if (prompt) prompt.classList.toggle('hidden', count > 0);
+            if (strip) {
+                strip.classList.toggle('hidden', count === 0);
+                strip.classList.toggle('flex', count > 0);
+            }
+        }
+
+        function saveGsaReportFiles() {
+            const fileKeys = Object.keys(gsaFilesMap);
+            const fileInput = document.getElementById('gsaReportImageInput');
+            const hasInputFiles = fileInput && fileInput.files && fileInput.files.length > 0;
+
+            if (fileKeys.length === 0 && !hasInputFiles) {
+                alert('Please select or drag at least one GSA report file before saving.');
+                return;
+            }
+
+            const btn = document.getElementById('saveGsaFilesBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent mr-1"></span> Uploading &amp; Saving...';
+            }
+
+            const formData = new FormData();
+            const caseNoVal = document.getElementById('case_number')?.value || '{{ $case->case_number ?? '' }}';
+            const caseIdVal = '{{ $case->id ?? '' }}';
+            const suspectNameVal = document.getElementById('suspect_name')?.value || '{{ $case->suspect_name ?? '' }}';
+
+            formData.append('case_number', caseNoVal);
+            if (caseIdVal) {
+                formData.append('multiple_suspect_case_id', caseIdVal);
+            }
+            if (suspectNameVal) {
+                formData.append('suspect_name', suspectNameVal);
+            }
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}');
+
+            if (fileKeys.length > 0) {
+                fileKeys.forEach(k => {
+                    if (gsaFilesMap[k] && gsaFilesMap[k].file) {
+                        formData.append('gsa_report_images[]', gsaFilesMap[k].file);
+                    }
+                });
+            } else if (hasInputFiles) {
+                Array.from(fileInput.files).forEach(f => {
+                    formData.append('gsa_report_images[]', f);
+                });
+            }
+
+            const targetUrl = '/Lab_Analysis/gsa-reports/store';
+
+            fetch(targetUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data: data })).catch(() => ({ ok: res.ok, status: res.status, data: {} })))
+            .then(result => {
+                const data = result.data;
+                if (result.ok && data.success) {
+                    alert(data.message || 'GSA Report uploaded and attached successfully!');
+                    clearAllGsaFiles();
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span>Save &amp; Attach GSA Report</span>';
+                    }
+                } else {
+                    alert(data.message || 'Failed to upload GSA report. Please try again.');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span>Save &amp; Attach GSA Report</span>';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Error uploading GSA report:', err);
+                alert('An error occurred while uploading the GSA report.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span>Save &amp; Attach GSA Report</span>';
+                }
+            });
+        }
+
         // Populate only the readonly manifest-sync weight fields without resetting confirmatory test data.
         // Called when the user opens the Confirmatory YES section so they see exhibit context.
         function initSampleWeightFieldsOnly() {
@@ -11062,7 +11433,7 @@
             }
 
             const substanceIdInput = document.getElementById('confirmatorySubstanceIdentification');
-            if (substanceIdInput) {
+            if (substanceIdInput && substanceIdInput.getAttribute('data-user-edited') !== 'true') {
                 if (!substanceIdInput.value || substanceIdInput.getAttribute('data-auto-synced') === 'true' ||
                     substanceIdInput.value.startsWith('Displaying') || isNonDrugVal(substanceIdInput.value)) {
                     if (drugName) {
@@ -11132,7 +11503,10 @@
             if (confResultInput) confResultInput.value = '';
 
             const detectedContainer = document.getElementById('detectedSubstancesListContainer');
-            if (detectedContainer) detectedContainer.innerHTML = '';
+            if (detectedContainer) {
+                detectedContainer.innerHTML = '';
+                addDetectedSubstanceRow('', '');
+            }
 
             const confMethods = document.getElementById('confirmatoryTestMethods');
             const confSpecs = document.getElementById('confirmatorySpecifications');
@@ -11333,6 +11707,24 @@
             }
         }
 
+        function updateDetectedSubstanceRemoveButtons() {
+            const container = document.getElementById('detectedSubstancesListContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.detected-substance-row');
+            rows.forEach(r => {
+                const btn = r.querySelector('button[title="Remove Row"]');
+                if (btn) {
+                    if (rows.length <= 1) {
+                        btn.classList.add('hidden');
+                        btn.style.display = 'none';
+                    } else {
+                        btn.classList.remove('hidden');
+                        btn.style.display = '';
+                    }
+                }
+            });
+        }
+
         function addDetectedSubstanceRow(substance = '', percentage = '') {
             const container = document.getElementById('detectedSubstancesListContainer');
             if (!container) return;
@@ -11356,11 +11748,20 @@
                 </button>
             `;
             container.appendChild(rowDiv);
+            updateDetectedSubstanceRemoveButtons();
         }
 
         function removeDetectedSubstanceRow(btn) {
+            const container = document.getElementById('detectedSubstancesListContainer');
+            if (container) {
+                const rows = container.querySelectorAll('.detected-substance-row');
+                if (rows.length <= 1) return;
+            }
             const row = btn.closest('.detected-substance-row');
-            if (row) row.remove();
+            if (row) {
+                row.remove();
+                updateDetectedSubstanceRemoveButtons();
+            }
         }
 
         function getDetectedSubstancesData() {
@@ -11411,8 +11812,12 @@
             });
 
             const detContainer = document.getElementById('detectedSubstancesListContainer');
-            if (detContainer && detContainer.children.length === 0) {
-                addDetectedSubstanceRow('', '');
+            if (detContainer) {
+                if (detContainer.children.length === 0) {
+                    addDetectedSubstanceRow('', '');
+                } else {
+                    updateDetectedSubstanceRemoveButtons();
+                }
             }
 
             // Listener to keep Suspect/Ownership dropdown options synced with suspect names

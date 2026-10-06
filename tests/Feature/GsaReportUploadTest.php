@@ -89,5 +89,185 @@ class GsaReportUploadTest extends TestCase
         // GSA Certificate button exists to trigger unhiding
         $this->assertStringContainsString('onclick="showGsaReportUploadSection()"', $html);
     }
+
+    #[Test]
+    public function gsa_upload_without_suspect_id_resolves_suspect_by_name()
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->head()->create();
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'CSS-2026-GSA03',
+            'title' => 'Republic vs Suspects GSA Resolve Test',
+            'unit_name' => 'Crime Scene Support',
+            'controller_user_id' => $user->id,
+        ]);
+        CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'Kojo Adu',
+            'role' => 'Primary Suspect',
+        ]);
+        $second = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 2,
+            'suspect_name' => 'Ama Serwaa',
+            'role' => 'Co-Suspect',
+        ]);
+
+        // Mirrors what the analytical page sends: no case_suspect_id, only the card's suspect name
+        $response = $this->actingAs($user)
+            ->postJson("/cases/{$mCase->case_number}/upload-gsa-report", [
+                'multiple_suspect_case_id' => $mCase->id,
+                'case_number' => $mCase->case_number,
+                'suspect_name' => 'AMA SERWAA',
+                'gsa_report_images' => [UploadedFile::fake()->create('gsa.pdf', 100, 'application/pdf')],
+            ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_suspect_id' => $second->id,
+            'multiple_suspect_case_id' => $mCase->id,
+            'original_filename' => 'gsa.pdf',
+        ]);
+    }
+
+    #[Test]
+    public function saving_exhibit_description_attaches_nlr_report_pdf_to_suspect_case()
+    {
+        $user = User::factory()->head()->create();
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'CSS-2026-NLR01',
+            'title' => 'Republic vs Suspect NLR Attach Test',
+            'unit_name' => 'Crime Scene Support',
+            'controller_user_id' => $user->id,
+        ]);
+
+        $suspect = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'Kojo NLR Target',
+            'role' => 'Primary Suspect',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->postJson('/Lab_Analysis/nlr-reports/store', [
+                'case_id' => $mCase->id,
+                'case_number' => $mCase->case_number,
+                'laboratory_number' => 'Lab No. 99/NLR/2026',
+                'detailed_exhibit_description' => 'Tested positive for High Purity Cocaine Hydrochloride.',
+                'condition_of_reserved_sample' => 'good',
+                'suspect_id' => $suspect->id,
+            ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        // Assert suspect_nlr_reports database table has attached NLR Report PDF record for this suspect
+        $this->assertDatabaseHas('suspect_nlr_reports', [
+            'case_suspect_id' => $suspect->id,
+            'multiple_suspect_case_id' => $mCase->id,
+            'file_path' => 'Lab_Analysis/nlr-report-pdf/' . $mCase->id,
+        ]);
+
+        // Assert analytical page displays attached report file
+        $pageResponse = $this->actingAs($user)->get("/Lab_Analysis/analytical/{$mCase->case_number}");
+        $pageResponse->assertStatus(200);
+        $this->assertStringContainsString('NLR_Report_', $pageResponse->getContent());
+    }
+
+    #[Test]
+    public function buttons_are_disabled_per_suspect_and_top_header_only_when_all_suspects_have_reports()
+    {
+        $user = User::factory()->head()->create();
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'CSS-2026-DIS01',
+            'title' => 'Republic vs Disabled Buttons Test',
+            'unit_name' => 'Crime Scene Support',
+            'controller_user_id' => $user->id,
+        ]);
+
+        $suspect1 = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'First Suspect Attached',
+            'role' => 'Primary Suspect',
+        ]);
+
+        $suspect2 = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 2,
+            'suspect_name' => 'Second Suspect Pending',
+            'role' => 'Co-Suspect',
+        ]);
+
+        \App\Models\Exhibit::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_id' => $suspect1->id,
+            'exhibit_type' => 'Drug',
+            'drug_name' => 'Cocaine',
+            'associated_person' => 'First Suspect Attached',
+            'status' => 'active',
+        ]);
+
+        \App\Models\Exhibit::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_id' => $suspect2->id,
+            'exhibit_type' => 'Drug',
+            'drug_name' => 'Heroin',
+            'associated_person' => 'Second Suspect Pending',
+            'status' => 'active',
+        ]);
+
+        // Attach an NLR Report to suspect 1 ONLY
+        \App\Models\SuspectNlrReport::create([
+            'case_suspect_id' => $suspect1->id,
+            'multiple_suspect_case_id' => $mCase->id,
+            'case_number' => $mCase->case_number,
+            'lab_number' => 'Lab No. 101/NLR/2026',
+            'original_filename' => 'NLR_Report_CSS-2026-DIS01.pdf',
+            'stored_filename' => 'NLR_Report_CSS-2026-DIS01.pdf',
+            'file_path' => 'Lab_Analysis/nlr-report-pdf/' . $mCase->id,
+            'file_type' => 'application/pdf',
+            'file_extension' => 'pdf',
+            'file_size' => 12345,
+            'status' => 'active',
+            'uploaded_by' => $user->id,
+        ]);
+
+        $pageResponse = $this->actingAs($user)->get("/Lab_Analysis/analytical/{$mCase->case_number}");
+        $pageResponse->assertStatus(200);
+        $html = $pageResponse->getContent();
+
+        // Top header buttons MUST be enabled because Suspect 2 has no report attached yet!
+        $this->assertStringContainsString('onclick="showGsaReportUploadSection()"', $html);
+        $this->assertStringContainsString('onclick="openNlrReportModal()"', $html);
+
+        // Suspect 1's card buttons are disabled
+        $this->assertStringContainsString('disabled title="A report has already been generated and attached."', $html);
+
+        // Attach NLR report to suspect 2 as well
+        \App\Models\SuspectNlrReport::create([
+            'case_suspect_id' => $suspect2->id,
+            'multiple_suspect_case_id' => $mCase->id,
+            'case_number' => $mCase->case_number,
+            'lab_number' => 'Lab No. 102/NLR/2026',
+            'original_filename' => 'NLR_Report_CSS-2026-DIS02.pdf',
+            'stored_filename' => 'NLR_Report_CSS-2026-DIS02.pdf',
+            'file_path' => 'Lab_Analysis/nlr-report-pdf/' . $mCase->id,
+            'file_type' => 'application/pdf',
+            'file_extension' => 'pdf',
+            'file_size' => 12345,
+            'status' => 'active',
+            'uploaded_by' => $user->id,
+        ]);
+
+        $fullResponse = $this->actingAs($user)->get("/Lab_Analysis/analytical/{$mCase->case_number}");
+        $fullResponse->assertStatus(200);
+        $fullHtml = $fullResponse->getContent();
+
+        // Now top header buttons are disabled because ALL suspects have reports attached!
+        $this->assertStringContainsString('disabled title="Reports have already been generated and attached for all suspects in this case."', $fullHtml);
+    }
 }
+
 

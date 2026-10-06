@@ -975,11 +975,63 @@ class CaseLifecycleIntegrationTest extends TestCase
         $response->assertStatus(200);
         $html = $response->getContent();
 
-        $this->assertStringContainsString('LABORATORY EXAMINATION RESULT', $html);
-        $this->assertStringContainsString('GSA-FM-T51-F', $html);
         $this->assertStringContainsString('Heroin (Brown Sugar / Diacetylmorphine)', $html);
         $this->assertStringContainsString('GSA Report', $html);
-        $this->assertStringContainsString('NLR Report', $html);
+        $this->assertStringContainsString('nlr-report-pdf', $html);
+
+        // Verify standalone NLR Report PDF route
+        $pdfResponse = $this->actingAs($user)->get('/Lab_Analysis/nlr-report-pdf/' . $case->id);
+        $pdfResponse->assertStatus(200);
+        $pdfHtml = $pdfResponse->getContent();
+        $this->assertStringNotContainsString('3. Laboratory Examination Result', $pdfHtml);
+        $this->assertStringContainsString('NACOC LAB RESULT', $pdfHtml);
+        $this->assertStringContainsString('Analytical Examination Report', $pdfHtml);
+        $this->assertStringContainsString('NACOC LOGO.jfif', $pdfHtml);
+        $this->assertStringContainsString('nacoc.jfif', $pdfHtml);
+        $this->assertStringContainsString('nlrReportSheet', $pdfHtml);
+        $this->assertStringContainsString('NLR-FM-T51-F', $pdfHtml);
+        $this->assertStringNotContainsString('GSA-FM-T51-F', $pdfHtml);
+    }
+
+    public function test_nlr_report_store_and_database_persistence(): void
+    {
+        $user = User::factory()->create([
+            'unit'        => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $case = \App\Models\SingleSuspectCase::create([
+            'case_number'        => 'CSS-NLR-TEST-' . rand(1000, 9999),
+            'laboratory_number'  => '72/FS99/' . date('Y'),
+            'title'              => 'NLR Report Storage Test',
+            'suspect_name'       => 'KWAME OFORI',
+            'submitting_officer' => 'Insp. Darko',
+            'seizure_name_drug'  => 'Cocaine (Salt Form)',
+            'status'             => 'Pending',
+        ]);
+
+        $storeResponse = $this->actingAs($user)->postJson('/Lab_Analysis/nlr-reports/store', [
+            'case_id'                      => $case->id,
+            'case_number'                  => $case->case_number,
+            'laboratory_number'            => $case->laboratory_number,
+            'detailed_exhibit_description' => 'Tested exhibit containing 50 wraps of fine white powder.',
+            'condition_of_reserved_sample' => 'sealed',
+        ]);
+
+        $storeResponse->assertStatus(200);
+        $storeResponse->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('nlr_reports', [
+            'case_number'                  => $case->case_number,
+            'detailed_exhibit_description' => 'Tested exhibit containing 50 wraps of fine white powder.',
+            'condition_of_reserved_sample' => 'sealed',
+        ]);
+
+        // Verify that opening NLR report PDF renders the database-backed narrative
+        $pdfResponse = $this->actingAs($user)->get('/Lab_Analysis/nlr-report-pdf/' . $case->id);
+        $pdfResponse->assertStatus(200);
+        $pdfHtml = $pdfResponse->getContent();
+        $this->assertStringContainsString('Tested exhibit containing 50 wraps of fine white powder.', $pdfHtml);
     }
 }
 

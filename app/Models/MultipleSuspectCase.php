@@ -85,4 +85,15 @@ class MultipleSuspectCase extends Model
     {
         return $this->hasMany(LaboratoryExaminationResult::class, 'multiple_suspect_case_id');
     }
+
+    public function gsaReports()
+    {
+        return $this->hasMany(SuspectGsaReport::class, 'multiple_suspect_case_id');
+    }
+
+    public function nlrReports()
+    {
+        return $this->hasMany(SuspectNlrReport::class, 'multiple_suspect_case_id');
+    }
 }
+

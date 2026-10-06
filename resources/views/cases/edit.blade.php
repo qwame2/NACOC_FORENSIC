@@ -3224,6 +3224,24 @@
     }
 
     /* DETECTED SUBSTANCES DYNAMIC ROWS & AUTO-CALCULATED RESERVED WEIGHT HANDLERS */
+    function updateDetectedSubstanceRemoveButtons() {
+        const container = document.getElementById('detectedSubstancesListContainer');
+        if (!container) return;
+        const rows = container.querySelectorAll('.detected-substance-row');
+        rows.forEach(r => {
+            const btn = r.querySelector('button[onclick*="removeDetectedSubstanceRow"]');
+            if (btn) {
+                if (rows.length <= 1) {
+                    btn.classList.add('hidden');
+                    btn.style.display = 'none';
+                } else {
+                    btn.classList.remove('hidden');
+                    btn.style.display = '';
+                }
+            }
+        });
+    }
+
     function addDetectedSubstanceRow(substance = '', percentage = '') {
         const container = document.getElementById('detectedSubstancesListContainer');
         if (!container) return;
@@ -3252,11 +3270,20 @@
             ${removeBtnHtml}
         `;
         container.appendChild(rowDiv);
+        updateDetectedSubstanceRemoveButtons();
     }
 
     function removeDetectedSubstanceRow(btn) {
+        const container = document.getElementById('detectedSubstancesListContainer');
+        if (container) {
+            const rows = container.querySelectorAll('.detected-substance-row');
+            if (rows.length <= 1) return;
+        }
         const row = btn.closest('.detected-substance-row');
-        if (row) row.remove();
+        if (row) {
+            row.remove();
+            updateDetectedSubstanceRemoveButtons();
+        }
     }
 
     function toKg(num, unit) {

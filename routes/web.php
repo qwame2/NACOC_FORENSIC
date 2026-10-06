@@ -260,6 +260,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/lab-certificate/{id}', [CaseController::class, 'showLabCertificate']);
     Route::get('/Lab_Analysis/analytical/{id}', [CaseController::class, 'showLabAnalytical'])->name('lab.analytical');
     Route::get('/lab-analytical/{id}', [CaseController::class, 'showLabAnalytical']);
+    Route::get('/Lab_Analysis/nlr-report-pdf/{id}', [CaseController::class, 'showNlrReportPdf'])->name('lab.nlr.pdf');
+    Route::get('/lab-nlr-pdf/{id}', [CaseController::class, 'showNlrReportPdf']);
+    Route::post('/Lab_Analysis/nlr-reports/store', [CaseController::class, 'storeNlrReport'])->name('lab.nlr.store');
 
     Route::get('/Lab_Analysis/examination', function () {
         $case = \App\Models\ForensicCase::find(request('case_id'));

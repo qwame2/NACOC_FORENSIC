@@ -35,7 +35,20 @@
     $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? '12.5 Kilograms (kg)');
     
     $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'Det. Insp. K. Mensah');
-    $analystName = $docketData['analyst'] ?? ($case->submitting_officer ?? 'Senior Forensic Chemist Dr. E. Quaye');
+
+    $rawAnalyst = $docketData['analyst'] 
+        ?? ($docketData['lab_examination']['analyst'] 
+        ?? ($case->analyst 
+        ?? ($case->lab_analyst 
+        ?? null)));
+
+    if (!empty($rawAnalyst) && $rawAnalyst !== $submittingOfficer) {
+        $analystName = $rawAnalyst;
+    } elseif ($authUser && (str_contains(strtolower($authUser->unit ?? ''), 'lab') || !empty($authUser->fullname))) {
+        $analystName = $authUser->fullname;
+    } else {
+        $analystName = 'Senior Forensic Chemist Dr. E. Quaye';
+    }
     
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
     $headName = $dbLabHead ? $dbLabHead->fullname : 'Dr. Samuel Atta (Head of Forensic Laboratory)';
