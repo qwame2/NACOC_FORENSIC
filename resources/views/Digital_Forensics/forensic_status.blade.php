@@ -391,7 +391,6 @@
                             <thead>
                                 <tr class="bg-slate-100 text-slate-700 font-mono-code uppercase text-[10px] tracking-wider border-b border-slate-200">
                                     <th class="p-3">Case Ref</th>
-                                    <th class="p-3">Devices / Exhibits</th>
                                     <th class="p-3">Court Order</th>
                                     <th class="p-3">Extraction &amp; Analysis</th>
                                     <th class="p-3">Report to Investigations</th>
@@ -405,12 +404,6 @@
                                         <td class="p-3 font-extrabold text-emerald-950">
                                             <div>{{ $rep->case_number }}</div>
                                             <span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">{{ $rep->dpf_code }}</span>
-                                        </td>
-                                        <td class="p-3 font-semibold text-slate-800">
-                                            {{ $rep->devices_retrieved }}
-                                            @if($rep->quantity)
-                                                <span class="text-[10px] text-slate-500 font-normal block">(Qty: {{ $rep->quantity }})</span>
-                                            @endif
                                         </td>
                                         <td class="p-3">
                                             <span class="px-2 py-0.5 {{ $rep->court_order_granted === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($rep->court_order_granted === 'NO' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }} text-[10px] font-bold rounded">
@@ -450,7 +443,6 @@
                                     @endphp
                                     <tr class="hover:bg-emerald-50/40 transition-colors">
                                         <td class="p-3 font-extrabold text-slate-900">{{ $cRef }}</td>
-                                        <td class="p-3 font-semibold text-slate-800">{{ $cDev }}</td>
                                         <td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded">Granted</span></td>
                                         <td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded">YES</span></td>
                                         <td class="p-3"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded">YES</span></td>
@@ -623,10 +615,6 @@
                 <td class="p-3 font-extrabold text-emerald-950">
                     <div>${r.case_number}</div>
                     <span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">${r.dpf_code || ''}</span>
-                </td>
-                <td class="p-3 font-semibold text-slate-800">
-                    ${r.devices_retrieved || ''}
-                    ${r.quantity ? `<span class="text-[10px] text-slate-500 font-normal block">(Qty: ${r.quantity})</span>` : ''}
                 </td>
                 <td class="p-3">${getBadgeHtml(r.court_order_granted)}</td>
                 <td class="p-3">${getBadgeHtml(r.extraction_analysis_conducted)}</td>

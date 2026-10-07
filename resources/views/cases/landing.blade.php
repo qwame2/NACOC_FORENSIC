@@ -443,10 +443,7 @@
                                     <th class="py-3.5 px-4 font-extrabold">Case Title</th>
                                     <th class="py-3.5 px-4 font-extrabold">Suspect</th>
                                     <th class="py-3.5 px-4 font-extrabold">Suspect Disposition</th>
-                                    <th class="py-3.5 px-4 font-extrabold">Location</th>
-                                    <th class="py-3.5 px-4 font-extrabold">Registered Date</th>
                                     <th class="py-3.5 px-4 font-extrabold text-center">Case Stat</th>
-                                    <th class="py-3.5 px-4 font-extrabold text-center">Status</th>
                                     <th class="py-3.5 px-4 font-extrabold text-right">Action</th>
                                 </tr>
                             </thead>
@@ -711,25 +708,6 @@
                                                 @endforeach
                                             </div>
                                         </td>
-                                        <td class="py-4 px-4">
-                                            <div class="font-medium text-slate-800 flex items-center gap-1">
-                                                <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none"
-                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                </svg>
-                                                <span>{{ $case->holding_facility ?? ($case->raid_location ?? ($case->seizure_location ?? ($case->location ?? 'NACOC Central Custody Facility'))) }}</span>
-                                            </div>
-                                        </td>
-                                        <td class="py-4 px-4 whitespace-nowrap">
-                                            <div class="text-slate-700 font-mono-code">
-                                                {{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}
-                                            </div>
-                                            <div class="text-[10px] text-slate-400 font-mono-code">
-                                                {{ $case->created_at ? $case->created_at->format('H:i:s T') : '12:00:00 UTC' }}
-                                            </div>
-                                        </td>
                                         @php
                                             $cStatLanding = $case->case_status ?? 'Under Investigation';
                                             $cStatBadgeCls = match ($cStatLanding) {
@@ -750,12 +728,6 @@
                                             <span
                                                 class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border {{ $cStatBadgeCls }}">
                                                 {{ $cStatLanding }}
-                                            </span>
-                                        </td>
-                                        <td class="py-4 px-4 text-center whitespace-nowrap">
-                                            <span
-                                                class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border {{ $statusBadge['bg'] }}">
-                                                {{ $statusBadge['label'] }}
                                             </span>
                                         </td>
                                         <td class="py-4 px-4 text-right whitespace-nowrap">
@@ -843,7 +815,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8"
+                                        <td colspan="6"
                                             class="py-8 text-center text-slate-500 font-mono-code text-xs">
                                             No forensic case dockets found in database.
                                         </td>
@@ -1109,7 +1081,7 @@
                 let html = '';
                 if (cases.length === 0) {
                     html =
-                        `<tr><td colspan="8" class="py-8 text-center text-slate-500 font-mono-code text-xs">No forensic case dockets found in database.</td></tr>`;
+                        `<tr><td colspan="6" class="py-8 text-center text-slate-500 font-mono-code text-xs">No forensic case dockets found in database.</td></tr>`;
                 } else {
                     cases.forEach(c => {
                         const status = c.status || 'Active Investigation';
@@ -1127,20 +1099,6 @@
                             ((c.priority || '').toUpperCase() === 'HIGH' ?
                                 'bg-amber-100 text-amber-800 border-amber-200' :
                                 'bg-slate-200 text-slate-700 border-slate-300');
-
-                        let statusBadgeHtml = '';
-                        if (isApproved) {
-                            statusBadgeHtml =
-                                `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">${status}</span>`;
-                        } else if (isLab) {
-                            statusBadgeHtml =
-                                `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">${status}</span>`;
-                        } else {
-                            let totalU = c.workflow_total ?? 1;
-                            let compCount = c.workflow_completed ?? 0;
-                            statusBadgeHtml =
-                                `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-white text-slate-900 border border-slate-300">Multi-Unit (${compCount}/${totalU})</span>`;
-                        }
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data
                             .full_name : 'Unnamed Suspect');
@@ -1249,10 +1207,6 @@
                         const stackClass = suspectsList.length > 1 ?
                             '-space-x-3.5 hover:space-x-1 transition-all duration-300' : '';
 
-                        const createdDate = c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString()
-                            .slice(0, 10);
-                        const createdTime = c.created_at ? c.created_at.slice(11, 19) + ' UTC' : '12:00:00 UTC';
-
                         const allSuspectsNamesStr = suspectsList.map(s => s.suspect_name || '').join(' ');
                         const rowText =
                             `${c.case_number} ${suspectDisplayName} ${allSuspectsNamesStr} ${c.title} ${c.location} ${c.submitting_officer} ${c.unit_name}`
@@ -1329,9 +1283,19 @@
                             suspectDispHtml = `<div class="space-y-1"><div class="flex items-center gap-1.5"><span class="inline-flex items-center px-2 py-0.5 rounded text-[9.5px] font-bold font-mono-code border bg-slate-100 text-slate-700 border-slate-300">Active — Under Investigation</span></div></div>`;
                         }
 
+                        const cStatVal = c.case_status || 'Under Investigation';
+                        let cStatCls = 'bg-amber-50 text-amber-800 border-amber-300';
+                        if (cStatVal === 'On Remand') cStatCls = 'bg-purple-50 text-purple-800 border-purple-300';
+                        else if (cStatVal === 'On Bail') cStatCls = 'bg-indigo-50 text-indigo-800 border-indigo-300';
+                        else if (cStatVal === 'In Court') cStatCls = 'bg-blue-50 text-blue-800 border-blue-300';
+                        else if (cStatVal === 'Verdict Passed — Imprisoned') cStatCls = 'bg-rose-50 text-rose-800 border-rose-300';
+                        else if (cStatVal === 'Verdict Passed — Acquitted') cStatCls = 'bg-emerald-50 text-emerald-800 border-emerald-300';
+                        else if (cStatVal === 'Case Dismissed') cStatCls = 'bg-slate-100 text-slate-700 border-slate-300';
+                        else if (cStatVal === 'Case Closed') cStatCls = 'bg-slate-800 text-slate-100 border-slate-700';
+
                         html += `<tr class="table-row-hover transition-colors case-row" data-status="${statusTab}" style="${isVisible ? '' : 'display:none;'}">
                             <td class="py-4 px-4 whitespace-nowrap">
-                                <div class="font-bold font-mono-code text-blue-600 text-xs">#${c.case_number}</div>
+                                <div class="font-bold font-mono-code text-blue-600 text-xs">${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-0.5">
                                     <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'NORMAL').toUpperCase()}</span>
                                 </div>
@@ -1351,28 +1315,9 @@
                             <td class="py-4 px-4 whitespace-nowrap">
                                 ${suspectDispHtml}
                             </td>
-                            <td class="py-4 px-4">
-                                <div class="font-medium text-slate-800 flex items-center gap-1">
-                                    <span>${c.holding_facility || c.raid_location || c.seizure_location || c.location || 'NACOC Central Custody Facility'}</span>
-                                </div>
+                            <td class="py-4 px-4 text-center whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cStatCls}">${cStatVal}</span>
                             </td>
-                            <td class="py-4 px-4 whitespace-nowrap">
-                                <div class="text-slate-700 font-mono-code">${createdDate}</div>
-                                <div class="text-[10px] text-slate-400 font-mono-code">${createdTime}</div>
-                            </td>
-                            ${(() => {
-                                const cStatVal = c.case_status || 'Under Investigation';
-                                let cStatCls = 'bg-amber-50 text-amber-800 border-amber-300';
-                                if (cStatVal === 'On Remand') cStatCls = 'bg-purple-50 text-purple-800 border-purple-300';
-                                else if (cStatVal === 'On Bail') cStatCls = 'bg-indigo-50 text-indigo-800 border-indigo-300';
-                                else if (cStatVal === 'In Court') cStatCls = 'bg-blue-50 text-blue-800 border-blue-300';
-                                else if (cStatVal === 'Verdict Passed — Imprisoned') cStatCls = 'bg-rose-50 text-rose-800 border-rose-300';
-                                else if (cStatVal === 'Verdict Passed — Acquitted') cStatCls = 'bg-emerald-50 text-emerald-800 border-emerald-300';
-                                else if (cStatVal === 'Case Dismissed') cStatCls = 'bg-slate-100 text-slate-700 border-slate-300';
-                                else if (cStatVal === 'Case Closed') cStatCls = 'bg-slate-800 text-slate-100 border-slate-700';
-                                return `<td class="py-4 px-4 text-center whitespace-nowrap"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cStatCls}">${cStatVal}</span></td>`;
-                            })()}
-                            <td class="py-4 px-4 text-center whitespace-nowrap">${statusBadgeHtml}</td>
                             <td class="py-4 px-4 text-right whitespace-nowrap">
                                 <div class="relative inline-block text-left case-action-dropdown-wrapper">
                                     <button type="button"

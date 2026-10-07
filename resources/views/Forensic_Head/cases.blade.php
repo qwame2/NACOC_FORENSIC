@@ -782,7 +782,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="py-8 text-center text-slate-500 font-mono-code text-xs">
+                                        <td colspan="9" class="py-8 text-center text-slate-500 font-mono-code text-xs">
                                             No case register dockets found in database.
                                         </td>
                                     </tr>
@@ -1267,7 +1267,7 @@
 
                 let html = '';
                 if (cases.length === 0) {
-                    html = `<tr><td colspan="6" class="py-8 text-center text-slate-500 font-mono-code text-xs">No case register dockets found in database.</td></tr>`;
+                    html = `<tr><td colspan="9" class="py-8 text-center text-slate-500 font-mono-code text-xs">No case register dockets found in database.</td></tr>`;
                 } else {
                     cases.forEach(c => {
                         const isPending = ['Awaiting Sign-off', 'Pending Approval', 'Pending'].includes(c.status);
