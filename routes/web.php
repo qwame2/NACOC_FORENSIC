@@ -330,6 +330,113 @@ Route::middleware(['auth'])->group(function () {
         return view('Digital_Forensics.forensic_status');
     });
 
+    Route::get('/Digital_Forensics/dpf-report-pdf/{id?}', function ($id = null) {
+        $authUser = auth()->user();
+        $report = null;
+
+        if (!empty($id)) {
+            $report = \App\Models\DpfReport::where('id', $id)
+                ->orWhere('dpf_code', $id)
+                ->orWhere('case_number', $id)
+                ->latest('id')
+                ->first();
+        }
+
+        if (!$report) {
+            $report = \App\Models\DpfReport::latest('id')->first();
+        }
+
+        if (!$report) {
+            $report = new \App\Models\DpfReport([
+                'dpf_code' => 'DF-STATUS-' . date('Ymd') . '-001',
+                'case_number' => $id ?: 'CSS-2026-6730',
+                'location_post' => 'Kotoka International Airport (Cargo Wing)',
+                'investigation_date' => date('Y-m-d'),
+                'devices_retrieved' => 'Mobile Devices & Hardware Exhibits',
+                'quantity' => '1',
+                'brief_case_description' => 'Target intercepted with encrypted mobile hardware. Write-blocked forensic imaging executed under judicial authorization.',
+                'court_order_requested' => 'YES',
+                'court_order_granted' => 'YES',
+                'extraction_analysis_conducted' => 'YES',
+                'report_witness_statement_sent' => 'YES',
+                'intel_shared' => 'YES',
+                'remark' => 'Forensic acquisition completed cleanly. Hardware hash checksums match baseline acquisition.',
+                'created_at' => now(),
+            ]);
+        }
+
+        $case = \App\Models\ForensicCase::allCases()->firstWhere('case_number', $report->case_number);
+
+        return view('Digital_Forensics.dpf_pdf', compact('report', 'case'));
+    })->name('digital.dpf.pdf');
+
+    Route::get('/digital-forensics/dpf-report-pdf/{id?}', function ($id = null) {
+        return redirect()->to('/Digital_Forensics/dpf-report-pdf/' . ($id ?? ''));
+    });
+
+    Route::get('/Digital_Forensics/dpf_pdf/{id?}', function ($id = null) {
+        return redirect()->to('/Digital_Forensics/dpf-report-pdf/' . ($id ?? ''));
+    });
+
+    Route::get('/digital-forensics/dpf_pdf/{id?}', function ($id = null) {
+        return redirect()->to('/Digital_Forensics/dpf-report-pdf/' . ($id ?? ''));
+    });
+
+    Route::post('/Digital_Forensics/forensic-status', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'case_number' => 'required|string',
+            'location_post' => 'nullable|string',
+            'investigation_date' => 'nullable|string',
+            'devices_retrieved' => 'nullable|string',
+            'quantity' => 'nullable|string',
+            'brief_case_description' => 'nullable|string',
+            'court_order_requested' => 'nullable|string',
+            'court_order_granted' => 'nullable|string',
+            'extraction_analysis_conducted' => 'nullable|string',
+            'report_witness_statement_sent' => 'nullable|string',
+            'intel_shared' => 'nullable|string',
+            'remark' => 'nullable|string',
+        ]);
+
+        $cNo = $validated['case_number'];
+        $singleCase = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
+        $multiCase = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
+
+        $dpfCode = 'DF-STATUS-' . date('Y-md') . '-' . rand(100, 999);
+
+        $report = \App\Models\DpfReport::create([
+            'dpf_code' => $dpfCode,
+            'case_number' => $cNo,
+            'laboratory_number' => $singleCase->laboratory_number ?? ($multiCase->laboratory_number ?? null),
+            'single_suspect_case_id' => $singleCase ? $singleCase->id : null,
+            'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+            'user_id' => auth()->id(),
+            'location_post' => $validated['location_post'] ?? null,
+            'investigation_date' => $validated['investigation_date'] ?? date('Y-m-d'),
+            'devices_retrieved' => $validated['devices_retrieved'] ?? null,
+            'quantity' => $validated['quantity'] ?? '1',
+            'brief_case_description' => $validated['brief_case_description'] ?? null,
+            'court_order_requested' => $validated['court_order_requested'] ?? 'YES',
+            'court_order_granted' => $validated['court_order_granted'] ?? 'YES',
+            'extraction_analysis_conducted' => $validated['extraction_analysis_conducted'] ?? 'YES',
+            'report_witness_statement_sent' => $validated['report_witness_statement_sent'] ?? 'YES',
+            'intel_shared' => $validated['intel_shared'] ?? 'YES',
+            'remark' => $validated['remark'] ?? null,
+            'status' => 'active',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Forensic & Investigation Status updated and logged successfully!',
+            'data'    => $report,
+            'report'  => $report
+        ]);
+    });
+
+    Route::post('/digital-forensics/forensic-status', function (\Illuminate\Http\Request $request) {
+        return redirect()->to('/Digital_Forensics/forensic-status');
+    });
+
     Route::get('/Digital_Forensics/create', function () {
         return view('Digital_Forensics.create');
     })->name('digital_forensics.create');

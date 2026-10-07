@@ -273,7 +273,9 @@
             ($s['association_role'] ?? '') === 'Associate';
 
         // Suspect must be linked to a drug exhibit to appear on lab analytical report
+        $hasExplicitExhibits = false;
         $hasDrugExhibit = false;
+
         if (!empty($case->id)) {
             $suspectExhibits = $case->getExhibitsForSuspect(
                 $sName,
@@ -282,6 +284,7 @@
                 $s['role'] ?? ($s['association_role'] ?? null),
             );
             if (!empty($suspectExhibits)) {
+                $hasExplicitExhibits = true;
                 foreach ($suspectExhibits as $exItem) {
                     if ($checkIsDrugExhibit((array) $exItem)) {
                         $hasDrugExhibit = true;
@@ -291,7 +294,7 @@
             }
         }
 
-        if (!$hasDrugExhibit) {
+        if (!$hasDrugExhibit && !$hasExplicitExhibits) {
             $seizures = $docketData['seizures'] ?? [];
             if (!empty($seizures)) {
                 foreach ($seizures as $sz) {
@@ -309,9 +312,7 @@
                             $isMatch = true;
                         }
                     } else {
-                        if (count($rawSuspects) <= 1 && $idx === 0) {
-                            $isMatch = true;
-                        }
+                        $isMatch = true;
                     }
 
                     if ($isMatch && $checkIsDrugExhibit($sz)) {
@@ -319,7 +320,11 @@
                         break;
                     }
                 }
-            } elseif (count($rawSuspects) <= 1 && $idx === 0 && !empty($drugName)) {
+            } else {
+                $hasDrugExhibit = true;
+            }
+
+            if (!$hasDrugExhibit && !empty($drugName)) {
                 $hasDrugExhibit = true;
             }
         }
@@ -1093,30 +1098,77 @@
 
                     <!-- SUSPECT QUICK FILTER TABS (WHEN MULTIPLE SUSPECTS EXIST) -->
                     @php
-                        $linkedSuspectNamesForTabs = array_values(
-                            array_unique(
-                                array_map(function ($res) {
-                                    return $res['suspect_name'];
-                                }, $suspectLabResults),
-                            ),
-                        );
+                        $allDrugSuspectNames = [];
+                        foreach ($rawSuspects as $rsItem) {
+                            $rsNameItem = trim((string)($rsItem['suspect_name'] ?? ($rsItem['name'] ?? '')));
+                            if (empty($rsNameItem)) continue;
+                            
+                            $rsHasDrug = false;
+                            $rsHasExplicit = false;
+                            if (!empty($case->id)) {
+                                $sExList = $case->getExhibitsForSuspect(
+                                    $rsNameItem,
+                                    $rsItem['id'] ?? null,
+                                    $rsItem['associate_id'] ?? null,
+                                    $rsItem['role'] ?? ($rsItem['association_role'] ?? null)
+                                );
+                                if (!empty($sExList)) {
+                                    $rsHasExplicit = true;
+                                    foreach ($sExList as $exItem) {
+                                        if ($checkIsDrugExhibit((array)$exItem)) {
+                                            $rsHasDrug = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (!$rsHasDrug && !$rsHasExplicit) {
+                                $seizuresList = $docketData['seizures'] ?? [];
+                                if (!empty($seizuresList)) {
+                                    foreach ($seizuresList as $sz) {
+                                        $assocP = strtolower(trim($sz['associated_person'] ?? ($sz['associated_suspect'] ?? ($sz['suspect_name'] ?? ($sz['exhibit_owner_name'] ?? '')))));
+                                        $isMatch = false;
+                                        if (!empty($assocP)) {
+                                            if (str_contains($assocP, 'all suspect') || $suspectNamesMatch($assocP, $rsNameItem)) {
+                                                $isMatch = true;
+                                            }
+                                        } else {
+                                            $isMatch = true;
+                                        }
+                                        if ($isMatch && $checkIsDrugExhibit($sz)) {
+                                            $rsHasDrug = true;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    $rsHasDrug = true;
+                                }
+                                if (!$rsHasDrug && !empty($drugName)) {
+                                    $rsHasDrug = true;
+                                }
+                            }
+                            if ($rsHasDrug) {
+                                $allDrugSuspectNames[] = $rsNameItem;
+                            }
+                        }
+                        $allDrugSuspectNames = array_values(array_unique($allDrugSuspectNames));
                     @endphp
-                    @if (count($linkedSuspectNamesForTabs) > 1)
+                    @if (count($allDrugSuspectNames) > 1)
                         <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
                             <div
                                 class="flex items-center space-x-2 text-xs font-mono-code font-bold overflow-x-auto w-full py-1 custom-scrollbar">
                                 <span class="text-slate-400 uppercase text-[10px] shrink-0">Filter Suspect
                                     Dossier:</span>
                                 <a href="{{ url('/Lab_Analysis/analytical/' . $caseNo) }}"
-                                    class="px-3 py-1.5 rounded-xl border shrink-0 {{ empty($selectedSuspectQuery) ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' }} transition-all shadow-2xs">
-                                    All Suspects ({{ count($linkedSuspectNamesForTabs) }})
+                                    class="px-3 py-1.5 rounded-xl border shrink-0 {{ empty($selectedSuspectQuery) ? 'bg-slate-900 text-white border-slate-900 font-extrabold' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' }} transition-all shadow-2xs">
+                                    All Suspects ({{ count($allDrugSuspectNames) }})
                                 </a>
-                                @foreach ($linkedSuspectNamesForTabs as $rsName)
+                                @foreach ($allDrugSuspectNames as $rsName)
                                     @php
-                                        $isCurrSel = $suspectNamesMatch($rsName, $selectedSuspectQuery);
+                                        $isCurrSel = !empty($selectedSuspectQuery) && $suspectNamesMatch($rsName, $selectedSuspectQuery);
                                     @endphp
                                     <a href="{{ url('/Lab_Analysis/analytical/' . $caseNo . '?suspect=' . urlencode($rsName)) }}"
-                                        class="px-3 py-1.5 rounded-xl border shrink-0 {{ $isCurrSel ? 'bg-emerald-600 text-white border-emerald-600 font-extrabold' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' }} transition-all shadow-2xs">
+                                        class="px-3 py-1.5 rounded-xl border shrink-0 {{ $isCurrSel ? 'bg-emerald-600 text-white border-emerald-600 font-extrabold shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50' }} transition-all shadow-2xs">
                                         {{ $rsName }}
                                     </a>
                                 @endforeach

@@ -1937,6 +1937,26 @@
                                         </div>
                                     </div>
 
+                                    <!-- QUANTITY / QTY FIELD -->
+                                    <div id="quantityFieldWrapper" class="relative z-30">
+                                        <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Qty <span class="text-red-600 font-bold">*</span>
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
+                                            <input
+                                                type="number"
+                                                step="1"
+                                                min="1"
+                                                id="newSeizureQuantity"
+                                                name="newSeizureQuantity"
+                                                placeholder="e.g. 1"
+                                                value="1"
+                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400"
+                                            >
+                                        </div>
+                                    </div>
+
                                     <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL (shown when Electronic Devices is selected) -->
                                     <div id="deviceFieldsWrapper" class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200/80 shadow-2xs space-y-3">
                                         <div class="flex items-center space-x-2 text-slate-800">
@@ -4205,7 +4225,7 @@
                     const genName = block.querySelector('#newSeizureName')?.value || '';
 
                     const seizureName = drugName || wpnName || currName || ammoName || devName || genName || '';
-                    const seizureQty = '';
+                    const seizureQty = block.querySelector('#newSeizureQuantity')?.value || block.querySelector('#newSeizureQty')?.value || '1';
                     const seizurePackaging = '';
                     const seizureWeight = '';
                     const seizureUnit = '';

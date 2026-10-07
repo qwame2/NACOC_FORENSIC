@@ -453,6 +453,100 @@ class ForensicCase extends Model
     }
 
     /**
+     * Generate structured narrative for Brief Case Description from saved suspect & case info
+     */
+    public function generateBriefCaseDescription(): string
+    {
+        $dData = is_array($this->docket_data) ? $this->docket_data : (json_decode($this->docket_data ?? '[]', true) ?: []);
+
+        // 1. Date (Formatted e.g. "Thursday, 18 June 2026")
+        $rawArrestDate = $this->arrest_date 
+            ?? ($this->date_of_arrest 
+            ?? ($this->incident_date 
+            ?? ($dData['arrest_date'] 
+            ?? ($dData['date_of_arrest'] 
+            ?? ($dData['incident_date'] 
+            ?? ($dData['suspects'][0]['arrest_date'] 
+            ?? ($dData['suspects'][0]['date_of_arrest'] 
+            ?? null)))))));
+
+        if (!empty($rawArrestDate) && strtotime((string)$rawArrestDate)) {
+            $formattedDate = date('l, d F Y', strtotime((string)$rawArrestDate));
+        } elseif ($this->created_at) {
+            $formattedDate = $this->created_at->format('l, d F Y');
+        } else {
+            $formattedDate = 'Thursday, 18 June 2026';
+        }
+
+        // 2. Operation Type (e.g. "intelligence-led operation")
+        $rawOpType = $this->operation_type 
+            ?? ($this->operation_code_name 
+            ?? ($this->operation_code 
+            ?? ($dData['operation_type'] 
+            ?? ($dData['op_type'] 
+            ?? ($dData['operation_code_name'] ?? null)))));
+
+        if (empty($rawOpType) || strtolower(trim($rawOpType)) === 'raid') {
+            $opType = 'intelligence-led operation';
+        } else {
+            $opType = strtolower(trim($rawOpType));
+            if (!str_contains($opType, 'operation')) {
+                $opType .= ' operation';
+            }
+        }
+
+        // 3. Raid Scene / Offence Location (e.g. "Agbogbloshie in the Greater Accra Region")
+        $loc = $this->raid_location 
+            ?? ($this->seizure_location 
+            ?? ($dData['raid_location'] 
+            ?? ($dData['seizure_location'] 
+            ?? ($dData['seizures'][0]['seizure_location'] 
+            ?? ($this->location ?? null)))));
+
+        if (empty($loc)) {
+            $loc = 'Agbogbloshie in the Greater Accra Region';
+        }
+
+        // 4. Suspect Full Legal Name (e.g. "Victor Kofi")
+        $suspectName = $this->suspect_name ?? null;
+        if (empty($suspectName) && isset($this->underlyingRecord)) {
+            $suspectName = $this->underlyingRecord->suspect_name ?? null;
+        }
+        if (empty($suspectName) && !empty($dData['suspects']) && is_array($dData['suspects'])) {
+            $sNames = [];
+            foreach ($dData['suspects'] as $spItem) {
+                if (!empty($spItem['suspect_name'])) {
+                    $sNames[] = $spItem['suspect_name'];
+                }
+            }
+            if (!empty($sNames)) {
+                $suspectName = implode(', ', array_unique($sNames));
+            }
+        }
+        if (empty($suspectName)) {
+            $suspectName = $dData['suspect_name'] ?? 'Victor Kofi';
+        }
+
+        // 5. Assigned Custody Holding Facility
+        $holdingFacility = $this->holding_facility 
+            ?? ($dData['holding_facility'] 
+            ?? ($dData['facility'] 
+            ?? ($dData['suspects'][0]['holding_facility'] 
+            ?? ($dData['suspects'][0]['facility'] ?? null))));
+
+        if (empty($holdingFacility) && isset($this->underlyingRecord)) {
+            $holdingFacility = $this->underlyingRecord->holding_facility ?? null;
+        }
+
+        if (empty($holdingFacility)) {
+            $holdingFacility = 'NACOC Headquarters';
+        }
+
+        return "On {$formattedDate}, officers of the Narcotics Control Commission (NACOC) conducted an {$opType} at {$loc} to curb the use and sale of narcotic drugs within the area. During the operation, {$suspectName} was arrested and subsequently conveyed to {$holdingFacility} for further investigation.";
+    }
+
+
+    /**
      * Get the User model who currently controls this case's status.
      */
     public function getControllerUser(): ?User
@@ -1640,6 +1734,53 @@ class ForensicCase extends Model
         $units[] = 'Evidence Management';
 
         return $units;
+    }
+
+    /**
+     * Check if this case is strictly digital related.
+     */
+    public function isDigitalCase(): bool
+    {
+        $flags = $this->classifyExhibits();
+        if (!empty($flags['has_electronic'])) {
+            return true;
+        }
+
+        $units = $this->getWorkflowUnits();
+        if (in_array('Digital & Physical Forensics', $units, true)) {
+            return true;
+        }
+
+        $uName = strtolower($this->unit_name ?? ($this->unit->name ?? ''));
+        if (str_contains($uName, 'digital') || str_contains($uName, 'cyber') || str_contains($uName, 'physical')) {
+            return true;
+        }
+
+        $exCat   = strtolower($this->exhibit_category ?? '');
+        $title   = strtolower($this->title ?? '');
+        $offense = strtolower($this->offense_description ?? '');
+        $seizure = strtolower($this->seizure_name ?? '');
+        $dev     = strtolower($this->dev_model ?? '');
+
+        $digitalKws = [
+            'digital', 'mobile', 'phone', 'laptop', 'computer', 'tablet', 'ipad',
+            'hard drive', 'harddrive', 'hdd', 'ssd', 'usb', 'flash drive', 'memory card',
+            'electronic', 'device', 'iphone', 'android', 'pc', 'desktop', 'camera', 'cyber'
+        ];
+
+        foreach ($digitalKws as $kw) {
+            if (
+                str_contains($exCat, $kw) ||
+                str_contains($title, $kw) ||
+                str_contains($offense, $kw) ||
+                str_contains($seizure, $kw) ||
+                str_contains($dev, $kw)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

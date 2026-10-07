@@ -146,6 +146,10 @@
         (request('unit') ??
             (request('source') ??
                 (request()->query('from') ?? (request()->query('unit') ?? request()->query('source')))));
+    $isDigitalForensicsRegister =
+        str_contains(strtolower($reqFrom ?? ''), 'digital_forensics_register') ||
+        str_contains(strtolower($reqFrom ?? ''), 'digital_register') ||
+        $reqFrom === 'Digital_Forensics_Register';
     $isDigitalForensics =
         str_contains(strtolower($activeUnitContext ?? ''), 'digital') ||
         str_contains(strtolower($activeUnitContext ?? ''), 'physical') ||
@@ -1932,6 +1936,14 @@
                                     d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                             </svg>
                             Back to Case Register
+                        </a>
+                    @elseif($isDigitalForensicsRegister)
+                        <a href="{{ url('/Digital_Forensics') }}" class="btn-back">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to Digital Forensics Case Register
                         </a>
                     @elseif($isDigitalForensics)
                         <a href="/cases?from=Digital+%26+Physical+Forensics" class="btn-back">

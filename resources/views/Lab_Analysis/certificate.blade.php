@@ -465,19 +465,70 @@
                 <span>Back to Drug Register</span>
             </a>
             @php
-                $linkedSuspectNamesForTabs = array_values(array_unique(array_map(function($res) {
-                    return $res['suspect_name'];
-                }, $suspectLabResults)));
+                $allDrugSuspectNames = [];
+                foreach ($rawSuspects as $rsItem) {
+                    $rsNameItem = trim((string)($rsItem['suspect_name'] ?? ($rsItem['name'] ?? '')));
+                    if (empty($rsNameItem)) continue;
+                    
+                    $rsHasDrug = false;
+                    $rsHasExplicit = false;
+                    if (!empty($case->id)) {
+                        $sExList = $case->getExhibitsForSuspect(
+                            $rsNameItem,
+                            $rsItem['id'] ?? null,
+                            $rsItem['associate_id'] ?? null,
+                            $rsItem['role'] ?? ($rsItem['association_role'] ?? null)
+                        );
+                        if (!empty($sExList)) {
+                            $rsHasExplicit = true;
+                            foreach ($sExList as $exItem) {
+                                if ($checkIsDrugExhibit((array)$exItem)) {
+                                    $rsHasDrug = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!$rsHasDrug && !$rsHasExplicit) {
+                        $seizuresList = $docketData['seizures'] ?? [];
+                        if (!empty($seizuresList)) {
+                            foreach ($seizuresList as $sz) {
+                                $assocP = strtolower(trim($sz['associated_person'] ?? ($sz['associated_suspect'] ?? ($sz['suspect_name'] ?? ($sz['exhibit_owner_name'] ?? '')))));
+                                $isMatch = false;
+                                if (!empty($assocP)) {
+                                    if (str_contains($assocP, 'all suspect') || $suspectNamesMatch($assocP, $rsNameItem)) {
+                                        $isMatch = true;
+                                    }
+                                } else {
+                                    $isMatch = true;
+                                }
+                                if ($isMatch && $checkIsDrugExhibit($sz)) {
+                                    $rsHasDrug = true;
+                                    break;
+                                }
+                            }
+                        } else {
+                            $rsHasDrug = true;
+                        }
+                        if (!$rsHasDrug && !empty($drugName)) {
+                            $rsHasDrug = true;
+                        }
+                    }
+                    if ($rsHasDrug) {
+                        $allDrugSuspectNames[] = $rsNameItem;
+                    }
+                }
+                $allDrugSuspectNames = array_values(array_unique($allDrugSuspectNames));
             @endphp
-            @if(count($linkedSuspectNamesForTabs) > 1)
+            @if(count($allDrugSuspectNames) > 1)
                 <div class="flex items-center space-x-1.5 bg-white p-1 rounded-xl border border-slate-300 text-xs font-mono-code font-bold">
                     <span class="text-slate-400 px-2 uppercase text-[10px]">Filter Suspect:</span>
-                    <a href="{{ url('/Lab_Analysis/certificate/' . $caseNo) }}" class="px-2.5 py-1 rounded-lg {{ empty($selectedSuspectQuery) ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700' }}">All</a>
-                    @foreach($linkedSuspectNamesForTabs as $rsName)
+                    <a href="{{ url('/Lab_Analysis/certificate/' . $caseNo) }}" class="px-2.5 py-1 rounded-lg {{ empty($selectedSuspectQuery) ? 'bg-slate-900 text-white font-extrabold' : 'hover:bg-slate-100 text-slate-700' }}">All</a>
+                    @foreach($allDrugSuspectNames as $rsName)
                         @php
-                            $isCurrSel = $suspectNamesMatch($rsName, $selectedSuspectQuery);
+                            $isCurrSel = !empty($selectedSuspectQuery) && $suspectNamesMatch($rsName, $selectedSuspectQuery);
                         @endphp
-                        <a href="{{ url('/Lab_Analysis/certificate/' . $caseNo . '?suspect=' . urlencode($rsName)) }}" class="px-2.5 py-1 rounded-lg {{ $isCurrSel ? 'bg-emerald-600 text-white font-extrabold' : 'hover:bg-slate-100 text-slate-700' }}">{{ $rsName }}</a>
+                        <a href="{{ url('/Lab_Analysis/certificate/' . $caseNo . '?suspect=' . urlencode($rsName)) }}" class="px-2.5 py-1 rounded-lg {{ $isCurrSel ? 'bg-emerald-600 text-white font-extrabold shadow-xs' : 'hover:bg-slate-100 text-slate-700' }}">{{ $rsName }}</a>
                     @endforeach
                 </div>
             @endif

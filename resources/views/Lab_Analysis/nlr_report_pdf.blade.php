@@ -105,10 +105,16 @@
         }
 
         @media print {
-            body {
+            @page {
+                size: A4 portrait;
+                margin: 5mm 0mm;
+            }
+            html, body {
                 background: white !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -116,25 +122,26 @@
                 display: none !important;
             }
             .a4-page {
-                width: 100% !important;
-                min-height: 280mm !important;
+                width: 210mm !important;
+                height: 287mm !important;
+                max-height: 287mm !important;
+                min-height: 287mm !important;
                 margin: 0 auto !important;
-                padding: 12mm 15mm !important;
+                padding: 10mm 15mm !important;
                 box-shadow: none !important;
                 page-break-after: always !important;
                 break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
                 box-sizing: border-box !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: space-between !important;
+                overflow: hidden !important;
             }
             .a4-page:last-child {
                 page-break-after: avoid !important;
                 break-after: avoid !important;
-            }
-            @page {
-                size: A4 portrait;
-                margin: 6mm 0mm;
             }
         }
     </style>

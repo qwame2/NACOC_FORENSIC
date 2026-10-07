@@ -42,6 +42,7 @@ class UnitDashboardsTest extends TestCase
         $respHead->assertStatus(200);
         $respHead->assertSee('DIGITAL &amp; PHYSICAL FORENSICS UNIT', false);
         $respHead->assertSee('Digital &amp; Mobile Cyber Forensics HQ', false);
+        $respHead->assertSee('Digital Forensics Case Register');
 
         $respStaff = $this->actingAs($officer)->get('/Digital_Forensics/staff');
         $respStaff->assertStatus(200);
@@ -51,6 +52,32 @@ class UnitDashboardsTest extends TestCase
         $respStatus = $this->actingAs($officer)->get('/Digital_Forensics/forensic-status');
         $respStatus->assertStatus(200);
         $respStatus->assertSee('Forensic &amp; Investigation Status', false);
+
+        $respPdf = $this->actingAs($officer)->get('/Digital_Forensics/dpf-report-pdf');
+        $respPdf->assertStatus(200);
+        $respPdf->assertSee('DIGITAL FORENSIC INVESTIGATION');
+        $respPdf->assertSee('NARCOTICS CONTROL COMMISSION');
+    }
+
+    #[Test]
+    public function review_extraction_file_back_button_redirects_to_digital_forensics_case_register()
+    {
+        $officer = User::factory()->create([
+            'unit' => 'Digital & Physical Forensics',
+            'is_approved' => true,
+        ]);
+        $case = \App\Models\ForensicCase::create([
+            'case_number' => 'DPF-2026-TEST1',
+            'title' => 'Test Cyber Case',
+            'unit_name' => 'Digital & Physical Forensics',
+            'exhibit_category' => 'Electronics',
+            'status' => 'Under Investigation',
+        ]);
+
+        $respReview = $this->actingAs($officer)->get('/cases/' . $case->case_number . '/review?from=Digital_Forensics_Register');
+        $respReview->assertStatus(200);
+        $respReview->assertSee('Back to Digital Forensics Case Register');
+        $respReview->assertSee('/Digital_Forensics');
     }
 
     #[Test]

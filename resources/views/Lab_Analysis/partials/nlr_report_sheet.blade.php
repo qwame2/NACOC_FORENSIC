@@ -393,7 +393,7 @@
             />
         </div>
 
-        <div class="relative z-10 flex flex-col justify-between h-full min-h-[260mm]">
+        <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
 
             <!-- PAGE 1 CONTENT -->
             <div>
@@ -699,7 +699,7 @@
 
 
             <!-- PAGE 1 FOOTER -->
-            <div class="pt-6 pb-4 border-t border-slate-200">
+            <div class="pt-60 border-t border-slate-200 footer">
 
                 <div class="flex items-center justify-between">
 
@@ -743,24 +743,24 @@
         </div>
 
 
-        <div class="relative z-10 flex flex-col justify-between h-full min-h-[267mm]">
+        <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
 
             <div>
                 <!-- PAGE 2 HEADER -->
             <div class="relative pt-2 pb-3 border-b border-slate-300 flex items-center justify-between">
                 <div>
-                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-500 font-serif-header">
+                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
                         NACOC NLR REPORT
                     </span>
-                    <span class="ml-2 font-mono-code text-[9px] text-slate-700">
+                    <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
                         Ref: {{ $caseNo }} &bull; {{ $formattedLabNoVal }}
                     </span>
                 </div>
                 <div class="text-right">
-                    <p class="text-[8px] uppercase tracking-wider text-slate-700">
-                        Report
+                    <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">
+                        REPORT
                     </p>
-                    <p class="mt-0.5 text-[10px] font-bold text-slate-800">
+                    <p class="mt-0.5 text-[10px] font-bold text-slate-900">
                         Page 2 of 2
                     </p>
                 </div>
@@ -803,193 +803,127 @@
 
 
             <!-- NARRATIVE -->
-            <div class="mt-9">
-                <div class="flex items-center justify-between mb-2">
-
+            <div class="mt-4">
+                <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         REPORT NARRATIVE
                     </h3>
-
                     <div class="h-px flex-1 ml-4 bg-slate-200"></div>
-
                 </div>
                 <div
                     id="nlrReportNarrative"
-                    class="text-[11px] leading-relaxed text-slate-700 whitespace-pre-line"
+                    class="text-[10.5px] leading-snug text-slate-700 whitespace-pre-line"
                 >{{ $narrativeVal }}</div>
-
-                <p class="mt-8 text-[10px] font-semibold text-slate-900">
+                <p class="mt-1.5 text-[9.5px] font-semibold text-slate-900">
                     Samples were taken for analysis.
                 </p>
-
             </div>
 
-
             <!-- SAMPLE WEIGHT -->
-            <div class="mt-5">
-
-                <div class="flex items-center justify-between mb-2">
-
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Sample Weight
                     </h3>
-
                     <div class="h-px flex-1 ml-4 bg-slate-200"></div>
-
                 </div>
-
-
                 <div class="overflow-hidden border-y border-slate-300">
-
                     <table class="w-full text-left border-collapse">
-
                         <thead>
-
                             <tr class="border-b border-slate-300 bg-slate-100/50">
-
-                                <th class="py-1.5 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[10%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[10%] border-r border-slate-300">
                                     Exhibit
                                 </th>
-
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[25%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[25%] border-r border-slate-300">
                                     Description
                                 </th>
-
-                                <th class="py-1.5 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[27%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[27%] border-r border-slate-300">
                                     Number of Units / Gross Weight
                                 </th>
-
-                                <th class="py-1.5 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[19%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[19%] border-r border-slate-300">
                                     Sample Taken
                                 </th>
-
-                                <th class="py-1.5 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[19%]">
+                                <th class="py-1 px-2 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[19%]">
                                     Reserved Samples
                                 </th>
-
                             </tr>
-
                         </thead>
-
-
                         <tbody
                             id="nlrSampleWeightRows"
-                            class="text-[10px] text-slate-800"
+                            class="text-[9.5px] text-slate-800"
                         >
-
                             @foreach($sampleWeightRowsData as $swRow)
-
                                 <tr class="border-b border-slate-200 last:border-b-0">
-
-                                    <td class="py-1.5 px-2 text-center font-bold border-r border-slate-300">
+                                    <td class="py-1 px-2 text-center font-bold border-r border-slate-300">
                                         {{ $swRow['exhibit'] }}
                                     </td>
-
-                                    <td class="py-1.5 px-2 font-medium border-r border-slate-300">
+                                    <td class="py-1 px-2 font-medium border-r border-slate-300">
                                         {{ $swRow['description'] }}
                                     </td>
-
-                                    <td class="py-1.5 px-2 text-center font-medium border-r border-slate-300">
+                                    <td class="py-1 px-2 text-center font-medium border-r border-slate-300">
                                         {{ $swRow['units_gross'] }}
                                     </td>
-
-                                    <td class="py-1.5 px-2 text-center font-semibold text-emerald-800 border-r border-slate-300">
+                                    <td class="py-1 px-2 text-center font-semibold text-emerald-800 border-r border-slate-300">
                                         {{ $swRow['sample_taken'] }}
                                     </td>
-
-                                    <td class="py-1.5 px-2 text-center font-medium">
+                                    <td class="py-1 px-2 text-center font-medium">
                                         {{ $swRow['reserved_samples'] }}
                                     </td>
-
                                 </tr>
-
                             @endforeach
-
                         </tbody>
-
                     </table>
-
                 </div>
-
             </div>
 
-
             <!-- PRESUMPTIVE REACTION -->
-            <div class="mt-9">
-
-                <div class="flex items-center justify-between mb-2">
-
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Presumptive Reaction
                     </h3>
-
                     <div class="h-px flex-1 ml-4 bg-slate-200"></div>
-
                 </div>
-
-
                 <div class="overflow-hidden border-y border-slate-300">
-
                     <table class="w-full text-left border-collapse">
-
                         <thead>
-
                             <tr class="border-b border-slate-300 bg-slate-100/50">
-
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[20%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[20%] border-r border-slate-300">
                                     Result
                                 </th>
-
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[50%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[50%] border-r border-slate-300">
                                     Presence Of
                                 </th>
-
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[30%]">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[30%]">
                                     Purity / Percentage
                                 </th>
-
                             </tr>
-
                         </thead>
-
-
                         <tbody
                             id="nlrPresumptiveRows"
-                            class="text-[10px] text-slate-800"
+                            class="text-[9.5px] text-slate-800"
                         >
-
                             @foreach($presumptiveRows as $pRow)
-
                                 <tr class="border-b border-slate-200 last:border-b-0">
-
-                                    <td class="py-1.5 px-2 border-r border-slate-300 font-extrabold {{ ($pRow['result'] ?? 'YES') === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">
+                                    <td class="py-1 px-2 border-r border-slate-300 font-extrabold {{ ($pRow['result'] ?? 'YES') === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">
                                         {{ $pRow['result'] ?? 'YES' }}
                                     </td>
-
-                                    <td class="py-1.5 px-2 border-r border-slate-300 font-bold text-slate-900">
+                                    <td class="py-1 px-2 border-r border-slate-300 font-bold text-slate-900">
                                         {{ $pRow['presence'] ?? 'Colorimetric Reaction' }}
                                     </td>
-
-                                    <td class="py-1.5 px-2 font-bold text-slate-900">
+                                    <td class="py-1 px-2 font-bold text-slate-900">
                                         {{ $pRow['purity'] ?? '—' }}
                                     </td>
-
                                 </tr>
-
                             @endforeach
-
                         </tbody>
-
                     </table>
-
                 </div>
-
             </div>
 
-
             <!-- RESULT (DETECTED SUBSTANCES & PURITY %) -->
-            <div class="mt-9">
-                <div class="flex items-center justify-between mb-1.5">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Result (Detected Substances &amp; Purity %)
                     </h3>
@@ -999,21 +933,21 @@
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="border-b border-slate-300 bg-slate-100/50">
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[25%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[25%] border-r border-slate-300">
                                     Substance Identified
                                 </th>
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[30%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[30%] border-r border-slate-300">
                                     Substance / Compound Detected (Purity / Percentage)
                                 </th>
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[25%] border-r border-slate-300">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[25%] border-r border-slate-300">
                                     Test Methods
                                 </th>
-                                <th class="py-1.5 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[20%]">
+                                <th class="py-1 px-2 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[20%]">
                                     Specifications
                                 </th>
                             </tr>
                         </thead>
-                        <tbody id="nlrDetectedSubstancesRows" class="text-[10px] text-slate-800">
+                        <tbody id="nlrDetectedSubstancesRows" class="text-[9.5px] text-slate-800">
                             @foreach($detectedSubstancesRows as $index => $dsRow)
                                 @php
                                     $compoundWithPurity = $dsRow['substance'];
@@ -1022,24 +956,24 @@
                                     }
                                 @endphp
                                 <tr class="border-b border-slate-200 last:border-b-0">
-                                    <td class="py-1.5 px-2 font-extrabold text-slate-900 border-r border-slate-300">
+                                    <td class="py-1 px-2 font-extrabold text-slate-900 border-r border-slate-300">
                                         @if($loop->first)
                                             <span id="nlrSubstanceId">{{ $substanceIdVal }}</span>
                                         @else
                                             {{ $substanceIdVal }}
                                         @endif
                                     </td>
-                                    <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300">
+                                    <td class="py-1 px-2 font-semibold text-slate-900 border-r border-slate-300">
                                         {{ $compoundWithPurity }}
                                     </td>
-                                    <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300 font-mono-code text-[9px]">
+                                    <td class="py-1 px-2 font-semibold text-slate-900 border-r border-slate-300 font-mono-code text-[8.5px]">
                                         @if($loop->first)
                                             <span id="nlrTestMethods">{{ $dsRow['testMethodsVal'] ?? ($dsRow['test_methods'] ?? ($testMethodsVal ?? 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay')) }}</span>
                                         @else
                                             {{ $dsRow['testMethodsVal'] ?? ($dsRow['test_methods'] ?? ($testMethodsVal ?? 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay')) }}
                                         @endif
                                     </td>
-                                    <td class="py-1.5 px-2 font-semibold text-emerald-800 font-mono-code text-[9px]">
+                                    <td class="py-1 px-2 font-semibold text-emerald-800 font-mono-code text-[8.5px]">
                                         @if($loop->first)
                                             <span id="nlrSpecifications">{{ $dsRow['specificationsVal'] ?? ($dsRow['specifications'] ?? ($specificationsVal ?? 'Official Forensic Standard ISO/IEC 17025 Compliant')) }}</span>
                                         @else
@@ -1054,8 +988,8 @@
             </div>
 
             <!-- REMARK -->
-            <div class="mt-9">
-                <div class="flex items-center justify-between mb-1.5">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Remark
                     </h3>
@@ -1063,15 +997,15 @@
                 </div>
                 <div
                     id="nlrAnalysisRemark"
-                    class="text-[11px] leading-relaxed text-slate-700 whitespace-pre-line mb-4"
+                    class="text-[10.5px] leading-snug text-slate-700 whitespace-pre-line mb-1"
                 >
                     {{ $remarkVal }}
                 </div>
             </div>
 
             <!-- CONDITION OF RESERVED SAMPLE(S) -->
-            <div class="mt-6">
-                <div class="flex items-center justify-between mb-1.5">
+            <div class="mt-2">
+                <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Condition of Reserved Sample(s)
                     </h3>
@@ -1079,21 +1013,21 @@
                 </div>
                 <div
                     id="nlrConditionReservedSample"
-                    class="text-[11px] leading-relaxed text-slate-700 whitespace-pre-line mb-4 font-semibold"
+                    class="text-[10.5px] leading-snug text-slate-700 whitespace-pre-line mb-1 font-semibold"
                 >
                     {{ $conditionReservedVal }}
                 </div>
             </div>
 
             <!-- CONDITIONS & DISCLAIMER NOTE -->
-            <div class="mt-4 pt-3 border-t border-slate-200">
-                <p class="text-[10px] font-semibold text-slate-800 mb-2 italic">
+            <div class="mt-2 pt-1.5 border-t border-slate-200">
+                <p class="text-[9.5px] font-semibold text-slate-800 mb-1 italic">
                     Note: The result(s) relate only to the item tested
                 </p>
-                <p class="text-[10px] font-extrabold uppercase tracking-wider text-slate-900 mb-1.5">
+                <p class="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-900 mb-1">
                     Conditions:
                 </p>
-                <ol class="list-decimal list-inside space-y-1 text-[9.5px] font-medium text-slate-700 leading-normal pl-0.5">
+                <ol class="list-decimal list-inside space-y-0.5 text-[9px] font-medium text-slate-700 leading-tight pl-0.5">
                     <li>Not valid without NACOC Lab Analysis approval.</li>
                     <li>This report does not signify that product tested has been certified.</li>
                     <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
@@ -1101,24 +1035,20 @@
                 </ol>
             </div>
 
-
             <!-- LAB NUMBER -->
-            <div class="mt-3 flex justify-end">
-
+            <div class="mt-1 flex justify-end">
                 <span
                     id="nlrBottomLabNo"
-                    class="text-[10px] font-bold tracking-wide text-slate-700"
+                    class="text-[9.5px] font-bold tracking-wide text-slate-700"
                 >
                     {{ $formattedLabNoVal }}
                 </span>
-
             </div>
 
             <!-- PAGE 2 FOOTER & SIGNATURES WRAPPER -->
             <div>
-
                 <!-- SIGNATURES -->
-                <div class="mt-4 pt-4 pb-2 border-t border-slate-300 footer break-inside-avoid">
+                <div class="mt-2 pt-2 pb-1 border-t border-slate-300 footer break-inside-avoid">
 
                 <div class="grid grid-cols-2 gap-10">
 
@@ -1187,7 +1117,7 @@
 
 
             <!-- PAGE 2 FOOTER -->
-            <div class="mt-4 pt-4 pb-4 border-t border-slate-200 flex items-center justify-between">
+            <div class="mt-2 pt-60 border-t border-slate-200 flex items-center justify-between">
 
                 <p class="text-[7px] text-slate-700">
                     NACOC-FSL-NLR-FM-08
