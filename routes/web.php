@@ -647,6 +647,38 @@ Route::middleware(['auth'])->group(function () {
                 }
             }
 
+            // Always ensure CURRENT/NEW CASES come first before ONGOING CASES
+            if (!empty($suspectReports)) {
+                $indexed = [];
+                foreach ($suspectReports as $i => $sr) {
+                    $indexed[] = ['idx' => $i, 'item' => $sr];
+                }
+                usort($indexed, function($a, $b) {
+                    $aIsOngoing = (strtoupper($a['item']['court_granted'] ?? 'NO') === 'YES' || (isset($a['item']['case_section_label']) && str_contains(strtoupper($a['item']['case_section_label']), 'ONGOING')));
+                    $bIsOngoing = (strtoupper($b['item']['court_granted'] ?? 'NO') === 'YES' || (isset($b['item']['case_section_label']) && str_contains(strtoupper($b['item']['case_section_label']), 'ONGOING')));
+
+                    $aRank = $aIsOngoing ? 1 : 0;
+                    $bRank = $bIsOngoing ? 1 : 0;
+
+                    if ($aRank !== $bRank) {
+                        return $aRank <=> $bRank;
+                    }
+                    return $a['idx'] <=> $b['idx'];
+                });
+                $suspectReports = array_values(array_column($indexed, 'item'));
+                $rawSuspects = array_map(function($sItem) {
+                    return [
+                        'suspect_name' => $sItem['suspect_name'],
+                        'role' => $sItem['role'],
+                        'mugshot_front' => $sItem['mugshot_front'],
+                        'nationality' => $sItem['nationality'],
+                        'gender' => $sItem['gender'],
+                        'age' => $sItem['age'],
+                        'case_number' => $sItem['case_number'],
+                    ];
+                }, $suspectReports);
+            }
+
             // Summary objects for cover page
             $allExhibits = array_filter(array_map(fn($sr) => $sr['exhibit_type_display'], $suspectReports));
             $exhibitTypeDisplay = implode(', ', array_unique($allExhibits));
@@ -903,6 +935,27 @@ Route::middleware(['auth'])->group(function () {
             }
             foreach ($cSuspects as $idx => $sObj) {
                 $suspectReports[] = $buildSuspectReportItem($case, $report, $sObj, $idx, $cleanStatusDisplay);
+            }
+
+            // Always ensure CURRENT/NEW CASES come first before ONGOING CASES
+            if (!empty($suspectReports)) {
+                $indexed = [];
+                foreach ($suspectReports as $i => $sr) {
+                    $indexed[] = ['idx' => $i, 'item' => $sr];
+                }
+                usort($indexed, function($a, $b) {
+                    $aIsOngoing = (strtoupper($a['item']['court_granted'] ?? 'NO') === 'YES' || (isset($a['item']['case_section_label']) && str_contains(strtoupper($a['item']['case_section_label']), 'ONGOING')));
+                    $bIsOngoing = (strtoupper($b['item']['court_granted'] ?? 'NO') === 'YES' || (isset($b['item']['case_section_label']) && str_contains(strtoupper($b['item']['case_section_label']), 'ONGOING')));
+
+                    $aRank = $aIsOngoing ? 1 : 0;
+                    $bRank = $bIsOngoing ? 1 : 0;
+
+                    if ($aRank !== $bRank) {
+                        return $aRank <=> $bRank;
+                    }
+                    return $a['idx'] <=> $b['idx'];
+                });
+                $suspectReports = array_values(array_column($indexed, 'item'));
             }
         }
 

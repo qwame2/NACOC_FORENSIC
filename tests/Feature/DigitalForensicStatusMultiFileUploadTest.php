@@ -989,6 +989,56 @@ class DigitalForensicStatusMultiFileUploadTest extends TestCase
         $this->assertStringNotContainsString('DIRECTORY COMPILATION', $resGeneral->getContent());
         $this->assertStringNotContainsString('CURRENT/NEW CASES &bull;', $resGeneral->getContent());
     }
+
+    public function test_multi_dpf_pdf_always_places_current_new_cases_first(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        // Case 1 is an ONGOING case (court order granted = YES)
+        $ongoingCase = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-ONGOING-FIRST',
+            'suspect_name' => 'ONGOING SUSPECT',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+        \App\Models\DpfReport::create([
+            'case_number' => 'NCC-2026-ONGOING-FIRST',
+            'dpf_code' => 'DPF-NCC-2026-ONGOING-FIRST',
+            'court_order_granted' => 'YES',
+            'extraction_analysis_conducted' => 'YES',
+        ]);
+
+        // Case 2 is a CURRENT/NEW case (court order granted = NO)
+        $newCase = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-CURRENT-SECOND',
+            'suspect_name' => 'CURRENT SUSPECT',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+        \App\Models\DpfReport::create([
+            'case_number' => 'NCC-2026-CURRENT-SECOND',
+            'dpf_code' => 'DPF-NCC-2026-CURRENT-SECOND',
+            'court_order_granted' => 'NO',
+            'extraction_analysis_conducted' => 'NO',
+        ]);
+
+        // Request multi_dpf_pdf with the ongoing case first in the query parameter
+        $response = $this->actingAs($user)->get('/Digital_Forensics/multi_dpf_pdf?cases=NCC-2026-ONGOING-FIRST,NCC-2026-CURRENT-SECOND');
+        $response->assertStatus(200);
+
+        $content = $response->getContent();
+
+        // The CURRENT SUSPECT must appear before the ONGOING SUSPECT in the rendered report pages
+        $currentPos = strpos($content, 'REPUBLIC VS CURRENT SUSPECT');
+        $ongoingPos = strpos($content, 'REPUBLIC VS ONGOING SUSPECT');
+
+        $this->assertNotFalse($currentPos, 'CURRENT SUSPECT should be present in multi_dpf_pdf');
+        $this->assertNotFalse($ongoingPos, 'ONGOING SUSPECT should be present in multi_dpf_pdf');
+        $this->assertLessThan($ongoingPos, $currentPos, 'CURRENT/NEW CASES must always appear before ONGOING CASES');
+    }
 }
 
 

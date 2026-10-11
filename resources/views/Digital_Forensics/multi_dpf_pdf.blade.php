@@ -52,6 +52,27 @@
         ];
     }
 
+    // Always ensure CURRENT/NEW CASES come first before ONGOING CASES
+    if (!empty($suspectReports) && is_array($suspectReports)) {
+        $indexedReports = [];
+        foreach ($suspectReports as $i => $sr) {
+            $indexedReports[] = ['idx' => $i, 'item' => $sr];
+        }
+        usort($indexedReports, function($a, $b) {
+            $aIsOngoing = (strtoupper($a['item']['court_granted'] ?? 'NO') === 'YES' || (isset($a['item']['case_section_label']) && str_contains(strtoupper($a['item']['case_section_label']), 'ONGOING')));
+            $bIsOngoing = (strtoupper($b['item']['court_granted'] ?? 'NO') === 'YES' || (isset($b['item']['case_section_label']) && str_contains(strtoupper($b['item']['case_section_label']), 'ONGOING')));
+
+            $aRank = $aIsOngoing ? 1 : 0;
+            $bRank = $bIsOngoing ? 1 : 0;
+
+            if ($aRank !== $bRank) {
+                return $aRank <=> $bRank;
+            }
+            return $a['idx'] <=> $b['idx'];
+        });
+        $suspectReports = array_values(array_column($indexedReports, 'item'));
+    }
+
     // Consolidated exhibit type display
     if (empty($exhibitTypeDisplay)) {
         $allExhibits = array_filter(array_map(fn($sr) => $sr['exhibit_type_display'], $suspectReports));
@@ -142,8 +163,8 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0f172a;
-            color: #0f172a;
+            background-color: #ffffffff;
+            color: #ffffffff;
             margin: 0;
             padding: 24px 0;
             -webkit-print-color-adjust: exact;
@@ -216,7 +237,7 @@
 
             .footer {
                 position: relative !important;
-                bottom: 0 !important;
+                bottom: 8px !important;
             }
         }
     </style>
@@ -336,7 +357,7 @@
                 </div>
 
                 <!-- COVER PAGE FOOTER -->
-                <div class="mt-6 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
+                <div class="mt-6 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none footer">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU UNIT</span>
                         <span>&bull;</span>
@@ -610,7 +631,7 @@
                         </div>
 
                         <!-- SUSPECT REPORT FOOTER -->
-                        <div class="mt-3.5 pt-2 border-t border-slate-200 flex items-center justify-between text-[7.5px] text-slate-500 font-mono-code select-none">
+                        <div class="mt-3.5 pb-6 border-t border-slate-200 flex items-center justify-between text-[7.5px] text-slate-500 font-mono-code select-none footer">
                             <div class="flex items-center gap-2">
                                 <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; {{ $sr['suspect_name'] }}</span>
                                 <span>&bull;</span>
