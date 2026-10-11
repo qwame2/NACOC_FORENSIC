@@ -95,4 +95,28 @@ class DpfReport extends Model
 
         return $query->latest('id')->first();
     }
+
+    /**
+     * Get array of court order file paths
+     */
+    public function getCourtOrderFilesAttribute(): array
+    {
+        $raw = $this->court_order_file;
+        if (empty($raw)) return [];
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) return $decoded;
+        return [$raw];
+    }
+
+    /**
+     * Get array of report & witness statement file paths
+     */
+    public function getReportWitnessStatementFilesAttribute(): array
+    {
+        $raw = $this->report_witness_statement_file;
+        if (empty($raw)) return [];
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) return $decoded;
+        return [$raw];
+    }
 }

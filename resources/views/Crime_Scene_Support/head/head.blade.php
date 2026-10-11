@@ -252,7 +252,7 @@
                                     <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="text-[11px] text-slate-900 font-semibold truncate">CSS-2026-0908 approved</div>
+                                    <div class="text-[11px] text-slate-900 font-semibold truncate">NCC-2026-0908 approved</div>
                                     <div class="text-[10px] text-slate-400 font-mono-code">2m ago · Kotoka Sector B</div>
                                 </div>
                             </div>
@@ -333,7 +333,7 @@
 
                                     <tr class="hover:bg-slate-50 transition-colors">
                                         <td class="py-4 px-5">
-                                            <div class="font-bold text-slate-900 font-mono-code text-sm">CSS-2026-0912</div>
+                                            <div class="font-bold text-slate-900 font-mono-code text-sm">NCC-2026-0912</div>
                                             <div class="text-[10px] text-slate-400 font-mono-code mt-0.5">2026-09-04 08:30</div>
                                         </td>
                                         <td class="py-4 px-5 max-w-xs">
@@ -349,20 +349,20 @@
                                             <div class="text-[10px] text-slate-400">14 exhibits bagged</div>
                                         </td>
                                         <td class="py-4 px-5">
-                                            <span id="status-CSS-2026-0912" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                            <span id="status-NCC-2026-0912" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                                 Awaiting Sign-off
                                             </span>
                                         </td>
                                         <td class="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
-                                            <button onclick="viewHeadDetails('CSS-2026-0912')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition-all">Inspect</button>
-                                            <button onclick="approveHeadDossier('CSS-2026-0912')" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[10px] font-bold transition-all">Approve</button>
+                                            <button onclick="viewHeadDetails('NCC-2026-0912')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition-all">Inspect</button>
+                                            <button onclick="approveHeadDossier('NCC-2026-0912')" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[10px] font-bold transition-all">Approve</button>
                                         </td>
                                     </tr>
 
                                     <tr class="hover:bg-slate-50 transition-colors">
                                         <td class="py-4 px-5">
-                                            <div class="font-bold text-slate-900 font-mono-code text-sm">CSS-2026-0908</div>
+                                            <div class="font-bold text-slate-900 font-mono-code text-sm">NCC-2026-0908</div>
                                             <div class="text-[10px] text-slate-400 font-mono-code mt-0.5">2026-09-03 14:15</div>
                                         </td>
                                         <td class="py-4 px-5 max-w-xs">
@@ -384,7 +384,7 @@
                                             </span>
                                         </td>
                                         <td class="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
-                                            <button onclick="viewHeadDetails('CSS-2026-0908')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition-all">Inspect</button>
+                                            <button onclick="viewHeadDetails('NCC-2026-0908')" class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[10px] font-semibold transition-all">Inspect</button>
                                             <button onclick="alert('Transferring exhibits to Evidence Unit…')" class="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-600 text-white rounded-md text-[10px] font-bold transition-all">Transfer</button>
                                         </td>
                                     </tr>
@@ -413,7 +413,7 @@
             <form onsubmit="event.preventDefault(); submitHeadDispatch();" class="space-y-4 text-xs font-medium">
                 <div>
                     <label class="block text-slate-500 font-bold mb-1.5 font-mono-code text-[10px] uppercase tracking-wider">Incident Reference</label>
-                    <input type="text" id="headDispatchRef" value="CSS-2026-0920" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono-code font-bold text-emerald-700 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15">
+                    <input type="text" id="headDispatchRef" value="NCC-2026-0920" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg font-mono-code font-bold text-emerald-700 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/15">
                 </div>
 
                 <div>
@@ -450,7 +450,7 @@
             <div class="flex items-center justify-between pb-3 border-b border-slate-200">
                 <div>
                     <div class="text-[10px] font-mono-code font-bold text-purple-600 uppercase tracking-widest">3D LiDAR · Point Cloud Dossier</div>
-                    <h3 class="text-base font-extrabold text-slate-900 font-mono-code" id="modalHeadTitle">CSS-2026-0912</h3>
+                    <h3 class="text-base font-extrabold text-slate-900 font-mono-code" id="modalHeadTitle">NCC-2026-0912</h3>
                 </div>
                 <button onclick="toggleHeadDetailsModal()" class="text-slate-400 hover:text-slate-700 font-bold p-1 text-xl leading-none">&times;</button>
             </div>

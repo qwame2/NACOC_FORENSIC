@@ -126,5 +126,124 @@ class VehicleExhibitPersistenceTest extends TestCase
         $this->assertNotNull($otherExhibit);
         $this->assertEquals('12x RTX 4090 GPU custom server rack used for illicit crypto operations.', $otherExhibit->other_exhibit_description);
     }
+
+    #[Test]
+    public function device_storage_colour_and_marks_are_persisted_in_exhibits_table()
+    {
+        $user = User::factory()->create([
+            'unit' => 'Digital Forensics',
+        ]);
+
+        $seizures = [
+            [
+                'exhibit_number' => '1',
+                'category' => 'Electronic Devices',
+                'seizure_name' => 'iPhone 15 Pro Max',
+                'dev_model' => 'iPhone 15 Pro Max',
+                'dev_serial_no' => 'IPH-99881122',
+                'dev_imei1' => '359876543210123',
+                'dev_imei2' => '359876543210456',
+                'dev_mac_address' => '00:1A:2B:3C:4D:5E',
+                'dev_storage' => '512 GB NVMe',
+                'dev_colour' => 'Natural Titanium',
+                'dev_marks' => 'Slight scratch near camera ring',
+            ]
+        ];
+
+        $payload = [
+            'unit_name' => 'Digital Forensics',
+            'title' => 'Republic vs Kwame Mensah',
+            'suspect_name' => 'Kwame Mensah',
+            'docket_data' => [
+                'suspects' => [
+                    ['suspect_name' => 'Kwame Mensah', 'role' => 'Primary Suspect'],
+                ],
+                'seizures' => $seizures,
+            ],
+            'user_id' => $user->id,
+        ];
+
+        $case = ForensicCase::create($payload);
+
+        $this->assertNotNull($case);
+
+        $devExhibit = Exhibit::where('exhibit_category', 'Electronic Devices')->first();
+        $this->assertNotNull($devExhibit);
+        $this->assertEquals('iPhone 15 Pro Max', $devExhibit->dev_model);
+        $this->assertEquals('512 GB NVMe', $devExhibit->dev_storage);
+        $this->assertEquals('Natural Titanium', $devExhibit->dev_colour);
+        $this->assertEquals('Slight scratch near camera ring', $devExhibit->dev_marks);
+    }
+
+    #[Test]
+    public function multiple_suspect_phones_and_device_specs_render_in_review_page()
+    {
+        $user = User::factory()->create([
+            'unit' => 'Digital Forensics',
+            'is_approved' => true,
+        ]);
+
+        $seizures = [
+            [
+                'exhibit_number' => '1',
+                'category' => 'Electronic Devices',
+                'seizure_name' => 'Samsung Galaxy S24 Ultra',
+                'dev_model' => 'Samsung Galaxy S24 Ultra',
+                'dev_serial_no' => 'SM-S928B-001',
+                'dev_imei1' => '351234567890123',
+                'dev_imei2' => '351234567890456',
+                'dev_mac_address' => 'AA:BB:CC:DD:EE:FF',
+                'dev_storage' => '1 TB UFS 4.0',
+                'dev_colour' => 'Titanium Gray',
+                'dev_marks' => 'Cracked screen protector on top right',
+            ]
+        ];
+
+        $phones = [
+            ['label' => 'Primary', 'number' => '+233 24 111 2222'],
+            ['label' => 'WhatsApp', 'number' => '+233 20 333 4444'],
+            ['label' => 'Secondary', 'number' => '+233 55 777 8888'],
+        ];
+
+        $payload = [
+            'unit_name' => 'Digital Forensics',
+            'title' => 'Republic vs John Techie',
+            'suspect_name' => 'John Techie',
+            'phone' => '+233 24 111 2222',
+            'phones' => $phones,
+            'docket_data' => [
+                'phone' => '+233 24 111 2222',
+                'phones' => $phones,
+                'suspects' => [
+                    [
+                        'suspect_name' => 'John Techie',
+                        'role' => 'Primary Suspect',
+                        'phone' => '+233 24 111 2222',
+                        'phones' => $phones,
+                    ],
+                ],
+                'seizures' => $seizures,
+            ],
+            'user_id' => $user->id,
+        ];
+
+        $case = ForensicCase::create($payload);
+
+        $response = $this->actingAs($user)->get("/cases/{$case->case_number}/review");
+
+        $response->assertStatus(200);
+
+        // Assert all multiple phone numbers and labels are rendered
+        $response->assertSee('+233 24 111 2222');
+        $response->assertSee('+233 20 333 4444');
+        $response->assertSee('+233 55 777 8888');
+        $response->assertSee('WhatsApp');
+        $response->assertSee('Secondary');
+
+        // Assert device specifications are rendered in review
+        $response->assertSee('1 TB UFS 4.0');
+        $response->assertSee('Titanium Gray');
+        $response->assertSee('Cracked screen protector on top right');
+    }
 }
 

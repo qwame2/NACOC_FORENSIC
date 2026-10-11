@@ -1,11 +1,20 @@
 @php
     $authUser = auth()->user();
-    $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Digital%')->orWhere('unit', 'LIKE', '%Physical%')->where('is_head', true)->first()
-               ?? \App\Models\User::where('is_head', true)->first();
-    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst';
+    $dbDpfHead = \App\Models\User::where(function($q) {
+                    $q->where('unit', 'LIKE', '%Digital%')
+                      ->orWhere('unit', 'LIKE', '%Physical%');
+                })->where('is_head', true)->first()
+                ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
+    $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'Ofori Graham';
+
+    $dbDeptHead = \App\Models\User::where('unit', 'LIKE', '%Directorate%')->where('is_head', true)->first()
+               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Directorate%')->first()
+               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
+               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
+    $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : '';
 
     $reportObj = $report ?? null;
-    $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'CSS-2026-6730');
+    $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'NCC-2026-6730');
     $dpfCode = $reportObj->dpf_code ?? 'DPF-STATUS-2026-001';
 
     $rawDate = $reportObj->investigation_date ?? null;
@@ -15,16 +24,110 @@
         $investigationDate = (string)($rawDate ?: date('Y-m-d'));
     }
 
-    $locationPost = $reportObj->location_post ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)');
-    $devicesRetrieved = $reportObj->devices_retrieved ?? 'Mobile Devices & Hardware Exhibits';
-    $quantity = $reportObj->quantity ?? '1';
-    $briefDescription = $reportObj->brief_case_description ?? ($case->description ?? 'Target intercepted with encrypted mobile hardware. Write-blocked forensic imaging executed under judicial authorization.');
-    $courtRequested = strtoupper($reportObj->court_order_requested ?? 'YES');
-    $courtGranted = strtoupper($reportObj->court_order_granted ?? 'YES');
-    $extractionConducted = strtoupper($reportObj->extraction_analysis_conducted ?? 'YES');
-    $reportWitnessSent = strtoupper($reportObj->report_witness_statement_sent ?? 'YES');
+    $locationPost = $reportObj->location_post ?? ($case->location ?? 'N/A');
+    $devicesRetrieved = $reportObj->devices_retrieved ?? 'N/A';
+    $quantity = $reportObj->quantity ?? 'N/A';
+    $briefDescription = $reportObj->brief_case_description ?? ($case->description ?? 'N/A');
+
+    // Check if suspect is linked to only electronics or drugs
+    $caseHasDrug = false;
+    $caseHasElectronic = false;
+    if (isset($case)) {
+        if (method_exists($case, 'classifyExhibits')) {
+            $cFlags = $case->classifyExhibits();
+            $caseHasDrug = !empty($cFlags['has_drug']);
+            $caseHasElectronic = !empty($cFlags['has_electronic']);
+        }
+        if (method_exists($case, 'isDrugCase') && $case->isDrugCase()) {
+            $caseHasDrug = true;
+        }
+        if (method_exists($case, 'isDigitalCase') && $case->isDigitalCase()) {
+            $caseHasElectronic = true;
+        }
+        if (!empty($case->phones) || !empty($case->underlyingRecord->phones)) {
+            $caseHasElectronic = true;
+        }
+    }
+
+    if ($caseHasElectronic && !$caseHasDrug) {
+        // Suspect is linked ONLY to electronics (no drugs) - eliminate any drug references
+        if (str_contains($briefDescription, 'narcotic drugs')) {
+            $briefDescription = str_replace(
+                [
+                    'to curb the use and sale of narcotic drugs within the area',
+                    'to curb the use and sale of narcotic drugs',
+                    'use and sale of narcotic drugs',
+                    'sale of narcotic drugs',
+                    'narcotic drugs',
+                ],
+                [
+                    'to intercept and seize illicit electronic devices and digital evidence within the area',
+                    'to intercept and seize illicit electronic devices and digital evidence within the area',
+                    'illicit digital evidence and mobile exhibits',
+                    'illicit electronic hardware',
+                    'electronic devices',
+                ],
+                $briefDescription
+            );
+        }
+    }
+    $courtRequested = strtoupper($reportObj->court_order_requested ?? 'NO');
+    $courtGranted = strtoupper($reportObj->court_order_granted ?? 'NO');
+
+    $reportDataArray = is_array($reportObj->report_data ?? null) 
+        ? $reportObj->report_data 
+        : (is_string($reportObj->report_data ?? null) ? json_decode($reportObj->report_data, true) : []);
+
+    $caseSectionLabel = ($courtGranted === 'YES')
+        ? 'ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)'
+        : ($reportDataArray['case_section_label'] ?? 'CURRENT/NEW CASE');
+    $cleanStatusDisplay = function ($val, $default = 'NO') {
+        $str = trim((string)($val ?: $default));
+        if ($str === '') {
+            return $default;
+        }
+
+        if (preg_match('/^(YES|NO|IN PROGRESS|PENDING)\s*[-–—:]\s*(.*)$/is', $str, $matches)) {
+            $status = strtoupper(trim($matches[1]));
+            $msg = trim($matches[2]);
+
+            $msg = preg_replace('/^' . preg_quote($status, '/') . '\s*[-–—:]\s*/i', '', $msg);
+            $msg = trim($msg);
+
+            if ($msg === '' || strtoupper($msg) === $status || in_array(strtoupper($msg), ['N/A', 'NONE', 'NIL', 'NULL', '-', 'NO', 'YES'])) {
+                return $status;
+            }
+
+            return $status . ' - ' . $msg;
+        }
+
+        if (in_array(strtoupper($str), ['YES', 'NO', 'IN PROGRESS', 'PENDING'])) {
+            return strtoupper($str);
+        }
+
+        if (preg_match('/^(YES|NO)\s+\1$/i', $str, $matches)) {
+            return strtoupper($matches[1]);
+        }
+
+        return $str;
+    };
+
+    $rawExtraction = $reportObj->extraction_analysis_message ?? ($reportObj->extraction_analysis_conducted ?? 'NO');
+    $extractionConducted = $cleanStatusDisplay($rawExtraction, 'NO');
+
+    $rawWitnessSent = $reportObj->report_witness_statement_message ?? ($reportObj->report_witness_statement_sent ?? 'NO');
+    $reportWitnessSent = $cleanStatusDisplay($rawWitnessSent, 'NO');
     $intelShared = strtoupper($reportObj->intel_shared ?? 'YES');
-    $remarkVal = $reportObj->remark ?? 'N/A';
+    $rawRemark = trim((string)($reportObj->remark ?? ''));
+    if (empty($rawRemark) || in_array($rawRemark, [
+        'Registry intake logged. Electronic exhibits pending forensic write-block extraction and court order verification.',
+        'Forensic acquisition completed cleanly. Hardware hash checksums match baseline acquisition.',
+        'N/A', 'NONE', 'NIL', 'null'
+    ])) {
+        $remarkVal = 'N/A';
+    } else {
+        $remarkVal = $rawRemark;
+    }
 
     if ($reportObj && $reportObj->user) {
         $loggedBy = $reportObj->user->fullname;
@@ -36,9 +139,15 @@
 
     $rawCreatedAt = $reportObj->created_at ?? null;
     if ($rawCreatedAt instanceof \Carbon\Carbon || $rawCreatedAt instanceof \DateTimeInterface) {
-        $loggedAt = $rawCreatedAt->format('Y-m-d H:i:s');
+        $loggedAt = $rawCreatedAt->format('Y-m-d');
+    } elseif (!empty($rawCreatedAt)) {
+        try {
+            $loggedAt = \Carbon\Carbon::parse($rawCreatedAt)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            $loggedAt = explode(' ', trim((string)$rawCreatedAt))[0] ?: date('Y-m-d');
+        }
     } else {
-        $loggedAt = (string)($rawCreatedAt ?: date('Y-m-d H:i:s'));
+        $loggedAt = date('Y-m-d');
     }
 
     $suspectName = $case->suspect_name ?? ($case->suspects_list[0]['suspect_name'] ?? 'PRIMARY SUSPECT');
@@ -68,11 +177,63 @@
     }, $rawSuspects);
     $dossierSuspectNames = implode(', ', array_unique($allSuspectNames));
 
-    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'Det. Insp. K. Mensah');
-    $raidLoc = $case->raid_location ?? ($locationPost ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)'));
+    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? ($docketData['submitting'] ?? 'N/A'));
+    $raidLoc = $case->raid_location ?? ($case->seizure_location ?? ($case->location ?? ($locationPost ?? 'N/A')));
+
+    // Collect all uploaded attachment files (Court Orders, Reports & Witness Statements)
+    $attachedFiles = [];
+
+    // 1. Court Order Files
+    $coList = $reportObj->court_order_files ?? [];
+    if (empty($coList) && !empty($reportDataArray['court_order_files'])) {
+        $coList = $reportDataArray['court_order_files'];
+    }
+    if (is_string($coList)) {
+        $coList = json_decode($coList, true) ?: [$coList];
+    }
+    if (is_array($coList)) {
+        foreach ($coList as $cIdx => $cPath) {
+            if (!empty($cPath) && is_string($cPath)) {
+                $attachedFiles[] = [
+                    'id' => 'attachment-co-' . $cIdx,
+                    'path' => $cPath,
+                    'section' => 'Court Order Warrant',
+                    'title' => 'Judicial Court Order Warrant' . (count($coList) > 1 ? ' (Doc #' . ($cIdx + 1) . ')' : ''),
+                    'category' => 'Legal Process Authorization & Judicial Warrant',
+                    'badge' => 'COURT ORDER WARRANT',
+                ];
+            }
+        }
+    }
+
+    // 2. Report & Witness Statement Files
+    $rwList = $reportObj->report_witness_statement_files ?? [];
+    if (empty($rwList) && !empty($reportDataArray['report_witness_statement_files'])) {
+        $rwList = $reportDataArray['report_witness_statement_files'];
+    }
+    if (is_string($rwList)) {
+        $rwList = json_decode($rwList, true) ?: [$rwList];
+    }
+    if (is_array($rwList)) {
+        foreach ($rwList as $rIdx => $rPath) {
+            if (!empty($rPath) && is_string($rPath)) {
+                $attachedFiles[] = [
+                    'id' => 'attachment-rw-' . $rIdx,
+                    'path' => $rPath,
+                    'section' => 'Report, Witness Statement & Digital Evidence',
+                    'title' => 'Report, Witness Statement & Digital Evidence' . (count($rwList) > 1 ? ' (Doc #' . ($rIdx + 1) . ')' : ''),
+                    'category' => '',
+                    'badge' => 'REPORT, WITNESS STATEMENT & DIGITAL EVIDENCE',
+                ];
+            }
+        }
+    }
+
+    $totalReportPages = 2 + count($attachedFiles);
 
     if (!isset($renderReportFooter) || !is_callable($renderReportFooter)) {
-        $renderReportFooter = function ($currentPage = 1, $totalPages = 2) use ($dpfCode) {
+        $renderReportFooter = function ($currentPage = 1, $totalPages = null) use ($dpfCode, $totalReportPages) {
+            $effectivePages = $totalPages ?? $totalReportPages;
             return '
             <div class="pt-auto mb-9 border-t footer">
                 <div class="flex items-center justify-between">
@@ -83,7 +244,7 @@
                     </div>
                     <div class="text-right">
                         <p class="mt-0.5 text-[9px] text-slate-700 text-right">
-                            Digital &amp; Physical Forensics Unit (DPFU) &bull; Page ' . e($currentPage) . ' of ' . e($totalPages) . '
+                            Digital &amp; Physical Forensics Unit (DPFU) &bull; Page ' . e($currentPage) . ' of ' . e($effectivePages) . '
                         </p>
                     </div>
                 </div>
@@ -126,10 +287,10 @@
 
     if ($dbExhibits->isNotEmpty()) {
         foreach ($dbExhibits as $ex) {
-            $devName = $ex->commodity_name 
+            $devName = $ex->dev_model 
+                ?: ($ex->commodity_name 
                 ?: ($ex->exhibit_category 
-                ?: ($ex->exhibit_type 
-                ?: ($ex->dev_model ?: $devicesRetrieved)));
+                ?: ($ex->exhibit_type ?: $devicesRetrieved)));
 
             $deviceSpecsList[] = [
                 'exhibit_no'  => $ex->exhibit_number ?: null,
@@ -147,11 +308,48 @@
         }
     }
 
+    // Also extract suspect phones if available and no formal exhibits were already found
+    if (empty($deviceSpecsList)) {
+        $suspectPhones = $case->phones 
+            ?? ($case->underlyingRecord->phones 
+            ?? ($dData['phones'] 
+            ?? ($dData['additional_phones'] 
+            ?? ($rawSuspects[0]['phones'] ?? []))));
+        if (is_string($suspectPhones)) {
+            $suspectPhones = json_decode($suspectPhones, true) ?: [];
+        }
+        if (is_array($suspectPhones) && !empty($suspectPhones)) {
+            foreach ($suspectPhones as $pIdx => $ph) {
+                // Skip if this is merely a suspect contact phone number (label + number)
+                if (is_array($ph) && !empty($ph['number']) && empty($ph['model']) && empty($ph['brand']) && empty($ph['name'])) {
+                    continue;
+                }
+                $pModel = is_array($ph) ? ($ph['model'] ?? ($ph['name'] ?? ($ph['brand'] ?? null))) : (is_string($ph) && !preg_match('/^\+?[0-9\s\-()]{5,}$/', trim($ph)) ? trim($ph) : null);
+                if (empty($pModel) || in_array($pModel, ['Mobile Phone Device', 'N/A'])) {
+                    continue;
+                }
+                $deviceSpecsList[] = [
+                    'exhibit_no'  => 'PH-EX-' . ($pIdx + 1),
+                    'device_name' => $pModel,
+                    'quantity'    => '1',
+                    'model'       => $pModel,
+                    'serial'      => is_array($ph) ? ($ph['serial'] ?? 'N/A') : 'N/A',
+                    'imei1'       => is_array($ph) ? ($ph['imei'] ?? ($ph['imei1'] ?? 'N/A')) : 'N/A',
+                    'imei2'       => is_array($ph) ? ($ph['imei2'] ?? 'N/A') : 'N/A',
+                    'mac'         => is_array($ph) ? ($ph['mac'] ?? 'N/A') : 'N/A',
+                    'storage'     => is_array($ph) ? ($ph['storage'] ?? 'N/A') : 'N/A',
+                    'colour'      => is_array($ph) ? ($ph['colour'] ?? 'N/A') : 'N/A',
+                    'marks'       => 'Recovered from suspect possession',
+                ];
+            }
+        }
+    }
+
     if (empty($deviceSpecsList) && !empty($docketData)) {
         $exArr = $docketData['exhibits'] ?? ($docketData['seizures'] ?? []);
         if (is_array($exArr)) {
             foreach ($exArr as $ex) {
-                $devName = $ex['commodity_name'] ?? ($ex['exhibit_category'] ?? ($ex['exhibit_type'] ?? ($ex['dev_model'] ?? $devicesRetrieved)));
+                $devName = $ex['dev_model'] ?? ($ex['device_model'] ?? ($ex['commodity_name'] ?? ($ex['exhibit_category'] ?? ($ex['exhibit_type'] ?? $devicesRetrieved))));
                 $deviceSpecsList[] = [
                     'exhibit_no'  => $ex['exhibit_number'] ?? null,
                     'device_name' => $devName,
@@ -172,9 +370,9 @@
     if (empty($deviceSpecsList)) {
         $deviceSpecsList[] = [
             'exhibit_no'  => null,
-            'device_name' => $devicesRetrieved,
+            'device_name' => $reportObj->dev_model ?? ($case->dev_model ?? $devicesRetrieved),
             'quantity'    => $quantity,
-            'model'       => $reportObj->dev_model ?? ($case->dev_model ?? $devicesRetrieved),
+            'model'       => $reportObj->dev_model ?? ($case->dev_model ?? 'N/A'),
             'serial'      => $reportObj->dev_serial_no ?? ($case->dev_serial_no ?? 'F2LZX984K102'),
             'imei1'       => $reportObj->dev_imei1 ?? ($case->dev_imei1 ?? '356938035643809'),
             'imei2'       => $reportObj->dev_imei2 ?? ($case->dev_imei2 ?? 'N/A'),
@@ -184,6 +382,41 @@
             'marks'       => $reportObj->dev_marks ?? ($case->dev_marks ?? 'Write-blocked physical image captured'),
         ];
     }
+
+    // Compute Exhibit Type display (Quantity and Device Model Name)
+    $exhibitTypeParts = [];
+    foreach ($deviceSpecsList as $dSpec) {
+        $mName = trim((string)($dSpec['model'] ?? ''));
+        if ($mName === '' || strtoupper($mName) === 'N/A' || $mName === 'Mobile Devices & Hardware Exhibits') {
+            $mName = trim((string)($dSpec['device_name'] ?? ''));
+        }
+        if ($mName === '' || strtoupper($mName) === 'N/A' || $mName === 'Mobile Devices & Hardware Exhibits') {
+            $mName = !empty($reportObj->dev_model) ? trim($reportObj->dev_model) : (!empty($case->dev_model) ? trim($case->dev_model) : '');
+        }
+
+        $qVal = trim((string)($dSpec['quantity'] ?? ''));
+        if ($qVal === '' || $qVal === '0') {
+            $qVal = !empty($quantity) && $quantity !== '0' ? trim((string)$quantity) : '';
+        }
+
+        if (!empty($mName) && strtoupper($mName) !== 'N/A' && $mName !== 'Mobile Devices & Hardware Exhibits') {
+            if (!empty($qVal)) {
+                if (preg_match('/^' . preg_quote($qVal, '/') . '(\s+|x\s*)/i', $mName)) {
+                    $exhibitTypeParts[] = $mName;
+                } else {
+                    $exhibitTypeParts[] = $qVal . ' ' . $mName;
+                }
+            } else {
+                $exhibitTypeParts[] = $mName;
+            }
+        }
+    }
+
+    if (!empty($exhibitTypeParts)) {
+        $exhibitTypeDisplay = implode(', ', array_unique($exhibitTypeParts));
+    } else {
+        $exhibitTypeDisplay = $devicesRetrieved;
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -192,10 +425,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NACOC Digital Forensic Investigation Report - {{ $caseNo }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script src="{{ asset('vendor/pdfjs/pdf.min.js') }}"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         .font-serif-header { font-family: 'Cinzel', serif; }
         .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+        
+        .a4-page-attachment {
+            padding: 6mm 10mm !important;
+        }
+
+        .pdf-page-canvas {
+            width: auto;
+            max-width: 100%;
+            max-height: 970px;
+            object-fit: contain;
+            margin: 0 auto;
+            display: block;
+        }
         
         /* A4 Document Styling constraints */
         body {
@@ -236,6 +483,10 @@
             display: table-header-group;
         }
 
+        .font-times {
+            font-family: 'Times New Roman', Times, Baskerville, Georgia, serif;
+        }
+
         @media print {
             @page {
                 size: A4 portrait;
@@ -271,6 +522,11 @@
                 justify-content: space-between !important;
                 overflow: hidden !important;
             }
+            .a4-page.a4-page-attachment {
+                padding: 6mm 8mm !important;
+                height: 287mm !important;
+                max-height: 287mm !important;
+            }
             .a4-page:last-child {
                 page-break-after: avoid !important;
                 break-after: avoid !important;
@@ -293,7 +549,7 @@
                     </svg>
                     <span>Back</span>
                 </a>
-                <button onclick="window.print()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs font-mono-code rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer border-0">
+                <button onclick="handlePrintDocument()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs font-mono-code rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer border-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                     </svg>
@@ -333,13 +589,13 @@
                         <div class="absolute top-0 right-0 text-right">
                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
                             <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800">
-                                DPF &bull; Page 1 of 2
+                                DPF &bull; Page 1 of {{ $totalReportPages }}
                             </p>
                         </div>
 
                         <!-- CENTERED LOGO -->
                         <div class="mx-auto w-20 h-20 flex items-center justify-center mb-7">
-                            <img src="{{ asset('NACOC LOGO.jfif') }}" alt="NACOC Emblem Logo" class="max-h-40 max-w-40 object-contain" />
+                            <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="max-h-40 max-w-40 object-contain" />
                         </div>
 
                         <!-- INSTITUTION DETAILS -->
@@ -347,7 +603,7 @@
                             <h1 class="text-lg font-bold uppercase tracking-wide text-slate-900 font-serif-header">
                                 NARCOTICS CONTROL COMMISSION
                             </h1>
-                            <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700">
+                            <p class="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-700">
                                 DEPARTMENT OF FORENSIC
                             </p>
                             <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-600 font-mono-code">
@@ -369,8 +625,8 @@
                             Extraction &amp; Investigation Status Log Report
                         </p>
                         <div class="mx-auto mt-4 h-[2px] w-16 bg-emerald-700"></div>
-                        <p class="mt-9 text-[9px] font-medium uppercase tracking-wider text-slate-900">
-                            HIGH COURT ADMISSIBLE FORENSIC EVIDENCE DOSSIER
+                        <p id="pdfCaseSectionLabel" class="mt-7 text-base font-extrabold uppercase tracking-wider font-times {{ $courtGranted === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">
+                            {{ $caseSectionLabel }}
                         </p>
                     </div>
 
@@ -404,28 +660,28 @@
                                 <p class="mt-1 text-sm font-bold text-slate-900 truncate">{{ $locationPost }}</p>
                             </div>
                             <div class="py-3 pl-4">
-                                <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Logged Timestamp</p>
+                                <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Report Date</p>
                                 <p class="mt-1 text-sm font-bold text-slate-900">{{ $loggedAt }}</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- SECTION 01: SUSPECT & CASE INFORMATION -->
-                    <div class="mt-9">
-                        <div class="flex items-center gap-3 mb-3">
+                    <div class="mt-7">
+                        <div class="flex items-center gap-3 mb-1.5">
                             <span class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-bold text-emerald-700">
                                 01
                             </span>
                             <div class="flex-1">
                                 <div class="flex items-center justify-between">
-                                    <h3 class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
                                         Suspect &amp; Case Information
                                     </h3>
                                     <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
                                         High Court Admissible
                                     </span>
                                 </div>
-                                <div class="mt-1.5 h-px bg-slate-200"></div>
+                                <div class="mt-1 h-px bg-slate-200"></div>
                             </div>
                         </div>
 
@@ -480,7 +736,7 @@
                                         Exhibit Type
                                     </p>
                                     <p class="mt-1 text-xs font-semibold text-slate-900">
-                                        {{ $devicesRetrieved }}
+                                        {{ $exhibitTypeDisplay }}
                                     </p>
                                 </div>
 
@@ -508,7 +764,7 @@
                 </div>
 
                 <!-- PAGE 1 FOOTER -->
-                {!! $renderReportFooter(1, 2) !!}
+                {!! $renderReportFooter(1, $totalReportPages) !!}
 
             </div>
         </div>
@@ -516,7 +772,7 @@
         <!-- ============================================================
              PAGE 2: ANALYTICAL & TECHNICAL INVESTIGATION LOG REPORT
              ============================================================ -->
-        <div class="a4-page relative text-slate-900">
+        <div class="a4-page relative text-slate-900 {{ !empty($attachedFiles) ? 'page-break' : '' }}">
 
             <!-- SUBTLE NACOC WATERMARK -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
@@ -538,7 +794,7 @@
                         </div>
                         <div class="text-right">
                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">REPORT</p>
-                            <p class="mt-0.5 text-[10px] font-bold text-slate-900">Page 2 of 2</p>
+                            <p class="mt-0.5 text-[10px] font-bold text-slate-900">Page 2 of {{ $totalReportPages }}</p>
                         </div>
                     </div>
 
@@ -554,203 +810,91 @@
                         </div>
                     </div>
 
-                    <!-- SECTION 01: HARDWARE EXHIBITS & ACQUISITION SUMMARY -->
-                    <div class="mt-9">
-                        <div class="flex items-center gap-3 mb-2">
-                            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-bold text-emerald-700">
+                    <!-- SECTION 01: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
+                    <div class="mt-10">
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
                                 01
                             </span>
                             <div class="flex-1">
                                 <div class="flex items-center justify-between">
-                                    <h3 class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                        Hardware Exhibits Summary
-                                    </h3>
-                                    <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
-                                        Chain of Custody Active
-                                    </span>
-                                </div>
-                                <div class="mt-1.5 h-px bg-slate-200"></div>
-                            </div>
-                        </div>
-
-                        <!-- HARDWARE EXHIBITS & ELECTRONIC DEVICE FORENSIC SPECIFICATIONS TABLE -->
-                        @if(!empty($deviceSpecsList))
-                            <div class="space-y-3">
-                                @foreach($deviceSpecsList as $dIdx => $spec)
-                                    <div class="border border-slate-300 rounded-lg overflow-hidden bg-white">
-                                        <!-- BAR HEADER -->
-                                        <div class="bg-slate-100 px-3 py-1.5 border-b border-slate-300 flex items-center justify-between">
-                                            <div class="flex items-center gap-2">
-                                                <span class="px-2 py-0.5 bg-slate-900 text-white font-mono-code font-bold text-[8px] rounded uppercase tracking-wider">
-                                                    {{ !empty($spec['exhibit_no']) ? $spec['exhibit_no'] : ('SPEC ' . (count($deviceSpecsList) > 1 ? '#' . ($dIdx + 1) : 'DETAILS')) }}
-                                                </span>
-                                                <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-900">
-                                                    Electronic Device Forensic Specifications
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <!-- TABLE GRID -->
-                                        <table class="w-full text-left border-collapse">
-                                            <tbody class="text-[9.5px] text-slate-900">
-                                                <!-- ROW 1: DEVICES & QUANTITY -->
-                                                <tr class="border-b border-slate-200">
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 w-[24%] font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Devices / Media Retrieved
-                                                    </td>
-                                                    <td class="py-1.5 px-3 border-r border-slate-200 w-[42%] font-bold text-slate-900">
-                                                        {{ $spec['device_name'] ?? $devicesRetrieved }}
-                                                    </td>
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 w-[14%] font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Quantity
-                                                    </td>
-                                                    <td class="py-1.5 px-3 font-bold text-slate-900 font-mono-code w-[20%]">
-                                                        {{ !empty($spec['quantity']) ? $spec['quantity'] . (is_numeric($spec['quantity']) ? ' Unit(s)' : '') : '1 Unit' }}
-                                                    </td>
-                                                </tr>
-
-                                                <!-- ROW 2: MODEL & SERIAL NUMBER -->
-                                                <tr class="border-b border-slate-200">
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Device Model
-                                                    </td>
-                                                    <td class="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-900">
-                                                        {{ $spec['model'] }}
-                                                    </td>
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Serial Number
-                                                    </td>
-                                                    <td class="py-1.5 px-3 font-bold text-slate-900 font-mono-code">
-                                                        {{ $spec['serial'] }}
-                                                    </td>
-                                                </tr>
-
-                                                <!-- ROW 3: TELEPHONY / IDENTIFIERS (IMEI 1 & IMEI 2) -->
-                                                <tr class="border-b border-slate-200">
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        IMEI 1
-                                                    </td>
-                                                    <td class="py-1.5 px-3 border-r border-slate-200 font-bold font-mono-code text-slate-900">
-                                                        {{ $spec['imei1'] }}
-                                                    </td>
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        IMEI 2
-                                                    </td>
-                                                    <td class="py-1.5 px-3 font-bold font-mono-code text-slate-900">
-                                                        {{ $spec['imei2'] }}
-                                                    </td>
-                                                </tr>
-
-                                                <!-- ROW 4: MAC ADDRESS & STORAGE CAPACITY -->
-                                                <tr class="border-b border-slate-200">
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        MAC Address
-                                                    </td>
-                                                    <td class="py-1.5 px-3 border-r border-slate-200 font-bold font-mono-code text-slate-900">
-                                                        {{ $spec['mac'] }}
-                                                    </td>
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Storage Capacity
-                                                    </td>
-                                                    <td class="py-1.5 px-3 font-bold text-slate-900">
-                                                        {{ $spec['storage'] }}
-                                                    </td>
-                                                </tr>
-
-                                                <!-- ROW 5: COLOUR & OTHER MARKS -->
-                                                <tr>
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Colour
-                                                    </td>
-                                                    <td class="py-1.5 px-3 border-r border-slate-200 font-bold text-slate-900">
-                                                        {{ $spec['colour'] }}
-                                                    </td>
-                                                    <td class="py-1.5 px-3 bg-slate-50/70 border-r border-slate-200 font-bold text-[8px] uppercase tracking-wider text-slate-700">
-                                                        Other Marks / Notes
-                                                    </td>
-                                                    <td class="py-1.5 px-3 font-medium text-slate-800">
-                                                        {{ $spec['marks'] }}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- SECTION 02: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
-                    <div class="mt-9">
-                        <div class="flex items-center gap-3 mb-2">
-                            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-bold text-emerald-700">
-                                02
-                            </span>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
                                         Brief Case Description
                                     </h3>
                                     <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
                                         Intelligence Fact Sheet
                                     </span>
                                 </div>
-                                <div class="mt-1.5 h-px bg-slate-200"></div>
+                                <div class="mt-0.5 h-px bg-slate-200"></div>
                             </div>
                         </div>
 
-                        <div class="text-[10.5px] leading-snug text-slate-700 whitespace-pre-line py-0.5">
+                        <div class="text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
                             {{ $briefDescription }}
                         </div>
                     </div>
 
-                    <!-- SECTION 03: LEGAL & OPERATIONAL PROCESS STATUS -->
-                    <div class="mt-9">
-                        <div class="flex items-center gap-3 mb-2">
-                            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[9px] font-bold text-emerald-700">
-                                03
+                    <!-- SECTION 02: LEGAL & OPERATIONAL PROCESS STATUS -->
+                    <div class="mt-10">
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                02
                             </span>
                             <div class="flex-1">
                                 <div class="flex items-center justify-between">
-                                    <h3 class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
                                         Legal &amp; Operational Process Status
                                     </h3>
                                     <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
                                         Warrant &amp; Docket Verification
                                     </span>
                                 </div>
-                                <div class="mt-1.5 h-px bg-slate-200"></div>
+                                <div class="mt-0.5 h-px bg-slate-200"></div>
                             </div>
                         </div>
 
                         <div class="overflow-hidden border-y border-slate-300">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse table-fixed">
                                 <thead>
                                     <tr class="border-b border-slate-300 bg-slate-100/50">
-                                        <th class="py-1 px-2.5 text-left text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[80%] border-r border-slate-300">
+                                        <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
                                             Process Phase
                                         </th>
-                                        <th class="py-1 px-2.5 text-center text-[8px] font-bold uppercase tracking-wider text-slate-900 w-[20%]">
-                                            Logged Status
+                                        <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
+                                            Status
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody class="text-[9.5px] text-slate-800">
+                                <tbody class="text-[12px] text-slate-800">
                                     <tr class="border-b border-slate-200">
                                         <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Requested</td>
                                         <td class="py-1 px-2.5 text-center font-extrabold {{ $courtRequested === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtRequested }}</td>
                                     </tr>
                                     <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Granted</td>
+                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">
+                                            Court Order Warrant Granted
+                                            @if(!empty($coList))
+                                                <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                    ✔ {{ count($coList) === 1 ? '1 Document Attached' : count($coList) . ' Documents Attached' }}
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td class="py-1 px-2.5 text-center font-extrabold {{ $courtGranted === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtGranted }}</td>
                                     </tr>
                                     <tr class="border-b border-slate-200">
                                         <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Extraction &amp; Forensic Analysis Conducted</td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ $extractionConducted === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $extractionConducted }}</td>
+                                        <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with(strtoupper($extractionConducted), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($extractionConducted), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $extractionConducted }}</td>
                                     </tr>
                                     <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Report &amp; Witness Statement Sent to Investigations</td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ $reportWitnessSent === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $reportWitnessSent }}</td>
+                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">
+                                            Report, Witness Statement &amp; Digital Evidence Sent to Investigations
+                                            @if(!empty($rwList))
+                                                <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                    ✔ {{ count($rwList) === 1 ? '1 Document Attached' : count($rwList) . ' Documents Attached' }}
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with(strtoupper($reportWitnessSent), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($reportWitnessSent), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $reportWitnessSent }}</td>
                                     </tr>
                                     <tr class="border-b border-slate-200">
                                         <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Intelligence Shared to Intel Department for Action</td>
@@ -761,15 +905,26 @@
                         </div>
                     </div>
 
-                    <!-- TECHNICAL REMARKS & OBSERVATIONS -->
-                    <div class="mt-9">
-                        <div class="flex items-center justify-between mb-1">
-                            <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                Remarks
-                            </h3>
-                            <div class="h-px flex-1 ml-4 bg-slate-200"></div>
+                    <!-- SECTION 03: REMARKS & OBSERVATIONS -->
+                    <div class="mt-10">
+                        <div class="flex items-center gap-3 mb-1">
+                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                03
+                            </span>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                        Remarks
+                                    </h3>
+                                    <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
+                                        Technical Observations
+                                    </span>
+                                </div>
+                                <div class="mt-0.5 h-px bg-slate-200"></div>
+                            </div>
                         </div>
-                        <div class="text-[10.5px] leading-snug text-slate-700 whitespace-pre-line">
+
+                        <div class="text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
                             {{ $remarkVal }}
                         </div>
                     </div>
@@ -784,7 +939,6 @@
                         </p>
                         <ol class="list-decimal list-inside space-y-0.5 text-[9px] font-medium text-slate-700 leading-tight pl-0.5">
                             <li>Not valid without NACOC Digital &amp; Physical Forensics Unit approval.</li>
-                            <li>This report does not signify that media/device extracted has been certified.</li>
                             <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
                             <li>This report shall not be reproduced in part without the written approval of the Director General of NACOC.</li>
                         </ol>
@@ -796,37 +950,340 @@
                     <!-- SIGNATURES -->
                     <div class="mt-9 pt-2 pb-0 footer no-break">
                         <div class="grid grid-cols-2 gap-10">
-                            <!-- ANALYST -->
-                            <div>
-                                <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Digital Forensic Analyst</p>
-                                <div class="mt-5 border-b border-dashed border-slate-300 pb-1">
-                                    <span class="text-[8px] italic text-slate-700">Electronically Signed &amp; Validated</span>
-                                </div>
-                                <p class="mt-1.5 text-[10px] font-bold text-slate-900">{{ $loggedBy }}</p>
-                                <p class="text-[8px] text-slate-900">Senior Cyber &amp; Digital Analyst</p>
-                                <p class="text-[8px] text-slate-700">Digital &amp; Physical Forensics Unit, NACOC</p>
-                            </div>
-
-                            <!-- HEAD -->
+                            <!-- HEAD OF DIGITAL & PHYSICAL FORENSICS UNIT -->
                             <div>
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
                                 <div class="mt-5 border-b border-dashed border-slate-300 pb-1">
+                                    <span class="text-[8px] italic text-slate-700">Electronically Signed &amp; Validated</span>
+                                </div>
+                                <p class="mt-1.5 text-[10px] font-bold text-slate-900">{{ $dpfHeadName }}</p>
+                                <p class="text-[8px] text-slate-900">Head of Digital &amp; Physical Forensics Unit</p>
+                                <p class="text-[8px] text-slate-700">Digital &amp; Physical Forensics Unit, NACOC</p>
+                            </div>
+
+                            <!-- HEAD OF FORENSIC DEPARTMENT -->
+                            <div>
+                                <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
+                                <div class="mt-5 border-b border-dashed border-slate-300 pb-1">
                                     <span class="text-[8px] italic text-slate-700">Authorized &amp; Counter-signed</span>
                                 </div>
-                                <p class="mt-1.5 text-[10px] font-bold text-slate-900">{{ $headName }}</p>
-                                <p class="text-[8px] text-slate-900">Director / Head of DPF Unit</p>
-                                <p class="text-[8px] text-slate-700">National Drug Control Commission</p>
+                                <p class="mt-1.5 text-[10px] font-bold text-slate-900">{{ $deptHeadName }}</p>
+                                <p class="text-[8px] text-slate-900">Head of Forensic Department</p>
+                                <p class="text-[8px] text-slate-700">Forensic Department, NACOC</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- PAGE 2 FOOTER -->
-                    {!! $renderReportFooter(2, 2) !!}
+                    {!! $renderReportFooter(2, $totalReportPages) !!}
                 </div>
 
             </div>
         </div>
 
+        <!-- ============================================================
+             ATTACHED EVIDENCE & PROCESS EXHIBIT PAGES (APPENDIX)
+             ============================================================ -->
+        @if(!empty($attachedFiles))
+            @foreach($attachedFiles as $attIndex => $att)
+                @php
+                    $attPageNum = 3 + $attIndex;
+                    $rawFilePath = $att['path'];
+                    $cleanPath = ltrim($rawFilePath, '/\\');
+                    $fileAssetUrl = asset($cleanPath);
+                    $filename = basename($rawFilePath);
+                    $fExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                    $isImage = in_array($fExt, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'jfif', 'bmp']);
+                    $isPdf = ($fExt === 'pdf');
+                    
+                    $cleanFilename = preg_replace('/^\d+_[a-f0-9]+_/', '', $filename);
+                    $cleanFilename = str_replace('_', ' ', $cleanFilename);
+
+                    $serverPath = public_path($cleanPath);
+                    $fileSizeStr = file_exists($serverPath) ? number_format(filesize($serverPath) / 1024, 1) . ' KB' : null;
+                @endphp
+
+                <div id="{{ $att['id'] }}" class="a4-page a4-page-attachment relative text-slate-900 page-break">
+                    <!-- SUBTLE NACOC WATERMARK -->
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
+                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                    </div>
+
+                    <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+                        <div>
+                            <!-- PAGE HEADER -->
+                            <div class="relative pt-2 pb-3 border-b border-slate-300 flex items-center justify-between">
+                                <div>
+                                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                        NACOC DPF REPORT &bull; ATTACHED EXHIBIT
+                                    </span>
+                                    <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
+                                        Ref: {{ $caseNo }} &bull; {{ $dpfCode }}
+                                    </span>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
+                                    <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800">
+                                        Page {{ $attPageNum }} of {{ $totalReportPages }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- ATTACHED FILE TITLE & INFO -->
+                            <div class="mt-2.5 pb-1 flex items-center justify-between">
+                                <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                    {{ $att['title'] }}
+                                </h3>
+                                <div class="text-[8px] text-slate-500 font-mono-code">
+                                    {{ $cleanFilename }}@if($fileSizeStr) &bull; {{ $fileSizeStr }}@endif
+                                </div>
+                            </div>
+
+                            <!-- FILE DISPLAY CONTAINER -->
+                            <div class="mt-2.5">
+                                @if($isImage)
+                                    <!-- IMAGE FILE DISPLAY -->
+                                    <div class="border border-slate-300 rounded-lg overflow-hidden bg-slate-100/60 p-2 flex flex-col items-center justify-center min-h-[620px] max-h-[980px]">
+                                        <img src="{{ $fileAssetUrl }}" alt="{{ $att['title'] }}" class="max-w-full max-h-[950px] object-contain rounded shadow-sm border border-slate-200" />
+                                        <div class="mt-1 text-[7.5px] font-mono-code text-slate-500 uppercase tracking-wider text-center">
+                                            Attached Photographic / Scanned Exhibit Capture
+                                        </div>
+                                    </div>
+                                @elseif($isPdf)
+                                    <!-- MULTIPAGE PDF CONTAINER: RENDERED PAGE-BY-PAGE ON DEDICATED A4 SHEETS WITHOUT SCROLLBARS -->
+                                    <div class="pdf-multipage-attachment"
+                                         data-pdf-url="{{ $fileAssetUrl }}"
+                                         data-att-index="{{ $attIndex + 1 }}"
+                                         data-att-title="{{ $att['title'] }}"
+                                         data-att-category="{{ $att['category'] }}"
+                                         data-att-badge="{{ $att['badge'] }}"
+                                         data-filename="{{ $cleanFilename }}"
+                                         data-filesize="{{ $fileSizeStr }}"
+                                         data-case-no="{{ $caseNo }}"
+                                         data-dpf-code="{{ $dpfCode }}"
+                                         data-watermark="{{ asset('nacoc.jfif') }}">
+                                        <!-- INITIAL PREVIEW / FALLBACK -->
+                                        <div class="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs p-8 text-center flex flex-col items-center justify-center min-h-[480px]">
+                                            <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
+                                                <svg class="w-6 h-6 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                            </div>
+                                            <h4 class="text-sm font-bold text-slate-900 mb-1">Formatting Attached Document Pages...</h4>
+                                            <p class="text-[10px] text-slate-500 mb-4 max-w-sm">Every page of this official PDF attachment is being generated as an individual full-bleed forensic exhibit sheet.</p>
+                                            <a href="{{ $fileAssetUrl }}" target="_blank" class="px-3.5 py-1.5 bg-emerald-700 text-white rounded text-xs font-bold inline-flex items-center gap-1.5 shadow-xs no-underline">
+                                                <span>Direct Download / View PDF</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                @else
+                                    <!-- GENERIC DOCUMENT (DOC, DOCX, OTHER) -->
+                                    <div class="border border-slate-300 rounded-lg bg-slate-50 p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
+                                        <div class="w-16 h-16 rounded-2xl bg-white border border-slate-300 shadow-sm flex items-center justify-center text-slate-700 mb-4">
+                                            <svg class="w-8 h-8 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        </div>
+                                        <h4 class="text-sm font-bold text-slate-900 mb-1">{{ $cleanFilename }}</h4>
+                                        <p class="text-xs text-slate-600 max-w-md mb-5">Official digital case file attachment ({{ strtoupper($fExt) }} document). Click below to view or download the original file.</p>
+                                        <a href="{{ $fileAssetUrl }}" target="_blank" class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold transition-colors inline-flex items-center gap-2 shadow-sm no-underline">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                            <span>Download / View {{ strtoupper($fExt) }} Document</span>
+                                        </a>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- APPENDIX FOOTER -->
+                        {!! $renderReportFooter($attPageNum, $totalReportPages) !!}
+                    </div>
+                </div>
+            @endforeach
+        @endif
+
     </div>
+
+    <script>
+        window.isPdfRendering = false;
+
+        if (window.pdfjsLib) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = "{{ asset('vendor/pdfjs/pdf.worker.min.js') }}";
+        }
+
+        async function renderAllPdfAttachments() {
+            const wrappers = document.querySelectorAll('.pdf-multipage-attachment');
+            if (!wrappers.length || !window.pdfjsLib) {
+                renumberAllPages();
+                return;
+            }
+
+            window.isPdfRendering = true;
+
+            for (const wrapper of wrappers) {
+                const pdfUrl = wrapper.getAttribute('data-pdf-url');
+                if (!pdfUrl) continue;
+
+                try {
+                    const loadingTask = pdfjsLib.getDocument({
+                        url: pdfUrl
+                    });
+                    const pdfDoc = await loadingTask.promise;
+                    const numPages = pdfDoc.numPages;
+
+                    const attIdx = wrapper.getAttribute('data-att-index');
+                    const attTitle = wrapper.getAttribute('data-att-title') || 'Attached Exhibit';
+                    const attCategory = wrapper.getAttribute('data-att-category') || 'Document Attachment';
+                    const attBadge = wrapper.getAttribute('data-att-badge') || 'ATTACHMENT';
+                    const filename = wrapper.getAttribute('data-filename') || 'document.pdf';
+                    const filesize = wrapper.getAttribute('data-filesize') || '';
+                    const caseNo = wrapper.getAttribute('data-case-no') || '';
+                    const dpfCode = wrapper.getAttribute('data-dpf-code') || '';
+                    const watermarkUrl = wrapper.getAttribute('data-watermark') || '';
+
+                    // Find parent .a4-page to replace or empty wrapper
+                    const parentPage = wrapper.closest('.a4-page');
+                    const insertTarget = parentPage ? parentPage : wrapper;
+                    const parentContainer = insertTarget.parentNode;
+
+                    const generatedPages = [];
+
+                    for (let pNum = 1; pNum <= numPages; pNum++) {
+                        const page = await pdfDoc.getPage(pNum);
+
+                        // High resolution scale for sharp, un-blurred print & display with increased dimensions
+                        const unscaledViewport = page.getViewport({ scale: 1 });
+                        const maxDisplayW = 750;
+                        const maxDisplayH = 970;
+                        const scaleFactor = Math.min(maxDisplayW / unscaledViewport.width, maxDisplayH / unscaledViewport.height);
+                        const renderScale = Math.max(scaleFactor * 2.5, 2.5);
+                        const viewport = page.getViewport({ scale: renderScale });
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        canvas.style.width = `${Math.floor(unscaledViewport.width * scaleFactor)}px`;
+                        canvas.style.height = `${Math.floor(unscaledViewport.height * scaleFactor)}px`;
+                        canvas.className = 'pdf-page-canvas rounded border border-slate-200 shadow-sm block';
+
+                        const renderContext = {
+                            canvasContext: canvas.getContext('2d'),
+                            viewport: viewport
+                        };
+                        await page.render(renderContext).promise;
+
+                        const pageEl = document.createElement('div');
+                        pageEl.className = 'a4-page a4-page-attachment relative text-slate-900 page-break';
+                        pageEl.id = `attachment-a${attIdx}-p${pNum}`;
+
+                        const subpageNote = (numPages > 1) ? ` (Sheet ${pNum} of ${numPages})` : '';
+
+                        pageEl.innerHTML = `
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
+                                <img src="${watermarkUrl}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                            </div>
+                            <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+                                <div>
+                                    <div class="relative pt-2 pb-2.5 border-b border-slate-300 flex items-center justify-between">
+                                        <div>
+                                            <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                                NACOC DPF REPORT &bull; ATTACHED EXHIBIT
+                                            </span>
+                                            <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
+                                                Ref: ${caseNo} &bull; ${dpfCode}
+                                            </span>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
+                                            <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800 dpf-header-page-num">
+                                                Page -
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- ATTACHED FILE TITLE & INFO -->
+                                    <div class="mt-2.5 pb-1 flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                                ${attTitle}
+                                            </h3>
+                                        </div>
+                                        <div class="text-[8px] text-slate-500 font-mono-code">
+                                            ${filename}${filesize ? ' &bull; ' + filesize : ''}
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-1 flex flex-col items-center justify-center min-h-[620px] max-h-[995px] overflow-hidden">
+                                        <div class="canvas-mount-point flex items-center justify-center w-full"></div>
+                                        <div class="mt-1 text-[7.5px] font-mono-code text-slate-500 uppercase tracking-wider text-center">
+                                            Forensic Exhibit Sheet &bull; Document Page ${pNum} of ${numPages}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="pt-auto mb-9 border-t footer">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-[8px] font-semibold uppercase tracking-wider text-slate-900">
+                                                <span class="font-bold text-slate-700">${dpfCode}</span>
+                                            </p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="mt-0.5 text-[9px] text-slate-700 text-right">
+                                                Digital &amp; Physical Forensics Unit (DPFU) &bull; <span class="dpf-footer-page-num">Page -</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        pageEl.querySelector('.canvas-mount-point').appendChild(canvas);
+                        generatedPages.push(pageEl);
+                    }
+
+                    // Insert all generated individual pages and remove the placeholder
+                    generatedPages.forEach(p => parentContainer.insertBefore(p, insertTarget));
+                    parentContainer.removeChild(insertTarget);
+
+                } catch (err) {
+                    console.error('PDF.js render error:', err);
+                }
+            }
+
+            window.isPdfRendering = false;
+            renumberAllPages();
+        }
+
+        function renumberAllPages() {
+            const pages = document.querySelectorAll('#dpfReportSheet .a4-page');
+            const total = pages.length;
+
+            const p1Badge = document.getElementById('page1HeaderBadge');
+            if (p1Badge) p1Badge.textContent = `DPF • Page 1 of ${total}`;
+
+            const p2Badge = document.getElementById('page2HeaderBadge');
+            if (p2Badge) p2Badge.textContent = `Page 2 of ${total}`;
+
+            pages.forEach((p, idx) => {
+                const pageNum = idx + 1;
+                const hBadge = p.querySelector('.dpf-header-page-num');
+                if (hBadge) hBadge.textContent = `Page ${pageNum} of ${total}`;
+
+                const fBadge = p.querySelector('.dpf-footer-page-num');
+                if (fBadge) fBadge.textContent = `Page ${pageNum} of ${total}`;
+            });
+        }
+
+        window.handlePrintDocument = function() {
+            if (window.isPdfRendering) {
+                alert('Document pages are currently being prepared for print. Please try again in a few seconds.');
+                return;
+            }
+            window.print();
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', renderAllPdfAttachments);
+        } else {
+            renderAllPdfAttachments();
+        }
+    </script>
 </body>
 </html>

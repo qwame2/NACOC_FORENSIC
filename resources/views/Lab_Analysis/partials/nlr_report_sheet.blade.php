@@ -424,7 +424,7 @@
                     <!-- CENTERED LOGO -->
                     <div class="mx-auto w-20 h-20 flex items-center justify-center mb-7">
                         <img
-                            src="{{ asset('NACOC LOGO.jfif') }}"
+                            src="{{ asset('NACOC_LOGO.PNG') }}"
                             alt="NACOC Emblem Logo"
                             class="max-h-40 max-w-40 object-contain"
                         />

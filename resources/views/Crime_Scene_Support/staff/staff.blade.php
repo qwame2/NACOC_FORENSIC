@@ -352,7 +352,7 @@
                                 <!-- ROW 1 -->
                                 <tr class="hover:bg-slate-50/80 transition-colors" data-event="Cargo/Parcel Interception">
                                     <td class="py-4 px-5">
-                                        <div class="font-bold text-slate-900 font-mono-code text-sm">CSS-2026-0912</div>
+                                        <div class="font-bold text-slate-900 font-mono-code text-sm">NCC-2026-0912</div>
                                         <div class="text-[10px] text-slate-400 font-mono-code">Assigned: 2026-09-04</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -373,20 +373,20 @@
                                         <div class="text-[10px] text-slate-400">0.5mm Point Resolution</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200" id="staff-status-CSS-2026-0912">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200" id="staff-status-NCC-2026-0912">
                                             Awaiting Head Sign-off
                                         </span>
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
                                         <button onclick="toggleEvidenceModal()" class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-[11px] font-semibold shadow-2xs">+ Bag Exhibit</button>
-                                        <button onclick="submitToHead('CSS-2026-0912')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
+                                        <button onclick="submitToHead('NCC-2026-0912')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
                                     </td>
                                 </tr>
 
                                 <!-- ROW 2 -->
                                 <tr class="hover:bg-slate-50/80 transition-colors" data-event="Intel-led Ops">
                                     <td class="py-4 px-5">
-                                        <div class="font-bold text-slate-900 font-mono-code text-sm">CSS-2026-0914</div>
+                                        <div class="font-bold text-slate-900 font-mono-code text-sm">NCC-2026-0914</div>
                                         <div class="text-[10px] text-slate-400 font-mono-code">Assigned: 2026-09-04</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -407,13 +407,13 @@
                                         <div class="text-[10px] text-slate-400">Camera Active</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" id="staff-status-CSS-2026-0914">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" id="staff-status-NCC-2026-0914">
                                             In-Progress
                                         </span>
                                     </td>
                                     <td class="py-4 px-5 text-right space-x-2">
                                         <button onclick="toggleScanModal()" class="px-2.5 py-1 bg-purple-600 text-white hover:bg-purple-700 rounded-lg text-[11px] font-bold shadow-2xs">Upload 3D</button>
-                                        <button onclick="submitToHead('CSS-2026-0914')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
+                                        <button onclick="submitToHead('NCC-2026-0914')" class="px-2.5 py-1 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-[11px] font-bold shadow-2xs">Submit to Head</button>
                                     </td>
                                 </tr>
 

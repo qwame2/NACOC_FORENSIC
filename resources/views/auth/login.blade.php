@@ -92,7 +92,7 @@
         <div class="flex items-center space-x-3.5">
             <div
                 class="w-11 h-11 rounded-xl bg-white p-1 border border-teal-700/20 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
-                <img src="{{ asset('NACOC LOGO.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
+                <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo" class="w-full h-full object-contain">
             </div>
             <div>
                 <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">
@@ -214,7 +214,7 @@
                     </div>
                     <div
                         class="w-12 h-12 rounded-xl bg-slate-50 p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
-                        <img src="{{ asset('NACOC LOGO.jfif') }}" alt="NACOC Crest"
+                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Crest"
                             class="w-full h-full object-contain">
                     </div>
                 </div>

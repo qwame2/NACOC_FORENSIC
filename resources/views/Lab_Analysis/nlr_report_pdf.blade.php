@@ -6,7 +6,7 @@
 
     $rawLab = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'Lab No. 72/FS09/2026');
     $labNo = str_starts_with($rawLab, 'Lab No.') ? $rawLab : 'Lab No. ' . $rawLab;
-    $caseNo = $case->case_number ?? 'CSS-2026-6730';
+    $caseNo = $case->case_number ?? 'NCC-2026-6730';
     $raidLoc = $case->raid_location ?? ($docketData['raid_location'] ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)'));
 
     $drugName = $case->seizure_name_drug ?? ($case->seizure_name ?? ($docketData['drug_name'] ?? 'Heroin (Brown Sugar / Diacetylmorphine)'));

@@ -153,7 +153,7 @@ class ForensicCase extends Model
             $instance->nationality = $primarySuspect->nationality ?? 'Ghanaian';
             $instance->pob = $primarySuspect->pob ?? null;
             $instance->phone = $primarySuspect->phone ?? null;
-            $instance->phones = $primarySuspect->phones ?? ($recDocket['suspects'][0]['phones'] ?? ($recDocket['additional_phones'] ?? []));
+            $instance->phones = $primarySuspect->phones ?: ($recDocket['suspects'][0]['phones'] ?? ($recDocket['phones'] ?? ($recDocket['additional_phones'] ?? [])));
             $instance->address = $primarySuspect->address ?? null;
             $instance->marital_status = $primarySuspect->marital_status ?? null;
             $instance->has_children = $primarySuspect->has_children ?? false;
@@ -171,6 +171,11 @@ class ForensicCase extends Model
             $instance->mugshot_front = $primarySuspect->mugshot_front ?? null;
             $instance->mugshot_left = $primarySuspect->mugshot_left ?? null;
             $instance->mugshot_right = $primarySuspect->mugshot_right ?? null;
+            $instance->operation_code_name = $primarySuspect->operation_code_name 
+                ?? ($instance->operation_code_name 
+                ?? ($record->operation_code_name 
+                ?? ($recDocket['suspects'][0]['operation_code_name'] 
+                ?? ($recDocket['operation_code_name'] ?? null))));
         }
 
         // Fetch Laboratory Results
@@ -478,22 +483,29 @@ class ForensicCase extends Model
             $formattedDate = 'Thursday, 18 June 2026';
         }
 
-        // 2. Operation Type (e.g. "intelligence-led operation")
-        $rawOpType = $this->operation_type 
-            ?? ($this->operation_code_name 
-            ?? ($this->operation_code 
-            ?? ($dData['operation_type'] 
-            ?? ($dData['op_type'] 
-            ?? ($dData['operation_code_name'] ?? null)))));
+        // 2. Operation Type (always fetch from operation_code_name column from the suspect)
+        $rawOpType = $this->operation_code_name 
+            ?? ($this->underlyingRecord->operation_code_name ?? null)
+            ?? ($dData['operation_code_name'] ?? null)
+            ?? ($dData['suspects'][0]['operation_code_name'] ?? null)
+            ?? ($this->operation_code ?? null)
+            ?? ($this->underlyingRecord->operation_code ?? null)
+            ?? ($this->operation_type ?? null)
+            ?? ($dData['operation_type'] ?? null)
+            ?? ($dData['op_type'] ?? null);
 
-        if (empty($rawOpType) || strtolower(trim($rawOpType)) === 'raid') {
-            $opType = 'intelligence-led operation';
-        } else {
-            $opType = strtolower(trim($rawOpType));
-            if (!str_contains($opType, 'operation')) {
-                $opType .= ' operation';
+        if (!empty($rawOpType)) {
+            $opTypeStr = trim((string)$rawOpType);
+            if (!str_contains(strtolower($opTypeStr), 'operation')) {
+                $opType = strtolower($opTypeStr) . ' operation';
+            } else {
+                $opType = strtolower($opTypeStr);
             }
+        } else {
+            $opType = 'intelligence-led operation';
         }
+
+        $article = preg_match('/^[aeiou]/i', $opType) ? 'an' : 'a';
 
         // 3. Raid Scene / Offence Location (e.g. "Agbogbloshie in the Greater Accra Region")
         $loc = $this->raid_location 
@@ -542,7 +554,33 @@ class ForensicCase extends Model
             $holdingFacility = 'NACOC Headquarters';
         }
 
-        return "On {$formattedDate}, officers of the Narcotics Control Commission (NACOC) conducted an {$opType} at {$loc} to curb the use and sale of narcotic drugs within the area. During the operation, {$suspectName} was arrested and subsequently conveyed to {$holdingFacility} for further investigation.";
+        // 6. Exhibit classification: determine if linked to only electronics, both drugs and electronics, or drugs
+        $flags = $this->classifyExhibits();
+        $hasDrug = !empty($flags['has_drug']) || $this->isDrugCase();
+        $hasElectronic = !empty($flags['has_electronic']) || $this->isDigitalCase();
+
+        $suspectPhones = $this->phones ?? ($this->underlyingRecord->phones ?? ($dData['phones'] ?? ($dData['additional_phones'] ?? null)));
+        if (!empty($suspectPhones)) {
+            $hasElectronic = true;
+        }
+
+        if ($hasElectronic && !$hasDrug) {
+            // ONLY ELECTRONICS (NO DRUGS)
+            return "On {$formattedDate}, officers of the Narcotics Control Commission (NACOC) conducted {$article} {$opType} at {$loc} to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$suspectName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to {$holdingFacility} for digital forensic examination and further investigation.";
+        }
+
+        if ($hasElectronic && $hasDrug) {
+            // BOTH DRUGS AND ELECTRONICS
+            return "On {$formattedDate}, officers of the Narcotics Control Commission (NACOC) conducted {$article} {$opType} at {$loc} to curb the trafficking of narcotic drugs and seize electronic devices used in illicit activities within the area. During the operation, {$suspectName} was arrested in possession of narcotic substances and electronic exhibits, and subsequently conveyed to {$holdingFacility} for chemical laboratory analysis and digital forensic investigation.";
+        }
+
+        // DRUGS ONLY / DEFAULT
+        return "On {$formattedDate}, officers of the Narcotics Control Commission (NACOC) conducted {$article} {$opType} at {$loc} to curb the use and sale of narcotic drugs within the area. During the operation, {$suspectName} was arrested and subsequently conveyed to {$holdingFacility} for further investigation.";
+    }
+
+    public function getDescriptionAttribute(): string
+    {
+        return $this->generateBriefCaseDescription();
     }
 
 
@@ -738,7 +776,7 @@ class ForensicCase extends Model
 
         $suspects = $docketData['suspects'] ?? [];
         $isMulti = count($suspects) > 1;
-        $caseRef = $attributes['case_number'] ?? ('NFC-' . date('Y') . '-' . rand(1000, 9999));
+        $caseRef = $attributes['case_number'] ?? ('NCC-' . date('Y') . '-' . rand(1000, 9999));
 
         if ($isMulti) {
             $multi = MultipleSuspectCase::create([
@@ -781,8 +819,8 @@ class ForensicCase extends Model
                     'height'                   => $s['height'] ?? null,
                     'eye_color'                => $s['eye_color'] ?? null,
                     'nationality'              => $s['nationality'] ?? ($attributes['nationality'] ?? 'Ghanaian'),
-                    'phone'                    => $s['phone'] ?? null,
-                    'phones'                   => $s['phones'] ?? ($s['additional_phones'] ?? null),
+                    'phone'                    => $s['phone'] ?? ($sIdx === 0 ? ($attributes['phone'] ?? null) : null),
+                    'phones'                   => $s['phones'] ?? ($s['additional_phones'] ?? ($sIdx === 0 ? ($attributes['phones'] ?? null) : null)),
                     'address'                  => $s['address'] ?? null,
                     'holding_facility'         => $s['holding_facility'] ?? ($s['facility'] ?? ($attributes['holding_facility'] ?? null)),
                     'raid_location'            => $s['raid_location'] ?? ($s['location'] ?? ($attributes['raid_location'] ?? null)),
@@ -839,6 +877,9 @@ class ForensicCase extends Model
                         'dev_imei1'               => $attributes['dev_imei1'] ?? ($attributes['imei_1'] ?? null),
                         'dev_imei2'               => $attributes['dev_imei2'] ?? ($attributes['imei_2'] ?? null),
                         'dev_mac_address'         => $attributes['dev_mac_address'] ?? ($attributes['mac_address'] ?? null),
+                        'dev_storage'             => $attributes['dev_storage'] ?? ($attributes['storage_capacity'] ?? ($attributes['dev_storage_capacity'] ?? ($attributes['storage'] ?? null))),
+                        'dev_colour'              => $attributes['dev_colour'] ?? ($attributes['dev_color'] ?? ($attributes['colour'] ?? ($attributes['color'] ?? ($attributes['device_color'] ?? null)))),
+                        'dev_marks'               => $attributes['dev_marks'] ?? ($attributes['dev_other_marks'] ?? ($attributes['marks'] ?? ($attributes['other_marks'] ?? ($attributes['distinguishing_marks'] ?? null)))),
                         'ammunition_details'      => $attributes['ammunition_details'] ?? null,
                         'other_exhibit_description' => $attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null),
                         'evidence_photos'         => $attributes['evidence_photos'] ?? [],
@@ -915,6 +956,9 @@ class ForensicCase extends Model
                         'dev_imei1'               => $sz['dev_imei1'] ?? ($sz['imei_1'] ?? ($attributes['dev_imei1'] ?? null)),
                         'dev_imei2'               => $sz['dev_imei2'] ?? ($sz['imei_2'] ?? ($attributes['dev_imei2'] ?? null)),
                         'dev_mac_address'         => $sz['dev_mac_address'] ?? ($sz['mac_address'] ?? ($attributes['dev_mac_address'] ?? null)),
+                        'dev_storage'             => $sz['dev_storage'] ?? ($sz['storage_capacity'] ?? ($sz['dev_storage_capacity'] ?? ($sz['storage'] ?? ($attributes['dev_storage'] ?? null)))),
+                        'dev_colour'              => $sz['dev_colour'] ?? ($sz['dev_color'] ?? ($sz['colour'] ?? ($sz['color'] ?? ($sz['device_color'] ?? ($attributes['dev_colour'] ?? null))))),
+                        'dev_marks'               => $sz['dev_marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['other_marks'] ?? ($sz['distinguishing_marks'] ?? ($attributes['dev_marks'] ?? null))))),
                         'ammunition_details'      => $sz['ammunition_details'] ?? ($attributes['ammunition_details'] ?? null),
                         'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
                         'evidence_photos'         => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
@@ -1104,6 +1148,9 @@ class ForensicCase extends Model
                     'dev_imei1'             => $attributes['dev_imei1'] ?? ($attributes['imei_1'] ?? null),
                     'dev_imei2'             => $attributes['dev_imei2'] ?? ($attributes['imei_2'] ?? null),
                     'dev_mac_address'       => $attributes['dev_mac_address'] ?? ($attributes['mac_address'] ?? null),
+                    'dev_storage'           => $attributes['dev_storage'] ?? ($attributes['storage_capacity'] ?? ($attributes['dev_storage_capacity'] ?? ($attributes['storage'] ?? null))),
+                    'dev_colour'            => $attributes['dev_colour'] ?? ($attributes['dev_color'] ?? ($attributes['colour'] ?? ($attributes['color'] ?? ($attributes['device_color'] ?? null)))),
+                    'dev_marks'             => $attributes['dev_marks'] ?? ($attributes['dev_other_marks'] ?? ($attributes['marks'] ?? ($attributes['other_marks'] ?? ($attributes['distinguishing_marks'] ?? null)))),
                     'ammunition_details'    => $attributes['ammunition_details'] ?? null,
                     'other_exhibit_description' => $attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null),
                     'evidence_photos'       => $attributes['evidence_photos'] ?? [],
@@ -1151,6 +1198,9 @@ class ForensicCase extends Model
                     'dev_imei1'             => $sz['dev_imei1'] ?? ($sz['imei_1'] ?? ($attributes['dev_imei1'] ?? null)),
                     'dev_imei2'             => $sz['dev_imei2'] ?? ($sz['imei_2'] ?? ($attributes['dev_imei2'] ?? null)),
                     'dev_mac_address'       => $sz['dev_mac_address'] ?? ($sz['mac_address'] ?? ($attributes['dev_mac_address'] ?? null)),
+                    'dev_storage'           => $sz['dev_storage'] ?? ($sz['storage_capacity'] ?? ($sz['dev_storage_capacity'] ?? ($sz['storage'] ?? ($attributes['dev_storage'] ?? null)))),
+                    'dev_colour'            => $sz['dev_colour'] ?? ($sz['dev_color'] ?? ($sz['colour'] ?? ($sz['color'] ?? ($sz['device_color'] ?? ($attributes['dev_colour'] ?? null))))),
+                    'dev_marks'             => $sz['dev_marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['other_marks'] ?? ($sz['distinguishing_marks'] ?? ($attributes['dev_marks'] ?? null))))),
                     'ammunition_details'    => $sz['ammunition_details'] ?? ($attributes['ammunition_details'] ?? null),
                     'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
                     'evidence_photos'       => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
@@ -1205,7 +1255,7 @@ class ForensicCase extends Model
         $singleData = [];
         foreach ($records as $r) {
             $singleData[] = [
-                'case_number' => $r['case_number'] ?? ('NFC-' . rand(1000, 9999)),
+                'case_number' => $r['case_number'] ?? ('NCC-' . rand(1000, 9999)),
                 'title' => $r['title'] ?? 'Bulk Insert Case',
                 'unit_name' => $r['unit_name'] ?? 'Crime Scene Support',
                 'status' => $r['status'] ?? 'Pending Approval',
@@ -1852,7 +1902,7 @@ class ForensicCase extends Model
                         'gender'                 => $s->gender,
                         'dob'                    => $s->dob,
                         'phone'                  => $s->phone,
-                        'phones'                 => $s->phones ?? null,
+                        'phones'                 => !empty($s->phones) ? $s->phones : ($idx === 0 ? ($this->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))) : null),
                         'holding_facility'       => $s->holding_facility ?? ($this->holding_facility ?? null),
                         'raid_location'          => $s->raid_location ?? ($this->raid_location ?? null),
                         'offense_description'    => $s->offense_description ?? ($this->offense_description ?? null),
@@ -1890,7 +1940,7 @@ class ForensicCase extends Model
                     'gender'                 => $s['gender'] ?? null,
                     'dob'                    => $s['dob'] ?? null,
                     'phone'                  => $s['phone_number'] ?? ($s['phone'] ?? null),
-                    'phones'                 => $s['phones'] ?? ($s['additional_phones'] ?? null),
+                    'phones'                 => !empty($s['phones']) ? $s['phones'] : ($s['additional_phones'] ?? ($idx === 0 ? ($this->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))) : null)),
                     'holding_facility'       => $s['holding_facility'] ?? ($s['facility'] ?? ($this->holding_facility ?? null)),
                     'raid_location'          => $s['raid_location'] ?? ($s['location'] ?? ($this->raid_location ?? null)),
                     'offense_description'    => $s['offense_description'] ?? ($s['offense'] ?? ($this->offense_description ?? null)),
@@ -1923,7 +1973,7 @@ class ForensicCase extends Model
             'gender'                 => $this->gender ?? null,
             'dob'                    => $this->dob ?? null,
             'phone'                  => $this->phone ?? null,
-            'phones'                 => $this->phones ?? ($this->underlyingRecord->phones ?? null),
+            'phones'                 => !empty($this->phones) ? $this->phones : ($this->underlyingRecord->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))),
             'holding_facility'       => $this->holding_facility ?? null,
             'raid_location'          => $this->raid_location ?? null,
             'offense_description'    => $this->offense_description ?? null,
@@ -1965,6 +2015,17 @@ class ForensicCase extends Model
         $cleanAssocId   = !empty($associateId) ? strtolower(trim($associateId)) : null;
         $cleanRole      = !empty($suspectRole) ? strtolower(trim($suspectRole)) : '';
         $isPrimaryRole  = !empty($cleanRole) && str_contains($cleanRole, 'primary');
+
+        // Docket Data exhibits
+        $dData = is_array($this->docket_data)
+            ? $this->docket_data
+            : (json_decode($this->docket_data ?? '[]', true) ?: []);
+
+        $allDocketExhibits = array_merge(
+            $dData['associate_exhibits']  ?? [],
+            $dData['associated_seizures'] ?? [],
+            $dData['seizures']            ?? []
+        );
 
         // 1. Relational Exhibit records from 'exhibits' DB table
         if (!empty($this->id)) {
@@ -2100,6 +2161,41 @@ class ForensicCase extends Model
                         $arr['dev_colour']      = $ex->dev_colour;
                         $arr['dev_marks']       = $ex->dev_marks;
 
+                        // Fallback to docket data seizures or case attributes if missing on exhibit model
+                        if (empty($arr['dev_storage']) || empty($arr['dev_colour']) || empty($arr['dev_marks']) || empty($arr['dev_mac_address'])) {
+                            foreach ($allDocketExhibits as $dSz) {
+                                if (!is_array($dSz)) continue;
+                                $dExNo = $dSz['exhibit_number'] ?? null;
+                                $dName = $dSz['seizure_name'] ?? ($dSz['commodity_name'] ?? ($dSz['name'] ?? ''));
+                                $matchDocket = (!empty($exNo) && !empty($dExNo) && (string)$exNo === (string)$dExNo)
+                                    || (!empty($dName) && !empty($ex->commodity_name) && strtolower(trim($dName)) === strtolower(trim($ex->commodity_name)));
+                                if ($matchDocket) {
+                                    if (empty($arr['dev_storage'])) {
+                                        $arr['dev_storage'] = $dSz['dev_storage'] ?? ($dSz['storage_capacity'] ?? ($dSz['dev_storage_capacity'] ?? ($dSz['storage'] ?? null)));
+                                    }
+                                    if (empty($arr['dev_colour'])) {
+                                        $arr['dev_colour'] = $dSz['dev_colour'] ?? ($dSz['dev_color'] ?? ($dSz['colour'] ?? ($dSz['color'] ?? ($dSz['device_color'] ?? null))));
+                                    }
+                                    if (empty($arr['dev_marks'])) {
+                                        $arr['dev_marks'] = $dSz['dev_marks'] ?? ($dSz['dev_other_marks'] ?? ($dSz['marks'] ?? ($dSz['distinguishing_marks'] ?? ($dSz['other_marks'] ?? null))));
+                                    }
+                                    if (empty($arr['dev_mac_address'])) {
+                                        $arr['dev_mac_address'] = $dSz['dev_mac_address'] ?? ($dSz['mac_address'] ?? null);
+                                    }
+                                    break;
+                                }
+                            }
+                            if (empty($arr['dev_storage'])) {
+                                $arr['dev_storage'] = $this->dev_storage ?? ($this->underlyingRecord->dev_storage ?? null);
+                            }
+                            if (empty($arr['dev_colour'])) {
+                                $arr['dev_colour'] = $this->dev_colour ?? ($this->underlyingRecord->dev_colour ?? null);
+                            }
+                            if (empty($arr['dev_marks'])) {
+                                $arr['dev_marks'] = $this->dev_marks ?? ($this->underlyingRecord->dev_marks ?? null);
+                            }
+                        }
+
                         $matchedExhibits[] = $arr;
                     }
                 }
@@ -2107,15 +2203,8 @@ class ForensicCase extends Model
         }
 
         // 2. JSON Docket Data exhibit arrays
-        $dData = is_array($this->docket_data)
-            ? $this->docket_data
-            : (json_decode($this->docket_data ?? '[]', true) ?: []);
+        // $dData and $allDocketExhibits prepared above
 
-        $allDocketExhibits = array_merge(
-            $dData['associate_exhibits']  ?? [],
-            $dData['associated_seizures'] ?? [],
-            $dData['seizures']            ?? []
-        );
 
         foreach ($allDocketExhibits as $dIdx => $sz) {
             if (!is_array($sz)) continue;
@@ -2196,7 +2285,17 @@ class ForensicCase extends Model
 
                 if (!isset($seenKeys[$key])) {
                     $seenKeys[$key] = true;
-                    $matchedExhibits[] = $sz;
+                    $dArr = $sz;
+                    if (empty($dArr['dev_storage'])) {
+                        $dArr['dev_storage'] = $sz['dev_storage'] ?? ($sz['storage_capacity'] ?? ($sz['dev_storage_capacity'] ?? ($sz['storage'] ?? null)));
+                    }
+                    if (empty($dArr['dev_colour'])) {
+                        $dArr['dev_colour'] = $sz['dev_colour'] ?? ($sz['dev_color'] ?? ($sz['colour'] ?? ($sz['color'] ?? ($sz['device_color'] ?? null))));
+                    }
+                    if (empty($dArr['dev_marks'])) {
+                        $dArr['dev_marks'] = $sz['dev_marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['distinguishing_marks'] ?? ($sz['other_marks'] ?? null))));
+                    }
+                    $matchedExhibits[] = $dArr;
                 }
             }
         }

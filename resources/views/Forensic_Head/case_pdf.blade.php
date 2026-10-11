@@ -771,7 +771,7 @@
         <!-- OFFICIAL NACOC WATERMARK LOGO BACKGROUND -->
         <div class="pdf-watermark-container pointer-events-none select-none" aria-hidden="true">
             <img src="{{ asset('nacoc.jfif') }}" 
-                 onerror="this.onerror=null; this.src='{{ asset('NACOC LOGO.jfif') }}';" 
+                 onerror="this.onerror=null; this.src='{{ asset('NACOC_LOGO.PNG') }}';" 
                  class="w-full h-full object-contain" 
                  alt="NACOC Official Watermark Logo">
         </div>
@@ -780,7 +780,7 @@
         <div class="text-center space-y-2 border-b-2 border-slate-900 pb-4 relative z-10">
             <div class="flex justify-center mb-2">
                 <div class="relative w-24 h-24 flex items-center justify-center">
-                    <img src="{{ asset('NACOC LOGO.jfif') }}" 
+                    <img src="{{ asset('NACOC_LOGO.PNG') }}" 
                          onerror="this.onerror=null; this.src='{{ asset('nacoc.jfif') }}';" 
                          class="max-h-24 max-w-24 object-contain mx-auto" 
                          alt="NACOC Emblem Logo">

@@ -35,8 +35,12 @@ return new class extends Migration
                 // Digital Forensic Investigation Status & Controls
                 $table->string('court_order_requested')->default('YES');
                 $table->string('court_order_granted')->default('YES');
-                $table->string('extraction_analysis_conducted')->default('YES');
-                $table->string('report_witness_statement_sent')->default('YES');
+                $table->text('court_order_file')->nullable();
+                $table->text('extraction_analysis_conducted')->nullable();
+                $table->text('extraction_analysis_message')->nullable();
+                $table->text('report_witness_statement_sent')->nullable();
+                $table->text('report_witness_statement_message')->nullable();
+                $table->text('report_witness_statement_file')->nullable();
                 $table->string('intel_shared')->default('YES');
 
                 // Technical Extraction & Evidence Attributes
@@ -74,8 +78,12 @@ return new class extends Migration
                     $table->longText('brief_case_description')->nullable();
                     $table->string('court_order_requested')->default('YES');
                     $table->string('court_order_granted')->default('YES');
-                    $table->string('extraction_analysis_conducted')->default('YES');
-                    $table->string('report_witness_statement_sent')->default('YES');
+                    $table->text('court_order_file')->nullable();
+                    $table->text('extraction_analysis_conducted')->nullable();
+                    $table->text('extraction_analysis_message')->nullable();
+                    $table->text('report_witness_statement_sent')->nullable();
+                    $table->text('report_witness_statement_message')->nullable();
+                    $table->text('report_witness_statement_file')->nullable();
                     $table->string('intel_shared')->default('YES');
                     $table->string('write_blocker_used')->nullable();
                     $table->string('hash_checksum')->nullable();

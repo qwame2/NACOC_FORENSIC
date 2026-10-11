@@ -359,7 +359,7 @@ class CaseController extends Controller
                 $caseRef = "{$caseRef}-" . rand(100, 999);
             }
         } else {
-            $prefix = ($request->filled('unit_name') && str_contains($request->input('unit_name'), 'Forensic')) ? 'FSD' : 'NFC';
+            $prefix = ($request->filled('unit_name') && str_contains($request->input('unit_name'), 'Forensic')) ? 'FSD' : 'NCC';
             $year = date('Y');
             $randomNum = rand(1000, 9999);
             $caseRef = "{$prefix}-{$year}-{$randomNum}";
@@ -392,6 +392,7 @@ class CaseController extends Controller
         $docketData['suspects'] = $allSuspects;
         $docketData['suspects_count'] = count($allSuspects);
         $docketData['full_name'] = $jointSuspectNameLabel;
+        $docketData['phones'] = $allSuspects[0]['phones'] ?? ($docketData['phones'] ?? null);
 
         if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
             foreach ($docketData['seizures'] as $sIdx => $sz) {
@@ -612,8 +613,8 @@ class CaseController extends Controller
                         'eye_color'                => $spItem['eye_color'] ?? null,
                         'nationality'              => $spItem['nationality'] ?? null,
                         'pob'                      => $spItem['pob'] ?? null,
-                        'phone'                    => $spItem['phone'] ?? null,
-                        'phones'                   => $spItem['phones'] ?? null,
+                        'phone'                    => $spItem['phone'] ?? ($sIdx === 0 ? ($validated['phone'] ?? null) : null),
+                        'phones'                   => $spItem['phones'] ?? ($sIdx === 0 ? ($primaryPersonalFields['phones'] ?? null) : null),
                         'address'                  => $spItem['address'] ?? null,
                         'marital_status'           => $spItem['marital_status'] ?? null,
                         'spouse_info'              => $spItem['spouse_info'] ?? null,
@@ -2853,9 +2854,9 @@ class CaseController extends Controller
                 $devImei1  = $exhibit['dev_imei1'] ?? ($exhibit['dev_imei_1'] ?? ($exhibit['imei_1'] ?? ($exhibit['imei1'] ?? null)));
                 $devImei2  = $exhibit['dev_imei2'] ?? ($exhibit['dev_imei_2'] ?? ($exhibit['imei_2'] ?? ($exhibit['imei2'] ?? null)));
                 $devMac    = $exhibit['dev_mac_address'] ?? ($exhibit['mac_address'] ?? null);
-                $devStorage= $exhibit['dev_storage'] ?? ($exhibit['dev_storage_capacity'] ?? ($exhibit['storage'] ?? null));
-                $devColour = $exhibit['dev_colour'] ?? ($exhibit['dev_color'] ?? ($exhibit['colour'] ?? ($exhibit['color'] ?? null)));
-                $devMarks  = $exhibit['dev_marks'] ?? ($exhibit['dev_other_marks'] ?? ($exhibit['marks'] ?? null));
+                $devStorage= $exhibit['dev_storage'] ?? ($exhibit['storage_capacity'] ?? ($exhibit['dev_storage_capacity'] ?? ($exhibit['storage'] ?? null)));
+                $devColour = $exhibit['dev_colour'] ?? ($exhibit['dev_color'] ?? ($exhibit['device_color'] ?? ($exhibit['colour'] ?? ($exhibit['color'] ?? null))));
+                $devMarks  = $exhibit['dev_marks'] ?? ($exhibit['dev_other_marks'] ?? ($exhibit['distinguishing_marks'] ?? ($exhibit['marks'] ?? ($exhibit['other_marks'] ?? null))));
 
                 \App\Models\Exhibit::create([
                     'case_type'                => 'MULTIPLE',

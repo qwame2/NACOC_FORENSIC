@@ -33,9 +33,9 @@
         }
         if (str_contains($lower, 'digital') || str_contains($lower, 'physical')) {
             return [
-                'context' => 'Digital & Physical Forensics (DFU)',
+                'context' => 'Digital & Physical Forensics (DPFU)',
                 'badge' => 'DIGITAL & PHYSICAL FORENSICS UNIT',
-                'heading' => "Digital & Physical Forensics Unit (DFU)\nCase Registry & Directory",
+                'heading' => "Digital & Physical Forensics Unit (DPFU)\nCase Registry & Directory",
             ];
         }
 

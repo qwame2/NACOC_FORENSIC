@@ -2880,6 +2880,7 @@
                                 'nationality' => $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian'),
                                 'pob' => $case->pob ?? ($docketData['pob'] ?? null),
                                 'phone' => $case->phone ?? ($docketData['phone'] ?? null),
+                                'phones' => $case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null)),
                                 'address' => $case->address ?? ($docketData['address'] ?? null),
                                 'marital_status' => $case->marital_status ?? null,
                                 'spouse_name' => $case->spouse_name ?? null,
@@ -3028,6 +3029,53 @@
                             ($sItem['contact_phone'] ??
                                 ($sItem['phone'] ??
                                     ($sNum == 1 ? $case->phone ?? ($docketData['phone'] ?? 'N/A') : 'N/A')));
+                        $rawPhones = $sItem['phones'] ?? ($sItem['additional_phones'] ?? ($sNum == 1 ? ($case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? []))) : []));
+                        if (is_string($rawPhones)) {
+                            $rawPhones = json_decode($rawPhones, true) ?: [];
+                        }
+                        $sPhones = [];
+                        if (is_array($rawPhones)) {
+                            foreach ($rawPhones as $rItem) {
+                                if (is_array($rItem)) {
+                                    $rNum = trim((string)($rItem['number'] ?? ($rItem['phone'] ?? '')));
+                                    if ($rNum !== '') {
+                                        $sPhones[] = [
+                                            'label'  => trim((string)($rItem['label'] ?? 'Alternate')) ?: 'Alternate',
+                                            'number' => $rNum,
+                                        ];
+                                    }
+                                } elseif (is_string($rItem) && trim($rItem) !== '') {
+                                    $sPhones[] = [
+                                        'label'  => 'Alternate',
+                                        'number' => trim($rItem),
+                                    ];
+                                }
+                            }
+                        }
+                        if (empty($sPhones) && !empty($sPhone) && $sPhone !== 'N/A' && (str_contains($sPhone, ',') || str_contains($sPhone, '/'))) {
+                            $parts = array_filter(array_map('trim', preg_split('/[,\\/]+/', $sPhone)));
+                            foreach ($parts as $pIdx => $partNum) {
+                                $sPhones[] = [
+                                    'label' => $pIdx === 0 ? 'Primary' : 'Alternate',
+                                    'number' => $partNum,
+                                ];
+                            }
+                        }
+                        if (!empty($sPhone) && $sPhone !== 'N/A') {
+                            $hasPrim = false;
+                            foreach ($sPhones as $spEntry) {
+                                if ($spEntry['number'] === $sPhone) {
+                                    $hasPrim = true;
+                                    break;
+                                }
+                            }
+                            if (!$hasPrim) {
+                                array_unshift($sPhones, [
+                                    'label'  => 'Primary',
+                                    'number' => $sPhone,
+                                ]);
+                            }
+                        }
                         $sAddr =
                             $sItem['residential_address'] ??
                             ($sItem['address'] ??
@@ -3393,9 +3441,26 @@
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $sPOB }}</div>
                                 </div>
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Contact
-                                        Phone</div>
-                                    <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $sPhone }}</div>
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase flex items-center justify-between">
+                                        <span>Contact Phone(s)</span>
+                                        @if(count($sPhones) > 1)
+                                            <span class="text-[9px] bg-blue-100 text-blue-700 font-extrabold px-1.5 py-0.5 rounded-full border border-blue-200">{{ count($sPhones) }} numbers</span>
+                                        @endif
+                                    </div>
+                                    @if(!empty($sPhones) && count($sPhones) > 0)
+                                        <div class="space-y-1.5 mt-1">
+                                            @foreach($sPhones as $pIdx => $pItem)
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="text-[9px] uppercase px-1.5 py-0.5 rounded font-black tracking-wider {{ strtolower($pItem['label']) === 'primary' ? 'bg-blue-600 text-white shadow-2xs' : (strtolower($pItem['label']) === 'whatsapp' ? 'bg-emerald-600 text-white shadow-2xs' : 'bg-slate-200 text-slate-800 border border-slate-300') }}">
+                                                        {{ $pItem['label'] }}
+                                                    </span>
+                                                    <span class="font-bold text-slate-900 text-xs font-mono-code">{{ $pItem['number'] }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $sPhone }}</div>
+                                    @endif
                                 </div>
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
@@ -3670,10 +3735,24 @@
                                                     !empty($aEx['dev_imei_2']) ||
                                                     !empty($aEx['dev_mac_address']) ||
                                                     !empty($aEx['dev_storage']) ||
+                                                    !empty($aEx['storage_capacity']) ||
+                                                    !empty($aEx['dev_storage_capacity']) ||
+                                                    !empty($aEx['storage']) ||
                                                     !empty($aEx['dev_colour']) ||
+                                                    !empty($aEx['dev_color']) ||
+                                                    !empty($aEx['colour']) ||
+                                                    !empty($aEx['color']) ||
+                                                    !empty($aEx['device_color']) ||
                                                     !empty($aEx['dev_marks']) ||
+                                                    !empty($aEx['dev_other_marks']) ||
+                                                    !empty($aEx['marks']) ||
+                                                    !empty($aEx['other_marks']) ||
+                                                    !empty($aEx['distinguishing_marks']) ||
                                                     !empty($aEx['device_model']) ||
-                                                    !empty($aEx['device_serial']);
+                                                    !empty($aEx['device_serial']) ||
+                                                    !empty($case->dev_storage) ||
+                                                    !empty($case->dev_colour) ||
+                                                    !empty($case->dev_marks);
                                                 $isDevEx =
                                                     str_contains($catLower, 'device') ||
                                                     str_contains($catLower, 'electronic') ||
@@ -4002,15 +4081,37 @@
                                                         $aEx['dev_imei2'] ??
                                                         ($aEx['dev_imei_2'] ?? ($aEx['imei2'] ?? 'N/A'));
                                                     $dMac = $aEx['dev_mac_address'] ?? ($aEx['mac_address'] ?? 'N/A');
-                                                    $dStorage =
-                                                        $aEx['dev_storage'] ??
-                                                        ($aEx['dev_storage_capacity'] ?? ($aEx['storage'] ?? 'N/A'));
-                                                    $dColor =
-                                                        $aEx['dev_colour'] ??
-                                                        ($aEx['dev_color'] ?? ($aEx['colour'] ?? 'N/A'));
-                                                    $dMarks =
-                                                        $aEx['dev_marks'] ??
-                                                        ($aEx['dev_other_marks'] ?? ($aEx['marks'] ?? 'N/A'));
+                                                    $dStorage = !empty($aEx['dev_storage']) ? $aEx['dev_storage'] : (
+                                                        !empty($aEx['storage_capacity']) ? $aEx['storage_capacity'] : (
+                                                            !empty($aEx['dev_storage_capacity']) ? $aEx['dev_storage_capacity'] : (
+                                                                !empty($aEx['storage']) ? $aEx['storage'] : (
+                                                                    !empty($case->dev_storage) ? $case->dev_storage : 'N/A'
+                                                                )
+                                                            )
+                                                        )
+                                                    );
+                                                    $dColor = !empty($aEx['dev_colour']) ? $aEx['dev_colour'] : (
+                                                        !empty($aEx['dev_color']) ? $aEx['dev_color'] : (
+                                                            !empty($aEx['colour']) ? $aEx['colour'] : (
+                                                                !empty($aEx['color']) ? $aEx['color'] : (
+                                                                    !empty($aEx['device_color']) ? $aEx['device_color'] : (
+                                                                        !empty($case->dev_colour) ? $case->dev_colour : 'N/A'
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    );
+                                                    $dMarks = !empty($aEx['dev_marks']) ? $aEx['dev_marks'] : (
+                                                        !empty($aEx['dev_other_marks']) ? $aEx['dev_other_marks'] : (
+                                                            !empty($aEx['marks']) ? $aEx['marks'] : (
+                                                                !empty($aEx['other_marks']) ? $aEx['other_marks'] : (
+                                                                    !empty($aEx['distinguishing_marks']) ? $aEx['distinguishing_marks'] : (
+                                                                        !empty($case->dev_marks) ? $case->dev_marks : 'N/A'
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    );
                                                 @endphp
                                                 <div
                                                     class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
@@ -4490,10 +4591,24 @@
                                                     !empty($pEx['dev_imei_2']) ||
                                                     !empty($pEx['dev_mac_address']) ||
                                                     !empty($pEx['dev_storage']) ||
+                                                    !empty($pEx['storage_capacity']) ||
+                                                    !empty($pEx['dev_storage_capacity']) ||
+                                                    !empty($pEx['storage']) ||
                                                     !empty($pEx['dev_colour']) ||
+                                                    !empty($pEx['dev_color']) ||
+                                                    !empty($pEx['colour']) ||
+                                                    !empty($pEx['color']) ||
+                                                    !empty($pEx['device_color']) ||
                                                     !empty($pEx['dev_marks']) ||
+                                                    !empty($pEx['dev_other_marks']) ||
+                                                    !empty($pEx['marks']) ||
+                                                    !empty($pEx['other_marks']) ||
+                                                    !empty($pEx['distinguishing_marks']) ||
                                                     !empty($pEx['device_model']) ||
-                                                    !empty($pEx['device_serial']);
+                                                    !empty($pEx['device_serial']) ||
+                                                    !empty($case->dev_storage) ||
+                                                    !empty($case->dev_colour) ||
+                                                    !empty($case->dev_marks);
                                                 $isDevEx =
                                                     str_contains($catLower, 'device') ||
                                                     str_contains($catLower, 'electronic') ||
@@ -4707,15 +4822,37 @@
                                                         $pEx['dev_imei2'] ??
                                                         ($pEx['dev_imei_2'] ?? ($pEx['imei2'] ?? 'N/A'));
                                                     $dMac = $pEx['dev_mac_address'] ?? ($pEx['mac_address'] ?? 'N/A');
-                                                    $dStorage =
-                                                        $pEx['dev_storage'] ??
-                                                        ($pEx['dev_storage_capacity'] ?? ($pEx['storage'] ?? 'N/A'));
-                                                    $dColor =
-                                                        $pEx['dev_colour'] ??
-                                                        ($pEx['dev_color'] ?? ($pEx['colour'] ?? 'N/A'));
-                                                    $dMarks =
-                                                        $pEx['dev_marks'] ??
-                                                        ($pEx['dev_other_marks'] ?? ($pEx['marks'] ?? 'N/A'));
+                                                    $dStorage = !empty($pEx['dev_storage']) ? $pEx['dev_storage'] : (
+                                                        !empty($pEx['storage_capacity']) ? $pEx['storage_capacity'] : (
+                                                            !empty($pEx['dev_storage_capacity']) ? $pEx['dev_storage_capacity'] : (
+                                                                !empty($pEx['storage']) ? $pEx['storage'] : (
+                                                                    !empty($case->dev_storage) ? $case->dev_storage : 'N/A'
+                                                                )
+                                                            )
+                                                        )
+                                                    );
+                                                    $dColor = !empty($pEx['dev_colour']) ? $pEx['dev_colour'] : (
+                                                        !empty($pEx['dev_color']) ? $pEx['dev_color'] : (
+                                                            !empty($pEx['colour']) ? $pEx['colour'] : (
+                                                                !empty($pEx['color']) ? $pEx['color'] : (
+                                                                    !empty($pEx['device_color']) ? $pEx['device_color'] : (
+                                                                        !empty($case->dev_colour) ? $case->dev_colour : 'N/A'
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    );
+                                                    $dMarks = !empty($pEx['dev_marks']) ? $pEx['dev_marks'] : (
+                                                        !empty($pEx['dev_other_marks']) ? $pEx['dev_other_marks'] : (
+                                                            !empty($pEx['marks']) ? $pEx['marks'] : (
+                                                                !empty($pEx['other_marks']) ? $pEx['other_marks'] : (
+                                                                    !empty($pEx['distinguishing_marks']) ? $pEx['distinguishing_marks'] : (
+                                                                        !empty($case->dev_marks) ? $case->dev_marks : 'N/A'
+                                                                    )
+                                                                )
+                                                            )
+                                                        )
+                                                    );
                                                 @endphp
                                                 <div
                                                     class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">

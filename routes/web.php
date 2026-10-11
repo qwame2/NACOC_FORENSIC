@@ -333,42 +333,599 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Digital_Forensics/dpf-report-pdf/{id?}', function ($id = null) {
         $authUser = auth()->user();
         $report = null;
+        $case = null;
+        $rawSuspects = [];
+        $deviceSpecsList = [];
+        $attachedFiles = [];
+        $exhibitTypeDisplay = null;
+        $suspectReports = [];
 
+        $cleanStatusDisplay = function ($val, $default = 'NO') {
+            $str = trim((string)($val ?: $default));
+            if ($str === '') return $default;
+            if (preg_match('/^(YES|NO|IN PROGRESS|PENDING)\s*[-–—:]\s*(.*)$/is', $str, $matches)) {
+                $status = strtoupper(trim($matches[1]));
+                $msg = trim($matches[2]);
+                $msg = preg_replace('/^' . preg_quote($status, '/') . '\s*[-–—:]\s*/i', '', $msg);
+                $msg = trim($msg);
+                if ($msg === '' || strtoupper($msg) === $status || in_array(strtoupper($msg), ['N/A', 'NONE', 'NIL', 'NULL', '-', 'NO', 'YES'])) {
+                    return $status;
+                }
+                return $status . ' - ' . $msg;
+            }
+            if (in_array(strtoupper($str), ['YES', 'NO', 'IN PROGRESS', 'PENDING'])) {
+                return strtoupper($str);
+            }
+            return $str;
+        };
+
+        $buildSuspectReportItem = function ($cItem, $rItem, $sObj, $idx, $cleanStatusDisplay) {
+            $cNo = $cItem->case_number ?? ($rItem->case_number ?? 'NCC-2026');
+            $sName = strtoupper($sObj['suspect_name'] ?? ($sObj['name'] ?? 'SUSPECT'));
+            $sRole = strtoupper($sObj['role'] ?? ($sObj['suspect_role'] ?? ($idx === 0 ? 'PRIMARY SUSPECT' : 'CO-SUSPECT')));
+            $sMug = $sObj['mugshot_front'] ?? ($sObj['mugshots']['front'] ?? ($cItem->mugshot_front ?? null));
+            if (!empty($sMug) && !str_starts_with($sMug, 'data:image') && !str_starts_with($sMug, 'http://') && !str_starts_with($sMug, 'https://') && !str_starts_with($sMug, '/')) {
+                $sMug = asset($sMug);
+            }
+            $sNationality = $sObj['nationality'] ?? ($cItem->nationality ?? 'Ghanaian');
+            $sGender = !empty($sObj['gender']) ? ucfirst($sObj['gender']) : null;
+            $sAge = !empty($sObj['age']) ? $sObj['age'] . ' yrs' : null;
+            $sMeta = implode(' &bull; ', array_filter([$sGender, $sAge, $sNationality])) ?: 'Ghanaian';
+
+            $underlying = $cItem->underlyingRecord ?? $cItem;
+            $cExhibits = collect();
+            if ($underlying instanceof \App\Models\MultipleSuspectCase) {
+                $cExhibits = \App\Models\Exhibit::where('multiple_suspect_case_id', $underlying->id)->get();
+            } elseif ($underlying instanceof \App\Models\SingleSuspectCase) {
+                $cExhibits = \App\Models\Exhibit::where('single_suspect_case_id', $underlying->id)->get();
+            }
+            $caseSpecs = [];
+            $exParts = [];
+            if ($cExhibits->isNotEmpty()) {
+                foreach ($cExhibits as $ex) {
+                    $devName = $ex->dev_model ?: ($ex->commodity_name ?: ($ex->exhibit_category ?: ($ex->exhibit_type ?: 'Electronic Exhibit')));
+                    $qty = $ex->seizure_quantity ?: '1';
+                    $caseSpecs[] = [
+                        'exhibit_no'  => $ex->exhibit_number ?: null,
+                        'device_name' => $devName,
+                        'quantity'    => $qty,
+                        'model'       => $ex->dev_model ?: 'N/A',
+                        'serial'      => $ex->dev_serial_no ?: 'N/A',
+                        'imei1'       => $ex->dev_imei1 ?: 'N/A',
+                        'imei2'       => $ex->dev_imei2 ?: 'N/A',
+                        'mac'         => $ex->dev_mac_address ?: 'N/A',
+                        'storage'     => $ex->dev_storage ?: 'N/A',
+                        'colour'      => $ex->dev_colour ?: 'N/A',
+                        'marks'       => $ex->dev_marks ?: ($ex->other_exhibit_description ?: 'N/A'),
+                    ];
+                    if (!empty($devName) && strtoupper($devName) !== 'N/A') {
+                        if (!empty($qty) && !preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName)) {
+                            $exParts[] = $qty . ' ' . $devName;
+                        } else {
+                            $exParts[] = $devName;
+                        }
+                    }
+                }
+            }
+            if (empty($caseSpecs)) {
+                $dData = is_array($cItem->docket_data ?? null) ? $cItem->docket_data : (json_decode($cItem->docket_data ?? '[]', true) ?: []);
+                $sPhones = $cItem->phones ?? ($cItem->underlyingRecord->phones ?? ($dData['phones'] ?? ($sObj['phones'] ?? [])));
+                if (is_string($sPhones)) $sPhones = json_decode($sPhones, true) ?: [];
+                if (is_array($sPhones) && !empty($sPhones)) {
+                    foreach ($sPhones as $pIdx => $ph) {
+                        if (is_array($ph) && !empty($ph['number']) && empty($ph['model']) && empty($ph['brand']) && empty($ph['name'])) continue;
+                        $pModel = is_array($ph) ? ($ph['model'] ?? ($ph['name'] ?? ($ph['brand'] ?? null))) : (is_string($ph) && !preg_match('/^\+?[0-9\s\-()]{5,}$/', trim($ph)) ? trim($ph) : null);
+                        if (empty($pModel) || in_array($pModel, ['Mobile Phone Device', 'N/A'])) continue;
+                        $caseSpecs[] = [
+                            'exhibit_no' => 'PH-EX-' . ($pIdx + 1),
+                            'device_name' => $pModel,
+                            'quantity' => '1',
+                            'model' => $pModel,
+                            'serial' => is_array($ph) ? ($ph['serial'] ?? 'N/A') : 'N/A',
+                            'imei1' => is_array($ph) ? ($ph['imei'] ?? ($ph['imei1'] ?? 'N/A')) : 'N/A',
+                            'imei2' => is_array($ph) ? ($ph['imei2'] ?? 'N/A') : 'N/A',
+                            'mac' => is_array($ph) ? ($ph['mac'] ?? 'N/A') : 'N/A',
+                            'storage' => is_array($ph) ? ($ph['storage'] ?? 'N/A') : 'N/A',
+                            'colour' => is_array($ph) ? ($ph['colour'] ?? 'N/A') : 'N/A',
+                            'marks' => 'Recovered from suspect possession',
+                        ];
+                        $exParts[] = '1 ' . $pModel;
+                    }
+                }
+            }
+            $caseExhibitDisplay = !empty($exParts) ? implode(', ', array_unique($exParts)) : ($rItem->devices_retrieved ?? ($cItem->dev_model ?? 'Mobile Devices & Exhibits'));
+
+            $cBrief = $rItem->brief_case_description ?? ($cItem->description ?? 'Target intercepted with encrypted mobile hardware. Write-blocked forensic imaging executed under judicial authorization.');
+            $cHasDrug = false;
+            $cHasElec = false;
+            if ($cItem) {
+                if (method_exists($cItem, 'classifyExhibits')) {
+                    $cFlags = $cItem->classifyExhibits();
+                    $cHasDrug = !empty($cFlags['has_drug']);
+                    $cHasElec = !empty($cFlags['has_electronic']);
+                }
+                if (method_exists($cItem, 'isDrugCase') && $cItem->isDrugCase()) $cHasDrug = true;
+                if (method_exists($cItem, 'isDigitalCase') && $cItem->isDigitalCase()) $cHasElec = true;
+                if (!empty($cItem->phones) || !empty($cItem->underlyingRecord->phones)) $cHasElec = true;
+            }
+            if ($cHasElec && !$cHasDrug && str_contains($cBrief, 'narcotic drugs')) {
+                $cBrief = str_replace(
+                    [
+                        'to curb the use and sale of narcotic drugs within the area',
+                        'to curb the use and sale of narcotic drugs',
+                        'use and sale of narcotic drugs',
+                        'sale of narcotic drugs',
+                        'narcotic drugs',
+                    ],
+                    [
+                        'to intercept and seize illicit electronic devices and digital evidence within the area',
+                        'to intercept and seize illicit electronic devices and digital evidence within the area',
+                        'illicit digital evidence and mobile exhibits',
+                        'illicit electronic hardware',
+                        'electronic devices',
+                    ],
+                    $cBrief
+                );
+            }
+
+            $cCourtReq = strtoupper($rItem->court_order_requested ?? 'NO');
+            $cCourtGrant = strtoupper($rItem->court_order_granted ?? 'NO');
+            $cExt = $cleanStatusDisplay($rItem->extraction_analysis_message ?? ($rItem->extraction_analysis_conducted ?? 'NO'));
+            $cWitness = $cleanStatusDisplay($rItem->report_witness_statement_message ?? ($rItem->report_witness_statement_sent ?? 'NO'));
+            $cIntel = strtoupper($rItem->intel_shared ?? 'NO');
+            $cRemark = trim((string)($rItem->remark ?? ''));
+            if (empty($cRemark) || in_array($cRemark, ['Registry intake logged. Electronic exhibits pending forensic write-block extraction and court order verification.', 'Forensic acquisition completed cleanly. Hardware hash checksums match baseline acquisition.', 'N/A', 'NONE', 'NIL', 'null'])) {
+                $cRemark = 'N/A';
+            }
+
+            $caseAttachments = [];
+            $coFiles = $rItem->court_order_files ?? [];
+            if (is_array($coFiles)) {
+                foreach ($coFiles as $cIdx => $cPath) {
+                    if (!empty($cPath) && is_string($cPath)) {
+                        $caseAttachments[] = [
+                            'id' => 'attachment-co-' . ($rItem->id ?? rand()) . '-' . $cIdx,
+                            'path' => $cPath,
+                            'section' => 'Court Order Warrant',
+                            'title' => 'Judicial Court Order Warrant',
+                            'badge' => 'COURT ORDER WARRANT',
+                        ];
+                    }
+                }
+            }
+            $rwFiles = $rItem->report_witness_statement_files ?? [];
+            if (is_array($rwFiles)) {
+                foreach ($rwFiles as $rIdx => $rPath) {
+                    if (!empty($rPath) && is_string($rPath)) {
+                        $caseAttachments[] = [
+                            'id' => 'attachment-rw-' . ($rItem->id ?? rand()) . '-' . $rIdx,
+                            'path' => $rPath,
+                            'section' => 'Report, Witness Statement & Digital Evidence',
+                            'title' => 'Report, Witness Statement & Digital Evidence',
+                            'badge' => 'REPORT, WITNESS STATEMENT & DIGITAL EVIDENCE',
+                        ];
+                    }
+                }
+            }
+
+            return [
+                'case_number' => $cNo,
+                'dpf_code' => $rItem->dpf_code ?? ('DPF-' . $cNo),
+                'suspect_name' => $sName,
+                'role' => $sRole,
+                'mugshot_front' => $sMug,
+                'meta' => $sMeta,
+                'nationality' => $sNationality,
+                'gender' => $sGender,
+                'age' => $sAge,
+                'ghana_card' => $sObj['ghana_card'] ?? ($cItem->ghana_card ?? null),
+                'investigation_date' => $rItem->investigation_date ? (string)$rItem->investigation_date : ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d')),
+                'report_date' => $rItem->created_at ? $rItem->created_at->format('Y-m-d') : date('Y-m-d'),
+                'location_post' => $rItem->location_post ?? ($cItem->location ?? 'Kotoka International Airport (Cargo Wing)'),
+                'raid_location' => $cItem->raid_location ?? ($cItem->seizure_location ?? ($rItem->location_post ?? 'Kotoka International Airport (Cargo Wing)')),
+                'submitting_officer' => $cItem->submitting_officer ?? 'Det. Insp. K. Mensah',
+                'exhibit_type_display' => $caseExhibitDisplay,
+                'device_specs' => $caseSpecs,
+                'brief_description' => $cBrief,
+                'court_requested' => $cCourtReq,
+                'court_granted' => $cCourtGrant,
+                'extraction_status' => $cExt,
+                'report_witness_status' => $cWitness,
+                'intel_shared' => $cIntel,
+                'remark' => $cRemark,
+                'case_section_label' => ($cCourtGrant === 'YES') ? 'ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)' : 'CURRENT/NEW CASES',
+                'attached_files' => $caseAttachments,
+            ];
+        };
+
+        // Check if multiple cases are requested via query string 'cases'
+        $caseParam = request('cases');
+        $requestedCaseNumbers = [];
+        if (!empty($caseParam)) {
+            $requestedCaseNumbers = array_filter(array_map('trim', explode(',', $caseParam)));
+        }
+
+        if (!empty($requestedCaseNumbers)) {
+            $allCases = \App\Models\ForensicCase::allCases();
+            $matchedCases = collect();
+            $matchedReports = collect();
+            $suspectReports = [];
+
+            foreach ($requestedCaseNumbers as $reqCaseNo) {
+                $cleanReq = strtolower(trim($reqCaseNo));
+                $foundCase = $allCases->first(function($c) use ($cleanReq) {
+                    $cNo = strtolower(trim($c->case_number ?? ''));
+                    $labNo = strtolower(trim($c->laboratory_number ?? ''));
+                    $cId = (string)($c->id ?? '');
+                    return $cNo === $cleanReq || $labNo === $cleanReq || $cId === $cleanReq;
+                });
+
+                if (!$foundCase) {
+                    $foundCase = \App\Models\SingleSuspectCase::where('case_number', $reqCaseNo)
+                        ->orWhereRaw('LOWER(case_number) = ?', [$cleanReq])
+                        ->first()
+                        ?? \App\Models\MultipleSuspectCase::where('case_number', $reqCaseNo)
+                        ->orWhereRaw('LOWER(case_number) = ?', [$cleanReq])
+                        ->first();
+                }
+
+                $foundReport = \App\Models\DpfReport::where(function($q) use ($reqCaseNo, $cleanReq) {
+                    $q->where('case_number', $reqCaseNo)
+                      ->orWhere('dpf_code', $reqCaseNo)
+                      ->orWhereRaw('LOWER(case_number) = ?', [$cleanReq])
+                      ->orWhereRaw('LOWER(dpf_code) = ?', [$cleanReq]);
+                })->latest('id')->first();
+
+                if ($foundCase) {
+                    $matchedCases->push($foundCase);
+                }
+                if ($foundReport) {
+                    $matchedReports->push($foundReport);
+                }
+
+                // Get suspects for this specific case
+                $dData = is_array($foundCase->docket_data ?? null) ? $foundCase->docket_data : (json_decode($foundCase->docket_data ?? '[]', true) ?: []);
+                $cSuspects = [];
+                if (!empty($dData['suspects']) && is_array($dData['suspects'])) {
+                    $cSuspects = $dData['suspects'];
+                } elseif (isset($foundCase) && method_exists($foundCase, 'getSuspectsList')) {
+                    $cSuspects = $foundCase->getSuspectsList();
+                } elseif (!empty($foundCase->suspects_list) && is_array($foundCase->suspects_list)) {
+                    $cSuspects = $foundCase->suspects_list;
+                } elseif (isset($foundCase->suspects) && count($foundCase->suspects) > 0) {
+                    $cSuspects = $foundCase->suspects->toArray();
+                } elseif (isset($foundCase->underlyingRecord) && isset($foundCase->underlyingRecord->suspects) && count($foundCase->underlyingRecord->suspects) > 0) {
+                    $cSuspects = $foundCase->underlyingRecord->suspects->toArray();
+                }
+
+                if (empty($cSuspects)) {
+                    $cSuspects[] = [
+                        'suspect_name'  => $foundCase->suspect_name ?? ($foundReport->report_data['suspect_name'] ?? 'SUSPECT'),
+                        'role'          => 'PRIMARY SUSPECT',
+                        'mugshot_front' => $foundCase->mugshot_front ?? null,
+                        'nationality'   => $foundCase->nationality ?? 'Ghanaian',
+                        'gender'        => $foundCase->gender ?? null,
+                        'age'           => $foundCase->age ?? null,
+                        'ghana_card'    => $foundCase->ghana_card ?? null,
+                    ];
+                }
+
+                // If foundReport doesn't exist, generate a fallback object for this case
+                if (!$foundReport) {
+                    $foundReport = new \App\Models\DpfReport([
+                        'case_number' => $foundCase ? $foundCase->case_number : $reqCaseNo,
+                        'dpf_code' => 'DPF-' . ($foundCase ? $foundCase->case_number : $reqCaseNo),
+                        'location_post' => $foundCase ? ($foundCase->location ?? 'Kotoka International Airport (Cargo Wing)') : 'Kotoka International Airport (Cargo Wing)',
+                        'investigation_date' => $foundCase && $foundCase->created_at ? $foundCase->created_at->format('Y-m-d') : date('Y-m-d'),
+                        'devices_retrieved' => 'Electronic Exhibits',
+                        'quantity' => '1',
+                        'brief_case_description' => $foundCase ? ($foundCase->description ?? 'Target intercepted with encrypted mobile hardware.') : 'Target intercepted with encrypted mobile hardware.',
+                        'court_order_requested' => 'NO',
+                        'court_order_granted' => 'NO',
+                        'extraction_analysis_conducted' => 'NO',
+                        'extraction_analysis_message' => 'NO',
+                        'report_witness_statement_sent' => 'NO',
+                        'report_witness_statement_message' => 'NO',
+                        'intel_shared' => 'NO',
+                        'remark' => 'N/A',
+                        'created_at' => now(),
+                    ]);
+                }
+
+                foreach ($cSuspects as $sIdx => $sObj) {
+                    $sItem = $buildSuspectReportItem($foundCase, $foundReport, $sObj, $sIdx, $cleanStatusDisplay);
+                    $suspectReports[] = $sItem;
+                    $rawSuspects[] = [
+                        'suspect_name' => $sItem['suspect_name'],
+                        'role' => $sItem['role'],
+                        'mugshot_front' => $sItem['mugshot_front'],
+                        'nationality' => $sItem['nationality'],
+                        'gender' => $sItem['gender'],
+                        'age' => $sItem['age'],
+                        'case_number' => $sItem['case_number'],
+                    ];
+                }
+            }
+
+            // Summary objects for cover page
+            $allExhibits = array_filter(array_map(fn($sr) => $sr['exhibit_type_display'], $suspectReports));
+            $exhibitTypeDisplay = implode(', ', array_unique($allExhibits));
+            $report = $matchedReports->first() ?? ($suspectReports[0] ?? null);
+            $case = $matchedCases->first() ?? null;
+
+            return view('Digital_Forensics.multi_dpf_pdf', compact('suspectReports', 'report', 'case', 'rawSuspects', 'exhibitTypeDisplay'));
+        }
+
+        // 1. If an ID / Case Ref is specified, first check for an existing saved DpfReport
         if (!empty($id)) {
-            $report = \App\Models\DpfReport::where('id', $id)
-                ->orWhere('dpf_code', $id)
-                ->orWhere('case_number', $id)
-                ->latest('id')
-                ->first();
+            $cleanId = trim($id);
+            $report = \App\Models\DpfReport::where(function($q) use ($cleanId) {
+                $q->where('dpf_code', $cleanId)
+                  ->orWhere('case_number', $cleanId)
+                  ->orWhereRaw('LOWER(case_number) = ?', [strtolower($cleanId)])
+                  ->orWhereRaw('LOWER(dpf_code) = ?', [strtolower($cleanId)])
+                  ->orWhere('id', $cleanId);
+            })->latest('id')->first();
+
+            // 2. Also locate the specific case matching the requested $id
+            $case = \App\Models\ForensicCase::allCases()->first(function($c) use ($cleanId) {
+                $cNo = strtolower(trim($c->case_number ?? ''));
+                $labNo = strtolower(trim($c->laboratory_number ?? ''));
+                $cId = (string)($c->id ?? '');
+                $target = strtolower($cleanId);
+                return $cNo === $target || $labNo === $target || $cId === $target;
+            });
+
+            if (!$case) {
+                $case = \App\Models\SingleSuspectCase::where('case_number', $cleanId)
+                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower($cleanId)])
+                    ->first()
+                    ?? \App\Models\MultipleSuspectCase::where('case_number', $cleanId)
+                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower($cleanId)])
+                    ->first();
+            }
         }
 
-        if (!$report) {
+        // 3. If $report was found, make sure $case matches the report's case_number if not already found
+        if ($report && !$case) {
+            $case = \App\Models\ForensicCase::allCases()->first(function($c) use ($report) {
+                return strtolower(trim($c->case_number ?? '')) === strtolower(trim($report->case_number ?? ''));
+            });
+
+            if (!$case) {
+                $case = \App\Models\SingleSuspectCase::where('case_number', $report->case_number)
+                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower(trim($report->case_number))])
+                    ->first()
+                    ?? \App\Models\MultipleSuspectCase::where('case_number', $report->case_number)
+                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower(trim($report->case_number))])
+                    ->first();
+            }
+        }
+
+        // 4. CRITICAL: If an $id was requested, DO NOT fall back to an old saved report from another suspect!
+        // Instead, dynamically generate a DpfReport instance for THIS SPECIFIC REQUESTED CASE / SUSPECT.
+        if (!empty($id) && !$report && $case) {
+            $cNo = $case->case_number ?? $id;
+            $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+
+            $loc = $case->raid_location 
+                ?? ($case->seizure_location 
+                ?? ($dData['raid_location'] 
+                ?? ($dData['seizure_location'] 
+                ?? ($dData['seizures'][0]['seizure_location'] 
+                ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)')))));
+
+            $exList = [];
+            $underlying = $case->underlyingRecord ?? $case;
+            if (isset($underlying->exhibits) && count($underlying->exhibits) > 0) {
+                foreach ($underlying->exhibits as $ex) {
+                    $itemStr = '';
+                    $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_category ?: ''));
+                    $qty = !empty($ex->seizure_quantity) ? trim((string)$ex->seizure_quantity) : '';
+                    if (!empty($qty) && !empty($devName)) {
+                        if (preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName)) {
+                            $itemStr = $devName;
+                        } else {
+                            $itemStr = $qty . ' ' . $devName;
+                        }
+                    } else {
+                        $itemStr = $devName ?: $qty;
+                    }
+                    $itemStr = trim($itemStr);
+                    if (!empty($itemStr)) {
+                        $exList[] = $itemStr;
+                    }
+                }
+            }
+            if (empty($exList) && !empty($dData['seizures']) && is_array($dData['seizures'])) {
+                foreach ($dData['seizures'] as $sz) {
+                    $devName = !empty($sz['dev_model']) ? $sz['dev_model'] : ($sz['commodity_name'] ?? ($sz['seizure_name'] ?? ($sz['name'] ?? '')));
+                    $qty = !empty($sz['seizure_quantity']) ? trim((string)$sz['seizure_quantity']) : '';
+                    if (!empty($qty) && !empty($devName)) {
+                        if (preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName)) {
+                            $itemStr = $devName;
+                        } else {
+                            $itemStr = $qty . ' ' . $devName;
+                        }
+                    } else {
+                        $itemStr = $devName ?: $qty;
+                    }
+                    $itemStr = trim($itemStr);
+                    if (!empty($itemStr)) $exList[] = $itemStr;
+                }
+            }
+            if (empty($exList)) {
+                $mainName = $case->dev_model ?? ($case->seizure_name ?? ($case->seizure_name_drug ?? ($case->exhibit_category ?? null)));
+                if (!empty($mainName)) {
+                    $qty = !empty($case->seizure_quantity) ? trim((string)$case->seizure_quantity) : '';
+                    $exList[] = !empty($qty) && !preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $mainName) ? $qty . ' ' . $mainName : $mainName;
+                }
+            }
+            $devicesStr = !empty($exList) ? implode(', ', array_unique($exList)) : 'Electronic Devices / Mobile Exhibits';
+
+            $narrative = method_exists($case, 'generateBriefCaseDescription') ? $case->generateBriefCaseDescription() : null;
+            if (empty($narrative)) {
+                $suspectOp = $case->operation_code_name 
+                    ?? ($dData['operation_code_name'] 
+                    ?? ($dData['suspects'][0]['operation_code_name'] 
+                    ?? ($case->operation_code ?? 'intelligence-led')));
+                $suspectOpType = !str_contains(strtolower($suspectOp), 'operation') ? strtolower($suspectOp) . ' operation' : strtolower($suspectOp);
+                $art = preg_match('/^[aeiou]/i', $suspectOpType) ? 'an' : 'a';
+                $sName = $case->suspect_name ?? ($dData['suspects'][0]['suspect_name'] ?? 'The suspect');
+
+                $cFlags = method_exists($case, 'classifyExhibits') ? $case->classifyExhibits() : [];
+                $cHasDrug = !empty($cFlags['has_drug']) || (method_exists($case, 'isDrugCase') && $case->isDrugCase());
+                $cHasElectronic = !empty($cFlags['has_electronic']) || (method_exists($case, 'isDigitalCase') && $case->isDigitalCase()) || !empty($case->phones);
+
+                if ($cHasElectronic && !$cHasDrug) {
+                    $narrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$loc} to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$sName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to NACOC Headquarters for digital forensic examination and further investigation.";
+                } elseif ($cHasElectronic && $cHasDrug) {
+                    $narrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$loc} to curb the trafficking of narcotic drugs and seize electronic devices used in illicit activities within the area. During the operation, {$sName} was arrested in possession of narcotic substances and electronic exhibits, and subsequently conveyed to NACOC Headquarters for chemical laboratory analysis and digital forensic investigation.";
+                } else {
+                    $narrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$loc} to curb the use and sale of narcotic drugs within the area. During the operation, {$sName} was arrested and subsequently conveyed to NACOC Headquarters for further investigation.";
+                }
+            }
+
+            $report = new \App\Models\DpfReport([
+                'dpf_code' => 'DF-STATUS-' . date('Ymd') . '-' . substr(md5($cNo), 0, 4),
+                'case_number' => $cNo,
+                'laboratory_number' => $case->laboratory_number ?? null,
+                'single_suspect_case_id' => ($case instanceof \App\Models\SingleSuspectCase || !isset($case->suspects_list)) ? ($case->id ?? null) : null,
+                'multiple_suspect_case_id' => ($case instanceof \App\Models\MultipleSuspectCase || isset($case->suspects_list)) ? ($case->id ?? null) : null,
+                'location_post' => $loc,
+                'investigation_date' => $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d'),
+                'devices_retrieved' => $devicesStr,
+                'quantity' => count($exList) > 0 ? (string)count($exList) : '1',
+                'brief_case_description' => $narrative,
+                'court_order_requested' => 'NO',
+                'court_order_granted' => 'NO',
+                'extraction_analysis_conducted' => 'NO',
+                'extraction_analysis_message' => 'NO',
+                'report_witness_statement_sent' => 'NO',
+                'report_witness_statement_message' => 'NO',
+                'intel_shared' => 'NO',
+                'remark' => null,
+                'created_at' => $case->created_at ?? now(),
+                'report_data' => [
+                    'case_section_label' => 'CURRENT/NEW CASES',
+                ],
+            ]);
+        }
+
+        // 5. Only if NO id was requested at all and no report exists, pick latest report as default
+        if (empty($id) && !$report) {
             $report = \App\Models\DpfReport::latest('id')->first();
+            if ($report) {
+                $case = \App\Models\ForensicCase::allCases()->first(function($c) use ($report) {
+                    return strtolower(trim($c->case_number ?? '')) === strtolower(trim($report->case_number ?? ''));
+                });
+            }
         }
 
+        // 6. Absolute fallback if system has zero cases and zero reports
         if (!$report) {
+            $fallbackCaseNo = $id ?: 'CSS-2026-6730';
             $report = new \App\Models\DpfReport([
                 'dpf_code' => 'DF-STATUS-' . date('Ymd') . '-001',
-                'case_number' => $id ?: 'CSS-2026-6730',
+                'case_number' => $fallbackCaseNo,
                 'location_post' => 'Kotoka International Airport (Cargo Wing)',
                 'investigation_date' => date('Y-m-d'),
                 'devices_retrieved' => 'Mobile Devices & Hardware Exhibits',
                 'quantity' => '1',
                 'brief_case_description' => 'Target intercepted with encrypted mobile hardware. Write-blocked forensic imaging executed under judicial authorization.',
-                'court_order_requested' => 'YES',
-                'court_order_granted' => 'YES',
-                'extraction_analysis_conducted' => 'YES',
-                'report_witness_statement_sent' => 'YES',
-                'intel_shared' => 'YES',
-                'remark' => 'Forensic acquisition completed cleanly. Hardware hash checksums match baseline acquisition.',
+                'court_order_requested' => 'NO',
+                'court_order_granted' => 'NO',
+                'extraction_analysis_conducted' => 'NO',
+                'extraction_analysis_message' => 'NO',
+                'report_witness_statement_sent' => 'NO',
+                'report_witness_statement_message' => 'NO',
+                'intel_shared' => 'NO',
+                'remark' => null,
                 'created_at' => now(),
+                'report_data' => [
+                    'case_section_label' => 'CURRENT/NEW CASES',
+                ],
             ]);
         }
 
-        $case = \App\Models\ForensicCase::allCases()->firstWhere('case_number', $report->case_number);
+        if (!$case && $report) {
+            $case = \App\Models\ForensicCase::allCases()->first(function($c) use ($report) {
+                return strtolower(trim($c->case_number ?? '')) === strtolower(trim($report->case_number ?? ''));
+            });
+        }
 
-        return view('Digital_Forensics.dpf_pdf', compact('report', 'case'));
+        $isMultiSuspect = false;
+        if (request()->is('*multi*')) {
+            $isMultiSuspect = true;
+        } elseif ($case) {
+            $underlying = $case->underlyingRecord ?? $case;
+            if ($underlying instanceof \App\Models\MultipleSuspectCase) {
+                $isMultiSuspect = true;
+            } elseif (isset($case->total_suspects_count) && (int)$case->total_suspects_count > 1) {
+                $isMultiSuspect = true;
+            } else {
+                $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+                if (!empty($dData['suspects']) && count($dData['suspects']) > 1) {
+                    $isMultiSuspect = true;
+                } elseif (method_exists($case, 'getSuspectsList') && count($case->getSuspectsList()) > 1) {
+                    $isMultiSuspect = true;
+                } elseif (!empty($case->suspects_list) && count($case->suspects_list) > 1) {
+                    $isMultiSuspect = true;
+                }
+            }
+        }
+
+        if ($isMultiSuspect && empty($suspectReports)) {
+            $suspectReports = [];
+            $dData = is_array($case->docket_data ?? null) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            $cSuspects = [];
+            if (!empty($dData['suspects']) && is_array($dData['suspects'])) {
+                $cSuspects = $dData['suspects'];
+            } elseif (isset($case) && method_exists($case, 'getSuspectsList')) {
+                $cSuspects = $case->getSuspectsList();
+            } elseif (!empty($case->suspects_list) && is_array($case->suspects_list)) {
+                $cSuspects = $case->suspects_list;
+            } elseif (isset($case->suspects) && count($case->suspects) > 0) {
+                $cSuspects = $case->suspects->toArray();
+            } elseif (isset($case->underlyingRecord) && isset($case->underlyingRecord->suspects) && count($case->underlyingRecord->suspects) > 0) {
+                $cSuspects = $case->underlyingRecord->suspects->toArray();
+            }
+            if (empty($cSuspects)) {
+                $cSuspects[] = [
+                    'suspect_name'  => $case->suspect_name ?? 'SUSPECT',
+                    'role'          => 'PRIMARY SUSPECT',
+                    'mugshot_front' => $case->mugshot_front ?? null,
+                    'nationality'   => $case->nationality ?? 'Ghanaian',
+                    'gender'        => $case->gender ?? null,
+                    'age'           => $case->age ?? null,
+                    'ghana_card'    => $case->ghana_card ?? null,
+                ];
+            }
+            foreach ($cSuspects as $idx => $sObj) {
+                $suspectReports[] = $buildSuspectReportItem($case, $report, $sObj, $idx, $cleanStatusDisplay);
+            }
+        }
+
+        $viewName = $isMultiSuspect ? 'Digital_Forensics.multi_dpf_pdf' : 'Digital_Forensics.dpf_pdf';
+        return view($viewName, compact('report', 'case', 'suspectReports'));
     })->name('digital.dpf.pdf');
+
+    Route::get('/Digital_Forensics/multi_dpf_pdf/{id?}', function ($id = null) {
+        return app()->call(Route::getRoutes()->getByName('digital.dpf.pdf')->getAction('uses'), ['id' => $id]);
+    })->name('digital.multi.dpf.pdf.view');
+
+    Route::get('/digital-forensics/multi_dpf_pdf/{id?}', function ($id = null) {
+        return app()->call(Route::getRoutes()->getByName('digital.dpf.pdf')->getAction('uses'), ['id' => $id]);
+    });
+
+    Route::get('/digital-forensics/multi-dpf-report-pdf/{id?}', function ($id = null) {
+        return app()->call(Route::getRoutes()->getByName('digital.dpf.pdf')->getAction('uses'), ['id' => $id]);
+    });
+
+    Route::get('/Digital_Forensics/multi-dpf-report-pdf/{id?}', function ($id = null) {
+        // Alias route that forces the multi_dpf_pdf view
+        return app()->call(Route::getRoutes()->getByName('digital.dpf.pdf')->getAction('uses'), ['id' => $id]);
+    })->name('digital.multi.dpf.pdf');
 
     Route::get('/digital-forensics/dpf-report-pdf/{id?}', function ($id = null) {
         return redirect()->to('/Digital_Forensics/dpf-report-pdf/' . ($id ?? ''));
@@ -393,43 +950,256 @@ Route::middleware(['auth'])->group(function () {
             'court_order_requested' => 'nullable|string',
             'court_order_granted' => 'nullable|string',
             'extraction_analysis_conducted' => 'nullable|string',
+            'extraction_analysis_status' => 'nullable|string',
+            'extraction_analysis_notes' => 'nullable|string',
+            'extraction_analysis_message' => 'nullable|string',
+            'ongoing_extraction_analysis_status' => 'nullable|string',
+            'ongoing_extraction_analysis_notes' => 'nullable|string',
             'report_witness_statement_sent' => 'nullable|string',
+            'report_witness_statement_status' => 'nullable|string',
+            'report_witness_statement_notes' => 'nullable|string',
+            'report_witness_statement_message' => 'nullable|string',
             'intel_shared' => 'nullable|string',
             'remark' => 'nullable|string',
+            'case_section_label' => 'nullable|string',
+            'court_order_files' => 'nullable',
+            'court_order_files.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+            'court_order_file' => 'nullable',
+            'court_order_file.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+            'report_witness_statement_files' => 'nullable',
+            'report_witness_statement_files.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
+            'report_witness_statement_file' => 'nullable',
+            'report_witness_statement_file.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);
 
         $cNo = $validated['case_number'];
         $singleCase = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
         $multiCase = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
 
-        $dpfCode = 'DF-STATUS-' . date('Y-md') . '-' . rand(100, 999);
+        $destinationPath = public_path('uploads/forensic_documents');
+        if (!file_exists($destinationPath)) {
+            mkdir($destinationPath, 0777, true);
+        }
 
-        $report = \App\Models\DpfReport::create([
+        $courtOrderFilePaths = [];
+        $coFiles = $request->file('court_order_files') ?? $request->file('court_order_file');
+        if ($coFiles) {
+            if (!is_array($coFiles)) {
+                $coFiles = [$coFiles];
+            }
+            foreach ($coFiles as $file) {
+                if ($file && $file->isValid()) {
+                    $filename = time() . '_' . uniqid() . '_court_order_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                    $file->move($destinationPath, $filename);
+                    $courtOrderFilePaths[] = 'uploads/forensic_documents/' . $filename;
+                }
+            }
+        }
+
+        $reportWitnessFilePaths = [];
+        $rwFiles = $request->file('report_witness_statement_files') ?? $request->file('report_witness_statement_file');
+        if ($rwFiles) {
+            if (!is_array($rwFiles)) {
+                $rwFiles = [$rwFiles];
+            }
+            foreach ($rwFiles as $file) {
+                if ($file && $file->isValid()) {
+                    $filename = time() . '_' . uniqid() . '_report_witness_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+                    $file->move($destinationPath, $filename);
+                    $reportWitnessFilePaths[] = 'uploads/forensic_documents/' . $filename;
+                }
+            }
+        }
+
+        $isCourtOrderYes = strtoupper(trim($request->input('court_order_granted') ?? 'NO')) === 'YES';
+        $curExtStatus = trim($request->input('extraction_analysis_status') ?? '');
+        $curExtNotes = trim($request->input('extraction_analysis_notes') ?? '');
+        $ongExtStatus = trim($request->input('ongoing_extraction_analysis_status') ?? '');
+        $ongExtNotes = trim($request->input('ongoing_extraction_analysis_notes') ?? '');
+
+        if ($isCourtOrderYes && !empty($ongExtStatus)) {
+            $extStatus = $ongExtStatus;
+            $extNotes = $ongExtNotes;
+        } else {
+            $extStatus = !empty($curExtStatus) ? $curExtStatus : ($ongExtStatus ?: '');
+            $extNotes = !empty($curExtNotes) ? $curExtNotes : $ongExtNotes;
+        }
+
+        if (empty($extStatus)) {
+            $candidate = trim($request->input('extraction_analysis_conducted') ?? '');
+            if (in_array(strtoupper($candidate), ['YES', 'NO', 'IN PROGRESS', 'PENDING'])) {
+                $extStatus = strtoupper($candidate);
+            }
+        }
+
+        if (empty($extNotes) && !empty($request->input('extraction_analysis_conducted'))) {
+            $rawExt = trim($request->input('extraction_analysis_conducted'));
+            if (!in_array(strtoupper($rawExt), ['YES', 'NO', 'IN PROGRESS', 'PENDING'])) {
+                $extNotes = $rawExt;
+            }
+        }
+
+        if (!empty($extNotes)) {
+            if (!empty($extStatus)) {
+                $cleanExtNotes = preg_replace('/^' . preg_quote($extStatus, '/') . '\s*[-–—:]\s*/i', '', $extNotes);
+                $cleanExtNotes = trim($cleanExtNotes);
+            } else {
+                $cleanExtNotes = $extNotes;
+            }
+
+            if ($cleanExtNotes === '' || (!empty($extStatus) && strtoupper($cleanExtNotes) === strtoupper($extStatus)) || in_array(strtoupper($cleanExtNotes), ['YES', 'NO', 'IN PROGRESS', 'PENDING', 'N/A', 'NONE', 'NIL'])) {
+                if (empty($extStatus) && in_array(strtoupper($cleanExtNotes), ['YES', 'NO', 'IN PROGRESS', 'PENDING'])) {
+                    $extStatus = strtoupper($cleanExtNotes);
+                }
+                $extNotes = '';
+            } else {
+                $extNotes = $cleanExtNotes;
+            }
+        }
+
+        if (!empty($extStatus) && !empty($extNotes)) {
+            $extractionCombined = $extStatus . ' - ' . $extNotes;
+        } elseif (!empty($extNotes)) {
+            $extractionCombined = $extNotes;
+        } elseif (!empty($extStatus)) {
+            $extractionCombined = $extStatus;
+        } else {
+            $extractionCombined = 'NO';
+        }
+
+        $rwStatus = trim($request->input('report_witness_statement_status') ?? '');
+        if (empty($rwStatus)) {
+            $candidateRw = trim($request->input('report_witness_statement_sent') ?? '');
+            if (in_array(strtoupper($candidateRw), ['YES', 'NO', 'PENDING'])) {
+                $rwStatus = strtoupper($candidateRw);
+            }
+        }
+
+        $rwNotes = trim($request->input('report_witness_statement_notes') ?? $request->input('report_witness_statement_message') ?? '');
+        if (empty($rwNotes) && !empty($request->input('report_witness_statement_sent'))) {
+            $rawRw = trim($request->input('report_witness_statement_sent'));
+            if (!in_array(strtoupper($rawRw), ['YES', 'NO', 'PENDING'])) {
+                $rwNotes = $rawRw;
+            }
+        }
+
+        if (!empty($rwNotes)) {
+            if (!empty($rwStatus)) {
+                $cleanRwNotes = preg_replace('/^' . preg_quote($rwStatus, '/') . '\s*[-–—:]\s*/i', '', $rwNotes);
+                $cleanRwNotes = trim($cleanRwNotes);
+            } else {
+                $cleanRwNotes = $rwNotes;
+            }
+
+            if ($cleanRwNotes === '' || (!empty($rwStatus) && strtoupper($cleanRwNotes) === strtoupper($rwStatus)) || in_array(strtoupper($cleanRwNotes), ['YES', 'NO', 'PENDING', 'IN PROGRESS', 'N/A', 'NONE', 'NIL'])) {
+                if (empty($rwStatus) && in_array(strtoupper($cleanRwNotes), ['YES', 'NO', 'PENDING', 'IN PROGRESS'])) {
+                    $rwStatus = strtoupper($cleanRwNotes);
+                }
+                $rwNotes = '';
+            } else {
+                $rwNotes = $cleanRwNotes;
+            }
+        }
+
+        if (!empty($rwStatus) && !empty($rwNotes)) {
+            $rwCombined = $rwStatus . ' - ' . $rwNotes;
+        } elseif (!empty($rwNotes)) {
+            $rwCombined = $rwNotes;
+        } elseif (!empty($rwStatus)) {
+            $rwCombined = $rwStatus;
+        } else {
+            $rwCombined = 'NO';
+        }
+
+        $caseSectionLabel = $request->input('case_section_label')
+            ?: (($validated['court_order_granted'] ?? 'NO') === 'YES'
+                ? 'ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)'
+                : 'CURRENT/NEW CASES');
+
+        $existingReport = \App\Models\DpfReport::where('case_number', $cNo)->latest('id')->first();
+        if ($existingReport) {
+            $existingCoFiles = $existingReport->court_order_files;
+            if (empty($courtOrderFilePaths) && !empty($existingCoFiles)) {
+                $courtOrderFilePaths = $existingCoFiles;
+            } elseif (!empty($courtOrderFilePaths) && !empty($existingCoFiles)) {
+                $courtOrderFilePaths = array_values(array_unique(array_merge($existingCoFiles, $courtOrderFilePaths)));
+            }
+
+            $existingRwFiles = $existingReport->report_witness_statement_files;
+            if (empty($reportWitnessFilePaths) && !empty($existingRwFiles)) {
+                $reportWitnessFilePaths = $existingRwFiles;
+            } elseif (!empty($reportWitnessFilePaths) && !empty($existingRwFiles)) {
+                $reportWitnessFilePaths = array_values(array_unique(array_merge($existingRwFiles, $reportWitnessFilePaths)));
+            }
+        }
+
+        $dpfCode = ($existingReport && !empty($existingReport->dpf_code))
+            ? $existingReport->dpf_code
+            : ('DF-STATUS-' . date('Y-md') . '-' . rand(100, 999));
+
+        $reportAttributes = [
             'dpf_code' => $dpfCode,
             'case_number' => $cNo,
-            'laboratory_number' => $singleCase->laboratory_number ?? ($multiCase->laboratory_number ?? null),
-            'single_suspect_case_id' => $singleCase ? $singleCase->id : null,
-            'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
-            'user_id' => auth()->id(),
-            'location_post' => $validated['location_post'] ?? null,
-            'investigation_date' => $validated['investigation_date'] ?? date('Y-m-d'),
-            'devices_retrieved' => $validated['devices_retrieved'] ?? null,
-            'quantity' => $validated['quantity'] ?? '1',
-            'brief_case_description' => $validated['brief_case_description'] ?? null,
-            'court_order_requested' => $validated['court_order_requested'] ?? 'YES',
-            'court_order_granted' => $validated['court_order_granted'] ?? 'YES',
-            'extraction_analysis_conducted' => $validated['extraction_analysis_conducted'] ?? 'YES',
-            'report_witness_statement_sent' => $validated['report_witness_statement_sent'] ?? 'YES',
-            'intel_shared' => $validated['intel_shared'] ?? 'YES',
-            'remark' => $validated['remark'] ?? null,
+            'laboratory_number' => $singleCase->laboratory_number ?? ($multiCase->laboratory_number ?? ($existingReport->laboratory_number ?? null)),
+            'single_suspect_case_id' => $singleCase ? $singleCase->id : ($existingReport->single_suspect_case_id ?? null),
+            'multiple_suspect_case_id' => $multiCase ? $multiCase->id : ($existingReport->multiple_suspect_case_id ?? null),
+            'user_id' => auth()->id() ?? ($existingReport->user_id ?? null),
+            'location_post' => $validated['location_post'] ?? ($existingReport->location_post ?? null),
+            'investigation_date' => $validated['investigation_date'] ?? ($existingReport->investigation_date ?? date('Y-m-d')),
+            'devices_retrieved' => $validated['devices_retrieved'] ?? ($existingReport->devices_retrieved ?? null),
+            'quantity' => $validated['quantity'] ?? ($existingReport->quantity ?? '1'),
+            'brief_case_description' => $validated['brief_case_description'] ?? ($existingReport->brief_case_description ?? null),
+            'court_order_requested' => $validated['court_order_requested'] ?? ($existingReport->court_order_requested ?? 'NO'),
+            'court_order_granted' => $validated['court_order_granted'] ?? ($existingReport->court_order_granted ?? 'NO'),
+            'court_order_file' => !empty($courtOrderFilePaths) ? json_encode($courtOrderFilePaths) : ($existingReport->court_order_file ?? null),
+            'extraction_analysis_conducted' => $extractionCombined,
+            'extraction_analysis_message' => $extractionCombined,
+            'report_witness_statement_sent' => $rwCombined,
+            'report_witness_statement_message' => $rwCombined,
+            'report_witness_statement_file' => !empty($reportWitnessFilePaths) ? json_encode($reportWitnessFilePaths) : ($existingReport->report_witness_statement_file ?? null),
+            'intel_shared' => $validated['intel_shared'] ?? ($existingReport->intel_shared ?? 'NO'),
+            'remark' => !empty(trim((string)($validated['remark'] ?? ''))) ? trim((string)$validated['remark']) : null,
+            'report_data' => [
+                'case_section_label' => $caseSectionLabel,
+                'court_order_files' => $courtOrderFilePaths,
+                'report_witness_statement_files' => $reportWitnessFilePaths,
+                'extraction_analysis_status' => !empty($curExtStatus) ? $curExtStatus : (!$isCourtOrderYes ? $extStatus : ($existingReport->report_data['extraction_analysis_status'] ?? '')),
+                'extraction_analysis_notes' => !empty($curExtNotes) ? $curExtNotes : (!$isCourtOrderYes ? $extNotes : ($existingReport->report_data['extraction_analysis_notes'] ?? '')),
+                'extraction_analysis_message' => $extractionCombined,
+                'ongoing_extraction_analysis_status' => !empty($ongExtStatus) ? $ongExtStatus : ($isCourtOrderYes ? $extStatus : ($existingReport->report_data['ongoing_extraction_analysis_status'] ?? '')),
+                'ongoing_extraction_analysis_notes' => !empty($ongExtNotes) ? $ongExtNotes : ($isCourtOrderYes ? $extNotes : ($existingReport->report_data['ongoing_extraction_analysis_notes'] ?? '')),
+                'report_witness_statement_status' => $rwStatus,
+                'report_witness_statement_notes' => $rwNotes,
+                'report_witness_statement_message' => $rwCombined,
+            ],
             'status' => 'active',
-        ]);
+        ];
+
+        if ($existingReport) {
+            $existingReport->update($reportAttributes);
+            $report = $existingReport->fresh();
+            // Consolidate legacy duplicate records so only one canonical report exists per case
+            \App\Models\DpfReport::where('case_number', $cNo)->where('id', '!=', $report->id)->delete();
+        } else {
+            $report = \App\Models\DpfReport::create($reportAttributes);
+        }
+
+        $reportData = $report->toArray();
+        $reportData['case_section_label'] = $caseSectionLabel;
+        $reportData['court_order_files'] = $courtOrderFilePaths;
+        $reportData['report_witness_statement_files'] = $reportWitnessFilePaths;
+        $reportData['extraction_analysis_conducted'] = $extractionCombined;
+        $reportData['extraction_analysis_message'] = $extractionCombined;
+        $reportData['report_witness_statement_sent'] = $rwCombined;
+        $reportData['report_witness_statement_message'] = $rwCombined;
 
         return response()->json([
             'success' => true,
             'message' => 'Forensic & Investigation Status updated and logged successfully!',
             'data'    => $report,
-            'report'  => $report
+            'report'  => $reportData,
+            'court_order_files' => $courtOrderFilePaths,
+            'report_witness_statement_files' => $reportWitnessFilePaths,
         ]);
     });
 

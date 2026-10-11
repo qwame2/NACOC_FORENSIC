@@ -15,7 +15,7 @@
         $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName);
         $examRefAuto = 'GSA-FM-T' . rand(10, 99) . '-F';
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
-        $caseRefAuto = 'NFC-' . date('Y') . '-' . rand(1000, 9999);
+        $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
         $isDrugCase = false;
@@ -4329,7 +4329,7 @@
             const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
                 ? caseTitleInput.trim()
                 : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
-            const caseRef = 'CSS-2026-' + Math.floor(1000 + Math.random() * 9000);
+            const caseRef = 'NCC-2026-' + Math.floor(1000 + Math.random() * 9000);
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
             const spousePhone = document.getElementById('newArrestedSpousePhone')?.value || '';
@@ -5080,7 +5080,7 @@
             const modal = document.getElementById('successPopoverModal');
             const caseRefEl = document.getElementById('popoverCaseRef');
             if (caseRefEl) {
-                caseRefEl.textContent = ref || 'CSS-2026-4342';
+                caseRefEl.textContent = ref || 'NCC-2026-4342';
             }
             if (modal) {
                 modal.classList.remove('hidden');
@@ -6971,7 +6971,7 @@
             const mCase = data.matched_case || {};
             currentMatchedCaseNumber = mCase.case_number || null;
 
-            if (cRef) cRef.innerText = mCase.case_number || 'CSS-2026-XXXX';
+            if (cRef) cRef.innerText = mCase.case_number || 'NCC-2026-XXXX';
             if (cTitle) cTitle.innerText = mCase.title || 'Republic Vs Suspect';
             if (sName) sName.innerText = mCase.suspect_name || mCase.docket_data?.full_name || 'N/A';
             if (gCard) gCard.innerText = mCase.ghana_card || mCase.docket_data?.id_card || 'N/A';
@@ -7911,7 +7911,7 @@
                         Crime Scene Data Saved Successfully!
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">CSS-2026-4342</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
+                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-2026-4342</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
                     </p>
                 </div>
             </div>
@@ -8006,7 +8006,7 @@
                 <div class="flex items-center justify-between border-b border-amber-200/60 pb-2">
                     <div>
                         <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Matched Case Number</span>
-                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">CSS-2026-0000</div>
+                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">NCC-2026-0000</div>
                     </div>
                     <span id="dupModalScore" class="px-2.5 py-1 bg-amber-500 text-white font-mono-code font-bold text-[11px] rounded-full shadow-2xs">
                         95% Match
