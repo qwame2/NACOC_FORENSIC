@@ -244,7 +244,7 @@
         $renderReportFooter = function ($currentPage = 1, $totalPages = null) use ($dpfCode, $totalReportPages) {
             $effectivePages = $totalPages ?? $totalReportPages;
             return '
-            <div class="pt-10 mb-1 footer">
+            <div class="pt-auto mb-1 border-t border-slate-200 footer">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-[8px] font-semibold uppercase tracking-wider text-slate-900">
@@ -456,8 +456,8 @@
         /* A4 Document Styling constraints */
         body {
             font-family: 'Inter', sans-serif;
-            background: #ffffffff;
-            color: #ffffffff;
+            background: #334155;
+            color: #1e293b;
             margin: 0;
             padding: 24px 0;
             -webkit-print-color-adjust: exact;
@@ -836,7 +836,7 @@
                 </div>
 
                 <!-- FLOW CONTENT BODY -->
-                <div class="report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+                <div class="report-flow-body flex-1 min-h-0 flex flex-col justify-between">
                     <div class="flow-sections-container">
                         <!-- SECTION 01: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
                         <div class="flow-block section-01 mt-3">
@@ -952,7 +952,7 @@
                                 </div>
                             </div>
 
-                            <div class="flow-text text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
+                            <div class="flow-text text-[12px] leading-[2] text-slate-900 text-justify whitespace-pre-line pt-0">
                                 {{ $remarkVal }}
                             </div>
                         </div>
@@ -1279,181 +1279,245 @@
             renumberAllPages();
         }
 
-        function splitTextIntoAtomicParagraphs(text) {
-            if (!text) return [];
-            const rawLines = text.split(/\r?\n+/).map(l => l.trim()).filter(Boolean);
-            const finalChunks = [];
-
-            rawLines.forEach(line => {
-                if (line.length <= 250) {
-                    finalChunks.push(line);
-                    return;
-                }
-                const sentences = line.split(/(?<=[.!?])\s+|(?<=[.!?])(?=[A-Z])/).map(s => s.trim()).filter(Boolean);
-                let accum = '';
-                sentences.forEach(s => {
-                    if (s.length > 300) {
-                        const words = s.split(/\s+/).filter(Boolean);
-                        let wAccum = '';
-                        words.forEach(w => {
-                            if ((wAccum + ' ' + w).trim().length > 220 && wAccum.length > 0) {
-                                finalChunks.push(wAccum.trim());
-                                wAccum = w;
-                            } else {
-                                wAccum = (wAccum + ' ' + w).trim();
-                            }
-                        });
-                        if (wAccum.trim().length > 0) {
-                            s = wAccum.trim();
-                        }
-                    }
-                    if ((accum + ' ' + s).trim().length > 250 && accum.length > 0) {
-                        finalChunks.push(accum.trim());
-                        accum = s;
-                    } else {
-                        accum = (accum + ' ' + s).trim();
-                    }
-                });
-                if (accum.trim().length > 0) {
-                    finalChunks.push(accum.trim());
-                }
-            });
-
-            return finalChunks.length > 0 ? finalChunks : [text.trim()];
-        }
-
         function autoPaginateAllReports() {
             const reportRoots = document.querySelectorAll('#dpfReportSheet .auto-paginated-root');
             reportRoots.forEach(page => paginateReportPage(page));
         }
 
         function paginateReportPage(pageEl) {
+            const inner = pageEl.querySelector('.relative.z-10');
             const headerBlock = pageEl.querySelector('.page-header-block');
-            const flowBody = pageEl.querySelector('.report-flow-body');
             const footerBlock = pageEl.querySelector('.page-footer-block');
-            if (!flowBody || !headerBlock || !footerBlock) return;
-
-            const maxH = pageEl.clientHeight - headerBlock.offsetHeight - footerBlock.offsetHeight - 15;
-            if (flowBody.scrollHeight <= maxH + 4) return;
+            const flowBody = pageEl.querySelector('.report-flow-body');
+            if (!inner || !headerBlock || !footerBlock || !flowBody) return;
 
             const sectionsContainer = flowBody.querySelector('.flow-sections-container');
             const signaturesBlock = flowBody.querySelector('.section-signatures');
-            const rawBlocks = sectionsContainer ? Array.from(sectionsContainer.children) : [];
-            if (signaturesBlock) rawBlocks.push(signaturesBlock);
+            if (!sectionsContainer) return;
 
-            const atomicItems = [];
+            function getUsableHeight(page) {
+                const pInner = page.querySelector('.relative.z-10') || page;
+                const pHdr = page.querySelector('.page-header-block');
+                const pFtr = page.querySelector('.page-footer-block');
+                const hH = pHdr ? pHdr.offsetHeight : 0;
+                const fH = pFtr ? pFtr.offsetHeight : 0;
+                const innerH = pInner.clientHeight > 0 ? pInner.clientHeight : (page.clientHeight - 76);
+                return innerH - hH - fH - 6;
+            }
 
-            rawBlocks.forEach(block => {
+            function getPageContentHeight(page) {
+                const bdy = page.querySelector('.report-flow-body');
+                if (!bdy) return 0;
+                const secCont = bdy.querySelector('.flow-sections-container');
+                const sigs = bdy.querySelector('.section-signatures');
+                const secH = secCont ? secCont.offsetHeight : 0;
+                const sigH = sigs ? (sigs.offsetHeight + 14) : 0;
+                return secH + sigH;
+            }
+
+            function isPageOverflowing(page) {
+                return getPageContentHeight(page) > getUsableHeight(page);
+            }
+
+            if (!isPageOverflowing(pageEl)) {
+                return;
+            }
+
+            const rawBlocks = Array.from(sectionsContainer.children);
+
+            const remarksIndex = rawBlocks.findIndex(block => {
                 const hasTable = !!block.querySelector('table');
-                const isRemarks = (block.classList.contains('section-03') || block.classList.contains('section-remarks')) && !hasTable;
-
-                if (isRemarks && block.querySelector('.flow-text')) {
-                    const heading = block.querySelector('.flex.items-center');
-                    const textElem = block.querySelector('.flow-text');
-                    const fullText = (textElem ? textElem.innerText : '').trim();
-                    const atomicParagraphs = splitTextIntoAtomicParagraphs(fullText);
-
-                    if (heading) {
-                        const hWrap = document.createElement('div');
-                        hWrap.className = 'flow-block section-03-heading mt-3 avoid-break-after';
-                        hWrap.appendChild(heading.cloneNode(true));
-                        atomicItems.push(hWrap);
-                    }
-
-                    if (atomicParagraphs.length > 0) {
-                        atomicParagraphs.forEach(p => {
-                            const pDiv = document.createElement('div');
-                            pDiv.className = 'flow-block flow-p text-[12px] leading-relaxed text-slate-700 mt-2';
-                            pDiv.innerText = p.trim();
-                            atomicItems.push(pDiv);
-                        });
-                    }
-                } else {
-                    atomicItems.push(block);
-                }
+                return (
+                    block.classList.contains('section-remarks') ||
+                    block.classList.contains('section-04') ||
+                    block.classList.contains('section-03')
+                ) && !!block.querySelector('.flow-text') && !hasTable;
             });
 
-            flowBody.innerHTML = '';
-            const newSectionsContainer = document.createElement('div');
-            newSectionsContainer.className = 'flow-sections-container';
-            flowBody.appendChild(newSectionsContainer);
+            if (remarksIndex === -1) {
+                return;
+            }
+
+            const remarksBlock = rawBlocks[remarksIndex];
+            const remarksHeadingEl = remarksBlock.querySelector('.flex.items-center');
+            const flowTextEl = remarksBlock.querySelector('.flow-text');
+            const fullRemarksText = (flowTextEl ? flowTextEl.textContent : '').trim();
+
+            const preRemarksBlocks = rawBlocks.slice(0, remarksIndex);
+            const postRemarksBlocks = rawBlocks.slice(remarksIndex + 1);
+
+            const conditionsIndex = postRemarksBlocks.findIndex(b => b.classList.contains('section-conditions'));
+            const conditionsBlock = conditionsIndex !== -1 ? postRemarksBlocks[conditionsIndex] : null;
+
+            sectionsContainer.innerHTML = '';
+            if (signaturesBlock && signaturesBlock.parentNode) {
+                signaturesBlock.parentNode.removeChild(signaturesBlock);
+            }
 
             let currentPage = pageEl;
-            let currentSectionsContainer = newSectionsContainer;
             let currentFlowBody = flowBody;
+            let currentSectionsContainer = sectionsContainer;
 
-            function appendNewPage() {
+            flowBody.classList.remove('overflow-hidden');
+
+            function createNextPage() {
                 const nextPg = pageEl.cloneNode(false);
-                nextPg.className = 'a4-page report-page generated-flow-page relative text-slate-900 page-break';
+                nextPg.className = pageEl.className;
+                if (!nextPg.classList.contains('page-break')) {
+                    nextPg.classList.add('page-break');
+                }
+                nextPg.classList.add('generated-flow-page');
 
                 const wm = pageEl.querySelector('.absolute.inset-0');
                 if (wm) nextPg.appendChild(wm.cloneNode(true));
 
-                const inner = document.createElement('div');
-                inner.className = 'relative z-10 flex flex-col justify-between h-full min-h-0';
+                const nextInner = document.createElement('div');
+                nextInner.className = 'relative z-10 flex flex-col justify-between h-full min-h-0';
 
-                const hdr = headerBlock.cloneNode(true);
-                const bdy = document.createElement('div');
-                bdy.className = 'report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden';
-                const secCont = document.createElement('div');
-                secCont.className = 'flow-sections-container';
-                bdy.appendChild(secCont);
+                const nextHdr = headerBlock.cloneNode(true);
+                const nextBdy = document.createElement('div');
+                nextBdy.className = 'report-flow-body flex-1 min-h-0 flex flex-col justify-between';
+                const nextSecCont = document.createElement('div');
+                nextSecCont.className = 'flow-sections-container';
+                nextBdy.appendChild(nextSecCont);
 
-                const ftr = footerBlock.cloneNode(true);
+                const nextFtr = footerBlock.cloneNode(true);
 
-                inner.appendChild(hdr);
-                inner.appendChild(bdy);
-                inner.appendChild(ftr);
-                nextPg.appendChild(inner);
+                nextInner.appendChild(nextHdr);
+                nextInner.appendChild(nextBdy);
+                nextInner.appendChild(nextFtr);
+                nextPg.appendChild(nextInner);
 
                 currentPage.parentNode.insertBefore(nextPg, currentPage.nextSibling);
                 currentPage = nextPg;
-                currentSectionsContainer = secCont;
-                currentFlowBody = bdy;
+                currentFlowBody = nextBdy;
+                currentSectionsContainer = nextSecCont;
             }
 
-            atomicItems.forEach(item => {
-                if (item.classList.contains('section-signatures')) {
-                    currentFlowBody.appendChild(item);
-                } else {
-                    currentSectionsContainer.appendChild(item);
-                }
+            // 1. Append Pre-Remarks Blocks
+            preRemarksBlocks.forEach(b => {
+                currentSectionsContainer.appendChild(b);
+            });
 
-                if (currentFlowBody.scrollHeight > maxH + 4) {
-                    const totalChildren = currentSectionsContainer.children.length + (currentFlowBody.querySelector('.section-signatures') ? 1 : 0);
-                    if (totalChildren > 1) {
-                        if (item.classList.contains('section-signatures')) {
-                            currentFlowBody.removeChild(item);
+            // 2. Append Remarks Heading
+            let remarksHeadingWrap = null;
+            if (remarksHeadingEl) {
+                remarksHeadingWrap = document.createElement('div');
+                remarksHeadingWrap.className = 'flow-block section-03-heading mt-3 avoid-break-after';
+                remarksHeadingWrap.appendChild(remarksHeadingEl.cloneNode(true));
+                currentSectionsContainer.appendChild(remarksHeadingWrap);
+            }
+
+            // 3. Prepare Remarks Paragraphs
+            const rawParagraphs = fullRemarksText
+                ? fullRemarksText.split(/\r?\n/).map(p => p.trim()).filter(Boolean)
+                : [];
+
+            if (rawParagraphs.length === 0 && fullRemarksText.length > 0) {
+                rawParagraphs.push(fullRemarksText.trim());
+            }
+
+            function createParagraphElement(text) {
+                const p = document.createElement('p');
+                p.className = 'flow-block flow-p text-[12px] leading-[2] text-slate-900 text-justify mt-2 whitespace-pre-line break-words';
+                p.textContent = text;
+                return p;
+            }
+
+            let remarksTextPlacedOnCurrentPage = false;
+
+            for (let pIdx = 0; pIdx < rawParagraphs.length; pIdx++) {
+                let remainingText = rawParagraphs[pIdx];
+
+                while (remainingText.length > 0) {
+                    const pEl = createParagraphElement(remainingText);
+                    currentSectionsContainer.appendChild(pEl);
+
+                    if (!isPageOverflowing(currentPage)) {
+                        remarksTextPlacedOnCurrentPage = true;
+                        remainingText = '';
+                    } else {
+                        const words = remainingText.split(/\s+/);
+
+                        let bestK = 0;
+                        if (words.length > 1) {
+                            let low = 1;
+                            let high = words.length - 1;
+
+                            while (low <= high) {
+                                const mid = Math.floor((low + high) / 2);
+                                pEl.textContent = words.slice(0, mid).join(' ');
+                                if (isPageOverflowing(currentPage)) {
+                                    high = mid - 1;
+                                } else {
+                                    bestK = mid;
+                                    low = mid + 1;
+                                }
+                            }
+                        }
+
+                        const isPageEmpty = (currentSectionsContainer.children.length <= 1);
+
+                        if (bestK >= 4 || (isPageEmpty && words.length > 1 && bestK >= 1)) {
+                            const takeCount = Math.max(bestK, 1);
+                            pEl.textContent = words.slice(0, takeCount).join(' ');
+                            remainingText = words.slice(takeCount).join(' ').trim();
+                            remarksTextPlacedOnCurrentPage = true;
+
+                            createNextPage();
+                            remarksTextPlacedOnCurrentPage = false;
+                        } else if (words.length <= 1) {
+                            pEl.textContent = remainingText;
+                            remainingText = '';
+                            remarksTextPlacedOnCurrentPage = true;
+                            break;
                         } else {
-                            currentSectionsContainer.removeChild(item);
-                        }
+                            currentSectionsContainer.removeChild(pEl);
 
-                        // Prevent orphan heading or orphan conditions block
-                        const lastChild = currentSectionsContainer.lastElementChild;
-                        let movedHeaderOrConditions = null;
-                        if (lastChild && (
-                            lastChild.classList.contains('section-03-heading') ||
-                            lastChild.classList.contains('avoid-break-after') ||
-                            (item.classList.contains('section-signatures') && lastChild.classList.contains('section-conditions'))
-                        )) {
-                            movedHeaderOrConditions = lastChild;
-                            currentSectionsContainer.removeChild(lastChild);
-                        }
+                            if (!remarksTextPlacedOnCurrentPage && remarksHeadingWrap && remarksHeadingWrap.parentNode === currentSectionsContainer) {
+                                currentSectionsContainer.removeChild(remarksHeadingWrap);
+                                createNextPage();
+                                currentSectionsContainer.appendChild(remarksHeadingWrap);
+                            } else {
+                                createNextPage();
+                            }
 
-                        appendNewPage();
-
-                        if (movedHeaderOrConditions) {
-                            currentSectionsContainer.appendChild(movedHeaderOrConditions);
-                        }
-
-                        if (item.classList.contains('section-signatures')) {
-                            currentFlowBody.appendChild(item);
-                        } else {
-                            currentSectionsContainer.appendChild(item);
+                            remarksTextPlacedOnCurrentPage = false;
                         }
                     }
                 }
-            });
+            }
+
+            // 4. Append Conditions Block
+            if (conditionsBlock) {
+                currentSectionsContainer.appendChild(conditionsBlock);
+                if (isPageOverflowing(currentPage)) {
+                    currentSectionsContainer.removeChild(conditionsBlock);
+                    createNextPage();
+                    currentSectionsContainer.appendChild(conditionsBlock);
+                }
+            }
+
+            // 5. Append Signatures Block
+            if (signaturesBlock) {
+                currentFlowBody.appendChild(signaturesBlock);
+                if (isPageOverflowing(currentPage)) {
+                    currentFlowBody.removeChild(signaturesBlock);
+
+                    let movedConditions = null;
+                    if (conditionsBlock && conditionsBlock.parentNode === currentSectionsContainer) {
+                        movedConditions = conditionsBlock;
+                        currentSectionsContainer.removeChild(conditionsBlock);
+                    }
+
+                    createNextPage();
+
+                    if (movedConditions) {
+                        currentSectionsContainer.appendChild(movedConditions);
+                    }
+                    currentFlowBody.appendChild(signaturesBlock);
+                }
+            }
         }
 
         function renumberAllPages() {
@@ -1484,6 +1548,11 @@
         };
 
         async function initDpfReport() {
+            if (document.fonts && document.fonts.ready) {
+                try {
+                    await document.fonts.ready;
+                } catch (e) {}
+            }
             autoPaginateAllReports();
             await renderAllPdfAttachments();
             renumberAllPages();

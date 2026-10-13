@@ -54,4 +54,58 @@ class MultiDpfPdfLayoutTest extends TestCase
         // 5. NACOC Watermark
         $this->assertStringContainsString('dossier-watermark', $content);
     }
+
+    public function test_long_remarks_pagination_preserves_all_text_including_final_sentence(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        $firstSentence = 'First sentence of technical extraction notes regarding mobile evidence.';
+        $midParagraph = 'Intermediate paragraph detailing recovered WhatsApp chats and maritime transport manifests shared with Intel.';
+        $finalSentence = 'Final concluding sentence confirms zero integrity tampering and evidence is stored in NACOC vault.';
+
+        $longRemarks = "{$firstSentence}\n\n{$midParagraph}\n\n{$finalSentence}";
+
+        $case = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-LONG-REMARKS',
+            'unit_name' => 'Digital Forensics',
+            'suspect_name' => 'KWAME ADDO',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+
+        \App\Models\DpfReport::create([
+            'dpf_code' => 'DF-STATUS-2026-LONG-TEST',
+            'case_number' => 'NCC-2026-LONG-REMARKS',
+            'single_suspect_case_id' => $case->id,
+            'user_id' => $user->id,
+            'remark' => $longRemarks,
+            'report_data' => [
+                'suspect_name' => 'KWAME ADDO',
+                'case_section_label' => 'CURRENT/NEW CASES',
+            ],
+        ]);
+
+        // 1. Verify multi_dpf_pdf
+        $multiResponse = $this->actingAs($user)->get('/Digital_Forensics/multi_dpf_pdf?cases=NCC-2026-LONG-REMARKS');
+        $multiResponse->assertStatus(200);
+        $multiContent = $multiResponse->getContent();
+
+        $this->assertStringContainsString($firstSentence, $multiContent);
+        $this->assertStringContainsString($midParagraph, $multiContent);
+        $this->assertStringContainsString($finalSentence, $multiContent);
+        $this->assertStringNotContainsString('report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden', $multiContent);
+
+        // 2. Verify dpf_pdf
+        $singleResponse = $this->actingAs($user)->get('/Digital_Forensics/dpf-report-pdf/DF-STATUS-2026-LONG-TEST');
+        $singleResponse->assertStatus(200);
+        $singleContent = $singleResponse->getContent();
+
+        $this->assertStringContainsString($firstSentence, $singleContent);
+        $this->assertStringContainsString($midParagraph, $singleContent);
+        $this->assertStringContainsString($finalSentence, $singleContent);
+        $this->assertStringNotContainsString('report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden', $singleContent);
+    }
 }
