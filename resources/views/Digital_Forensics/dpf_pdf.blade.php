@@ -163,13 +163,22 @@
         $rawSuspects = $case->getSuspectsList();
     } elseif (!empty($case->suspects_list) && is_array($case->suspects_list)) {
         $rawSuspects = $case->suspects_list;
+    } elseif (isset($case->suspects) && count($case->suspects) > 0) {
+        $rawSuspects = $case->suspects->toArray();
+    } elseif (isset($case->underlyingRecord) && isset($case->underlyingRecord->suspects) && count($case->underlyingRecord->suspects) > 0) {
+        $rawSuspects = $case->underlyingRecord->suspects->toArray();
     }
 
     if (empty($rawSuspects)) {
         $rawSuspects[] = [
             'suspect_name' => $suspectName,
+            'role' => 'PRIMARY SUSPECT',
             'mugshot_front' => $case->mugshot_front ?? null,
         ];
+    }
+
+    if (empty($suspectName) || $suspectName === 'PRIMARY SUSPECT') {
+        $suspectName = !empty($rawSuspects[0]['suspect_name']) ? $rawSuspects[0]['suspect_name'] : ($case->suspect_name ?? 'PRIMARY SUSPECT');
     }
 
     $allSuspectNames = array_map(function ($s) {
@@ -235,7 +244,7 @@
         $renderReportFooter = function ($currentPage = 1, $totalPages = null) use ($dpfCode, $totalReportPages) {
             $effectivePages = $totalPages ?? $totalReportPages;
             return '
-            <div class="pt-auto mb-9 border-t footer">
+            <div class="pt-10 mb-1 footer">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-[8px] font-semibold uppercase tracking-wider text-slate-900">
@@ -244,7 +253,7 @@
                     </div>
                     <div class="text-right">
                         <p class="mt-0.5 text-[9px] text-slate-700 text-right">
-                            Digital &amp; Physical Forensics Unit (DPFU) &bull; Page ' . e($currentPage) . ' of ' . e($effectivePages) . '
+                            <span class="dpf-footer-page-num">Digital &amp; Physical Forensics Unit (DPFU) &bull; Page ' . e($currentPage) . ' of ' . e($effectivePages) . '</span>
                         </p>
                     </div>
                 </div>
@@ -447,26 +456,38 @@
         /* A4 Document Styling constraints */
         body {
             font-family: 'Inter', sans-serif;
-            background: #e2e8f0;
-            color: #1e293b;
+            background: #ffffffff;
+            color: #ffffffff;
             margin: 0;
-            padding: 20px 0;
+            padding: 24px 0;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
         .a4-page {
             width: 210mm;
-            min-height: 297mm;
-            padding: 15mm 20mm;
-            margin: 0 auto 20px auto;
+            height: 297mm;
+            max-height: 297mm;
+            padding: 10mm 12mm 10mm 12mm;
+            margin: 0 auto 24px auto;
             background: #ffffff;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
             box-sizing: border-box;
             position: relative;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            overflow: hidden;
+            page-break-after: always;
+            break-after: page;
+        }
+
+        .cover-page {
+            width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
+            padding: 14mm 14mm 12mm 14mm;
+            overflow: hidden;
         }
 
         .page-break {
@@ -474,7 +495,7 @@
             break-after: page;
         }
 
-        .footer, .break-inside-avoid, tr, .signature-block, .no-break {
+        .footer, .break-inside-avoid, tr, .signature-block, .no-break, .avoid-break {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
         }
@@ -490,42 +511,42 @@
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 5mm 0mm;
+                margin: 0;
             }
-            html, body {
-                background: white !important;
+            body {
+                background: transparent !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
             }
             .no-print {
                 display: none !important;
             }
             .a4-page {
                 width: 210mm !important;
-                height: 287mm !important;
-                max-height: 287mm !important;
-                min-height: 287mm !important;
-                margin: 0 auto !important;
-                padding: 10mm 15mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
+                min-height: 297mm !important;
+                margin: 0 !important;
+                padding: 10mm 12mm 10mm 12mm !important;
                 box-shadow: none !important;
                 page-break-after: always !important;
                 break-after: page !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+                overflow: hidden !important;
                 box-sizing: border-box !important;
                 display: flex !important;
                 flex-direction: column !important;
                 justify-content: space-between !important;
-                overflow: hidden !important;
+                background: #ffffff !important;
+            }
+            .cover-page {
+                padding: 14mm 14mm 12mm 14mm !important;
             }
             .a4-page.a4-page-attachment {
-                padding: 6mm 8mm !important;
-                height: 287mm !important;
-                max-height: 287mm !important;
+                padding: 8mm 12mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
             }
             .a4-page:last-child {
                 page-break-after: avoid !important;
@@ -565,7 +586,7 @@
         <!-- ============================================================
              PAGE 1: OFFICIAL FORENSIC DPF COVER PAGE
              ============================================================ -->
-        <div class="a4-page page-break relative text-slate-900">
+        <div class="a4-page cover-page page-break relative text-slate-900">
 
             <!-- SUBTLE NACOC WATERMARK -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
@@ -588,8 +609,8 @@
                         <!-- TOP RIGHT BADGE -->
                         <div class="absolute top-0 right-0 text-right">
                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
-                            <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800">
-                                DPF &bull; Page 1 of {{ $totalReportPages }}
+                            <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800" id="page1HeaderBadge">
+                                DPF &bull; Page 1 of <span class="doc-total-pages">{{ $totalReportPages }}</span>
                             </p>
                         </div>
 
@@ -713,8 +734,11 @@
                                         <span class="mt-1.5 text-[8px] font-bold uppercase tracking-wider text-slate-700 truncate max-w-[110px] text-center">
                                             {{ $sNameDisp }}
                                         </span>
-                                        <span class="text-[7px] font-semibold uppercase tracking-wider text-emerald-700">
-                                            Front View Photo
+                                        @php
+                                            $sRoleBadge = strtoupper($sItem['role'] ?? ($sIdx === 0 ? 'PRIMARY SUSPECT' : 'CO-SUSPECT'));
+                                        @endphp
+                                        <span class="text-[7px] font-extrabold uppercase tracking-wider {{ str_contains($sRoleBadge, 'PRIMARY') ? 'text-emerald-700' : 'text-slate-600' }}">
+                                            {{ $sRoleBadge }}
                                         </span>
                                     </div>
                                 @endforeach
@@ -772,7 +796,7 @@
         <!-- ============================================================
              PAGE 2: ANALYTICAL & TECHNICAL INVESTIGATION LOG REPORT
              ============================================================ -->
-        <div class="a4-page relative text-slate-900 {{ !empty($attachedFiles) ? 'page-break' : '' }}">
+        <div class="a4-page report-page auto-paginated-root relative text-slate-900 {{ !empty($attachedFiles) ? 'page-break' : '' }}">
 
             <!-- SUBTLE NACOC WATERMARK -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
@@ -781,8 +805,8 @@
 
             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
 
-                <div>
-                    <!-- PAGE 2 HEADER -->
+                <!-- PAGE HEADER -->
+                <div class="page-header-block shrink-0">
                     <div class="relative pt-2 pb-3 border-b border-slate-300 flex items-center justify-between">
                         <div>
                             <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
@@ -794,12 +818,12 @@
                         </div>
                         <div class="text-right">
                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">REPORT</p>
-                            <p class="mt-0.5 text-[10px] font-bold text-slate-900">Page 2 of {{ $totalReportPages }}</p>
+                            <p class="mt-0.5 text-[10px] font-bold text-slate-900 dpf-header-page-num">Page 2 of <span class="doc-total-pages">{{ $totalReportPages }}</span></p>
                         </div>
                     </div>
 
                     <!-- DOCUMENT TITLE SUBHEADER -->
-                    <div class="mt-2.5 pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                    <div class="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between">
                         <div>
                             <span class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Title</span>
                             <span class="ml-2 text-[10px] font-bold uppercase text-slate-900">Digital Forensic Investigation Status Log</span>
@@ -809,172 +833,176 @@
                             <span class="ml-2 text-[10px] font-bold text-slate-900 font-mono-code">{{ $dpfCode }}</span>
                         </div>
                     </div>
-
-                    <!-- SECTION 01: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
-                    <div class="mt-10">
-                        <div class="flex items-center gap-3 mb-1">
-                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                01
-                            </span>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                        Brief Case Description
-                                    </h3>
-                                    <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
-                                        Intelligence Fact Sheet
-                                    </span>
-                                </div>
-                                <div class="mt-0.5 h-px bg-slate-200"></div>
-                            </div>
-                        </div>
-
-                        <div class="text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
-                            {{ $briefDescription }}
-                        </div>
-                    </div>
-
-                    <!-- SECTION 02: LEGAL & OPERATIONAL PROCESS STATUS -->
-                    <div class="mt-10">
-                        <div class="flex items-center gap-3 mb-1">
-                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                02
-                            </span>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                        Legal &amp; Operational Process Status
-                                    </h3>
-                                    <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
-                                        Warrant &amp; Docket Verification
-                                    </span>
-                                </div>
-                                <div class="mt-0.5 h-px bg-slate-200"></div>
-                            </div>
-                        </div>
-
-                        <div class="overflow-hidden border-y border-slate-300">
-                            <table class="w-full text-left border-collapse table-fixed">
-                                <thead>
-                                    <tr class="border-b border-slate-300 bg-slate-100/50">
-                                        <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
-                                            Process Phase
-                                        </th>
-                                        <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
-                                            Status
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody class="text-[12px] text-slate-800">
-                                    <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Requested</td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ $courtRequested === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtRequested }}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">
-                                            Court Order Warrant Granted
-                                            @if(!empty($coList))
-                                                <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
-                                                    ✔ {{ count($coList) === 1 ? '1 Document Attached' : count($coList) . ' Documents Attached' }}
-                                                </span>
-                                            @endif
-                                        </td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ $courtGranted === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtGranted }}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Extraction &amp; Forensic Analysis Conducted</td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with(strtoupper($extractionConducted), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($extractionConducted), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $extractionConducted }}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">
-                                            Report, Witness Statement &amp; Digital Evidence Sent to Investigations
-                                            @if(!empty($rwList))
-                                                <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
-                                                    ✔ {{ count($rwList) === 1 ? '1 Document Attached' : count($rwList) . ' Documents Attached' }}
-                                                </span>
-                                            @endif
-                                        </td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with(strtoupper($reportWitnessSent), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($reportWitnessSent), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $reportWitnessSent }}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-200">
-                                        <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Intelligence Shared to Intel Department for Action</td>
-                                        <td class="py-1 px-2.5 text-center font-extrabold {{ $intelShared === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $intelShared }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- SECTION 03: REMARKS & OBSERVATIONS -->
-                    <div class="mt-10">
-                        <div class="flex items-center gap-3 mb-1">
-                            <span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                03
-                            </span>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                        Remarks
-                                    </h3>
-                                    <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
-                                        Technical Observations
-                                    </span>
-                                </div>
-                                <div class="mt-0.5 h-px bg-slate-200"></div>
-                            </div>
-                        </div>
-
-                        <div class="text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
-                            {{ $remarkVal }}
-                        </div>
-                    </div>
-
-                    <!-- CONDITIONS & DISCLAIMER NOTE -->
-                    <div class="mt-9 pt-2 border-t border-slate-200">
-                        <p class="text-[9.5px] font-semibold text-slate-800 mb-1 italic">
-                            Note: The result(s) relate only to the item(s) / digital exhibit(s) examined
-                        </p>
-                        <p class="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-900 mb-1">
-                            Conditions:
-                        </p>
-                        <ol class="list-decimal list-inside space-y-0.5 text-[9px] font-medium text-slate-700 leading-tight pl-0.5">
-                            <li>Not valid without NACOC Digital &amp; Physical Forensics Unit approval.</li>
-                            <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
-                            <li>This report shall not be reproduced in part without the written approval of the Director General of NACOC.</li>
-                        </ol>
-                    </div>
                 </div>
 
-                <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
-                <div>
-                    <!-- SIGNATURES -->
-                    <div class="mt-9 pt-2 pb-0 footer no-break">
+                <!-- FLOW CONTENT BODY -->
+                <div class="report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+                    <div class="flow-sections-container">
+                        <!-- SECTION 01: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
+                        <div class="flow-block section-01 mt-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                    01
+                                </span>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                            Brief Case Description
+                                        </h3>
+                                        <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Intelligence Fact Sheet
+                                        </span>
+                                    </div>
+                                    <div class="mt-0.5 h-px bg-slate-200"></div>
+                                </div>
+                            </div>
+
+                            <div class="text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
+                                {{ $briefDescription }}
+                            </div>
+                        </div>
+
+                        <!-- SECTION 02: LEGAL & OPERATIONAL PROCESS STATUS -->
+                        <div class="flow-block section-02 mt-3 avoid-break">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                    02
+                                </span>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                            Legal &amp; Operational Process Status
+                                        </h3>
+                                        <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Warrant &amp; Docket Verification
+                                        </span>
+                                    </div>
+                                    <div class="mt-0.5 h-px bg-slate-200"></div>
+                                </div>
+                            </div>
+
+                            <div class="overflow-hidden border-y border-slate-300">
+                                <table class="w-full text-left border-collapse table-fixed">
+                                    <thead>
+                                        <tr class="border-b border-slate-300 bg-slate-100/50">
+                                            <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
+                                                Process Phase
+                                            </th>
+                                            <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
+                                                Status
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-[12px] text-slate-800">
+                                        <tr class="border-b border-slate-200">
+                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Requested</td>
+                                            <td class="py-1 px-2.5 text-center font-extrabold {{ $courtRequested === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtRequested }}</td>
+                                        </tr>
+                                        <tr class="border-b border-slate-200">
+                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">
+                                                Court Order Warrant Granted
+                                                @if(!empty($coList))
+                                                    <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                        ✔ {{ count($coList) === 1 ? '1 Document Attached' : count($coList) . ' Documents Attached' }}
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="py-1 px-2.5 text-center font-extrabold {{ $courtGranted === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtGranted }}</td>
+                                        </tr>
+                                        <tr class="border-b border-slate-200">
+                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Extraction &amp; Forensic Analysis Conducted</td>
+                                            <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with(strtoupper($extractionConducted), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($extractionConducted), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $extractionConducted }}</td>
+                                        </tr>
+                                        <tr class="border-b border-slate-200">
+                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">
+                                                Report, Witness Statement &amp; Digital Evidence Sent to Investigations
+                                                @if(!empty($rwList))
+                                                    <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                        ✔ {{ count($rwList) === 1 ? '1 Document Attached' : count($rwList) . ' Documents Attached' }}
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with(strtoupper($reportWitnessSent), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($reportWitnessSent), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $reportWitnessSent }}</td>
+                                        </tr>
+                                        <tr class="border-b border-slate-200">
+                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Intelligence Shared to Intel Department for Action</td>
+                                            <td class="py-1 px-2.5 text-center font-extrabold {{ $intelShared === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $intelShared }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- SECTION 03: REMARKS & OBSERVATIONS -->
+                        <div class="flow-block section-03 mt-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                    03
+                                </span>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                            Remarks
+                                        </h3>
+                                        <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Technical Observations
+                                        </span>
+                                    </div>
+                                    <div class="mt-0.5 h-px bg-slate-200"></div>
+                                </div>
+                            </div>
+
+                            <div class="flow-text text-[12px] leading-relaxed text-slate-700 whitespace-pre-line pt-0">
+                                {{ $remarkVal }}
+                            </div>
+                        </div>
+
+                        <!-- CONDITIONS & DISCLAIMER NOTE -->
+                        <div class="flow-block section-conditions mt-3 pt-2 border-t border-slate-200 avoid-break">
+                            <p class="text-[9px] font-semibold text-slate-800 mb-0.5 italic">
+                                Note: The result(s) relate only to the item(s) / digital exhibit(s) examined
+                            </p>
+                            <p class="text-[9px] font-extrabold uppercase tracking-wider text-slate-900 mb-0.5">
+                                Conditions:
+                            </p>
+                            <ol class="list-decimal list-inside space-y-0.5 text-[8.5px] font-medium text-slate-700 leading-tight pl-0.5">
+                                <li>Not valid without NACOC Digital &amp; Physical Forensics Unit approval.</li>
+                                <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
+                                <li>This report shall not be reproduced in part without the written approval of the Director General of NACOC.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
+                    <div class="flow-block section-signatures mt-3 footer avoid-break">
                         <div class="grid grid-cols-2 gap-10">
                             <!-- HEAD OF DIGITAL & PHYSICAL FORENSICS UNIT -->
                             <div>
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
-                                <div class="mt-5 border-b border-dashed border-slate-300 pb-1">
+                                <div class="mt-3 border-b border-dashed border-slate-300 pb-1">
                                     <span class="text-[8px] italic text-slate-700">Electronically Signed &amp; Validated</span>
                                 </div>
-                                <p class="mt-1.5 text-[10px] font-bold text-slate-900">{{ $dpfHeadName }}</p>
+                                <p class="mt-1 text-[10px] font-bold text-slate-900">{{ $dpfHeadName }}</p>
                                 <p class="text-[8px] text-slate-900">Head of Digital &amp; Physical Forensics Unit</p>
-                                <p class="text-[8px] text-slate-700">Digital &amp; Physical Forensics Unit, NACOC</p>
+                                <p class="text-[7.5px] text-slate-700">Digital &amp; Physical Forensics Unit, NACOC</p>
                             </div>
 
                             <!-- HEAD OF FORENSIC DEPARTMENT -->
                             <div>
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
-                                <div class="mt-5 border-b border-dashed border-slate-300 pb-1">
+                                <div class="mt-3 border-b border-dashed border-slate-300 pb-1">
                                     <span class="text-[8px] italic text-slate-700">Authorized &amp; Counter-signed</span>
                                 </div>
-                                <p class="mt-1.5 text-[10px] font-bold text-slate-900">{{ $deptHeadName }}</p>
+                                <p class="mt-1 text-[10px] font-bold text-slate-900">{{ $deptHeadName }}</p>
                                 <p class="text-[8px] text-slate-900">Head of Forensic Department</p>
-                                <p class="text-[8px] text-slate-700">Forensic Department, NACOC</p>
+                                <p class="text-[7.5px] text-slate-700">Forensic Department, NACOC</p>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- PAGE 2 FOOTER -->
+                <!-- PAGE FOOTER -->
+                <div class="page-footer-block shrink-0 mt-auto">
                     {!! $renderReportFooter(2, $totalReportPages) !!}
                 </div>
 
@@ -1251,23 +1279,199 @@
             renumberAllPages();
         }
 
+        function splitTextIntoAtomicParagraphs(text) {
+            if (!text) return [];
+            const rawLines = text.split(/\r?\n+/).map(l => l.trim()).filter(Boolean);
+            const finalChunks = [];
+
+            rawLines.forEach(line => {
+                if (line.length <= 250) {
+                    finalChunks.push(line);
+                    return;
+                }
+                const sentences = line.split(/(?<=[.!?])\s+|(?<=[.!?])(?=[A-Z])/).map(s => s.trim()).filter(Boolean);
+                let accum = '';
+                sentences.forEach(s => {
+                    if (s.length > 300) {
+                        const words = s.split(/\s+/).filter(Boolean);
+                        let wAccum = '';
+                        words.forEach(w => {
+                            if ((wAccum + ' ' + w).trim().length > 220 && wAccum.length > 0) {
+                                finalChunks.push(wAccum.trim());
+                                wAccum = w;
+                            } else {
+                                wAccum = (wAccum + ' ' + w).trim();
+                            }
+                        });
+                        if (wAccum.trim().length > 0) {
+                            s = wAccum.trim();
+                        }
+                    }
+                    if ((accum + ' ' + s).trim().length > 250 && accum.length > 0) {
+                        finalChunks.push(accum.trim());
+                        accum = s;
+                    } else {
+                        accum = (accum + ' ' + s).trim();
+                    }
+                });
+                if (accum.trim().length > 0) {
+                    finalChunks.push(accum.trim());
+                }
+            });
+
+            return finalChunks.length > 0 ? finalChunks : [text.trim()];
+        }
+
+        function autoPaginateAllReports() {
+            const reportRoots = document.querySelectorAll('#dpfReportSheet .auto-paginated-root');
+            reportRoots.forEach(page => paginateReportPage(page));
+        }
+
+        function paginateReportPage(pageEl) {
+            const headerBlock = pageEl.querySelector('.page-header-block');
+            const flowBody = pageEl.querySelector('.report-flow-body');
+            const footerBlock = pageEl.querySelector('.page-footer-block');
+            if (!flowBody || !headerBlock || !footerBlock) return;
+
+            const maxH = pageEl.clientHeight - headerBlock.offsetHeight - footerBlock.offsetHeight - 15;
+            if (flowBody.scrollHeight <= maxH + 4) return;
+
+            const sectionsContainer = flowBody.querySelector('.flow-sections-container');
+            const signaturesBlock = flowBody.querySelector('.section-signatures');
+            const rawBlocks = sectionsContainer ? Array.from(sectionsContainer.children) : [];
+            if (signaturesBlock) rawBlocks.push(signaturesBlock);
+
+            const atomicItems = [];
+
+            rawBlocks.forEach(block => {
+                const hasTable = !!block.querySelector('table');
+                const isRemarks = (block.classList.contains('section-03') || block.classList.contains('section-remarks')) && !hasTable;
+
+                if (isRemarks && block.querySelector('.flow-text')) {
+                    const heading = block.querySelector('.flex.items-center');
+                    const textElem = block.querySelector('.flow-text');
+                    const fullText = (textElem ? textElem.innerText : '').trim();
+                    const atomicParagraphs = splitTextIntoAtomicParagraphs(fullText);
+
+                    if (heading) {
+                        const hWrap = document.createElement('div');
+                        hWrap.className = 'flow-block section-03-heading mt-3 avoid-break-after';
+                        hWrap.appendChild(heading.cloneNode(true));
+                        atomicItems.push(hWrap);
+                    }
+
+                    if (atomicParagraphs.length > 0) {
+                        atomicParagraphs.forEach(p => {
+                            const pDiv = document.createElement('div');
+                            pDiv.className = 'flow-block flow-p text-[12px] leading-relaxed text-slate-700 mt-2';
+                            pDiv.innerText = p.trim();
+                            atomicItems.push(pDiv);
+                        });
+                    }
+                } else {
+                    atomicItems.push(block);
+                }
+            });
+
+            flowBody.innerHTML = '';
+            const newSectionsContainer = document.createElement('div');
+            newSectionsContainer.className = 'flow-sections-container';
+            flowBody.appendChild(newSectionsContainer);
+
+            let currentPage = pageEl;
+            let currentSectionsContainer = newSectionsContainer;
+            let currentFlowBody = flowBody;
+
+            function appendNewPage() {
+                const nextPg = pageEl.cloneNode(false);
+                nextPg.className = 'a4-page report-page generated-flow-page relative text-slate-900 page-break';
+
+                const wm = pageEl.querySelector('.absolute.inset-0');
+                if (wm) nextPg.appendChild(wm.cloneNode(true));
+
+                const inner = document.createElement('div');
+                inner.className = 'relative z-10 flex flex-col justify-between h-full min-h-0';
+
+                const hdr = headerBlock.cloneNode(true);
+                const bdy = document.createElement('div');
+                bdy.className = 'report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden';
+                const secCont = document.createElement('div');
+                secCont.className = 'flow-sections-container';
+                bdy.appendChild(secCont);
+
+                const ftr = footerBlock.cloneNode(true);
+
+                inner.appendChild(hdr);
+                inner.appendChild(bdy);
+                inner.appendChild(ftr);
+                nextPg.appendChild(inner);
+
+                currentPage.parentNode.insertBefore(nextPg, currentPage.nextSibling);
+                currentPage = nextPg;
+                currentSectionsContainer = secCont;
+                currentFlowBody = bdy;
+            }
+
+            atomicItems.forEach(item => {
+                if (item.classList.contains('section-signatures')) {
+                    currentFlowBody.appendChild(item);
+                } else {
+                    currentSectionsContainer.appendChild(item);
+                }
+
+                if (currentFlowBody.scrollHeight > maxH + 4) {
+                    const totalChildren = currentSectionsContainer.children.length + (currentFlowBody.querySelector('.section-signatures') ? 1 : 0);
+                    if (totalChildren > 1) {
+                        if (item.classList.contains('section-signatures')) {
+                            currentFlowBody.removeChild(item);
+                        } else {
+                            currentSectionsContainer.removeChild(item);
+                        }
+
+                        // Prevent orphan heading or orphan conditions block
+                        const lastChild = currentSectionsContainer.lastElementChild;
+                        let movedHeaderOrConditions = null;
+                        if (lastChild && (
+                            lastChild.classList.contains('section-03-heading') ||
+                            lastChild.classList.contains('avoid-break-after') ||
+                            (item.classList.contains('section-signatures') && lastChild.classList.contains('section-conditions'))
+                        )) {
+                            movedHeaderOrConditions = lastChild;
+                            currentSectionsContainer.removeChild(lastChild);
+                        }
+
+                        appendNewPage();
+
+                        if (movedHeaderOrConditions) {
+                            currentSectionsContainer.appendChild(movedHeaderOrConditions);
+                        }
+
+                        if (item.classList.contains('section-signatures')) {
+                            currentFlowBody.appendChild(item);
+                        } else {
+                            currentSectionsContainer.appendChild(item);
+                        }
+                    }
+                }
+            });
+        }
+
         function renumberAllPages() {
             const pages = document.querySelectorAll('#dpfReportSheet .a4-page');
             const total = pages.length;
 
             const p1Badge = document.getElementById('page1HeaderBadge');
-            if (p1Badge) p1Badge.textContent = `DPF • Page 1 of ${total}`;
+            if (p1Badge) p1Badge.innerHTML = `DPF &bull; Page 1 of <span class="doc-total-pages">${total}</span>`;
 
-            const p2Badge = document.getElementById('page2HeaderBadge');
-            if (p2Badge) p2Badge.textContent = `Page 2 of ${total}`;
+            document.querySelectorAll('.doc-total-pages').forEach(el => el.textContent = total);
 
             pages.forEach((p, idx) => {
                 const pageNum = idx + 1;
                 const hBadge = p.querySelector('.dpf-header-page-num');
-                if (hBadge) hBadge.textContent = `Page ${pageNum} of ${total}`;
+                if (hBadge) hBadge.innerHTML = `Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
 
                 const fBadge = p.querySelector('.dpf-footer-page-num');
-                if (fBadge) fBadge.textContent = `Page ${pageNum} of ${total}`;
+                if (fBadge) fBadge.textContent = `Digital & Physical Forensics Unit (DPFU) • Page ${pageNum} of ${total}`;
             });
         }
 
@@ -1279,10 +1483,16 @@
             window.print();
         };
 
+        async function initDpfReport() {
+            autoPaginateAllReports();
+            await renderAllPdfAttachments();
+            renumberAllPages();
+        }
+
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', renderAllPdfAttachments);
+            document.addEventListener('DOMContentLoaded', initDpfReport);
         } else {
-            renderAllPdfAttachments();
+            initDpfReport();
         }
     </script>
 </body>

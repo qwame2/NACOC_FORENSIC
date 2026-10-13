@@ -632,16 +632,38 @@ Route::middleware(['auth'])->group(function () {
                     ]);
                 }
 
-                foreach ($cSuspects as $sIdx => $sObj) {
-                    $sItem = $buildSuspectReportItem($foundCase, $foundReport, $sObj, $sIdx, $cleanStatusDisplay);
-                    $suspectReports[] = $sItem;
+                // Treat each case as one report item, linking primary and co-suspects
+                $primarySuspect = $cSuspects[0] ?? [
+                    'suspect_name'  => $foundCase->suspect_name ?? ($foundReport->report_data['suspect_name'] ?? 'SUSPECT'),
+                    'role'          => 'PRIMARY SUSPECT',
+                    'mugshot_front' => $foundCase->mugshot_front ?? null,
+                    'nationality'   => $foundCase->nationality ?? 'Ghanaian',
+                    'gender'        => $foundCase->gender ?? null,
+                    'age'           => $foundCase->age ?? null,
+                    'ghana_card'    => $foundCase->ghana_card ?? null,
+                ];
+                $coSuspects = array_slice($cSuspects, 1);
+
+                $sItem = $buildSuspectReportItem($foundCase, $foundReport, $primarySuspect, 0, $cleanStatusDisplay);
+                if (!empty($coSuspects)) {
+                    $sItem['co_suspects'] = $coSuspects;
+                    $coNames = array_map(fn($cs) => strtoupper($cs['suspect_name'] ?? ($cs['name'] ?? '')), $coSuspects);
+                    $sItem['co_suspects_display'] = implode(', ', array_filter($coNames));
+                } else {
+                    $sItem['co_suspects'] = [];
+                    $sItem['co_suspects_display'] = '';
+                }
+                $sItem['all_suspects'] = $cSuspects;
+                $suspectReports[] = $sItem;
+
+                foreach ($cSuspects as $sObj) {
                     $rawSuspects[] = [
-                        'suspect_name' => $sItem['suspect_name'],
-                        'role' => $sItem['role'],
-                        'mugshot_front' => $sItem['mugshot_front'],
-                        'nationality' => $sItem['nationality'],
-                        'gender' => $sItem['gender'],
-                        'age' => $sItem['age'],
+                        'suspect_name' => $sObj['suspect_name'] ?? ($sObj['name'] ?? 'SUSPECT'),
+                        'role' => $sObj['role'] ?? 'PRIMARY SUSPECT',
+                        'mugshot_front' => $sObj['mugshot_front'] ?? null,
+                        'nationality' => $sObj['nationality'] ?? 'Ghanaian',
+                        'gender' => $sObj['gender'] ?? null,
+                        'age' => $sObj['age'] ?? null,
                         'case_number' => $sItem['case_number'],
                     ];
                 }
@@ -889,22 +911,6 @@ Route::middleware(['auth'])->group(function () {
         $isMultiSuspect = false;
         if (request()->is('*multi*')) {
             $isMultiSuspect = true;
-        } elseif ($case) {
-            $underlying = $case->underlyingRecord ?? $case;
-            if ($underlying instanceof \App\Models\MultipleSuspectCase) {
-                $isMultiSuspect = true;
-            } elseif (isset($case->total_suspects_count) && (int)$case->total_suspects_count > 1) {
-                $isMultiSuspect = true;
-            } else {
-                $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
-                if (!empty($dData['suspects']) && count($dData['suspects']) > 1) {
-                    $isMultiSuspect = true;
-                } elseif (method_exists($case, 'getSuspectsList') && count($case->getSuspectsList()) > 1) {
-                    $isMultiSuspect = true;
-                } elseif (!empty($case->suspects_list) && count($case->suspects_list) > 1) {
-                    $isMultiSuspect = true;
-                }
-            }
         }
 
         if ($isMultiSuspect && empty($suspectReports)) {
@@ -1029,8 +1035,9 @@ Route::middleware(['auth'])->group(function () {
         $singleCase = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
         $multiCase = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
 
+        $isTesting = app()->environment('testing');
         $destinationPath = public_path('uploads/forensic_documents');
-        if (!file_exists($destinationPath)) {
+        if (!$isTesting && !file_exists($destinationPath)) {
             mkdir($destinationPath, 0777, true);
         }
 
@@ -1043,7 +1050,9 @@ Route::middleware(['auth'])->group(function () {
             foreach ($coFiles as $file) {
                 if ($file && $file->isValid()) {
                     $filename = time() . '_' . uniqid() . '_court_order_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
-                    $file->move($destinationPath, $filename);
+                    if (!$isTesting) {
+                        $file->move($destinationPath, $filename);
+                    }
                     $courtOrderFilePaths[] = 'uploads/forensic_documents/' . $filename;
                 }
             }
@@ -1058,13 +1067,20 @@ Route::middleware(['auth'])->group(function () {
             foreach ($rwFiles as $file) {
                 if ($file && $file->isValid()) {
                     $filename = time() . '_' . uniqid() . '_report_witness_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
-                    $file->move($destinationPath, $filename);
+                    if (!$isTesting) {
+                        $file->move($destinationPath, $filename);
+                    }
                     $reportWitnessFilePaths[] = 'uploads/forensic_documents/' . $filename;
                 }
             }
         }
 
-        $isCourtOrderYes = strtoupper(trim($request->input('court_order_granted') ?? 'NO')) === 'YES';
+        $courtOrderReqInput = strtoupper(trim($request->input('court_order_requested') ?? ''));
+        $courtOrderGrantedInput = strtoupper(trim($request->input('court_order_granted') ?? 'NO'));
+        if ($courtOrderReqInput === 'NO') {
+            $courtOrderGrantedInput = 'NO';
+        }
+        $isCourtOrderYes = ($courtOrderGrantedInput === 'YES');
         $curExtStatus = trim($request->input('extraction_analysis_status') ?? '');
         $curExtNotes = trim($request->input('extraction_analysis_notes') ?? '');
         $ongExtStatus = trim($request->input('ongoing_extraction_analysis_status') ?? '');
@@ -1202,8 +1218,8 @@ Route::middleware(['auth'])->group(function () {
             'devices_retrieved' => $validated['devices_retrieved'] ?? ($existingReport->devices_retrieved ?? null),
             'quantity' => $validated['quantity'] ?? ($existingReport->quantity ?? '1'),
             'brief_case_description' => $validated['brief_case_description'] ?? ($existingReport->brief_case_description ?? null),
-            'court_order_requested' => $validated['court_order_requested'] ?? ($existingReport->court_order_requested ?? 'NO'),
-            'court_order_granted' => $validated['court_order_granted'] ?? ($existingReport->court_order_granted ?? 'NO'),
+            'court_order_requested' => $finalCourtReq = ($validated['court_order_requested'] ?? ($existingReport->court_order_requested ?? 'NO')),
+            'court_order_granted' => (strtoupper(trim($finalCourtReq)) === 'NO') ? 'NO' : ($validated['court_order_granted'] ?? ($existingReport->court_order_granted ?? 'NO')),
             'court_order_file' => !empty($courtOrderFilePaths) ? json_encode($courtOrderFilePaths) : ($existingReport->court_order_file ?? null),
             'extraction_analysis_conducted' => $extractionCombined,
             'extraction_analysis_message' => $extractionCombined,

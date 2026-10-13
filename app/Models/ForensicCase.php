@@ -821,15 +821,27 @@ class ForensicCase extends Model
                     'nationality'              => $s['nationality'] ?? ($attributes['nationality'] ?? 'Ghanaian'),
                     'phone'                    => $s['phone'] ?? ($sIdx === 0 ? ($attributes['phone'] ?? null) : null),
                     'phones'                   => $s['phones'] ?? ($s['additional_phones'] ?? ($sIdx === 0 ? ($attributes['phones'] ?? null) : null)),
-                    'address'                  => $s['address'] ?? null,
+                    'pob'                      => $s['pob'] ?? ($s['place_of_birth'] ?? ($s['hometown'] ?? ($sIdx === 0 ? ($attributes['pob'] ?? null) : null))),
+                    'address'                  => $s['address'] ?? ($s['residential_address'] ?? ($s['gps'] ?? ($sIdx === 0 ? ($attributes['address'] ?? null) : null))),
+                    'marital_status'           => $s['marital_status'] ?? ($sIdx === 0 ? ($attributes['marital_status'] ?? null) : null),
+                    'has_children'             => !empty($s['has_children']) || (!empty($attributes['has_children']) && $sIdx === 0),
+                    'children_count'           => isset($s['children_count']) && $s['children_count'] !== '' ? (int)$s['children_count'] : ($sIdx === 0 ? ($attributes['children_count'] ?? null) : null),
+                    'spouse_name'              => $s['spouse_name'] ?? ($sIdx === 0 ? ($attributes['spouse_name'] ?? null) : null),
+                    'spouse_phone'             => $s['spouse_phone'] ?? ($sIdx === 0 ? ($attributes['spouse_phone'] ?? null) : null),
+                    'spouse_info'              => $s['spouse_info'] ?? ($sIdx === 0 ? ($attributes['spouse_info'] ?? null) : null),
+                    'partner_name'             => $s['partner_name'] ?? ($sIdx === 0 ? ($attributes['partner_name'] ?? null) : null),
+                    'partner_phone'            => $s['partner_phone'] ?? ($sIdx === 0 ? ($attributes['partner_phone'] ?? null) : null),
+                    'partner_info'             => $s['partner_info'] ?? ($sIdx === 0 ? ($attributes['partner_info'] ?? null) : null),
+                    'dependents'               => $s['dependents'] ?? ($sIdx === 0 ? ($attributes['dependents'] ?? null) : null),
+                    'height_unit'              => $s['height_unit'] ?? null,
                     'holding_facility'         => $s['holding_facility'] ?? ($s['facility'] ?? ($attributes['holding_facility'] ?? null)),
                     'raid_location'            => $s['raid_location'] ?? ($s['location'] ?? ($attributes['raid_location'] ?? null)),
                     'offense_description'      => $s['offense'] ?? ($s['offense_description'] ?? ($attributes['offense_description'] ?? null)),
                     'arrest_date'              => $s['date_of_arrest'] ?? ($s['arrest_date'] ?? ($attributes['arrest_date'] ?? null)),
                     'arrest_time'              => $s['time_of_arrest'] ?? ($s['arrest_time'] ?? ($attributes['arrest_time'] ?? null)),
-                    'mugshot_front'            => $s['mugshot_front'] ?? ($sIdx === 0 ? ($attributes['mugshot_front'] ?? null) : null),
-                    'mugshot_left'             => $s['mugshot_left'] ?? ($sIdx === 0 ? ($attributes['mugshot_left'] ?? null) : null),
-                    'mugshot_right'            => $s['mugshot_right'] ?? ($sIdx === 0 ? ($attributes['mugshot_right'] ?? null) : null),
+                    'mugshot_front'            => $s['mugshot_front'] ?? ($s['mugshots']['front'] ?? ($sIdx === 0 ? ($attributes['mugshot_front'] ?? null) : null)),
+                    'mugshot_left'             => $s['mugshot_left'] ?? ($s['mugshots']['left'] ?? ($sIdx === 0 ? ($attributes['mugshot_left'] ?? null) : null)),
+                    'mugshot_right'            => $s['mugshot_right'] ?? ($s['mugshots']['right'] ?? ($sIdx === 0 ? ($attributes['mugshot_right'] ?? null) : null)),
                 ]);
                 $createdSuspects[] = $cs;
             }
@@ -1886,31 +1898,74 @@ class ForensicCase extends Model
 
             if ($dbSuspects->count() > 0) {
                 foreach ($dbSuspects as $idx => $s) {
+                    $docketSp = null;
+                    if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
+                        foreach ($docketData['suspects'] as $ds) {
+                            if (!empty($ds['suspect_name']) && strtolower(trim($ds['suspect_name'])) === strtolower(trim($s->suspect_name))) {
+                                $docketSp = $ds;
+                                break;
+                            }
+                        }
+                        if (!$docketSp && isset($docketData['suspects'][$idx])) {
+                            $docketSp = $docketData['suspects'][$idx];
+                        }
+                    }
+
+                    $pobVal = $s->pob ?? ($docketSp['pob'] ?? ($docketSp['place_of_birth'] ?? ($docketSp['hometown'] ?? null)));
+                    $addrVal = $s->address ?? ($docketSp['address'] ?? ($docketSp['residential_address'] ?? ($docketSp['gps'] ?? null)));
+                    $maritalVal = $s->marital_status ?? ($docketSp['marital_status'] ?? null);
+                    $mFront = $s->mugshot_front ?? ($docketSp['mugshot_front'] ?? ($docketSp['mugshots']['front'] ?? null));
+                    $mLeft  = $s->mugshot_left  ?? ($docketSp['mugshot_left']  ?? ($docketSp['mugshots']['left'] ?? null));
+                    $mRight = $s->mugshot_right ?? ($docketSp['mugshot_right'] ?? ($docketSp['mugshots']['right'] ?? null));
+
                     $list[] = [
                         'id'                     => $s->id,
                         'suspect_number'         => $s->suspect_number,
                         'suspect_name'           => $s->suspect_name,
-                        'suspect_alias'          => $s->suspect_alias ?? 'N/A',
-                        'role'                   => $s->role ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect'),
-                        'association_role'       => $s->role ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect'),
-                        'associate_id'           => $s->associate_id,
+                        'suspect_alias'          => $s->suspect_alias ?? ($docketSp['suspect_alias'] ?? 'N/A'),
+                        'role'                   => $s->role ?? ($docketSp['role'] ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect')),
+                        'association_role'       => $s->role ?? ($docketSp['association_role'] ?? ($docketSp['role'] ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect'))),
+                        'associate_id'           => $s->associate_id ?? ($docketSp['associate_id'] ?? null),
                         'suspect_disposition'    => self::normalizeSuspectDisposition($s->suspect_disposition),
                         'disposition_reason'     => $s->disposition_reason,
                         'disposition_updated_at' => $s->disposition_updated_at,
                         'disposition_updated_by' => $s->disposition_updated_by,
-                        'ghana_card'             => $s->ghana_card,
-                        'gender'                 => $s->gender,
-                        'dob'                    => $s->dob,
-                        'phone'                  => $s->phone,
-                        'phones'                 => !empty($s->phones) ? $s->phones : ($idx === 0 ? ($this->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))) : null),
-                        'holding_facility'       => $s->holding_facility ?? ($this->holding_facility ?? null),
-                        'raid_location'          => $s->raid_location ?? ($this->raid_location ?? null),
-                        'offense_description'    => $s->offense_description ?? ($this->offense_description ?? null),
-                        'date_of_arrest'         => $s->arrest_date ?? ($this->arrest_date ?? null),
-                        'arrest_date'            => $s->arrest_date ?? ($this->arrest_date ?? null),
-                        'time_of_arrest'         => $s->arrest_time ?? ($this->arrest_time ?? null),
-                        'arrest_time'            => $s->arrest_time ?? ($this->arrest_time ?? null),
-                        'mugshot_front'          => $s->mugshot_front,
+                        'ghana_card'             => $s->ghana_card ?? ($docketSp['ghana_card'] ?? null),
+                        'gender'                 => $s->gender ?? ($docketSp['gender'] ?? null),
+                        'dob'                    => $s->dob ?? ($docketSp['dob'] ?? null),
+                        'age'                    => $s->age ?? ($docketSp['age'] ?? null),
+                        'height'                 => $s->height ?? ($docketSp['height'] ?? null),
+                        'height_unit'            => $s->height_unit ?? ($docketSp['height_unit'] ?? null),
+                        'eye_color'              => $s->eye_color ?? ($docketSp['eye_color'] ?? null),
+                        'nationality'            => $s->nationality ?? ($docketSp['nationality'] ?? 'Ghanaian'),
+                        'pob'                    => $pobVal,
+                        'hometown'               => $pobVal,
+                        'place_of_birth'         => $pobVal,
+                        'phone'                  => $s->phone ?? ($docketSp['phone'] ?? ($docketSp['phone_number'] ?? null)),
+                        'phones'                 => !empty($s->phones) ? $s->phones : ($docketSp['phones'] ?? ($idx === 0 ? ($this->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))) : null)),
+                        'address'                => $addrVal,
+                        'residential_address'    => $addrVal,
+                        'marital_status'         => $maritalVal,
+                        'has_children'           => $s->has_children ?? (!empty($docketSp['has_children'])),
+                        'children_count'         => $s->children_count ?? ($docketSp['children_count'] ?? null),
+                        'spouse_name'            => $s->spouse_name ?? ($docketSp['spouse_name'] ?? null),
+                        'spouse_phone'           => $s->spouse_phone ?? ($docketSp['spouse_phone'] ?? null),
+                        'spouse_info'            => $s->spouse_info ?? ($docketSp['spouse_info'] ?? null),
+                        'partner_name'           => $s->partner_name ?? ($docketSp['partner_name'] ?? null),
+                        'partner_phone'          => $s->partner_phone ?? ($docketSp['partner_phone'] ?? null),
+                        'partner_info'           => $s->partner_info ?? ($docketSp['partner_info'] ?? null),
+                        'dependents'             => $s->dependents ?? ($docketSp['dependents'] ?? null),
+                        'holding_facility'       => $s->holding_facility ?? ($docketSp['holding_facility'] ?? ($docketSp['facility'] ?? ($this->holding_facility ?? null))),
+                        'raid_location'          => $s->raid_location ?? ($docketSp['raid_location'] ?? ($docketSp['location'] ?? ($this->raid_location ?? null))),
+                        'offense_description'    => $s->offense_description ?? ($docketSp['offense_description'] ?? ($docketSp['offense'] ?? ($this->offense_description ?? null))),
+                        'date_of_arrest'         => $s->arrest_date ?? ($docketSp['date_of_arrest'] ?? ($docketSp['arrest_date'] ?? ($this->arrest_date ?? null))),
+                        'arrest_date'            => $s->arrest_date ?? ($docketSp['arrest_date'] ?? ($docketSp['date_of_arrest'] ?? ($this->arrest_date ?? null))),
+                        'time_of_arrest'         => $s->arrest_time ?? ($docketSp['time_of_arrest'] ?? ($docketSp['arrest_time'] ?? ($this->arrest_time ?? null))),
+                        'arrest_time'            => $s->arrest_time ?? ($docketSp['arrest_time'] ?? ($docketSp['time_of_arrest'] ?? ($this->arrest_time ?? null))),
+                        'mugshot_front'          => $mFront,
+                        'mugshot_left'           => $mLeft,
+                        'mugshot_right'          => $mRight,
+                        'extra_mugshots'         => $s->extra_mugshots ?? ($docketSp['extra_mugshots'] ?? null),
                         'is_associate'           => !empty($s->associate_id) || strtolower($s->role ?? '') === 'associate suspect' || strtolower($s->role ?? '') === 'co-suspect',
                     ];
                 }
@@ -1924,6 +1979,13 @@ class ForensicCase extends Model
             foreach ($docketSuspects as $idx => $s) {
                 if (empty($s['suspect_name'])) continue;
                 $role = $s['association_role'] ?? ($s['role'] ?? ($idx === 0 ? 'Primary Suspect' : 'Associate Suspect'));
+                $pobVal = $s['pob'] ?? ($s['place_of_birth'] ?? ($s['hometown'] ?? null));
+                $addrVal = $s['address'] ?? ($s['residential_address'] ?? ($s['gps'] ?? null));
+                $maritalVal = $s['marital_status'] ?? null;
+                $mFront = $s['mugshot_front'] ?? ($s['mugshots']['front'] ?? null);
+                $mLeft  = $s['mugshot_left']  ?? ($s['mugshots']['left'] ?? null);
+                $mRight = $s['mugshot_right'] ?? ($s['mugshots']['right'] ?? null);
+
                 $list[] = [
                     'id'                     => $s['id'] ?? null,
                     'suspect_number'         => $idx + 1,
@@ -1939,8 +2001,28 @@ class ForensicCase extends Model
                     'ghana_card'             => $s['ghana_card'] ?? null,
                     'gender'                 => $s['gender'] ?? null,
                     'dob'                    => $s['dob'] ?? null,
+                    'age'                    => $s['age'] ?? null,
+                    'height'                 => $s['height'] ?? null,
+                    'height_unit'            => $s['height_unit'] ?? null,
+                    'eye_color'              => $s['eye_color'] ?? null,
+                    'nationality'            => $s['nationality'] ?? 'Ghanaian',
+                    'pob'                    => $pobVal,
+                    'hometown'               => $pobVal,
+                    'place_of_birth'         => $pobVal,
                     'phone'                  => $s['phone_number'] ?? ($s['phone'] ?? null),
                     'phones'                 => !empty($s['phones']) ? $s['phones'] : ($s['additional_phones'] ?? ($idx === 0 ? ($this->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))) : null)),
+                    'address'                => $addrVal,
+                    'residential_address'    => $addrVal,
+                    'marital_status'         => $maritalVal,
+                    'has_children'           => !empty($s['has_children']),
+                    'children_count'         => $s['children_count'] ?? null,
+                    'spouse_name'            => $s['spouse_name'] ?? null,
+                    'spouse_phone'           => $s['spouse_phone'] ?? null,
+                    'spouse_info'            => $s['spouse_info'] ?? null,
+                    'partner_name'           => $s['partner_name'] ?? null,
+                    'partner_phone'          => $s['partner_phone'] ?? null,
+                    'partner_info'           => $s['partner_info'] ?? null,
+                    'dependents'             => $s['dependents'] ?? null,
                     'holding_facility'       => $s['holding_facility'] ?? ($s['facility'] ?? ($this->holding_facility ?? null)),
                     'raid_location'          => $s['raid_location'] ?? ($s['location'] ?? ($this->raid_location ?? null)),
                     'offense_description'    => $s['offense_description'] ?? ($s['offense'] ?? ($this->offense_description ?? null)),
@@ -1948,7 +2030,10 @@ class ForensicCase extends Model
                     'arrest_date'            => $s['arrest_date'] ?? ($s['date_of_arrest'] ?? ($this->arrest_date ?? null)),
                     'time_of_arrest'         => $s['time_of_arrest'] ?? ($s['arrest_time'] ?? ($this->arrest_time ?? null)),
                     'arrest_time'            => $s['arrest_time'] ?? ($s['time_of_arrest'] ?? ($this->arrest_time ?? null)),
-                    'mugshot_front'          => $s['mugshot_front'] ?? null,
+                    'mugshot_front'          => $mFront,
+                    'mugshot_left'           => $mLeft,
+                    'mugshot_right'          => $mRight,
+                    'extra_mugshots'         => $s['extra_mugshots'] ?? null,
                     'is_associate'           => !empty($s['associate_id']) || (!empty($s['is_associate']) && $s['is_associate'] !== false) || strtolower($role) !== 'primary suspect',
                 ];
             }
@@ -1957,6 +2042,10 @@ class ForensicCase extends Model
 
         // 3. Fallback to single suspect on case model
         $primaryDisp = self::normalizeSuspectDisposition($this->suspect_disposition ?? ($this->underlyingRecord->suspect_disposition ?? null));
+        $primaryPob = $this->pob ?? ($docketData['pob'] ?? ($docketData['hometown'] ?? null));
+        $primaryAddr = $this->address ?? ($docketData['address'] ?? ($docketData['residential_address'] ?? null));
+        $primaryMarital = $this->marital_status ?? ($docketData['marital_status'] ?? null);
+
         $list[] = [
             'id'                     => $this->id,
             'suspect_number'         => 1,
@@ -1972,8 +2061,28 @@ class ForensicCase extends Model
             'ghana_card'             => $this->ghana_card ?? null,
             'gender'                 => $this->gender ?? null,
             'dob'                    => $this->dob ?? null,
+            'age'                    => $this->age ?? ($docketData['age'] ?? null),
+            'height'                 => $this->height ?? ($docketData['height'] ?? null),
+            'height_unit'            => $this->height_unit ?? ($docketData['height_unit'] ?? null),
+            'eye_color'              => $this->eye_color ?? ($docketData['eye_color'] ?? null),
+            'nationality'            => $this->nationality ?? ($docketData['nationality'] ?? 'Ghanaian'),
+            'pob'                    => $primaryPob,
+            'hometown'               => $primaryPob,
+            'place_of_birth'         => $primaryPob,
             'phone'                  => $this->phone ?? null,
             'phones'                 => !empty($this->phones) ? $this->phones : ($this->underlyingRecord->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null))),
+            'address'                => $primaryAddr,
+            'residential_address'    => $primaryAddr,
+            'marital_status'         => $primaryMarital,
+            'has_children'           => $this->has_children ?? (!empty($docketData['has_children'])),
+            'children_count'         => $this->children_count ?? ($docketData['children_count'] ?? null),
+            'spouse_name'            => $this->spouse_name ?? ($docketData['spouse_name'] ?? null),
+            'spouse_phone'           => $this->spouse_phone ?? ($docketData['spouse_phone'] ?? null),
+            'spouse_info'            => $this->spouse_info ?? ($docketData['spouse_info'] ?? null),
+            'partner_name'           => $this->partner_name ?? ($docketData['partner_name'] ?? null),
+            'partner_phone'          => $this->partner_phone ?? ($docketData['partner_phone'] ?? null),
+            'partner_info'           => $this->partner_info ?? ($docketData['partner_info'] ?? null),
+            'dependents'             => $this->dependents ?? ($docketData['dependents'] ?? null),
             'holding_facility'       => $this->holding_facility ?? null,
             'raid_location'          => $this->raid_location ?? null,
             'offense_description'    => $this->offense_description ?? null,
@@ -1981,7 +2090,9 @@ class ForensicCase extends Model
             'arrest_date'            => $this->arrest_date ?? null,
             'time_of_arrest'         => $this->arrest_time ?? null,
             'arrest_time'            => $this->arrest_time ?? null,
-            'mugshot_front'          => $this->mugshot_front ?? null,
+            'mugshot_front'          => $this->mugshot_front ?? ($docketData['mugshot_front'] ?? null),
+            'mugshot_left'           => $this->mugshot_left ?? ($docketData['mugshot_left'] ?? null),
+            'mugshot_right'          => $this->mugshot_right ?? ($docketData['mugshot_right'] ?? null),
             'is_associate'           => false,
         ];
 

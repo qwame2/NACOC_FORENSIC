@@ -847,10 +847,13 @@ class DigitalForensicStatusMultiFileUploadTest extends TestCase
         $this->assertTrue(str_contains($content, 'NACOC_LOGO.PNG') || str_contains($content, 'NACOC LOGO.jfif'));
         $this->assertStringContainsString('3 SAMSUNG Galaxy S24 Ultra', $content);
 
-        // Also test auto-routing when visiting standard dpf-report-pdf on a multi case
+        // Standard dpf-report-pdf on a case with multiple suspects treats it as one case using dpf_pdf
         $autoResponse = $this->actingAs($user)->get('/Digital_Forensics/dpf-report-pdf/CSS-2026-MULTI-DPF');
         $autoResponse->assertStatus(200);
-        $this->assertStringContainsString('OFFICIAL SUSPECT FORENSIC CASE FILE', $autoResponse->getContent());
+        $this->assertStringContainsString('OFFICIAL FORENSIC DOSSIER', $autoResponse->getContent());
+        $this->assertStringContainsString('KWAME MENSAH ALPHA', $autoResponse->getContent());
+        $this->assertStringContainsString('KOJO ASANTE BRAVO', $autoResponse->getContent());
+        $this->assertStringContainsString('YAA AMPONSAH CHARLIE', $autoResponse->getContent());
     }
 
     public function test_generate_filter_prints_all_suspects_in_table_using_multi_dpf_pdf(): void
@@ -1038,6 +1041,121 @@ class DigitalForensicStatusMultiFileUploadTest extends TestCase
         $this->assertNotFalse($currentPos, 'CURRENT SUSPECT should be present in multi_dpf_pdf');
         $this->assertNotFalse($ongoingPos, 'ONGOING SUSPECT should be present in multi_dpf_pdf');
         $this->assertLessThan($ongoingPos, $currentPos, 'CURRENT/NEW CASES must always appear before ONGOING CASES');
+    }
+
+    public function test_court_order_granted_dropdown_is_disabled_when_court_order_requested_is_no_in_view(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number' => 'CSS-2026-DIS01',
+            'suspect_name' => 'Disabled Dropdown Test',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Digital_Forensics/forensic-status');
+        $response->assertStatus(200);
+
+        $html = $response->getContent();
+        $this->assertStringContainsString('id="courtOrderRequested"', $html);
+        $this->assertStringContainsString('onchange="handleCourtOrderRequestedChange(this.value)"', $html);
+        $this->assertStringContainsString('id="courtOrderGranted"', $html);
+        $this->assertStringContainsString('disabled', $html);
+        $this->assertStringContainsString('handleCourtOrderRequestedChange', $html);
+    }
+
+    public function test_saving_status_forces_court_order_granted_to_no_when_court_order_requested_is_no(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number' => 'CSS-2026-FORCE-NO',
+            'suspect_name' => 'Court Order Override Test',
+        ]);
+
+        $response = $this->actingAs($user)->post('/Digital_Forensics/forensic-status', [
+            'case_number' => 'CSS-2026-FORCE-NO',
+            'court_order_requested' => 'NO',
+            'court_order_granted' => 'YES',
+            'extraction_analysis_conducted' => 'NO',
+            'report_witness_statement_sent' => 'NO',
+        ]);
+
+        $response->assertStatus(200);
+        $report = DpfReport::where('case_number', 'CSS-2026-FORCE-NO')->latest('id')->first();
+        $this->assertNotNull($report);
+        $this->assertEquals('NO', $report->court_order_requested);
+        $this->assertEquals('NO', $report->court_order_granted);
+    }
+
+    public function test_case_with_primary_and_co_suspect_uses_dpf_pdf_and_reports_use_multi_dpf_pdf(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        $multiCase = \App\Models\MultipleSuspectCase::create([
+            'case_number' => 'NCC-2026-3423',
+            'location' => 'ACCRA',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+
+        $multiCase->suspects()->createMany([
+            [
+                'suspect_name' => 'CURRY SEIDA',
+                'role' => 'Primary Suspect',
+                'nationality' => 'Ghanaian',
+                'gender' => 'Male',
+                'age' => 29,
+                'is_associate' => false,
+            ],
+            [
+                'suspect_name' => 'COMFORT KINGS',
+                'role' => 'Co-Suspect',
+                'nationality' => 'Ghanaian',
+                'gender' => 'Female',
+                'age' => 26,
+                'is_associate' => false,
+            ],
+        ]);
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'MULTIPLE',
+            'multiple_suspect_case_id' => $multiCase->id,
+            'exhibit_number' => '1',
+            'exhibit_category' => 'Electronic Devices',
+            'dev_model' => 'iPHONE 17',
+            'seizure_quantity' => '4',
+            'seizure_date' => now()->format('Y-m-d'),
+        ]);
+
+        // 1. Single Case viewing must use dpf_pdf (not multi_dpf_pdf)
+        $singleResponse = $this->actingAs($user)->get('/Digital_Forensics/dpf-report-pdf/NCC-2026-3423');
+        $singleResponse->assertStatus(200);
+        $singleContent = $singleResponse->getContent();
+
+        $this->assertStringContainsString('OFFICIAL FORENSIC DOSSIER', $singleContent);
+        $this->assertStringNotContainsString('OFFICIAL SUSPECT FORENSIC CASE FILE', $singleContent);
+        $this->assertStringContainsString('CURRY SEIDA', $singleContent);
+        $this->assertStringContainsString('COMFORT KINGS', $singleContent);
+        $this->assertStringContainsString('4 iPHONE 17', $singleContent);
+
+        // 2. Generating a report (e.g. general, weekly, monthly, annual) must use multi_dpf_pdf
+        $reportResponse = $this->actingAs($user)->get('/Digital_Forensics/multi_dpf_pdf?cases=NCC-2026-3423&period=general');
+        $reportResponse->assertStatus(200);
+        $reportContent = $reportResponse->getContent();
+
+        $this->assertStringContainsString('OFFICIAL SUSPECT FORENSIC CASE FILE', $reportContent);
+        $this->assertStringContainsString('GENERAL REPORT', $reportContent);
+        $this->assertStringContainsString('CURRY SEIDA', $reportContent);
+        $this->assertStringContainsString('COMFORT KINGS', $reportContent);
     }
 }
 

@@ -384,7 +384,7 @@
                                     <label for="courtOrderRequested" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Digital Court Order Requested? <span class="text-red-500">*</span>
                                     </label>
-                                    <select id="courtOrderRequested" name="court_order_requested" required class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <select id="courtOrderRequested" name="court_order_requested" onchange="handleCourtOrderRequestedChange(this.value)" required class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
                                         <option value="YES">YES</option>
                                         <option value="NO" selected>NO</option>
                                         <option value="PENDING">PENDING</option>
@@ -396,7 +396,7 @@
                                     <label for="courtOrderGranted" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Digital Court Order Granted? <span class="text-red-500">*</span>
                                     </label>
-                                    <select id="courtOrderGranted" name="court_order_granted" onchange="toggleCourtOrderFile(this.value)" required class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <select id="courtOrderGranted" name="court_order_granted" onchange="toggleCourtOrderFile(this.value)" required disabled class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200">
                                         <option value="YES">YES</option>
                                         <option value="NO" selected>NO</option>
                                         <option value="PENDING">PENDING</option>
@@ -897,6 +897,22 @@
         let courtOrderDataTransfer = new DataTransfer();
         let reportWitnessDataTransfer = new DataTransfer();
 
+        function handleCourtOrderRequestedChange(val) {
+            const coGranted = document.getElementById('courtOrderGranted');
+            if (!coGranted) return;
+
+            const isNo = (val || '').toUpperCase() === 'NO';
+            if (isNo) {
+                coGranted.value = 'NO';
+                coGranted.disabled = true;
+                coGranted.title = 'Digital Court Order Granted is disabled when Digital Court Order Requested is NO';
+                toggleCourtOrderFile('NO');
+            } else {
+                coGranted.disabled = false;
+                coGranted.title = '';
+            }
+        }
+
         function toggleCourtOrderFile(val) {
             const wrapper = document.getElementById('courtOrderFileWrapper');
             const ongoingContainer = document.getElementById('ongoingCasesSectionContainer');
@@ -1082,15 +1098,24 @@
                 descInput.value = data.description;
             }
 
-            if (data.court_order_requested) {
-                const coReq = document.getElementById('courtOrderRequested');
-                if (coReq) coReq.value = data.court_order_requested;
-            }
-            if (data.court_order_granted) {
-                const coGranted = document.getElementById('courtOrderGranted');
+            const reqVal = data.court_order_requested || 'NO';
+            const coReq = document.getElementById('courtOrderRequested');
+            if (coReq) coReq.value = reqVal;
+
+            handleCourtOrderRequestedChange(reqVal);
+
+            const coGranted = document.getElementById('courtOrderGranted');
+            if (reqVal !== 'NO') {
                 if (coGranted) {
-                    coGranted.value = data.court_order_granted;
-                    toggleCourtOrderFile(data.court_order_granted);
+                    if (data.court_order_granted) {
+                        coGranted.value = data.court_order_granted;
+                    }
+                    toggleCourtOrderFile(coGranted.value);
+                }
+            } else {
+                if (coGranted) {
+                    coGranted.value = 'NO';
+                    toggleCourtOrderFile('NO');
                 }
             }
             if (data.extraction_status !== undefined) {
@@ -1134,11 +1159,13 @@
             const selectEl = document.getElementById('statusCaseRef');
             if (selectEl && selectEl.value) {
                 onDigitalCaseRefChanged(selectEl.value);
-            }
-
-            const courtGrantedEl = document.getElementById('courtOrderGranted');
-            if (courtGrantedEl) {
-                toggleCourtOrderFile(courtGrantedEl.value);
+            } else {
+                const coReqEl = document.getElementById('courtOrderRequested');
+                handleCourtOrderRequestedChange(coReqEl ? coReqEl.value : 'NO');
+                const courtGrantedEl = document.getElementById('courtOrderGranted');
+                if (courtGrantedEl) {
+                    toggleCourtOrderFile(courtGrantedEl.value);
+                }
             }
 
             const reportWitnessEl = document.getElementById('reportWitnessSent');
@@ -1150,6 +1177,9 @@
             if (form) {
                 form.addEventListener('reset', function() {
                     setTimeout(() => {
+                        const coReqEl = document.getElementById('courtOrderRequested');
+                        handleCourtOrderRequestedChange(coReqEl ? coReqEl.value : 'NO');
+                        const courtGrantedEl = document.getElementById('courtOrderGranted');
                         if (courtGrantedEl) toggleCourtOrderFile(courtGrantedEl.value);
                         if (reportWitnessEl) toggleReportWitnessFile(reportWitnessEl.value);
                     }, 50);
@@ -1165,6 +1195,16 @@
             const alertMsg = document.getElementById('statusAlertMsg');
             const form = document.getElementById('forensicStatusForm');
             const formData = new FormData(form);
+
+            // Ensure disabled or present select values are captured accurately
+            const courtGrantedEl = document.getElementById('courtOrderGranted');
+            if (courtGrantedEl) {
+                formData.set('court_order_granted', courtGrantedEl.value || 'NO');
+            }
+            const courtReqEl = document.getElementById('courtOrderRequested');
+            if (courtReqEl) {
+                formData.set('court_order_requested', courtReqEl.value || 'NO');
+            }
 
             // Compute combined extraction status & message
             const courtGranted = (formData.get('court_order_granted') || '').trim();

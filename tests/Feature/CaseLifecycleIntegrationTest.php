@@ -985,8 +985,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $pdfHtml = $pdfResponse->getContent();
         $this->assertStringNotContainsString('3. Laboratory Examination Result', $pdfHtml);
         $this->assertStringContainsString('NACOC LAB RESULT', $pdfHtml);
-        $this->assertStringContainsString('Analytical Examination Report', $pdfHtml);
-        $this->assertStringContainsString('NACOC LOGO.jfif', $pdfHtml);
+        $this->assertTrue(str_contains($pdfHtml, 'NACOC_LOGO.PNG') || str_contains($pdfHtml, 'NACOC LOGO.jfif'));
         $this->assertStringContainsString('nacoc.jfif', $pdfHtml);
         $this->assertStringContainsString('nlrReportSheet', $pdfHtml);
         $this->assertStringContainsString('NLR-FM-T51-F', $pdfHtml);

@@ -6772,11 +6772,13 @@
 
             // Mugshots for Suspect #1
             const cleanMugshotSrc = (src) => {
-                if (!src) return null;
+                if (!src || typeof src !== 'string') return null;
                 const s = src.trim();
-                if (!s || s === window.location.href || s.endsWith('#') || s.includes('blank')) return null;
-                if (s.startsWith('data:image/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith(
-                        '/storage') || s.startsWith('blob:')) {
+                if (!s || s === window.location.href || s.endsWith('#') || s.includes('blank') || s === 'null' || s === 'undefined') return null;
+                if (s.startsWith('data:image/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/storage') || s.startsWith('storage/') || s.startsWith('suspects/') || s.startsWith('blob:')) {
+                    return s;
+                }
+                if (/\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(s)) {
                     return s;
                 }
                 return null;
@@ -6811,10 +6813,14 @@
                     eye_color: s1Eye,
                     nationality: s1Nat,
                     pob: s1POB,
+                    place_of_birth: s1POB,
+                    hometown: s1POB,
                     phone: s1Phone,
                     phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
                     additional_phones: typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
                     address: s1Address,
+                    residential_address: s1Address,
+                    gps: s1Address,
                     marital_status: s1Marital,
                     has_children: s1HasKids,
                     children_count: s1Kids,
@@ -6836,6 +6842,11 @@
                     mugshot_front: s1MugFront,
                     mugshot_left: s1MugLeft,
                     mugshot_right: s1MugRight,
+                    mugshots: {
+                        front: s1MugFront,
+                        left:  s1MugLeft,
+                        right: s1MugRight
+                    },
                 });
             }
 
@@ -6858,10 +6869,16 @@
                 const sHeight = getField('height');
                 const sEye = getField('eye_color');
                 const sNat = getField('nationality') || '';
-                const sPOB = getField('pob');
-                const sPhone = getField('phone');
-                const sAddress = getField('address');
-                const sMarital = getField('marital_status') || '';
+                const sPOB = getField('pob') || getField('place_of_birth') || getField('hometown') || card.querySelector('[data-field="pob"]')?.value?.trim() || card.querySelector('[data-field="place_of_birth"]')?.value?.trim() || card.querySelector('[data-field="hometown"]')?.value?.trim() || '';
+                const sPhone = getField('phone') || getField('phone_number') || card.querySelector('[data-field="phone"]')?.value?.trim() || '';
+                const sAddress = getField('address') || getField('residential_address') || getField('gps') || card.querySelector('[data-field="address"]')?.value?.trim() || card.querySelector('[data-field="residential_address"]')?.value?.trim() || '';
+                let sMarital = getField('marital_status') || card.querySelector('[data-field="marital_status"]')?.value?.trim() || '';
+                if (!sMarital) {
+                    const dynMaritalLabel = card.querySelector('.dyn-marital-label')?.innerText?.trim();
+                    if (dynMaritalLabel && dynMaritalLabel !== 'Select Marital / Relationship Status') {
+                        sMarital = dynMaritalLabel;
+                    }
+                }
                 const sHasKids = getField('has_children') === true;
                 const sKids = sHasKids ? (getField('children_count') || '1') : '0';
                 const sSpouseN = getField('spouse_name');
@@ -6876,15 +6893,26 @@
                 const sTime = getField('time_of_arrest') || getField('arrest_time');
                 const sFacility = getField('holding_facility') || getField('facility');
 
-                const sMugFrontRaw = card.querySelector('img[id^="preview-front"]')?.src || card.querySelector(
-                    'input[id^="hidden-front"]')?.value || document.getElementById(
-                    `preview-front-${suspectNum}`)?.src || null;
-                const sMugLeftRaw = card.querySelector('img[id^="preview-left"]')?.src || card.querySelector(
-                    'input[id^="hidden-left"]')?.value || document.getElementById(
-                    `preview-left-profile-${suspectNum}`)?.src || null;
-                const sMugRightRaw = card.querySelector('img[id^="preview-right"]')?.src || card.querySelector(
-                    'input[id^="hidden-right"]')?.value || document.getElementById(
-                    `preview-right-profile-${suspectNum}`)?.src || null;
+                const sMugFrontRaw = document.getElementById(`hidden-front-${suspectNum}`)?.value
+                    || document.getElementById(`preview-front-${suspectNum}`)?.src
+                    || document.getElementById(`url-front-${suspectNum}`)?.value
+                    || card.querySelector('input[id^="hidden-front"]')?.value
+                    || card.querySelector('img[id^="preview-front"]')?.src
+                    || null;
+
+                const sMugLeftRaw = document.getElementById(`hidden-left-profile-${suspectNum}`)?.value
+                    || document.getElementById(`preview-left-profile-${suspectNum}`)?.src
+                    || document.getElementById(`url-left-profile-${suspectNum}`)?.value
+                    || card.querySelector('input[id^="hidden-left"]')?.value
+                    || card.querySelector('img[id^="preview-left"]')?.src
+                    || null;
+
+                const sMugRightRaw = document.getElementById(`hidden-right-profile-${suspectNum}`)?.value
+                    || document.getElementById(`preview-right-profile-${suspectNum}`)?.src
+                    || document.getElementById(`url-right-profile-${suspectNum}`)?.value
+                    || card.querySelector('input[id^="hidden-right"]')?.value
+                    || card.querySelector('img[id^="preview-right"]')?.src
+                    || null;
 
                 const sMugFront = cleanMugshotSrc(sMugFrontRaw);
                 const sMugLeft = cleanMugshotSrc(sMugLeftRaw);
@@ -6917,8 +6945,12 @@
                         eye_color: sEye,
                         nationality: sNat,
                         pob: sPOB,
+                        place_of_birth: sPOB,
+                        hometown: sPOB,
                         phone: sPhone,
                         address: sAddress,
+                        residential_address: sAddress,
+                        gps: sAddress,
                         marital_status: sMarital,
                         has_children: sHasKids,
                         children_count: sKids,
@@ -6940,6 +6972,11 @@
                         mugshot_front: sMugFront,
                         mugshot_left: sMugLeft,
                         mugshot_right: sMugRight,
+                        mugshots: {
+                            front: sMugFront,
+                            left:  sMugLeft,
+                            right: sMugRight
+                        },
                     });
                     suspectNum++;
                 }

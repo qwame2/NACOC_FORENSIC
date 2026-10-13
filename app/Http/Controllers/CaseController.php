@@ -612,26 +612,29 @@ class CaseController extends Controller
                         'height'                   => $spItem['height'] ?? null,
                         'eye_color'                => $spItem['eye_color'] ?? null,
                         'nationality'              => $spItem['nationality'] ?? null,
-                        'pob'                      => $spItem['pob'] ?? null,
+                        'pob'                      => $spItem['pob'] ?? ($spItem['place_of_birth'] ?? ($spItem['hometown'] ?? ($sIdx === 0 ? ($primaryPersonalFields['pob'] ?? null) : null))),
                         'phone'                    => $spItem['phone'] ?? ($sIdx === 0 ? ($validated['phone'] ?? null) : null),
                         'phones'                   => $spItem['phones'] ?? ($sIdx === 0 ? ($primaryPersonalFields['phones'] ?? null) : null),
-                        'address'                  => $spItem['address'] ?? null,
-                        'marital_status'           => $spItem['marital_status'] ?? null,
-                        'spouse_info'              => $spItem['spouse_info'] ?? null,
-                        'spouse_name'              => $spItem['spouse_name'] ?? null,
-                        'spouse_phone'             => $spItem['spouse_phone'] ?? null,
-                        'partner_name'             => $spItem['partner_name'] ?? null,
-                        'partner_phone'            => $spItem['partner_phone'] ?? null,
-                        'partner_info'             => $spItem['partner_info'] ?? null,
-                        'dependents'               => $spItem['dependents'] ?? null,
+                        'address'                  => $spItem['address'] ?? ($spItem['residential_address'] ?? ($spItem['gps'] ?? ($sIdx === 0 ? ($primaryPersonalFields['address'] ?? null) : null))),
+                        'marital_status'           => $spItem['marital_status'] ?? ($sIdx === 0 ? ($primaryPersonalFields['marital_status'] ?? null) : null),
+                        'has_children'             => !empty($spItem['has_children']) || (!empty($primaryPersonalFields['has_children']) && $sIdx === 0),
+                        'children_count'           => isset($spItem['children_count']) && $spItem['children_count'] !== '' ? (int)$spItem['children_count'] : ($sIdx === 0 ? ($primaryPersonalFields['children_count'] ?? null) : null),
+                        'spouse_info'              => $spItem['spouse_info'] ?? ($sIdx === 0 ? ($primaryPersonalFields['spouse_info'] ?? null) : null),
+                        'spouse_name'              => $spItem['spouse_name'] ?? ($sIdx === 0 ? ($primaryPersonalFields['spouse_name'] ?? null) : null),
+                        'spouse_phone'             => $spItem['spouse_phone'] ?? ($sIdx === 0 ? ($primaryPersonalFields['spouse_phone'] ?? null) : null),
+                        'partner_name'             => $spItem['partner_name'] ?? ($sIdx === 0 ? ($primaryPersonalFields['partner_name'] ?? null) : null),
+                        'partner_phone'            => $spItem['partner_phone'] ?? ($sIdx === 0 ? ($primaryPersonalFields['partner_phone'] ?? null) : null),
+                        'partner_info'             => $spItem['partner_info'] ?? ($sIdx === 0 ? ($primaryPersonalFields['partner_info'] ?? null) : null),
+                        'dependents'               => $spItem['dependents'] ?? ($sIdx === 0 ? ($primaryPersonalFields['dependents'] ?? null) : null),
+                        'height_unit'              => $spItem['height_unit'] ?? null,
                         'holding_facility'         => $spItem['holding_facility'] ?? ($spItem['facility'] ?? ($validated['holding_facility'] ?? null)),
                         'raid_location'            => $spItem['raid_location'] ?? ($spItem['location'] ?? ($validated['raid_location'] ?? null)),
                         'offense_description'      => $spItem['offense'] ?? ($spItem['offense_description'] ?? ($validated['offense_description'] ?? null)),
                         'arrest_date'              => $spItem['date_of_arrest'] ?? ($spItem['arrest_date'] ?? ($validated['arrest_date'] ?? null)),
                         'arrest_time'              => $spItem['time_of_arrest'] ?? ($spItem['arrest_time'] ?? ($validated['arrest_time'] ?? null)),
-                        'mugshot_front'            => $spItem['mugshot_front'] ?? ($sIdx === 0 ? $case->mugshot_front : null),
-                        'mugshot_left'             => $spItem['mugshot_left'] ?? ($sIdx === 0 ? $case->mugshot_left : null),
-                        'mugshot_right'            => $spItem['mugshot_right'] ?? ($sIdx === 0 ? $case->mugshot_right : null),
+                        'mugshot_front'            => $spItem['mugshot_front'] ?? ($spItem['mugshots']['front'] ?? ($sIdx === 0 ? $case->mugshot_front : null)),
+                        'mugshot_left'             => $spItem['mugshot_left'] ?? ($spItem['mugshots']['left'] ?? ($sIdx === 0 ? $case->mugshot_left : null)),
+                        'mugshot_right'            => $spItem['mugshot_right'] ?? ($spItem['mugshots']['right'] ?? ($sIdx === 0 ? $case->mugshot_right : null)),
                     ]
                 );
             }
@@ -2728,7 +2731,7 @@ class CaseController extends Controller
                 $assocId  = $person['associate_id'] ?? ($person['suspect_id'] ?? ('ASC-' . str_pad($currentAssocCount, 3, '0', STR_PAD_LEFT)));
                 $pobVal   = $person['place_of_birth'] ?? ($person['hometown'] ?? ($person['pob'] ?? null));
                 $phoneVal = $person['phone_number'] ?? ($person['contact_phone'] ?? ($person['phone'] ?? null));
-                $addrVal  = $person['residential_address'] ?? ($person['address'] ?? null);
+                $addrVal  = $person['residential_address'] ?? ($person['address'] ?? ($person['gps'] ?? ($person['residential_address_gps'] ?? null)));
                 $roleVal  = $person['association_role'] ?? ($person['role'] ?? 'Associate Suspect');
 
                 \App\Models\CaseSuspect::create([
@@ -2752,18 +2755,18 @@ class CaseController extends Controller
                     'spouse_info'              => $person['spouse_info'] ?? null,
                     'spouse_name'              => $person['spouse_name'] ?? null,
                     'spouse_phone'             => $person['spouse_phone'] ?? null,
-                    'partner_name'             => $person['spouse_name'] ?? null,
-                    'partner_phone'            => $person['spouse_phone'] ?? null,
-                    'partner_info'             => $person['spouse_info'] ?? null,
+                    'partner_name'             => $person['partner_name'] ?? null,
+                    'partner_phone'            => $person['partner_phone'] ?? null,
+                    'partner_info'             => $person['partner_info'] ?? null,
                     'dependents'               => $person['dependents'] ?? null,
                     'holding_facility'         => $person['holding_facility'] ?? null,
                     'raid_location'            => $person['raid_location'] ?? ($person['location'] ?? null),
                     'offense_description'      => $person['offense'] ?? ($person['offense_description'] ?? null),
                     'arrest_date'              => $person['date_of_arrest'] ?? ($person['arrest_date'] ?? null),
                     'arrest_time'              => $person['time_of_arrest'] ?? ($person['arrest_time'] ?? null),
-                    'mugshot_front'            => $person['mugshot_front'] ?? null,
-                    'mugshot_left'             => $person['mugshot_left'] ?? null,
-                    'mugshot_right'            => $person['mugshot_right'] ?? null,
+                    'mugshot_front'            => $person['mugshot_front'] ?? ($person['mugshots']['front'] ?? null),
+                    'mugshot_left'             => $person['mugshot_left'] ?? ($person['mugshots']['left'] ?? null),
+                    'mugshot_right'            => $person['mugshot_right'] ?? ($person['mugshots']['right'] ?? null),
                 ]);
 
                 $addedPersonsCount++;

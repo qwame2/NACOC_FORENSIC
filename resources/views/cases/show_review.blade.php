@@ -2999,37 +2999,70 @@
                         } else {
                             $sName = $rawSName;
                         }
+                        $sDocketSuspect = [];
+                        if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
+                            if (isset($docketData['suspects'][$sIdx]) && is_array($docketData['suspects'][$sIdx])) {
+                                $sDocketSuspect = $docketData['suspects'][$sIdx];
+                            } elseif (isset($docketData['suspects'][$sNum - 1]) && is_array($docketData['suspects'][$sNum - 1])) {
+                                $sDocketSuspect = $docketData['suspects'][$sNum - 1];
+                            }
+                            if (empty($sDocketSuspect)) {
+                                foreach ($docketData['suspects'] as $ds) {
+                                    if (is_array($ds) && !empty($ds['suspect_name']) && !empty($sName) && strtolower(trim($ds['suspect_name'])) === strtolower(trim($sName))) {
+                                        $sDocketSuspect = $ds;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                         $sAlias =
                             $sItem['suspect_alias'] ??
-                            ($sNum == 1 ? $case->suspect_alias ?? ($docketData['alias'] ?? 'N/A') : 'N/A');
+                            ($sDocketSuspect['suspect_alias'] ??
+                                ($sDocketSuspect['alias'] ??
+                                    ($sNum == 1 ? $case->suspect_alias ?? ($docketData['alias'] ?? 'N/A') : 'N/A')));
                         $sCard =
                             $sItem['ghana_card'] ??
-                            ($sNum == 1 ? $case->ghana_card ?? ($docketData['id_card'] ?? 'N/A') : 'N/A');
+                            ($sDocketSuspect['ghana_card'] ??
+                                ($sDocketSuspect['id_card'] ??
+                                    ($sNum == 1 ? $case->ghana_card ?? ($docketData['id_card'] ?? 'N/A') : 'N/A')));
                         $sGender =
                             $sItem['gender'] ??
-                            ($sNum == 1 ? $case->gender ?? ($docketData['gender'] ?? 'N/A') : 'N/A');
-                        $sAge = $sItem['age'] ?? ($sNum == 1 ? $case->age ?? ($docketData['age'] ?? null) : null);
-                        $sDOB = $sItem['dob'] ?? ($sNum == 1 ? $case->dob ?? ($docketData['dob'] ?? null) : null);
+                            ($sDocketSuspect['gender'] ??
+                                ($sNum == 1 ? $case->gender ?? ($docketData['gender'] ?? 'N/A') : 'N/A'));
+                        $sAge = $sItem['age'] ?? ($sDocketSuspect['age'] ?? ($sNum == 1 ? $case->age ?? ($docketData['age'] ?? null) : null));
+                        $sDOB = $sItem['dob'] ?? ($sDocketSuspect['dob'] ?? ($sNum == 1 ? $case->dob ?? ($docketData['dob'] ?? null) : null));
                         $sHeight =
-                            $sItem['height'] ?? ($sNum == 1 ? $case->height ?? ($docketData['height'] ?? null) : null);
+                            $sItem['height'] ?? ($sDocketSuspect['height'] ?? ($sNum == 1 ? $case->height ?? ($docketData['height'] ?? null) : null));
                         $sEye =
                             $sItem['eye_color'] ??
-                            ($sNum == 1 ? $case->eye_color ?? ($docketData['eye_color'] ?? null) : null);
+                            ($sDocketSuspect['eye_color'] ??
+                                ($sNum == 1 ? $case->eye_color ?? ($docketData['eye_color'] ?? null) : null));
                         $sNat =
                             $sItem['nationality'] ??
-                            ($sNum == 1
-                                ? $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')
-                                : 'Ghanaian');
+                            ($sDocketSuspect['nationality'] ??
+                                ($sNum == 1
+                                    ? $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')
+                                    : 'Ghanaian'));
                         $sPOB =
                             $sItem['place_of_birth'] ??
                             ($sItem['hometown'] ??
-                                ($sItem['pob'] ?? ($sNum == 1 ? $case->pob ?? ($docketData['pob'] ?? 'N/A') : 'N/A')));
+                                ($sItem['pob'] ??
+                                    ($sDocketSuspect['place_of_birth'] ??
+                                        ($sDocketSuspect['hometown'] ??
+                                            ($sDocketSuspect['pob'] ??
+                                                ($sNum == 1 ? $case->pob ?? ($docketData['pob'] ?? 'N/A') : 'N/A'))))));
+                        if (empty($sPOB)) {
+                            $sPOB = 'N/A';
+                        }
                         $sPhone =
                             $sItem['phone_number'] ??
                             ($sItem['contact_phone'] ??
                                 ($sItem['phone'] ??
-                                    ($sNum == 1 ? $case->phone ?? ($docketData['phone'] ?? 'N/A') : 'N/A')));
-                        $rawPhones = $sItem['phones'] ?? ($sItem['additional_phones'] ?? ($sNum == 1 ? ($case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? []))) : []));
+                                    ($sDocketSuspect['phone_number'] ??
+                                        ($sDocketSuspect['contact_phone'] ??
+                                            ($sDocketSuspect['phone'] ??
+                                                ($sNum == 1 ? $case->phone ?? ($docketData['phone'] ?? 'N/A') : 'N/A'))))));
+                        $rawPhones = $sItem['phones'] ?? ($sItem['additional_phones'] ?? ($sDocketSuspect['phones'] ?? ($sDocketSuspect['additional_phones'] ?? ($sNum == 1 ? ($case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? []))) : []))));
                         if (is_string($rawPhones)) {
                             $rawPhones = json_decode($rawPhones, true) ?: [];
                         }
@@ -3079,41 +3112,59 @@
                         $sAddr =
                             $sItem['residential_address'] ??
                             ($sItem['address'] ??
-                                ($sNum == 1 ? $case->address ?? ($docketData['address'] ?? 'N/A') : 'N/A'));
-                        $sMarital = $sItem['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null);
-                        $sSpouseN = $sItem['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null);
-                        $sSpouseP = $sItem['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null);
-                        $sSpouseI = $sItem['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null);
-                        $sPartnerN = $sItem['partner_name'] ?? ($sNum == 1 ? $case->partner_name : null);
-                        $sPartnerP = $sItem['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone : null);
-                        $sPartnerI = $sItem['partner_info'] ?? ($sNum == 1 ? $case->partner_info : null);
+                                ($sItem['gps'] ??
+                                    ($sItem['residential_address_gps'] ??
+                                        ($sDocketSuspect['residential_address'] ??
+                                            ($sDocketSuspect['address'] ??
+                                                ($sDocketSuspect['gps'] ??
+                                                    ($sDocketSuspect['residential_address_gps'] ??
+                                                        ($sNum == 1 ? $case->address ?? ($docketData['address'] ?? 'N/A') : 'N/A'))))))));
+                        if (empty($sAddr)) {
+                            $sAddr = 'N/A';
+                        }
+                        $sMarital = $sItem['marital_status'] ?? ($sDocketSuspect['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null));
+                        $sSpouseN = $sItem['spouse_name'] ?? ($sDocketSuspect['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null));
+                        $sSpouseP = $sItem['spouse_phone'] ?? ($sDocketSuspect['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null));
+                        $sSpouseI = $sItem['spouse_info'] ?? ($sDocketSuspect['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null));
+                        $sPartnerN = $sItem['partner_name'] ?? ($sDocketSuspect['partner_name'] ?? ($sNum == 1 ? $case->partner_name : null));
+                        $sPartnerP = $sItem['partner_phone'] ?? ($sDocketSuspect['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone : null));
+                        $sPartnerI = $sItem['partner_info'] ?? ($sDocketSuspect['partner_info'] ?? ($sNum == 1 ? $case->partner_info : null));
                         $sDependents =
                             $sItem['dependents'] ??
-                            ($sNum == 1
-                                ? $case->dependents ?? ($docketData['dependents'] ?? 'No Children')
-                                : 'No Children');
+                            ($sDocketSuspect['dependents'] ??
+                                ($sNum == 1
+                                    ? $case->dependents ?? ($docketData['dependents'] ?? 'No Children')
+                                    : 'No Children'));
                         $sRaid =
                             $sItem['raid_location'] ??
                             ($sItem['location'] ??
-                                ($case->raid_location ?: ($case->location ?: $docketData['raid_location'] ?? 'N/A')));
+                                ($sDocketSuspect['raid_location'] ??
+                                    ($sDocketSuspect['location'] ??
+                                        ($case->raid_location ?: ($case->location ?: $docketData['raid_location'] ?? 'N/A')))));
                         $sArrestDate =
                             $sItem['date_of_arrest'] ??
                             ($sItem['arrest_date'] ??
-                                ($case->arrest_date ??
-                                    ($docketData['arrest_date'] ??
-                                        ($docketData['date_of_arrest'] ??
-                                            ($case->incident_date
-                                                ? substr((string) $case->incident_date, 0, 10)
-                                                : null)))));
+                                ($sDocketSuspect['date_of_arrest'] ??
+                                    ($sDocketSuspect['arrest_date'] ??
+                                        ($case->arrest_date ??
+                                            ($docketData['arrest_date'] ??
+                                                ($docketData['date_of_arrest'] ??
+                                                    ($case->incident_date
+                                                        ? substr((string) $case->incident_date, 0, 10)
+                                                        : null)))))));
                         $sArrestTime =
                             $sItem['time_of_arrest'] ??
                             ($sItem['arrest_time'] ??
-                                ($case->arrest_time ??
-                                    ($docketData['arrest_time'] ?? ($docketData['time_of_arrest'] ?? null))));
+                                ($sDocketSuspect['time_of_arrest'] ??
+                                    ($sDocketSuspect['arrest_time'] ??
+                                        ($case->arrest_time ??
+                                            ($docketData['arrest_time'] ?? ($docketData['time_of_arrest'] ?? null))))));
                         $sFacility =
                             $sItem['holding_facility'] ??
                             ($sItem['facility'] ??
-                                ($case->holding_facility ?? ($docketData['holding_facility'] ?? null)));
+                                ($sDocketSuspect['holding_facility'] ??
+                                    ($sDocketSuspect['facility'] ??
+                                        ($case->holding_facility ?? ($docketData['holding_facility'] ?? null)))));
                         if (empty($sFacility) || $sFacility === 'N/A') {
                             $sFacility = !empty($case->holding_facility)
                                 ? $case->holding_facility
@@ -3124,22 +3175,57 @@
                         $sOffense =
                             $sItem['offense'] ??
                             ($sItem['offense_description'] ??
-                                ($case->offense_description ?:
-                                    ($case->description ?:
-                                    $docketData['offense_description'] ?? 'N/A')));
+                                ($sDocketSuspect['offense'] ??
+                                    ($sDocketSuspect['offense_description'] ??
+                                        ($case->offense_description ?:
+                                            ($case->description ?:
+                                            $docketData['offense_description'] ?? 'N/A')))));
 
-                        $sFront =
+                        $formatMugshotUrl = function ($src) {
+                            if (empty($src) || !is_string($src)) return null;
+                            $src = trim($src);
+                            if ($src === '' || $src === 'null' || $src === 'undefined') return null;
+                            if (str_starts_with($src, 'data:image/') || str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {
+                                return $src;
+                            }
+                            if (str_starts_with($src, '/storage/')) {
+                                return asset(ltrim($src, '/'));
+                            }
+                            if (str_starts_with($src, 'storage/')) {
+                                return asset($src);
+                            }
+                            return asset('storage/' . ltrim($src, '/'));
+                        };
+
+                        $rawFront =
                             $sItem['mugshot_front'] ??
                             ($sItem['mugshots']['front'] ??
-                                ($sItem['mugshots']['front-profile'] ?? ($sNum == 1 ? $case->mugshot_front : null)));
-                        $sLeft =
+                                ($sItem['mugshots']['front-profile'] ??
+                                    ($sDocketSuspect['mugshot_front'] ??
+                                        ($sDocketSuspect['mugshots']['front'] ??
+                                            ($sDocketSuspect['mugshots']['front-profile'] ??
+                                                ($sNum == 1 ? $case->mugshot_front : null))))));
+                        $sFront = $formatMugshotUrl($rawFront);
+
+                        $rawLeft =
                             $sItem['mugshot_left'] ??
                             ($sItem['mugshots']['left'] ??
-                                ($sItem['mugshots']['left-profile'] ?? ($sNum == 1 ? $case->mugshot_left : null)));
-                        $sRight =
+                                ($sItem['mugshots']['left-profile'] ??
+                                    ($sDocketSuspect['mugshot_left'] ??
+                                        ($sDocketSuspect['mugshots']['left'] ??
+                                            ($sDocketSuspect['mugshots']['left-profile'] ??
+                                                ($sNum == 1 ? $case->mugshot_left : null))))));
+                        $sLeft = $formatMugshotUrl($rawLeft);
+
+                        $rawRight =
                             $sItem['mugshot_right'] ??
                             ($sItem['mugshots']['right'] ??
-                                ($sItem['mugshots']['right-profile'] ?? ($sNum == 1 ? $case->mugshot_right : null)));
+                                ($sItem['mugshots']['right-profile'] ??
+                                    ($sDocketSuspect['mugshot_right'] ??
+                                        ($sDocketSuspect['mugshots']['right'] ??
+                                            ($sDocketSuspect['mugshots']['right-profile'] ??
+                                                ($sNum == 1 ? $case->mugshot_right : null))))));
+                        $sRight = $formatMugshotUrl($rawRight);
                         $isAssociate =
                             !empty($sItem['is_associate']) ||
                             (!empty($sItem['association_role']) &&
@@ -3223,8 +3309,12 @@
                                 <div
                                     class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
                                     @if ($sFront)
-                                        <img src="{{ $sFront }}" class="w-full h-full object-contain p-1"
-                                            alt="Front View Mugshot">
+                                        <img src="{{ $sFront }}" class="w-full h-full object-contain p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                                            alt="Front View Mugshot"
+                                            data-img-src="{{ $sFront }}"
+                                            data-img-title="Suspect #{{ $sNum }} Front View (0°) — {{ $sName }}"
+                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
+                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
                                     @else
                                         <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
@@ -3251,8 +3341,12 @@
                                 <div
                                     class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
                                     @if ($sLeft)
-                                        <img src="{{ $sLeft }}" class="w-full h-full object-contain p-1"
-                                            alt="Left Profile Mugshot">
+                                        <img src="{{ $sLeft }}" class="w-full h-full object-contain p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                                            alt="Left Profile Mugshot"
+                                            data-img-src="{{ $sLeft }}"
+                                            data-img-title="Suspect #{{ $sNum }} Left Profile (90°) — {{ $sName }}"
+                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
+                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
                                     @else
                                         <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
@@ -3279,8 +3373,12 @@
                                 <div
                                     class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
                                     @if ($sRight)
-                                        <img src="{{ $sRight }}" class="w-full h-full object-contain p-1"
-                                            alt="Right Profile Mugshot">
+                                        <img src="{{ $sRight }}" class="w-full h-full object-contain p-1 cursor-pointer hover:opacity-90 transition-opacity"
+                                            alt="Right Profile Mugshot"
+                                            data-img-src="{{ $sRight }}"
+                                            data-img-title="Suspect #{{ $sNum }} Right Profile (270°) — {{ $sName }}"
+                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
+                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
                                     @else
                                         <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"

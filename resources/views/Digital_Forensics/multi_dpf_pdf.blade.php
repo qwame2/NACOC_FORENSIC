@@ -158,7 +158,11 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 0;
+            margin: 0 !important;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -173,22 +177,75 @@
 
         .a4-page {
             width: 210mm;
-            min-height: 297mm;
-            padding: 16mm 18mm 14mm 18mm;
+            height: 297mm;
+            max-height: 297mm;
+            padding: 10mm 12mm 10mm 12mm;
             margin: 0 auto 24px auto;
             background: #ffffff;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
             box-sizing: border-box;
             position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            page-break-after: always;
+            break-after: page;
+        }
+
+        /* Cover Page: Exactly 1 static A4 sheet with equal 14mm side margins */
+        .cover-page {
+            width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
+            min-height: 297mm;
+            padding: 14mm 14mm 12mm 14mm;
             overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
+        /* Dynamic Dossier Pages: Paginated A4 sheets with reduced margins (10mm top/bottom, 12mm sides) */
+        .dynamic-dossier-page {
+            width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
+            padding: 10mm 12mm 10mm 12mm;
+            box-sizing: border-box;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+
+        .a4-page-attachment, .a4-page-pdf-slice {
+            width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
+            padding: 8mm 12mm;
+            box-sizing: border-box;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+
         .page-break {
             page-break-after: always;
             break-after: page;
+        }
+
+        .avoid-break {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .avoid-break-after {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
         }
 
         .no-break {
@@ -209,25 +266,102 @@
             font-family: 'Times New Roman', Times, Baskerville, Georgia, serif;
         }
 
+        .print-fixed-watermark {
+            display: none;
+        }
+
         @media print {
+            @page {
+                size: A4 portrait;
+                margin: 0 !important;
+            }
+
             body {
                 background-color: transparent !important;
+                color: #0f172a !important;
                 padding: 0 !important;
+                margin: 0 !important;
             }
 
             .action-bar-container {
                 display: none !important;
             }
 
-            .a4-page {
+            .print-fixed-watermark {
+                position: fixed !important;
+                top: 50% !important;
+                left: 50% !important;
+                transform: translate(-50%, -50%) !important;
+                width: 550px !important;
+                height: 550px !important;
+                pointer-events: none !important;
+                z-index: 0 !important;
+                opacity: 0.025 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            /* Static Cover Page: Locked to Page 1 with zero shift & equal 14mm side margins */
+            .cover-page {
                 box-shadow: none !important;
                 margin: 0 !important;
                 width: 210mm !important;
                 height: 297mm !important;
                 max-height: 297mm !important;
+                min-height: 297mm !important;
+                padding: 14mm 14mm 12mm 14mm !important;
                 overflow: hidden !important;
                 page-break-after: always !important;
                 break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                background: #ffffff !important;
+            }
+
+            /* Dynamic Dossier Pages: Paginated A4 sheets with reduced margins (10mm top/bottom, 12mm sides) */
+            .dynamic-dossier-page {
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 10mm 12mm 10mm 12mm !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
+                min-height: 297mm !important;
+                overflow: hidden !important;
+                background: #ffffff !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+
+            .dynamic-dossier-page > .dossier-watermark {
+                display: none !important;
+            }
+
+            /* Attachment Pages: Fit within single A4 page */
+            .a4-page-attachment, .a4-page-pdf-slice {
+                box-shadow: none !important;
+                margin: 0 !important;
+                padding: 8mm 12mm !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
+                min-height: 297mm !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                overflow: hidden !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                background: #ffffff !important;
             }
 
             .page-break {
@@ -235,14 +369,41 @@
                 break-after: page !important;
             }
 
+            .avoid-break {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .avoid-break-after {
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+            }
+
+            table {
+                width: 100% !important;
+            }
+
+            tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            thead {
+                display: table-header-group !important;
+            }
+
             .footer {
                 position: relative !important;
-                bottom: 8px !important;
             }
         }
     </style>
 </head>
 <body class="antialiased text-slate-800">
+
+    <!-- PRINT-SPECIFIC FIXED WATERMARK (REPEATS CENTERED ON EVERY DYNAMIC PRINTED PAGE) -->
+    <div class="print-fixed-watermark select-none pointer-events-none" aria-hidden="true">
+        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
+    </div>
 
     @php
         $currentPageNumber = 1;
@@ -265,7 +426,7 @@
                 {{ count($suspectReports) }} Suspect Dossier(s) Compiled
             </span>
 
-            <button onclick="window.print()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer">
+            <button onclick="handlePrintDocument()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                 </svg>
@@ -280,11 +441,11 @@
         <!-- ============================================================
              PAGE 1: SINGLE CONSOLIDATED DIRECTORY COVER PAGE (NO PHOTOS)
              ============================================================ -->
-        <div class="a4-page page-break relative text-slate-900">
+        <div class="a4-page cover-page page-break relative text-slate-900">
 
             <!-- SUBTLE NACOC WATERMARK -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[700px] h-[700px] object-contain filter grayscale" />
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
             </div>
 
             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -297,14 +458,14 @@
                     </div>
                     <div class="text-right">
                         <p class="font-bold uppercase tracking-wider text-slate-900">Confidential</p>
-                        <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800">
-                            DOSSIER COVER &bull; Page 1 of {{ $totalDossierPages }}
+                        <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800" id="page1HeaderBadge">
+                            DOSSIER COVER &bull; Page 1 of <span class="doc-total-pages">{{ $totalDossierPages }}</span>
                         </p>
                     </div>
                 </div>
 
                 <!-- ALL CENTERED CONTENT IN THE MIDDLE OF THE PAGE -->
-                <div class="my-auto flex flex-col items-center justify-center text-center max-w-xl mx-auto w-full py-4">
+                <div class="my-auto flex flex-col items-center justify-center text-center w-full max-w-2xl mx-auto py-2">
                     <!-- INSTITUTION DETAILS -->
                     <div>
                         <h1 class="text-xl font-bold uppercase tracking-wider text-slate-900 font-serif-header">
@@ -319,14 +480,14 @@
                     </div>
 
                     <!-- INCREASED SIZE EMBLEM LOGO IN THE MIDDLE -->
-                    <div class="my-8 flex items-center justify-center">
-                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="w-248 h-248 object-contain drop-shadow-md" />
+                    <div class="my-6 flex items-center justify-center">
+                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="w-160 h-160 max-w-[1800px] max-h-[1800px] object-contain drop-shadow-md" />
                     </div>
 
                     <!-- CASE FILE & REPORT TITLE -->
                     <div>
                         <p class="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-900">
-                            OFFICIAL SUSPECT FORENSIC CASE FILE
+                            OFFICIAL SUSPECT FORENSIC CASE FILES
                         </p>
                         <h2 class="mt-2 text-2xl font-bold uppercase tracking-wide text-slate-950 font-serif-header">
                             DIGITAL FORENSIC INVESTIGATION UNIT
@@ -366,7 +527,7 @@
                     <div class="flex items-center gap-2">
                         <span>STRICTLY CONFIDENTIAL</span>
                         <span>&bull;</span>
-                        <span class="font-bold text-slate-800">Page 1 of {{ $totalDossierPages }}</span>
+                        <span class="font-bold text-slate-800">Page 1 of <span class="doc-total-pages">{{ $totalDossierPages }}</span></span>
                     </div>
                 </div>
 
@@ -381,18 +542,19 @@
                 $sReportPage = ++$currentPageNumber;
             @endphp
 
-            <div class="a4-page {{ !empty($sr['attached_files']) ? 'page-break' : ($sIdx < count($suspectReports) - 1 ? 'page-break' : '') }} relative text-slate-900">
+            <div class="a4-page dynamic-dossier-page auto-paginated-root relative text-slate-900 {{ !empty($sr['attached_files']) || $sIdx < count($suspectReports) - 1 ? 'page-break' : '' }}">
 
-                <!-- SUBTLE NACOC WATERMARK -->
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
+                <!-- SUBTLE NACOC WATERMARK (FOR SCREEN PREVIEW) -->
+                <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
                     <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
                 </div>
 
                 <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
 
-                    <div>
+                    <!-- PAGE HEADER BLOCK -->
+                    <div class="page-header-block shrink-0">
                         <!-- REPORT HEADER -->
-                        <div class="relative pt-1.5 pb-2 border-b border-slate-300 flex items-center justify-between">
+                        <div class="relative pt-1 pb-1.5 border-b border-slate-300 flex items-center justify-between avoid-break-after">
                             <div>
                                 <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
                                     NACOC DIGITAL FORENSIC INVESTIGATION REPORT
@@ -403,19 +565,19 @@
                             </div>
                             <div class="text-right">
                                 <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
-                                <p class="mt-0.5 text-[8.5px] font-bold uppercase text-slate-800">
-                                    Suspect {{ $sIdx + 1 }} &bull; Page {{ $sReportPage }} of {{ $totalDossierPages }}
+                                <p class="mt-0.5 text-[8.5px] font-bold uppercase text-slate-800 dpf-header-page-num">
+                                    Suspect {{ $sIdx + 1 }} &bull; Page {{ $sReportPage }} of <span class="doc-total-pages">{{ $totalDossierPages }}</span>
                                 </p>
                             </div>
                         </div>
 
                         <!-- REPORT TITLE -->
-                        <div class="mt-2 pb-1.5 border-b border-slate-200 text-center">
+                        <div class="mt-1.5 pb-1.5 border-b border-slate-200 text-center avoid-break-after">
                             <p class="text-[8px] font-bold uppercase tracking-[0.2em] text-emerald-800">
                                 INDIVIDUAL SUSPECT FORENSIC CASE &bull; RECORD #{{ $sIdx + 1 }}
                             </p>
                             <h2 class="mt-0.5 text-sm font-bold uppercase tracking-wide text-slate-950 font-serif-header">
-                                REPUBLIC VS {{ $sr['suspect_name'] }}
+                                REPUBLIC VS {{ $sr['suspect_name'] }}{{ !empty($sr['co_suspects_display']) ? ' & ' . $sr['co_suspects_display'] : '' }}
                             </h2>
                             <p class="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-800 font-serif-header">
                                 CASE REF ID: {{ $sr['case_number'] }}
@@ -424,191 +586,245 @@
                                 {{ $sr['case_section_label'] }}
                             </p>
                         </div>
-
-                        <!-- SECTION 01: SUSPECT & CASE PARTICULARS (PHOTO IN TOP LEFT CORNER) -->
-                        <div class="mt-7">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                    01
-                                </span>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                            Suspect Identification &amp; Case Particulars
-                                        </h3>
-                                        
-                                    </div>
-                                    <div class="mt-0.5 h-px bg-slate-200"></div>
-                                </div>
-                            </div>
-
-                            <!-- SUSPECT PROFILE CONTAINER (PHOTO ON TOP LEFT CORNER) -->
-                            <div class="flex items-start gap-4 p-2.5 ">
-                                <!-- TOP LEFT CORNER: PHOTO (MUGSHOT) -->
-                                <div class="shrink-0 flex flex-col items-center">
-                                    <div class="relative w-24 h-28 rounded-lg overflow-hidden border-2 border-slate-300 bg-slate-100 shadow-sm flex items-center justify-center">
-                                        @if(!empty($sr['mugshot_front']))
-                                            <img src="{{ $sr['mugshot_front'] }}" alt="{{ $sr['suspect_name'] }} Photo" class="w-full h-full object-cover" />
-                                        @else
-                                            <div class="flex flex-col items-center justify-center p-2 text-center text-slate-500">
-                                                <svg class="w-7 h-7 text-slate-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
-                                                <span class="text-[6.5px] font-bold uppercase tracking-tight text-slate-500">Front Mugshot</span>
-                                            </div>
-                                        @endif
-                                    </div>
-                                    <span class="mt-1 px-1.5 py-0.5 rounded text-[6.5px] font-extrabold uppercase tracking-wider {{ str_contains($sr['role'], 'PRIMARY') ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-800' }}">
-                                        {{ $sr['role'] }}
-                                    </span>
-                                </div>
-
-                                <!-- DETAILS BESIDE PHOTO IN A HORIZONTAL LINE -->
-                                <div class="flex-1 grid grid-cols-3 gap-3 pt-0.5 items-start">
-                                    <div>
-                                        <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Suspect Full Name</p>
-                                        <p class="mt-0.5 text-[12px] font-extrabold text-slate-900">{{ $sr['suspect_name'] }}</p>
-                                        <p class="text-[7.5px] text-slate-500 font-medium">{!! $sr['meta'] !!}</p>
-                                    </div>
-
-                                    <div>
-                                        <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Exhibit Type</p>
-                                        <p class="mt-0.5 text-[12px] font-bold text-slate-900">{{ $sr['exhibit_type_display'] }}</p>
-                                    </div>
-
-                                    <div>
-                                        <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Submitting Officer</p>
-                                        <p class="mt-0.5 text-[12px] font-medium text-slate-800">{{ $sr['submitting_officer'] }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- SECTION 02: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
-                        <div class="mt-10">
-                            <div class="flex items-center gap-2 mb-0.5">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                    02
-                                </span>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                            Brief Case Description
-                                        </h3>
-                                        <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
-                                            Intelligence Fact Sheet
-                                        </span>
-                                    </div>
-                                    <div class="mt-0.5 h-px bg-slate-200"></div>
-                                </div>
-                            </div>
-
-                            <div class="text-[12px] leading-snug text-slate-700 whitespace-pre-line pt-0">
-                                {{ $sr['brief_description'] }}
-                            </div>
-                        </div>
-
-                        <!-- SECTION 03: LEGAL & OPERATIONAL PROCESS STATUS TABLE -->
-                        <div class="mt-10">
-                            <div class="flex items-center gap-2 mb-0.5">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                    03
-                                </span>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                            Legal &amp; Operational Process Status
-                                        </h3>
-                                        <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
-                                            Warrant &amp; Docket Verification
-                                        </span>
-                                    </div>
-                                    <div class="mt-0.5 h-px bg-slate-200"></div>
-                                </div>
-                            </div>
-
-                            <div class="overflow-hidden border border-slate-300 rounded-lg">
-                                <table class="w-full text-left border-collapse table-fixed">
-                                    <thead>
-                                        <tr class="border-b border-slate-300 bg-slate-100/70">
-                                            <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
-                                                Process Phase
-                                            </th>
-                                            <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
-                                                Status
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="text-[12px] text-slate-800">
-                                        <tr class="border-b border-slate-200">
-                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Requested</td>
-                                            <td class="py-1 px-2.5 text-center font-extrabold {{ $sr['court_requested'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $sr['court_requested'] }}</td>
-                                        </tr>
-                                        <tr class="border-b border-slate-200">
-                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Granted</td>
-                                            <td class="py-1 px-2.5 text-center font-extrabold {{ $sr['court_granted'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $sr['court_granted'] }}</td>
-                                        </tr>
-                                        <tr class="border-b border-slate-200">
-                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Extraction &amp; Forensic Analysis Conducted</td>
-                                            <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with($sr['extraction_status'], 'YES') ? 'text-emerald-800' : (str_starts_with($sr['extraction_status'], 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $sr['extraction_status'] }}</td>
-                                        </tr>
-                                        <tr class="border-b border-slate-200">
-                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Report, Witness Statement &amp; Digital Evidence Sent to Investigations</td>
-                                            <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with($sr['report_witness_status'], 'YES') ? 'text-emerald-800' : (str_starts_with($sr['report_witness_status'], 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $sr['report_witness_status'] }}</td>
-                                        </tr>
-                                        <tr>
-                                            <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Intelligence Shared to Intel Department for Action</td>
-                                            <td class="py-1 px-2.5 text-center font-extrabold {{ $sr['intel_shared'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $sr['intel_shared'] }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- SECTION 04: REMARKS & OBSERVATIONS -->
-                        <div class="mt-10">
-                            <div class="flex items-center gap-2 mb-0.5">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
-                                    04
-                                </span>
-                                <div class="flex-1">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
-                                            Remarks
-                                        </h3>
-                                        <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
-                                            Technical Observations
-                                        </span>
-                                    </div>
-                                    <div class="mt-0.5 h-px bg-slate-200"></div>
-                                </div>
-                            </div>
-
-                            <div class="text-[12px] leading-snug text-slate-700 whitespace-pre-line pt-0">
-                                {{ $sr['remark'] }}
-                            </div>
-                        </div>
-
-                        <!-- CONDITIONS NOTE -->
-                        <div class="mt-7 pt-1.5 border-t border-slate-200">
-                            <p class="text-[8.5px] font-semibold text-slate-800 mb-0.5 italic">
-                                Note: The result(s) relate only to the item(s) / digital exhibit(s) examined for suspect {{ $sr['suspect_name'] }} (Ref: {{ $sr['case_number'] }}).
-                            </p>
-                            <p class="text-[8.5px] font-extrabold uppercase tracking-wider text-slate-900 mb-0.5">
-                                Conditions:
-                            </p>
-                            <ol class="list-decimal list-inside space-y-0.5 text-[8.5px] font-medium text-slate-700 leading-tight pl-0.5">
-                                <li>Not valid without NACOC Digital &amp; Physical Forensics Unit approval.</li>
-                                <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
-                                <li>This report shall not be reproduced in part without the written approval of the Director General of NACOC.</li>
-                            </ol>
-                        </div>
                     </div>
 
-                    <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
-                    <div>
-                        <!-- SIGNATURES -->
-                        <div class="mt-2.5 pt-1 pb-5 footer no-break">
+                    <!-- FLOW CONTENT BODY -->
+                    <div class="report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
+                        <div class="flow-sections-container">
+                            <!-- SECTION 01: SUSPECT & CASE PARTICULARS (PHOTO IN TOP LEFT CORNER) -->
+                            <div class="flow-block section-01 mt-3 avoid-break">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                        01
+                                    </span>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                                Suspect Identification &amp; Case Particulars
+                                            </h3>
+                                        </div>
+                                        <div class="mt-0.5 h-px bg-slate-200"></div>
+                                    </div>
+                                </div>
+
+                                <!-- SUSPECT PROFILE CONTAINER (PHOTO ON TOP LEFT CORNER) -->
+                                <div class="flex items-start gap-4 p-2.5">
+                                    <!-- TOP LEFT CORNER: PHOTO (MUGSHOT) -->
+                                    <div class="shrink-0 flex items-center gap-2">
+                                        <div class="flex flex-col items-center">
+                                            <div class="relative w-24 h-28 rounded-lg overflow-hidden border-2 border-slate-300 bg-slate-100 shadow-sm flex items-center justify-center">
+                                                @if(!empty($sr['mugshot_front']))
+                                                    <img src="{{ $sr['mugshot_front'] }}" alt="{{ $sr['suspect_name'] }} Photo" class="w-full h-full object-cover" />
+                                                @else
+                                                    <div class="flex flex-col items-center justify-center p-2 text-center text-slate-500">
+                                                        <svg class="w-7 h-7 text-slate-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                        </svg>
+                                                        <span class="text-[6.5px] font-bold uppercase tracking-tight text-slate-500">Front Mugshot</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            <span class="mt-1 px-1.5 py-0.5 rounded text-[6.5px] font-extrabold uppercase tracking-wider {{ str_contains($sr['role'], 'PRIMARY') ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-800' }}">
+                                                {{ $sr['role'] }}
+                                            </span>
+                                        </div>
+                                        @if(!empty($sr['co_suspects']) && is_array($sr['co_suspects']))
+                                            @foreach($sr['co_suspects'] as $coS)
+                                                @php
+                                                    $coMug = $coS['mugshot_front'] ?? ($coS['mugshots']['front'] ?? null);
+                                                    if (!empty($coMug) && !str_starts_with($coMug, 'data:image') && !str_starts_with($coMug, 'http://') && !str_starts_with($coMug, 'https://') && !str_starts_with($coMug, '/')) {
+                                                        $coMug = asset($coMug);
+                                                    }
+                                                @endphp
+                                                <div class="flex flex-col items-center">
+                                                    <div class="relative w-20 h-28 rounded-lg overflow-hidden border-2 border-slate-300 bg-slate-100 shadow-sm flex items-center justify-center">
+                                                        @if(!empty($coMug))
+                                                            <img src="{{ $coMug }}" alt="{{ $coS['suspect_name'] ?? 'Co-Suspect' }} Photo" class="w-full h-full object-cover" />
+                                                        @else
+                                                            <div class="flex flex-col items-center justify-center p-2 text-center text-slate-500">
+                                                                <svg class="w-6 h-6 text-slate-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                                </svg>
+                                                                <span class="text-[6px] font-bold uppercase tracking-tight text-slate-500">Co-Suspect</span>
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                    <span class="mt-1 px-1.5 py-0.5 rounded text-[6.5px] font-extrabold uppercase tracking-wider bg-slate-200 text-slate-800">
+                                                        CO-SUSPECT
+                                                    </span>
+                                                </div>
+                                            @endforeach
+                                        @endif
+                                    </div>
+
+                                    <!-- DETAILS BESIDE PHOTO IN A HORIZONTAL LINE -->
+                                    <div class="flex-1 grid grid-cols-3 gap-3 pt-0.5 items-start">
+                                        <div>
+                                            <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Suspect Full Name</p>
+                                            <p class="mt-0.5 text-[12px] font-extrabold text-slate-900">{{ $sr['suspect_name'] }}</p>
+                                            <p class="text-[7.5px] text-slate-500 font-medium">{!! $sr['meta'] !!}</p>
+
+                                            @if(!empty($sr['co_suspects']) && is_array($sr['co_suspects']))
+                                                <div class="mt-2.5 pt-1.5 border-t border-slate-200">
+                                                    <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Co-Suspect(s):</p>
+                                                    @foreach($sr['co_suspects'] as $coS)
+                                                        @php
+                                                            $coName = strtoupper($coS['suspect_name'] ?? ($coS->suspect_name ?? ($coS['name'] ?? 'CO-SUSPECT')));
+                                                            $coGender = !empty($coS['gender']) ? ucfirst($coS['gender']) : (!empty($coS->gender) ? ucfirst($coS->gender) : null);
+                                                            $coAge = !empty($coS['age']) ? $coS['age'] . ' yrs' : (!empty($coS->age) ? $coS->age . ' yrs' : null);
+                                                            $coNat = $coS['nationality'] ?? ($coS->nationality ?? null);
+                                                            $coMeta = implode(' &bull; ', array_filter([$coGender, $coAge, $coNat])) ?: 'N/A';
+                                                        @endphp
+                                                        <div class="{{ !$loop->first ? 'mt-2' : 'mt-1' }}">
+                                                            <p class="text-[12px] font-extrabold text-slate-900">{{ $coName }}</p>
+                                                            <p class="text-[7.5px] text-slate-500 font-medium">{!! $coMeta !!}</p>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @elseif(!empty($sr['co_suspects_display']))
+                                                <div class="mt-2.5 pt-1.5 border-t border-slate-200">
+                                                    <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Co-Suspect(s):</p>
+                                                    <p class="mt-1 text-[12px] font-extrabold text-slate-900">{{ $sr['co_suspects_display'] }}</p>
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <div>
+                                            <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Exhibit Type</p>
+                                            <p class="mt-0.5 text-[12px] font-bold text-slate-900">{{ $sr['exhibit_type_display'] }}</p>
+                                        </div>
+
+                                        <div>
+                                            <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-600">Submitting Officer</p>
+                                            <p class="mt-0.5 text-[12px] font-medium text-slate-800">{{ $sr['submitting_officer'] }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 02: BRIEF CASE DESCRIPTION & OPERATIONAL CONTEXT -->
+                            <div class="flow-block section-02 mt-3">
+                                <div class="flex items-center gap-2 mb-0.5 avoid-break-after">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                        02
+                                    </span>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                                Brief Case Description
+                                            </h3>
+                                            <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
+                                                Intelligence Fact Sheet
+                                            </span>
+                                        </div>
+                                        <div class="mt-0.5 h-px bg-slate-200"></div>
+                                    </div>
+                                </div>
+
+                                <div class="text-[12px] leading-snug text-slate-700 whitespace-pre-line pt-0">
+                                    {{ $sr['brief_description'] }}
+                                </div>
+                            </div>
+
+                            <!-- SECTION 03: LEGAL & OPERATIONAL PROCESS STATUS TABLE -->
+                            <div class="flow-block section-03 mt-9 avoid-break">
+                                <div class="flex items-center gap-2 mb-0.5 avoid-break-after">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                        03
+                                    </span>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                                Legal &amp; Operational Process Status
+                                            </h3>
+                                            <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
+                                                Warrant &amp; Docket Verification
+                                            </span>
+                                        </div>
+                                        <div class="mt-0.5 h-px bg-slate-200"></div>
+                                    </div>
+                                </div>
+
+                                <div class="overflow-hidden border border-slate-300 rounded-lg">
+                                    <table class="w-full text-left border-collapse table-fixed">
+                                        <thead>
+                                            <tr class="border-b border-slate-300 bg-slate-100/70">
+                                                <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
+                                                    Process Phase
+                                                </th>
+                                                <th class="py-1 px-2.5 text-center text-[9px] font-bold uppercase tracking-wider text-slate-900 w-1/2">
+                                                    Status
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="text-[12px] text-slate-800">
+                                            <tr class="border-b border-slate-200">
+                                                <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Requested</td>
+                                                <td class="py-1 px-2.5 text-center font-extrabold {{ $sr['court_requested'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $sr['court_requested'] }}</td>
+                                            </tr>
+                                            <tr class="border-b border-slate-200">
+                                                <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Court Order Warrant Granted</td>
+                                                <td class="py-1 px-2.5 text-center font-extrabold {{ $sr['court_granted'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $sr['court_granted'] }}</td>
+                                            </tr>
+                                            <tr class="border-b border-slate-200">
+                                                <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Extraction &amp; Forensic Analysis Conducted</td>
+                                                <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with($sr['extraction_status'], 'YES') ? 'text-emerald-800' : (str_starts_with($sr['extraction_status'], 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $sr['extraction_status'] }}</td>
+                                            </tr>
+                                            <tr class="border-b border-slate-200">
+                                                <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Report, Witness Statement &amp; Digital Evidence Sent to Investigations</td>
+                                                <td class="py-1 px-2.5 text-center font-extrabold {{ str_starts_with($sr['report_witness_status'], 'YES') ? 'text-emerald-800' : (str_starts_with($sr['report_witness_status'], 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $sr['report_witness_status'] }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-1 px-2.5 border-r border-slate-300 font-medium">Intelligence Shared to Intel Department for Action</td>
+                                                <td class="py-1 px-2.5 text-center font-extrabold {{ $sr['intel_shared'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $sr['intel_shared'] }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- SECTION 04: REMARKS & OBSERVATIONS -->
+                            <div class="flow-block section-04 section-remarks mt-9">
+                                <div class="flex items-center gap-2 mb-0.5 avoid-break-after">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                        04
+                                    </span>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                                Remarks
+                                            </h3>
+                                            <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
+                                                Technical Observations
+                                            </span>
+                                        </div>
+                                        <div class="mt-0.5 h-px bg-slate-200"></div>
+                                    </div>
+                                </div>
+
+                                <div class="flow-text text-[12px] leading-snug text-slate-700 whitespace-pre-line pb-30">
+                                    {{ $sr['remark'] }}
+                                </div>
+                            </div>
+
+                            <!-- CONDITIONS NOTE -->
+                            <div class="flow-block section-conditions mt-3 pt-1.5 border-t border-slate-200 avoid-break">
+                                <p class="text-[8.5px] font-semibold text-slate-800 mb-0.5 italic">
+                                    Note: The result(s) relate only to the item(s) / digital exhibit(s) examined for suspect {{ $sr['suspect_name'] }} (Ref: {{ $sr['case_number'] }}).
+                                </p>
+                                <p class="text-[8.5px] font-extrabold uppercase tracking-wider text-slate-900 mb-0.5">
+                                    Conditions:
+                                </p>
+                                <ol class="list-decimal list-inside space-y-0.5 text-[8.5px] font-medium text-slate-700 leading-tight pl-0.5">
+                                    <li>Not valid without NACOC Digital &amp; Physical Forensics Unit approval.</li>
+                                    <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
+                                    <li>This report shall not be reproduced in part without the written approval of the Director General of NACOC.</li>
+                                </ol>
+                            </div>
+                        </div>
+
+                        <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
+                        <div class="flow-block section-signatures avoid-break mt-3 footer">
                             <div class="grid grid-cols-2 gap-8">
                                 <div>
                                     <p class="text-[7px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
@@ -629,9 +845,11 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- SUSPECT REPORT FOOTER -->
-                        <div class="mt-3.5 pb-6 border-t border-slate-200 flex items-center justify-between text-[7.5px] text-slate-500 font-mono-code select-none footer">
+                    <!-- SUSPECT REPORT FOOTER -->
+                    <div class="page-footer-block shrink-0 mt-auto">
+                        <div class="mt-2 pb-2 border-t border-slate-200 flex items-center justify-between text-[7.5px] text-slate-500 font-mono-code select-none footer">
                             <div class="flex items-center gap-2">
                                 <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; {{ $sr['suspect_name'] }}</span>
                                 <span>&bull;</span>
@@ -640,7 +858,7 @@
                             <div class="flex items-center gap-2">
                                 <span>STRICTLY CONFIDENTIAL</span>
                                 <span>&bull;</span>
-                                <span class="font-bold text-slate-800">Page {{ $sReportPage }} of {{ $totalDossierPages }}</span>
+                                <span class="font-bold text-slate-800 dpf-footer-page-num">Page {{ $sReportPage }} of <span class="doc-total-pages">{{ $totalDossierPages }}</span></span>
                             </div>
                         </div>
                     </div>
@@ -699,9 +917,9 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-2 border border-slate-300 rounded-lg overflow-hidden bg-slate-50 p-2 flex flex-col items-center justify-center min-h-[750px] max-h-[920px]">
+                                <div class="mt-2 border border-slate-300 rounded-lg overflow-hidden bg-slate-50 p-2 flex flex-col items-center justify-center min-h-[750px] max-h-[920px] print:min-h-0 print:max-h-[215mm]">
                                     @if($isImage)
-                                        <img src="{{ $fileAssetUrl }}" alt="{{ $cleanFilename }}" class="max-h-[850px] max-w-full object-contain rounded shadow-xs" />
+                                        <img src="{{ $fileAssetUrl }}" alt="{{ $cleanFilename }}" class="max-h-[850px] print:max-h-[210mm] max-w-full object-contain rounded shadow-xs" />
                                     @elseif($isPdf)
                                         <div class="pdf-viewer-canvas-container flex flex-col items-center justify-center w-full"
                                              data-pdf-url="{{ $fileAssetUrl }}"
@@ -723,7 +941,7 @@
                                 </div>
                             </div>
 
-                            <div class="mt-8 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
+                            <div class="mt-8 print:mt-2 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; {{ $sr['suspect_name'] }}</span>
                                     <span>&bull;</span>
@@ -746,9 +964,230 @@
 
     <!-- SCRIPT FOR PDF.JS RENDERING & AUTO-PRINT -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            renderPdfAttachments();
-        });
+        function splitTextIntoAtomicParagraphs(text) {
+            if (!text) return [];
+            const rawLines = text.split(/\r?\n+/).map(l => l.trim()).filter(Boolean);
+            const finalChunks = [];
+
+            rawLines.forEach(line => {
+                if (line.length <= 250) {
+                    finalChunks.push(line);
+                    return;
+                }
+                const sentences = line.split(/(?<=[.!?])\s+|(?<=[.!?])(?=[A-Z])/).map(s => s.trim()).filter(Boolean);
+                let accum = '';
+                sentences.forEach(s => {
+                    if (s.length > 300) {
+                        const words = s.split(/\s+/).filter(Boolean);
+                        let wAccum = '';
+                        words.forEach(w => {
+                            if ((wAccum + ' ' + w).trim().length > 220 && wAccum.length > 0) {
+                                finalChunks.push(wAccum.trim());
+                                wAccum = w;
+                            } else {
+                                wAccum = (wAccum + ' ' + w).trim();
+                            }
+                        });
+                        if (wAccum.trim().length > 0) {
+                            s = wAccum.trim();
+                        }
+                    }
+                    if ((accum + ' ' + s).trim().length > 250 && accum.length > 0) {
+                        finalChunks.push(accum.trim());
+                        accum = s;
+                    } else {
+                        accum = (accum + ' ' + s).trim();
+                    }
+                });
+                if (accum.trim().length > 0) {
+                    finalChunks.push(accum.trim());
+                }
+            });
+
+            return finalChunks.length > 0 ? finalChunks : [text.trim()];
+        }
+
+        function autoPaginateAllReports() {
+            const reportRoots = document.querySelectorAll('#dpfReportSheet .auto-paginated-root');
+            reportRoots.forEach(page => paginateReportPage(page));
+        }
+
+        function paginateReportPage(pageEl) {
+            const headerBlock = pageEl.querySelector('.page-header-block');
+            const flowBody = pageEl.querySelector('.report-flow-body');
+            const footerBlock = pageEl.querySelector('.page-footer-block');
+            if (!flowBody || !headerBlock || !footerBlock) return;
+
+            const maxH = pageEl.clientHeight - headerBlock.offsetHeight - footerBlock.offsetHeight - 15;
+            if (flowBody.scrollHeight <= maxH + 4) return;
+
+            const sectionsContainer = flowBody.querySelector('.flow-sections-container');
+            const signaturesBlock = flowBody.querySelector('.section-signatures');
+            const rawBlocks = sectionsContainer ? Array.from(sectionsContainer.children) : [];
+            if (signaturesBlock) rawBlocks.push(signaturesBlock);
+
+            const atomicItems = [];
+
+            rawBlocks.forEach(block => {
+                const hasTable = !!block.querySelector('table');
+                const isRemarks = (block.classList.contains('section-04') || block.classList.contains('section-remarks')) && !hasTable;
+
+                if (isRemarks && block.querySelector('.flow-text')) {
+                    const heading = block.querySelector('.flex.items-center');
+                    const textElem = block.querySelector('.flow-text');
+                    const fullText = (textElem ? textElem.innerText : '').trim();
+                    const atomicParagraphs = splitTextIntoAtomicParagraphs(fullText);
+
+                    if (heading) {
+                        const hWrap = document.createElement('div');
+                        hWrap.className = 'flow-block section-remarks-heading mt-3 avoid-break-after';
+                        hWrap.appendChild(heading.cloneNode(true));
+                        atomicItems.push(hWrap);
+                    }
+
+                    if (atomicParagraphs.length > 0) {
+                        atomicParagraphs.forEach(p => {
+                            const pDiv = document.createElement('div');
+                            pDiv.className = 'flow-block flow-p text-[12px] leading-snug text-slate-700 mt-2';
+                            pDiv.innerText = p.trim();
+                            atomicItems.push(pDiv);
+                        });
+                    }
+                } else {
+                    atomicItems.push(block);
+                }
+            });
+
+            flowBody.innerHTML = '';
+            const newSectionsContainer = document.createElement('div');
+            newSectionsContainer.className = 'flow-sections-container';
+            flowBody.appendChild(newSectionsContainer);
+
+            let currentPage = pageEl;
+            let currentSectionsContainer = newSectionsContainer;
+            let currentFlowBody = flowBody;
+
+            function appendNewPage() {
+                const nextPg = pageEl.cloneNode(false);
+                nextPg.className = 'a4-page dynamic-dossier-page generated-flow-page relative text-slate-900 page-break';
+
+                const wm = pageEl.querySelector('.absolute.inset-0, .dossier-watermark');
+                if (wm) nextPg.appendChild(wm.cloneNode(true));
+
+                const inner = document.createElement('div');
+                inner.className = 'relative z-10 flex flex-col justify-between h-full min-h-0';
+
+                const hdr = headerBlock.cloneNode(true);
+                const bdy = document.createElement('div');
+                bdy.className = 'report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden';
+                const secCont = document.createElement('div');
+                secCont.className = 'flow-sections-container';
+                bdy.appendChild(secCont);
+
+                const ftr = footerBlock.cloneNode(true);
+
+                inner.appendChild(hdr);
+                inner.appendChild(bdy);
+                inner.appendChild(ftr);
+                nextPg.appendChild(inner);
+
+                currentPage.parentNode.insertBefore(nextPg, currentPage.nextSibling);
+                currentPage = nextPg;
+                currentSectionsContainer = secCont;
+                currentFlowBody = bdy;
+            }
+
+            atomicItems.forEach(item => {
+                if (item.classList.contains('section-signatures')) {
+                    currentFlowBody.appendChild(item);
+                } else {
+                    currentSectionsContainer.appendChild(item);
+                }
+
+                if (currentFlowBody.scrollHeight > maxH + 4) {
+                    const totalChildren = currentSectionsContainer.children.length + (currentFlowBody.querySelector('.section-signatures') ? 1 : 0);
+                    if (totalChildren > 1) {
+                        if (item.classList.contains('section-signatures')) {
+                            currentFlowBody.removeChild(item);
+                        } else {
+                            currentSectionsContainer.removeChild(item);
+                        }
+
+                        // Prevent orphan heading or orphan conditions block
+                        const lastChild = currentSectionsContainer.lastElementChild;
+                        let movedHeaderOrConditions = null;
+                        if (lastChild && (
+                            lastChild.classList.contains('section-remarks-heading') ||
+                            lastChild.classList.contains('section-04-heading') ||
+                            lastChild.classList.contains('avoid-break-after') ||
+                            (item.classList.contains('section-signatures') && lastChild.classList.contains('section-conditions'))
+                        )) {
+                            movedHeaderOrConditions = lastChild;
+                            currentSectionsContainer.removeChild(lastChild);
+                        }
+
+                        appendNewPage();
+
+                        if (movedHeaderOrConditions) {
+                            currentSectionsContainer.appendChild(movedHeaderOrConditions);
+                        }
+
+                        if (item.classList.contains('section-signatures')) {
+                            currentFlowBody.appendChild(item);
+                        } else {
+                            currentSectionsContainer.appendChild(item);
+                        }
+                    }
+                }
+            });
+        }
+
+        function renumberAllPages() {
+            const pages = document.querySelectorAll('#dpfReportSheet .a4-page');
+            const total = pages.length;
+
+            const p1Badge = document.getElementById('page1HeaderBadge');
+            if (p1Badge) p1Badge.innerHTML = `DOSSIER COVER &bull; Page 1 of <span class="doc-total-pages">${total}</span>`;
+
+            document.querySelectorAll('.doc-total-pages').forEach(el => el.textContent = total);
+
+            pages.forEach((p, idx) => {
+                const pageNum = idx + 1;
+                const hBadge = p.querySelector('.dpf-header-page-num');
+                if (hBadge) {
+                    const fullBadge = hBadge.textContent || '';
+                    if (fullBadge.includes('Suspect') && fullBadge.includes('•')) {
+                        const sLabel = fullBadge.split('•')[0].trim();
+                        hBadge.innerHTML = `${sLabel} &bull; Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
+                    } else {
+                        hBadge.innerHTML = `Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
+                    }
+                }
+
+                const fBadge = p.querySelector('.dpf-footer-page-num');
+                if (fBadge) fBadge.innerHTML = `Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
+            });
+        }
+
+        window.handlePrintDocument = function() {
+            if (window.isPdfRendering) {
+                alert('Document pages are currently being prepared for print. Please try again in a few seconds.');
+                return;
+            }
+            window.print();
+        };
+
+        async function initMultiDpfReport() {
+            autoPaginateAllReports();
+            await renderPdfAttachments();
+            renumberAllPages();
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMultiDpfReport);
+        } else {
+            initMultiDpfReport();
+        }
 
         async function renderPdfAttachments() {
             const pdfContainers = document.querySelectorAll('.pdf-viewer-canvas-container');
@@ -837,11 +1276,11 @@
                                             ${filename} ${filesize ? `&bull; ${filesize}` : ''}
                                         </div>
                                     </div>
-                                    <div class="mt-2 border border-slate-300 rounded-lg overflow-hidden bg-slate-50 p-2 flex flex-col items-center justify-center min-h-[750px] max-h-[920px]">
+                                    <div class="mt-2 border border-slate-300 rounded-lg overflow-hidden bg-slate-50 p-2 flex flex-col items-center justify-center min-h-[750px] max-h-[920px] print:min-h-0 print:max-h-[215mm]">
                                         <div class="pdf-canvas-container flex items-center justify-center w-full"></div>
                                     </div>
                                 </div>
-                                <div class="mt-8 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
+                                <div class="mt-8 print:mt-2 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
                                     <div class="flex items-center gap-2">
                                         <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU SUSPECT</span>
                                         <span>&bull;</span>
@@ -867,6 +1306,7 @@
                 }
             }
             window.isPdfRendering = false;
+            renumberAllPages();
         }
     </script>
 
