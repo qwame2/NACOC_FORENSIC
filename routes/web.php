@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CaseController;
+use App\Http\Controllers\ProfileController;
 use App\Models\User;
 use App\Models\ForensicCase;
 use App\Http\Middleware\EnsureHeadOfficer;
@@ -56,6 +57,16 @@ Route::middleware(['auth'])->group(function () {
     
     // AUTHENTICATION LOGOUT
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    // OFFICER PROFILE & SETTINGS
+    Route::get('/profile/settings', [ProfileController::class, 'edit'])->name('profile.settings');
+    Route::get('/profile', function () {
+        return redirect()->route('profile.settings');
+    })->name('profile');
+    Route::match(['put', 'post'], '/profile/settings', [ProfileController::class, 'update'])->name('profile.update');
+    Route::match(['put', 'post'], '/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::match(['delete', 'post'], '/profile/avatar/remove', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
+    Route::match(['delete', 'post'], '/profile/signature/remove', [ProfileController::class, 'removeSignature'])->name('profile.signature.remove');
 
     // MASTER CASE DIRECTORY & HISTORY ROUTES
     Route::get('/history', function (\Illuminate\Http\Request $request) {

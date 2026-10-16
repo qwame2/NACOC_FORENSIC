@@ -1,17 +1,50 @@
 @php
     $authUser = auth()->user();
-    $dbDpfHead = \App\Models\User::where(function($q) {
-                    $q->where('unit', 'LIKE', '%Digital%')
-                      ->orWhere('unit', 'LIKE', '%Physical%');
-                })->where('is_head', true)->first()
-                ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
+    $dbDpfHead = null;
+    if ($authUser && $authUser->is_head && (str_contains(strtolower($authUser->unit ?? ''), 'digital') || str_contains(strtolower($authUser->unit ?? ''), 'physical'))) {
+        $dbDpfHead = $authUser;
+    }
+    if (!$dbDpfHead) {
+        $dbDpfHead = \App\Models\User::where(function($q) {
+                        $q->where('unit', 'LIKE', '%Digital%')
+                          ->orWhere('unit', 'LIKE', '%Physical%');
+                    })->where('is_head', true)->first()
+                    ?? \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->first()
+                    ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
+    }
     $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'Ofori Graham';
+    $dpfHeadSignature = $dbDpfHead ? $dbDpfHead->signature : null;
+    if (empty($dpfHeadSignature)) {
+        $oforiUser = \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->whereNotNull('signature')->first();
+        if ($oforiUser) {
+            $dpfHeadSignature = $oforiUser->signature;
+        }
+    }
+    if (!empty($dpfHeadSignature)) {
+        $dpfHeadSignature = trim((string)$dpfHeadSignature);
+        if (!str_starts_with($dpfHeadSignature, 'data:image') && !str_starts_with($dpfHeadSignature, 'http://') && !str_starts_with($dpfHeadSignature, 'https://') && !str_starts_with($dpfHeadSignature, '/')) {
+            $dpfHeadSignature = asset($dpfHeadSignature);
+        }
+    }
 
-    $dbDeptHead = \App\Models\User::where('unit', 'LIKE', '%Directorate%')->where('is_head', true)->first()
-               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Directorate%')->first()
-               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
-               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
+    $dbDeptHead = null;
+    if ($authUser && $authUser->is_head && (str_contains(strtolower($authUser->unit ?? ''), 'directorate') || str_contains(strtolower($authUser->unit ?? ''), 'forensic head'))) {
+        $dbDeptHead = $authUser;
+    }
+    if (!$dbDeptHead) {
+        $dbDeptHead = \App\Models\User::where('unit', 'LIKE', '%Directorate%')->where('is_head', true)->first()
+                   ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Directorate%')->first()
+                   ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
+                   ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
+    }
     $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : 'Anita Addo';
+    $deptHeadSignature = $dbDeptHead ? $dbDeptHead->signature : null;
+    if (!empty($deptHeadSignature)) {
+        $deptHeadSignature = trim((string)$deptHeadSignature);
+        if (!str_starts_with($deptHeadSignature, 'data:image') && !str_starts_with($deptHeadSignature, 'http://') && !str_starts_with($deptHeadSignature, 'https://') && !str_starts_with($deptHeadSignature, '/')) {
+            $deptHeadSignature = asset($deptHeadSignature);
+        }
+    }
 
     // If $suspectReports was not passed (e.g., opened for a single case), build from single case/report
     if (!isset($suspectReports) || empty($suspectReports)) {
@@ -824,24 +857,44 @@
                         </div>
 
                         <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
-                        <div class="flow-block section-signatures avoid-break mt-9 pb-6 footer">
+                        <div class="flow-block section-signatures avoid-break mt-6 pb-2 footer">
                             <div class="grid grid-cols-2 gap-8">
-                                <div>
-                                    <p class="text-[7px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
-                                    <div class="mt-2.5 border-b border-dashed border-slate-300 pb-0.5">
+                                <div class="flex flex-col">
+                                    <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
+                                    
+                                    <!-- SIGNATURE AREA (MATCHING HEIGHT, FIXED TO PREVENT HEADER MOVING UP) -->
+                                    <div class="relative h-20 flex items-end pb-0.5">
+                                        @if(!empty($dpfHeadSignature))
+                                            <img src="{{ $dpfHeadSignature }}" alt="Official Digital Signature - {{ $dpfHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[280px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
+                                        @endif
+                                    </div>
+
+                                    <div class="border-b border-dashed border-slate-300 pb-0.5">
                                         <span class="text-[7px] italic text-slate-700">Electronically Signed &amp; Validated</span>
                                     </div>
-                                    <p class="mt-0.5 text-[8.5px] font-bold text-slate-900">{{ $dpfHeadName }}</p>
-                                    <p class="text-[7px] text-slate-800">Head of Digital &amp; Physical Forensics Unit, NACOC</p>
+                                    <div class="mt-0.5">
+                                        <p class="text-[8.5px] font-bold text-slate-900 leading-tight">{{ $dpfHeadName }}</p>
+                                        <p class="text-[7px] text-slate-800 leading-tight">Head of Digital &amp; Physical Forensics Unit, NACOC</p>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <p class="text-[7px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
-                                    <div class="mt-2.5 border-b border-dashed border-slate-300 pb-0.5">
+                                <div class="flex flex-col">
+                                    <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
+                                    
+                                    <!-- SIGNATURE AREA (MATCHING HEIGHT, FIXED TO PREVENT HEADER MOVING UP) -->
+                                    <div class="relative h-20 flex items-end pb-0.5">
+                                        @if(!empty($deptHeadSignature))
+                                            <img src="{{ $deptHeadSignature }}" alt="Official Digital Signature - {{ $deptHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[280px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
+                                        @endif
+                                    </div>
+
+                                    <div class="border-b border-dashed border-slate-300 pb-0.5">
                                         <span class="text-[7px] italic text-slate-700">Authorized &amp; Counter-signed</span>
                                     </div>
-                                    <p class="mt-0.5 text-[8.5px] font-bold text-slate-900">{{ $deptHeadName }}</p>
-                                    <p class="text-[7px] text-slate-800">Head of Forensic Department, NACOC</p>
+                                    <div class="mt-0.5">
+                                        <p class="text-[8.5px] font-bold text-slate-900 leading-tight">{{ $deptHeadName }}</p>
+                                        <p class="text-[7px] text-slate-800 leading-tight">Head of Forensic Department, NACOC</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

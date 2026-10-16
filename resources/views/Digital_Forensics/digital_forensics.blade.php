@@ -66,13 +66,16 @@
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
                         <div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <h3 class="font-extrabold text-slate-900 text-sm">Digital Forensics Case Register</h3>
+                                <span class="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-emerald-600 text-white font-mono-code uppercase tracking-wider">
+                                    Digital &amp; Mobile Cyber Forensics HQ
+                                </span>
                                 <span id="regRowCountBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 font-mono-code">
                                     Total: {{ count($cases) }}
                                 </span>
                             </div>
-                            <p class="text-xs text-slate-500">Device imaging, chip-off extractions, and cyber evidence logs</p>
+                            <p class="text-xs text-slate-500 mt-0.5"><strong class="text-slate-700 font-mono-code">Digital &amp; Mobile Cyber Forensics HQ</strong> &bull; Device imaging, chip-off extractions, and cyber evidence logs</p>
                         </div>
                         <div class="relative w-full sm:max-w-xs">
                             <input type="text" id="regSearchInput" onkeyup="applyCaseFilters()" placeholder="Filter by Case #, Suspect..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors">
@@ -130,7 +133,6 @@
                                     <th class="py-3.5 px-5">Case #</th>
                                     <th class="py-3.5 px-5">Logged Date</th>
                                     <th class="py-3.5 px-5">Title</th>
-                                    <th class="py-3.5 px-5">Suspect Name</th>
                                     <th class="py-3.5 px-5">Suspect Disposition</th>
                                     <th class="py-3.5 px-5">Status</th>
                                     <th class="py-3.5 px-5 text-right">Actions</th>
@@ -143,18 +145,84 @@
                                     $cTime = strtotime((string)$cDateRaw);
                                     $cDateIso = ($cTime && $cTime > 0) ? date('Y-m-d', $cTime) : date('Y-m-d');
                                     $cDateDisplay = ($cTime && $cTime > 0) ? date('d M Y', $cTime) : date('d M Y');
+                                    $sDispListDfu = $c->getSuspectsList();
+
+                                    $sList = !empty($sDispListDfu) ? $sDispListDfu : [[
+                                        'suspect_name'  => $c->suspect_name ?? 'Unknown Suspect',
+                                        'suspect_alias' => $c->suspect_alias ?? null,
+                                        'mugshot_front' => $c->mugshot_front ?? null,
+                                        'role'          => 'Primary Suspect',
+                                        'is_associate'  => false,
+                                    ]];
+                                    $primaryS = $sList[0] ?? [];
+                                    $primaryName = $primaryS['suspect_name'] ?? ($c->suspect_name ?? 'Unknown Suspect');
+                                    $primaryAlias = $primaryS['suspect_alias'] ?? ($c->suspect_alias ?? null);
+                                    $allNames = implode(' ', array_filter(array_column($sList, 'suspect_name')));
+                                    $allAliases = implode(' ', array_filter(array_column($sList, 'suspect_alias')));
                                 @endphp
-                                <tr class="hover:bg-slate-50 case-register-row" data-date="{{ $cDateIso }}" data-caseref="{{ $c->case_number }}">
-                                    <td class="py-3.5 px-5 font-bold font-mono-code text-emerald-700">{{ $c->case_number }}</td>
+                                <tr class="hover:bg-slate-50 case-register-row" data-date="{{ $cDateIso }}" data-caseref="{{ $c->case_number }}" data-suspect="{{ strtolower($allNames . ' ' . $allAliases) }}">
+                                    <td class="py-3.5 px-5 font-bold font-mono-code text-emerald-700 whitespace-nowrap">
+                                        <div>{{ $c->case_number }}</div>
+                                    </td>
                                     <td class="py-3.5 px-5 whitespace-nowrap">
                                         <div class="font-bold text-[11px] text-slate-800">{{ $cDateDisplay }}</div>
                                     </td>
-                                    <td class="py-3.5 px-5 font-semibold text-slate-900 font-sans">{{ $c->title }}</td>
-                                    <td class="py-3.5 px-5 text-slate-600 font-sans">{{ $c->suspect_name ?? 'N/A' }}</td>
+                                    <td class="py-3.5 px-5 min-w-[280px]">
+                                        <div class="flex items-center gap-3">
+                                            {{-- Suspect Front Mugshot Thumbnail --}}
+                                            <div class="flex items-center {{ count($sList) > 1 ? '-space-x-3.5 hover:space-x-1.5 transition-all duration-200' : '' }} shrink-0 py-0.5">
+                                                @foreach($sList as $sIdx => $sItem)
+                                                    @php
+                                                        $rawPic = $sItem['mugshot_front'] ?? ($sIdx === 0 ? $c->mugshot_front : null);
+                                                        $sPic = null;
+                                                        if (!empty($rawPic)) {
+                                                            $rawPic = trim((string)$rawPic);
+                                                            $sPic = (!str_starts_with($rawPic, 'data:image') && !str_starts_with($rawPic, 'http://') && !str_starts_with($rawPic, 'https://') && !str_starts_with($rawPic, '/'))
+                                                                ? asset($rawPic)
+                                                                : $rawPic;
+                                                        }
+                                                        $sItemName = $sItem['suspect_name'] ?? 'Suspect';
+                                                        $isAssoc = !empty($sItem['is_associate']);
+                                                    @endphp
+                                                    <div class="relative group cursor-pointer" style="z-index: {{ 10 - $sIdx }};" 
+                                                         @if(!empty($sPic)) onclick="openMugshotModal('{{ addslashes($sPic) }}', '{{ addslashes($sItemName) }}')" @endif
+                                                         title="{{ $sItemName }}{{ !empty($sPic) ? ' (Click to enlarge photo)' : '' }}">
+                                                        @if($isAssoc)
+                                                            <span class="absolute -top-1 -right-1 z-20 w-3.5 h-3.5 bg-amber-500 border border-white rounded-full flex items-center justify-center text-[7.5px] font-black text-white font-mono-code shadow-2xs" title="Associate Suspect">A</span>
+                                                        @endif
+                                                        <div class="w-9 h-11 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden shadow-2xs flex items-center justify-center group-hover:ring-2 group-hover:ring-emerald-500 transition-all">
+                                                            @if(!empty($sPic))
+                                                                <img src="{{ $sPic }}" alt="{{ $sItemName }}" class="w-full h-full object-cover">
+                                                            @else
+                                                                <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-300" title="No front mugshot on file">
+                                                                    <svg class="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                                    </svg>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <div class="min-w-0">
+                                                <div class="font-bold text-slate-900 font-sans text-xs leading-snug">{{ $c->title }}</div>
+                                                <div class="text-[9.5px] text-emerald-700 font-mono-code font-bold mt-0.5 flex items-center gap-1">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                                    <span>Digital &amp; Mobile Cyber Forensics HQ</span>
+                                                </div>
+                                                <div class="text-[10px] text-slate-500 font-sans mt-0.5 truncate max-w-[220px]" title="{{ $primaryName }}">
+                                                    <span class="font-medium text-slate-400">Suspect:</span> <span class="font-bold text-slate-800 font-mono-code uppercase">{{ $primaryName }}</span>
+                                                    @if(!empty($primaryAlias) && strtoupper($primaryAlias) !== 'N/A')
+                                                        <span class="italic text-slate-400">({{ $primaryAlias }})</span>
+                                                    @endif
+                                                    @if(count($sList) > 1)
+                                                        <span class="inline-block px-1 py-0.2 rounded text-[7.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200 ml-1 font-mono-code" title="{{ count($sList) - 1 }} Co-Suspect(s)">+{{ count($sList) - 1 }}</span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
                                     <td class="py-3.5 px-5 whitespace-nowrap">
-                                        @php
-                                            $sDispListDfu = $c->getSuspectsList();
-                                        @endphp
                                         <div class="space-y-1">
                                             @foreach ($sDispListDfu as $sObj)
                                                 @php
@@ -188,11 +256,11 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="7" class="py-6 text-center text-slate-400 font-semibold">No digital forensics cases registered yet.</td>
+                                    <td colspan="6" class="py-6 text-center text-slate-400 font-semibold">No digital forensics cases registered yet.</td>
                                 </tr>
                                 @endforelse
                                 <tr id="regNoRecordsRow" class="hidden">
-                                    <td colspan="7" class="py-8 text-center text-slate-400 font-semibold font-mono-code">
+                                    <td colspan="6" class="py-8 text-center text-slate-400 font-semibold font-mono-code">
                                         <div class="space-y-2">
                                             <p>No matching digital forensic cases found.</p>
                                             <button type="button" onclick="resetRegDateFilters()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold border border-emerald-200 text-xs transition-colors cursor-pointer">
@@ -396,7 +464,8 @@
                 const rowDate = r.getAttribute('data-date') || '';
                 const rowText = r.innerText.toLowerCase();
 
-                const matchesText = !query || rowText.includes(query);
+                const rowSuspect = (r.getAttribute('data-suspect') || '').toLowerCase();
+                const matchesText = !query || rowText.includes(query) || rowSuspect.includes(query);
 
                 let matchesDate = true;
                 if (fromVal && rowDate && rowDate < fromVal) {
@@ -421,9 +490,77 @@
                 badge.textContent = `Showing: ${visibleCount}`;
             }
         }
+
+        // Suspect Mugshot Lightbox / Enlarge Modal Handlers
+        function openMugshotModal(imgUrl, suspectName) {
+            if (!imgUrl) return;
+            const modal = document.getElementById('mugshotModal');
+            const img = document.getElementById('modalMugshotImg');
+            const nameEl = document.getElementById('modalSuspectName');
+            if (img) img.src = imgUrl;
+            if (nameEl) nameEl.textContent = suspectName || 'Suspect';
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.classList.add('overflow-hidden');
+            }
+        }
+
+        function closeMugshotModal() {
+            const modal = document.getElementById('mugshotModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        function handleMugshotBackdropClick(e) {
+            if (e.target && e.target.id === 'mugshotModal') {
+                closeMugshotModal();
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeMugshotModal();
+            }
+        });
     </script>
 
             </main>
+        </div>
+    </div>
+
+    <!-- SUSPECT MUGSHOT ENLARGE PREVIEW MODAL -->
+    <div id="mugshotModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-200" onclick="handleMugshotBackdropClick(event)">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+            <!-- MODAL HEADER -->
+            <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h4 class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-100">Custodial Front Portrait</h4>
+                </div>
+                <button type="button" onclick="closeMugshotModal()" class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer" title="Close Preview">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- MODAL IMAGE BODY -->
+            <div class="p-6 flex flex-col items-center bg-slate-50">
+                <div class="relative w-56 h-64 rounded-2xl overflow-hidden border-2 border-slate-300 bg-slate-200 shadow-md flex items-center justify-center">
+                    <img id="modalMugshotImg" src="" alt="Suspect Mugshot" class="w-full h-full object-cover">
+                </div>
+                <div class="mt-4 text-center">
+                    <div id="modalSuspectName" class="font-mono-code font-black text-sm uppercase text-slate-900 tracking-tight"></div>
+                    <div class="text-[10px] font-mono-code text-slate-500 uppercase mt-0.5 tracking-wider">NACOC Custodial Photographic Archive</div>
+                </div>
+            </div>
+            <!-- MODAL FOOTER -->
+            <div class="px-5 py-3 bg-white border-t border-slate-100 flex items-center justify-end">
+                <button type="button" onclick="closeMugshotModal()" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono-code font-bold rounded-xl transition-colors cursor-pointer">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 </body>

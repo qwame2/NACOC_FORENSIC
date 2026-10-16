@@ -63,12 +63,6 @@
                     <span class="text-xs flex-1">Court Evidence Reports</span>
                 </a>
 
-                <!-- DIRECTORATE HISTORY LOG -->
-                <a href="{{ url('/Forensic_Head/history') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('*history*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*history*') ? 'text-white' : 'text-purple-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-xs flex-1">Directorate History Log</span>
-                </a>
-
             </nav>
         </div>
 
@@ -111,6 +105,10 @@
                     <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     <span class="text-xs">Audit Logs</span>
                 </a>
+                <a href="{{ route('profile.settings') }}" class="flex items-center px-3 py-2 rounded-xl transition-colors text-decoration-none {{ request()->routeIs('profile*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->routeIs('profile*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <span class="text-xs">Profile Settings</span>
+                </a>
             </nav>
         </div>
 
@@ -121,6 +119,7 @@
         $authUser = auth()->user();
         if ($authUser) {
             $userName = $authUser->fullname;
+            $userAvatar = $authUser->avatar;
         } else {
             $dbForensicHead = \App\Models\User::where('is_head', true)
                 ->where(function($q) {
@@ -129,6 +128,7 @@
                       ->orWhere('unit', 'LIKE', '%Directorate Head%');
                 })->first() ?? \App\Models\User::where('is_head', true)->first();
             $userName = session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'Anita Johnson');
+            $userAvatar = $dbForensicHead?->avatar ?? null;
         }
 
         $nameParts = preg_split('/\s+/', trim($userName));
@@ -138,15 +138,20 @@
         $userRole = ($authUser && $authUser->is_head) ? 'Forensic Head · NACOC' : 'Commanding Officer · NACOC';
     @endphp
     <div class="p-3.5 bg-slate-200/60 space-y-2.5 border-t border-slate-200/80">
-        <div class="flex items-center space-x-3 px-1 py-0.5">
-            <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-extrabold text-xs text-white shadow-sm shadow-emerald-600/30 shrink-0">
-                {{ $initials }}
-            </div>
+        <a href="{{ route('profile.settings') }}" class="flex items-center space-x-3 px-1 py-1 rounded-xl hover:bg-slate-300/50 transition-colors group text-decoration-none">
+            @if(!empty($userAvatar))
+                <img src="{{ $userAvatar }}" alt="{{ $userName }}" class="w-9 h-9 rounded-xl object-cover border border-emerald-500/30 shadow-xs shrink-0">
+            @else
+                <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-extrabold text-xs text-white shadow-sm shadow-emerald-600/30 shrink-0">
+                    {{ $initials }}
+                </div>
+            @endif
             <div class="flex-1 min-w-0">
-                <div class="text-xs font-extrabold text-slate-900 truncate" title="{{ $userName }}">{{ $userName }}</div>
+                <div class="text-xs font-extrabold text-slate-900 truncate group-hover:text-emerald-700 transition-colors" title="{{ $userName }}">{{ $userName }}</div>
                 <div class="text-[11px] text-emerald-700 font-extrabold truncate" title="{{ $userRole }}">{{ $userRole }}</div>
             </div>
-        </div>
+            <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-600 transition-colors shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl bg-white hover:bg-red-600 text-slate-800 hover:text-white text-xs font-bold transition-all shadow-2xs border border-slate-200/80 hover:border-red-600 cursor-pointer group">

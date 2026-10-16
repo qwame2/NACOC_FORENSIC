@@ -17,7 +17,9 @@
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
         $officerName =
             auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName));
-        $examRefAuto = 'GSA-FM-T' . rand(10, 99) . '-F';
+        $examRefAuto = !empty($case->lab_exam_reference)
+            ? (str_starts_with($case->lab_exam_reference, 'GSA-') ? str_replace('GSA-', 'NLR-', $case->lab_exam_reference) : $case->lab_exam_reference)
+            : ('NLR-FM-T' . rand(10, 99) . '-F');
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
         $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
@@ -48,8 +50,16 @@
 
             $dbExamExists = false;
             if (!empty($case->id)) {
-                $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case) {
-                    $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+                    ? $case->isMultipleSuspect()
+                    : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+
+                $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
+                    if ($isMultiCase) {
+                        $q->where('multiple_suspect_case_id', $case->id);
+                    } else {
+                        $q->where('single_suspect_case_id', $case->id);
+                    }
                 })->exists();
             }
             $dData = is_array($case->docket_data)
@@ -2012,7 +2022,7 @@
                                                 Suspect / Ownership <span class="text-red-600 font-bold">*</span>
                                             </label>
                                             <div class="relative">
-                                                <select onchange="this.setAttribute('data-user-selected', 'true')"
+                                                <select onchange="this.setAttribute('data-user-selected', 'true'); if (typeof syncSection4ExhibitsToLabSection === 'function') syncSection4ExhibitsToLabSection();"
                                                     class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
                                                     <option value="All Suspects">All Suspects (Joint Ownership)
                                                     </option>
@@ -5490,14 +5500,14 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 shrink-0">
+                                <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-blue-700 font-bold bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
+                                    <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>Auto-saved with Save Case</span>
+                                </span>
                                 <span id="gsaFileCount" class="hidden px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-full">0 files</span>
                                 <button type="button" onclick="clearAllGsaFiles()" id="gsaClearAllBtn" class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold rounded-lg border border-red-200 transition-colors cursor-pointer">Clear All</button>
-                                <button type="button" id="saveGsaFilesBtn" onclick="saveGsaReportFiles()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-0">
-                                    <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                    </svg>
-                                    <span>Save &amp; Attach GSA Report</span>
-                                </button>
                             </div>
                         </div>
 
@@ -6242,6 +6252,11 @@
                 nlrBtn.classList.remove('ring-2', 'ring-emerald-400');
             }
 
+            const examRefInput = document.getElementById('labExamReferenceInput');
+            if (examRefInput && examRefInput.value.startsWith('NLR-')) {
+                examRefInput.value = examRefInput.value.replace(/^NLR-/, 'GSA-');
+            }
+
             if (gsaSec) {
                 gsaSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
@@ -6261,6 +6276,17 @@
             }
             if (gsaBtn) {
                 gsaBtn.classList.remove('ring-2', 'ring-blue-400');
+            }
+
+            // Ensure Analysis / Examination Reference in Section 5 uses the NLR reference form instead of GSA form
+            const examRefInput = document.getElementById('labExamReferenceInput');
+            if (examRefInput) {
+                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-')) {
+                    const randNum = Math.floor(Math.random() * 90 + 10);
+                    examRefInput.value = `NLR-FM-T${randNum}-F`;
+                } else if (examRefInput.value.startsWith('GSA-')) {
+                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-');
+                }
             }
 
             if (nlrSec) {
@@ -6409,26 +6435,31 @@
             }
         }
 
-        function saveGsaReportFiles() {
+        async function uploadStagedGsaFiles(caseData, defaultSuspectName) {
             const fileKeys = Object.keys(gsaFilesMap);
             const fileInput = document.getElementById('gsaReportImageInput');
             const hasInputFiles = fileInput && fileInput.files && fileInput.files.length > 0;
 
             if (fileKeys.length === 0 && !hasInputFiles) {
-                alert('Please select or drag at least one GSA report file before saving.');
                 return;
             }
 
-            const btn = document.getElementById('saveGsaFilesBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<span class="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent mr-1"></span> Uploading &amp; Saving...';
-            }
-
             const formData = new FormData();
-            const caseNoVal = document.getElementById('case_number')?.value || '{{ $case->case_number ?? '' }}';
-            const caseIdVal = '{{ $case->id ?? '' }}';
-            const suspectNameVal = document.getElementById('suspect_name')?.value || '{{ $case->suspect_name ?? '' }}';
+            const caseNoVal = (caseData && caseData.case && caseData.case.case_number)
+                || (caseData && caseData.case_number)
+                || document.getElementById('case_number')?.value
+                || '{{ $case->case_number ?? '' }}';
+            const caseIdVal = (caseData && caseData.case && caseData.case.id)
+                || (caseData && caseData.id)
+                || '{{ $case->id ?? '' }}';
+            const suspectNameVal = (caseData && caseData.case && caseData.case.suspect_name)
+                || defaultSuspectName
+                || document.getElementById('newArrestedName')?.value
+                || document.getElementById('suspect_name')?.value
+                || '{{ $case->suspect_name ?? '' }}';
+            const labNumberVal = document.getElementById('labNumberInput')?.value
+                || (caseData && caseData.case && caseData.case.laboratory_number)
+                || '';
 
             formData.append('case_number', caseNoVal);
             if (caseIdVal) {
@@ -6436,6 +6467,9 @@
             }
             if (suspectNameVal) {
                 formData.append('suspect_name', suspectNameVal);
+            }
+            if (labNumberVal) {
+                formData.append('lab_number', labNumberVal);
             }
             formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}');
 
@@ -6453,40 +6487,29 @@
 
             const targetUrl = '/Lab_Analysis/gsa-reports/store';
 
-            fetch(targetUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data: data })).catch(() => ({ ok: res.ok, status: res.status, data: {} })))
-            .then(result => {
-                const data = result.data;
-                if (result.ok && data.success) {
-                    alert(data.message || 'GSA Report uploaded and attached successfully!');
+            try {
+                const res = await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+                const result = await res.json().catch(() => ({}));
+                if (res.ok && result.success) {
                     clearAllGsaFiles();
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span>Save &amp; Attach GSA Report</span>';
-                    }
                 } else {
-                    alert(data.message || 'Failed to upload GSA report. Please try again.');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span>Save &amp; Attach GSA Report</span>';
-                    }
+                    console.warn('GSA report auto-upload notice:', result.message);
                 }
-            })
-            .catch(err => {
-                console.error('Error uploading GSA report:', err);
-                alert('An error occurred while uploading the GSA report.');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg><span>Save &amp; Attach GSA Report</span>';
-                }
-            });
+            } catch (err) {
+                console.error('Error auto-uploading GSA report with case save:', err);
+            }
+        }
+
+        // Backward-compatibility alias
+        function saveGsaReportFiles() {
+            return uploadStagedGsaFiles();
         }
 
         // Populate only the readonly manifest-sync weight fields without resetting confirmatory test data.
@@ -7278,17 +7301,58 @@
                         </div>
                     </div>
 
-                    <!-- ROW 4: CONTACT PHONE NUMBER(S) -->
+                    <!-- ROW 4: CONTACT PHONE NUMBERS CONTAINER (DEDICATED FULL WIDTH CARD FOR CO-SUSPECT) -->
                     <div class="relative z-10 pt-1">
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                </span>
-                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        <div class="suspect-phones-card bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 transition-all hover:border-slate-300" data-suspect-index="${suspectCount}">
+                            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shadow-2xs">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                        </svg>
+                                    </div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-0">
+                                        Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                </div>
+                                <span class="text-[9px] font-mono-code bg-white text-slate-500 font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border border-slate-200/80 shadow-2xs">Multi-Phone</span>
+                            </div>
+
+                            <div class="suspect-phones-list space-y-2.5">
+                                <div class="suspect-phone-row flex items-center gap-2">
+                                    <div class="relative shrink-0">
+                                        <select data-phone-field="label" class="w-28 sm:w-32 px-2.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer shadow-2xs">
+                                            <option value="Primary" selected>Primary</option>
+                                            <option value="Alternate">Alternate</option>
+                                            <option value="WhatsApp">WhatsApp</option>
+                                            <option value="Emergency">Emergency</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="relative flex-1 flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                        </span>
+                                        <input type="text"
+                                               data-field="phone"
+                                               data-phone-field="number"
+                                               placeholder="e.g. +233 24 555 0192"
+                                               required
+                                               class="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 text-xs">
+                                    </div>
+                                    <div class="w-9 h-9 shrink-0 flex items-center justify-center"></div>
+                                </div>
+                            </div>
+
+                            <div class="pt-0.5">
+                                <button type="button"
+                                        onclick="addSuspectPhoneRow(this)"
+                                        class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.98]">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    <span>Add Phone Number</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -7666,8 +7730,10 @@
                     place_of_birth: s1POB,
                     hometown: s1POB,
                     phone: s1Phone,
+                    phone_label: document.querySelector('#suspectCard-1 select[name="phone_labels[]"], #suspectPhonesContainer select[data-phone-field="label"]')?.value || 'Primary',
                     phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
                     additional_phones: typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
+                    additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
                     address: s1Address,
                     residential_address: s1Address,
                     gps: s1Address,
@@ -7720,7 +7786,46 @@
                 const sEye = getField('eye_color');
                 const sNat = getField('nationality') || '';
                 const sPOB = getField('pob') || getField('place_of_birth') || getField('hometown') || card.querySelector('[data-field="pob"]')?.value?.trim() || card.querySelector('[data-field="place_of_birth"]')?.value?.trim() || card.querySelector('[data-field="hometown"]')?.value?.trim() || '';
-                const sPhone = getField('phone') || getField('phone_number') || card.querySelector('[data-field="phone"]')?.value?.trim() || '';
+                // Collect multiple phone numbers for this co-suspect
+                let coSuspectPhones = [];
+                if (typeof getCardPhonesPayload === 'function') {
+                    coSuspectPhones = getCardPhonesPayload(card);
+                } else {
+                    const phoneRows = card.querySelectorAll('.suspect-phone-row');
+                    phoneRows.forEach((pRow, pIdx) => {
+                        const numEl = pRow.querySelector('[data-phone-field="number"]') || pRow.querySelector('input[type="text"]');
+                        const lblEl = pRow.querySelector('[data-phone-field="label"]') || pRow.querySelector('select');
+                        const num = numEl?.value?.trim() || '';
+                        const lbl = lblEl?.value?.trim() || (pIdx === 0 ? 'Primary' : 'Alternate');
+                        if (num) {
+                            coSuspectPhones.push({
+                                label: lbl,
+                                number: num,
+                                is_primary: (pIdx === 0)
+                            });
+                        }
+                    });
+                }
+
+                let sPhone = '';
+                let sPhoneLabel = 'Primary';
+                let additionalPhones = [];
+                let additionalPhoneLabels = [];
+
+                if (coSuspectPhones.length > 0) {
+                    sPhone = coSuspectPhones[0].number;
+                    sPhoneLabel = coSuspectPhones[0].label;
+                    for (let i = 1; i < coSuspectPhones.length; i++) {
+                        additionalPhones.push(coSuspectPhones[i].number);
+                        additionalPhoneLabels.push(coSuspectPhones[i].label);
+                    }
+                } else {
+                    sPhone = getField('phone') || getField('phone_number') || card.querySelector('[data-field="phone"]')?.value?.trim() || '';
+                    if (sPhone) {
+                        coSuspectPhones.push({ label: 'Primary', number: sPhone, is_primary: true });
+                    }
+                }
+
                 const sAddress = getField('address') || getField('residential_address') || getField('gps') || card.querySelector('[data-field="address"]')?.value?.trim() || card.querySelector('[data-field="residential_address"]')?.value?.trim() || '';
                 let sMarital = getField('marital_status') || card.querySelector('[data-field="marital_status"]')?.value?.trim() || '';
                 if (!sMarital) {
@@ -7798,6 +7903,10 @@
                         place_of_birth: sPOB,
                         hometown: sPOB,
                         phone: sPhone,
+                        phone_label: sPhoneLabel,
+                        phones: coSuspectPhones,
+                        additional_phones: additionalPhones,
+                        additional_phone_labels: additionalPhoneLabels,
                         address: sAddress,
                         residential_address: sAddress,
                         gps: sAddress,
@@ -8325,7 +8434,7 @@
                         ?.trim() || '';
                     let finalAssocPerson = selectedAssocPerson;
                     if (!finalAssocPerson || finalAssocPerson === 'All Suspects') {
-                        finalAssocPerson = jointSuspectNamesLabel || name;
+                        finalAssocPerson = 'All Suspects';
                     }
 
                     seizuresList.push({
@@ -8536,6 +8645,9 @@
                 suspects: allSuspects,
                 suspects_count: allSuspects.length,
                 lab_examination: {
+                    exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
+                    lab_exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
+                    exhibit_number: document.getElementById('labExhibitNumberInput')?.value || '',
                     laboratory_number: document.getElementById('labNumberInput')?.value || '',
                     presumptive_result: presumptiveVal,
                     substance_identification: document.getElementById('confirmatorySubstanceIdentification')?.value ||
@@ -8695,6 +8807,10 @@
                         mugshot_right: mugshotRight && mugshotRight.startsWith('data:') ? mugshotRight : null,
 
                         // Presumptive & Confirmatory / Sample Weight
+                        lab_exam_reference: document.getElementById('labExamReferenceInput')?.value || null,
+                        exam_reference: document.getElementById('labExamReferenceInput')?.value || null,
+                        lab_exhibit_number: document.getElementById('labExhibitNumberInput')?.value || null,
+                        laboratory_number: document.getElementById('labNumberInput')?.value || null,
                         sample_weight_description: document.getElementById('sampleWeightDescription')?.value ||
                             null,
                         sample_weight_units: document.getElementById('sampleWeightUnits')?.value || null,
@@ -8710,6 +8826,7 @@
                         confirmatory_specifications: document.getElementById('confirmatorySpecifications')
                             ?.value || null,
                         confirmatory_remark: document.getElementById('confirmatoryRemark')?.value || null,
+                        detected_substances: typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() : [],
 
                         // Presumptive Result & Legacy JSON docket data
                         presumptive_result: presumptiveVal,
@@ -8745,7 +8862,10 @@
                     }
                     return data;
                 })
-                .then(data => {
+                .then(async data => {
+                    // Upload and attach any staged GSA report files alongside this case
+                    await uploadStagedGsaFiles(data, name);
+
                     const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                     const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
 
@@ -9627,6 +9747,7 @@
             clone.querySelectorAll('select').forEach(select => {
                 select.selectedIndex = 0;
             });
+            clone.querySelector('.seizure-associated-person-select')?.removeAttribute('data-user-selected');
 
             // Hide all specialized wrappers in clone initially
             const drugWrapper = clone.querySelector('#drugSelectWrapper');
@@ -11317,7 +11438,7 @@
                 const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector(
                     '#unitSearchInput')?.value || '';
                 const reason = block.querySelector('#newSeizureReason')?.value || '';
-                const owner = block.querySelector('#newSeizureAssociatedPerson')?.value || '';
+                const owner = block.querySelector('.seizure-associated-person-select')?.value || block.querySelector('#newSeizureAssociatedPerson')?.value || '';
 
                 let displayName = name;
                 if (!displayName || displayName.trim() === '') {
@@ -11331,9 +11452,13 @@
                     }
                 }
 
+                let optionText = displayName;
+                if (qty || weight) optionText += ` — ${qty ? qty + ' ' + (pkg || 'qty') : ''}${weight ? ' ' + weight + ' ' + (unit || '') : ''}`;
+                if (owner) optionText += ` (Owner: ${owner})`;
+
                 const opt = document.createElement('option');
                 opt.value = itemNum.toString();
-                opt.innerText = displayName;
+                opt.innerText = optionText;
                 opt.setAttribute('data-name', displayName);
                 opt.setAttribute('data-cat', cat);
                 opt.setAttribute('data-qty', qty);
@@ -11415,9 +11540,13 @@
 
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
-            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-'))) {
-                const randNum = Math.floor(Math.random() * 90 + 10);
-                examRefInput.value = `GSA-FM-T${randNum}-F`;
+            if (examRefInput) {
+                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-')) {
+                    const randNum = Math.floor(Math.random() * 90 + 10);
+                    examRefInput.value = `NLR-FM-T${randNum}-F`;
+                } else if (examRefInput.value.startsWith('GSA-')) {
+                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-');
+                }
             }
 
             const name = selectedOption.getAttribute('data-name') || '';
@@ -11427,11 +11556,13 @@
             const weight = selectedOption.getAttribute('data-weight') || '';
             const unit = selectedOption.getAttribute('data-unit') || '';
             const reason = selectedOption.getAttribute('data-reason') || '';
+            const owner = selectedOption.getAttribute('data-owner') || '';
 
             let formattedDesc = name || cat || 'Exhibit';
             if (cat) formattedDesc += ` | Category: ${cat}`;
             if (qty || pkg) formattedDesc += ` | Quantity/Packaging: ${qty} ${pkg}`.trim();
             if (weight || unit) formattedDesc += ` | Net Weight/Metrics: ${weight} ${unit}`.trim();
+            if (owner) formattedDesc += ` | Suspect / Ownership: ${owner}`;
             if (reason) formattedDesc += ` | Seizure Facts: ${reason}`;
 
             if (descInput) {
@@ -11915,11 +12046,11 @@
                     select.appendChild(opt);
                 });
 
-                if (suspects.length === 1 && !userHasSelected) {
-                    select.value = suspects[0].name;
+                if (userHasSelected && currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                    select.value = currentVal;
                 } else if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
                     select.value = currentVal;
-                } else if (suspects.length === 1) {
+                } else if (suspects.length === 1 && !userHasSelected) {
                     select.value = suspects[0].name;
                 } else {
                     select.value = currentVal || 'All Suspects';

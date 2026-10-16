@@ -131,11 +131,6 @@
                             <span class="text-xs">Evidence Log &amp; Barcodes</span>
                         </a>
 
-                        <!-- CASE HISTORY LOG -->
-                        <a href="{{ url('/Crime_Scene_Support/history') }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->is('*history*') ? 'text-white bg-emerald-600 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/60 font-semibold' }}">
-                            <svg class="w-5 h-5 mr-3 {{ request()->is('*history*') ? 'text-white' : 'text-purple-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span class="text-xs">Case History Log</span>
-                        </a>
                     </nav>
                 </div>
 

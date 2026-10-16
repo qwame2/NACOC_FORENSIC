@@ -47,6 +47,22 @@ class LaboratoryExaminationResult extends Model
         'date_completed'      => 'date:Y-m-d',
     ];
 
+    public function getDetectedSubstancesAttribute($value)
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            return json_decode($value, true) ?: [];
+        }
+        return [];
+    }
+
+    public function setDetectedSubstancesAttribute($value)
+    {
+        $this->attributes['detected_substances'] = is_array($value) ? json_encode($value) : $value;
+    }
+
     public function singleCase()
     {
         return $this->belongsTo(SingleSuspectCase::class, 'single_suspect_case_id');

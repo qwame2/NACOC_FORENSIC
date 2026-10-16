@@ -28,6 +28,8 @@ class User extends Authenticatable
         'is_approved',
         'unit',
         'email',
+        'avatar',
+        'signature',
         'password',
     ];
 

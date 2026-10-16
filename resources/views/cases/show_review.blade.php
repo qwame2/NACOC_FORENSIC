@@ -74,6 +74,9 @@
         return asset('storage/' . $clean);
     };
     $authUser = auth()->user();
+    $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+        ? $case->isMultipleSuspect()
+        : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase) || !empty($case->total_suspects_count) || !empty($case->is_multiple));
     $activeSuspectHasSavedResult = false;
     $activeSuspectHasDrugExhibit = false;
     $isHof =
@@ -572,11 +575,9 @@
             ) {
                 $isLinked = true;
             } elseif (
-                $isActiveSuspectPrimary &&
-                ($assocPerson === 'primary suspect' ||
-                    $assocPerson === 'primary' ||
-                    str_contains($assocPerson, 'all suspect') ||
-                    str_contains($assocPerson, 'joint'))
+                str_contains($assocPerson, 'all suspect') ||
+                str_contains($assocPerson, 'joint') ||
+                ($isActiveSuspectPrimary && ($assocPerson === 'primary suspect' || $assocPerson === 'primary'))
             ) {
                 $isLinked = true;
             }
@@ -776,8 +777,12 @@
 
     // 2. If primary suspect, check LaboratoryExaminationResult model
     if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($case->id)) {
-        $suspectLabExamSaved = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case) {
-            $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+        $suspectLabExamSaved = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
+            if ($isMultiCase) {
+                $q->where('multiple_suspect_case_id', $case->id);
+            } else {
+                $q->where('single_suspect_case_id', $case->id);
+            }
         })
             ->where(function ($q) {
                 $q->where('has_saved', true)
@@ -1060,13 +1065,29 @@
         }
     }
     $dbPrimaryLabExam = !empty($case->id)
-        ? \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case) {
-            $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+        ? \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
+            if ($isMultiCase) {
+                $q->where('multiple_suspect_case_id', $case->id);
+            } else {
+                $q->where('single_suspect_case_id', $case->id);
+            }
         })
             ->where('has_saved', true)
             ->latest('id')
             ->first()
         : null;
+
+    if (!$dbPrimaryLabExam && !empty($case->id)) {
+        $dbPrimaryLabExam = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
+            if ($isMultiCase) {
+                $q->where('multiple_suspect_case_id', $case->id);
+            } else {
+                $q->where('single_suspect_case_id', $case->id);
+            }
+        })
+            ->latest('id')
+            ->first();
+    }
 
     if (!$dbPrimaryLabExam && !empty($case->id)) {
         $dbPrimaryLabExam = \App\Models\AssociateLabExamination::where('case_id', $case->id)
@@ -1418,7 +1439,13 @@
         ? $labExam['detected_substances']
         : (!empty($case->detected_substances)
             ? $case->detected_substances
-            : []);
+            : (!empty($dbPrimaryLabExam->detected_substances)
+                ? $dbPrimaryLabExam->detected_substances
+                : (!empty($docketData['confirmatory_detected_substances'])
+                    ? $docketData['confirmatory_detected_substances']
+                    : (!empty($docketData['lab_examination']['detected_substances'])
+                        ? $docketData['lab_examination']['detected_substances']
+                        : []))));
     if (is_string($labDetectedSubstances)) {
         $labDetectedSubstances = json_decode($labDetectedSubstances, true) ?: [];
     }
@@ -1504,8 +1531,12 @@
             count(array_filter($docketData['lab_examinations_list'], fn($v) => !empty($v['has_saved']))) > 0) ||
         (!empty($docketData['seizures']) &&
             count(array_filter($docketData['seizures'], fn($s) => !empty($s['has_saved_lab']))) > 0) ||
-        \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case) {
-            $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+        \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
+            if ($isMultiCase) {
+                $q->where('multiple_suspect_case_id', $case->id);
+            } else {
+                $q->where('single_suspect_case_id', $case->id);
+            }
         })
             ->where('has_saved', true)
             ->exists();
@@ -3511,24 +3542,6 @@
                                     <div class="font-bold font-mono-code text-sm mt-0.5">{{ $sCard }}</div>
                                 </div>
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Gender,
-                                        Age &amp; DOB</div>
-                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
-                                        {{ $sGender }}
-                                        {{ !empty($sAge) ? "• Age: {$sAge}" : '' }}
-                                        {{ !empty($sDOB) ? "• DOB: {$sDOB}" : '' }}
-                                    </div>
-                                </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Height
-                                        &amp; Eye Color</div>
-                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
-                                        {{ !empty($sHeight) ? "Height: {$sHeight}" : 'Height: N/A' }}
-                                        •
-                                        {{ !empty($sEye) ? "Eyes: {$sEye}" : 'Eyes: N/A' }}
-                                    </div>
-                                </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                                         Nationality</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $sNat }}</div>
@@ -3564,6 +3577,53 @@
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                                         Residential Address / GPS</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $sAddr }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Physical Descriptors & Arrest Details -->
+                        <div class="space-y-3 pt-2">
+                            <div
+                                class="text-xs font-black text-slate-900 uppercase tracking-wider font-mono-code border-b border-slate-100 pb-1">
+                                Physical Descriptors &amp; Arrest Details (Suspect #{{ $sNum }})
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 text-xs">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Gender</div>
+                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                        {{ $sGender ?: 'N/A' }}
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Age</div>
+                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                        {{ !empty($sAge) ? "{$sAge} yrs" : 'N/A' }}
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Date of Birth (DOB)</div>
+                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                        {{ !empty($sDOB) ? (strtotime($sDOB) !== false ? date('M d, Y', strtotime($sDOB)) : $sDOB) : 'N/A' }}
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Height</div>
+                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                        {{ !empty($sHeight) ? $sHeight : 'N/A' }}
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Eye Color</div>
+                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                        {{ !empty($sEye) ? $sEye : 'N/A' }}
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest Date &amp; Time</div>
+                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                        {{ $sArrestDate ? \Carbon\Carbon::parse($sArrestDate)->format('M d, Y') : 'N/A' }}
+                                        {{ $sArrestTime ? "@ {$sArrestTime}" : '' }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -3686,15 +3746,15 @@
                                         <div class="flex items-center space-x-2">
                                             <span
                                                 class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-extrabold bg-amber-600 text-white uppercase tracking-wider shadow-2xs">
-                                                ASSOCIATE EXHIBIT DOSSIER
+                                                {{ $isCoSuspect ? 'CO-SUSPECT EXHIBIT DOSSIER' : 'ASSOCIATE EXHIBIT DOSSIER' }}
                                             </span>
                                             <div>
                                                 <h3
                                                     class="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                                                    Associated Seizures &amp; Exhibits — {{ $sName }}
+                                                    {{ $isCoSuspect ? 'Co-Suspect Seizures & Exhibits' : 'Associated Seizures & Exhibits' }} — {{ $sName }}
                                                 </h3>
                                                 <p class="text-[11px] text-slate-600">Confiscated items and exhibit
-                                                    inventory attached to Associate {{ $sName }}</p>
+                                                    inventory attached to {{ $isCoSuspect ? 'Co-Suspect' : 'Associate' }} {{ $sName }}</p>
                                             </div>
                                         </div>
                                         <span
@@ -4540,11 +4600,14 @@
                                     $dossierBadgeText = $hasCoSuspectsInCase
                                         ? 'PRIMARY & CO-SUSPECT EXHIBIT DOSSIER'
                                         : 'PRIMARY EXHIBIT DOSSIER';
+                                    $primaryDossierHeadingName = $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)
+                                        ? $primarySuspectsCombinedNames
+                                        : $sName;
                                     $dossierHeadingText = $hasCoSuspectsInCase
-                                        ? "Primary & Co-Suspect Seizures & Exhibits — {$sName}"
+                                        ? "Primary & Co-Suspect Seizures & Exhibits — {$primaryDossierHeadingName}"
                                         : "Primary Exhibits — {$sName}";
                                 @endphp
-                                <!-- LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($sName) }} -->
+                                <!-- LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($primaryDossierHeadingName) }} -->
                                 <div class="p-5 bg-slate-50 border-2 border-slate-300 rounded-2xl space-y-4 shadow-sm">
                                     <div
                                         class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
@@ -4559,7 +4622,7 @@
                                                     {{ $dossierHeadingText }}
                                                 </h3>
                                                 <p class="text-[11px] text-slate-600">Confiscated items and exhibit
-                                                    inventory attached to {{ $sName }}</p>
+                                                    inventory attached to {{ $primaryDossierHeadingName }}</p>
                                             </div>
                                         </div>
                                         <span
@@ -5241,6 +5304,7 @@
 
 
                         @php
+                            $currSuspectExhibits = $isAssociate ? ($assocExhibits ?? []) : ($primaryExhibits ?? []);
                             $sDossierLabExam = null;
                             $sDossierHasSavedLab = false;
 
@@ -5424,11 +5488,12 @@
                                         }
                                     } else {
                                         $primDbRow = \DB::table('laboratory_examination_results')
-                                            ->where(function ($q) use ($case) {
-                                                $q->where('single_suspect_case_id', $case->id)->orWhere(
-                                                    'multiple_suspect_case_id',
-                                                    $case->id,
-                                                );
+                                            ->where(function ($q) use ($case, $isMultiCase) {
+                                                if ($isMultiCase) {
+                                                    $q->where('multiple_suspect_case_id', $case->id);
+                                                } else {
+                                                    $q->where('single_suspect_case_id', $case->id);
+                                                }
                                             })
                                             ->first();
                                         if (
@@ -5575,9 +5640,23 @@
                         @endphp
 
                         @if (
+                            !$isAssociate &&
                             ($currSuspectHasDrug || ($isDrugCase ?? false)) &&
                                 ($sDossierHasSavedLab || !empty($sDossierLabExam)))
-                            <!-- LABORATORY EXAMINATION RESULT FOR {{ strtoupper($sName) }} -->
+                            @php
+                                $sDossierIsJointLab = false;
+                                if (!empty($sDossierLabExam)) {
+                                    $examOwner = strtolower(trim($sDossierLabExam['exhibit_owner_name'] ?? ''));
+                                    if (str_contains($examOwner, ',') || str_contains($examOwner, '&') || str_contains($examOwner, 'all suspect') || str_contains($examOwner, 'both')) {
+                                        $sDossierIsJointLab = true;
+                                    }
+                                }
+                                if (!$sDossierIsJointLab && $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)) {
+                                    $sDossierIsJointLab = true;
+                                }
+                                $labExamHeadingName = $sDossierIsJointLab && !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : $sName;
+                            @endphp
+                            <!-- LABORATORY EXAMINATION RESULT FOR {{ strtoupper($labExamHeadingName) }} -->
                             <div
                                 class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-4">
                                 <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
@@ -5592,9 +5671,9 @@
                                             </svg>
                                         </div>
                                         <div>
-                                            <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($sName) }}</h3>
+                                            <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($labExamHeadingName) }}</h3>
                                             <p class="text-[11px] text-emerald-800 font-semibold">Official Laboratory
-                                                Analysis Directorate Findings for {{ $sName }}</p>
+                                                Analysis Directorate Findings for {{ $labExamHeadingName }}</p>
                                         </div>
                                     </div>
                                     <span
@@ -6103,7 +6182,7 @@
                                     ($item['associated_person'] ??
                                         ($item['veh_owner'] ??
                                             ($item['wpn_owner'] ??
-                                                ($item['dev_owner'] ?? ($item['seizure_officer'] ?? null))))));
+                                                ($item['dev_owner'] ?? null)))));
                             if (
                                 empty($owner) ||
                                 strtolower(trim($owner)) === 'primary suspect' ||
@@ -6126,11 +6205,12 @@
                     // 1. Relational DB exhibits
                     if (isset($case->id)) {
                         try {
-                            $dbExsList = \App\Models\Exhibit::where(function ($q) use ($case) {
-                                $q->where('single_suspect_case_id', $case->id)->orWhere(
-                                    'multiple_suspect_case_id',
-                                    $case->id,
-                                );
+                            $dbExsList = \App\Models\Exhibit::where(function ($q) use ($case, $isMultiCase) {
+                                if ($isMultiCase) {
+                                    $q->where('multiple_suspect_case_id', $case->id);
+                                } else {
+                                    $q->where('single_suspect_case_id', $case->id);
+                                }
                             })->get();
                             foreach ($dbExsList as $dbE) {
                                 $arr = $dbE->toArray();
@@ -6139,8 +6219,7 @@
                                     $dbE->commodity_name ?? ($dbE->wpn_model ?? 'Confiscated Exhibit');
                                 $arr['owner_name'] = $dbE->suspect
                                     ? $dbE->suspect->suspect_name
-                                    : $dbE->veh_owner ??
-                                        ($dbE->wpn_owner ?? ($dbE->dev_owner ?? ($dbE->associated_person ?? null)));
+                                    : ($dbE->associated_person ?? ($dbE->veh_owner ?? ($dbE->wpn_owner ?? ($dbE->dev_owner ?? null))));
                                 $arr['weapon_model'] = $dbE->wpn_model;
                                 $arr['weapon_serial_number'] = $dbE->wpn_serial_no;
                                 $arr['weapon_calibre'] = $dbE->wpn_calibre;
@@ -6237,11 +6316,12 @@
                                             $itemPhotos = $extractAllPhotosHelper($szItem);
                                             if (empty($itemPhotos) && isset($case->id)) {
                                                 try {
-                                                    $dbMatch = \App\Models\Exhibit::where(function ($q) use ($case) {
-                                                        $q->where('single_suspect_case_id', $case->id)->orWhere(
-                                                            'multiple_suspect_case_id',
-                                                            $case->id,
-                                                        );
+                                                    $dbMatch = \App\Models\Exhibit::where(function ($q) use ($case, $isMultiCase) {
+                                                        if ($isMultiCase) {
+                                                            $q->where('multiple_suspect_case_id', $case->id);
+                                                        } else {
+                                                            $q->where('single_suspect_case_id', $case->id);
+                                                        }
                                                     })
                                                         ->where(function ($q) use ($szItem) {
                                                             if (!empty($szItem['exhibit_number'])) {
@@ -7043,16 +7123,28 @@
 
                             $labIsAssoc = false;
                             $savedLabOwnerName = $docketData['lab_examination']['exhibit_owner_name'] ?? null;
-                            if (
+                            $firstDrugExOwner = $allDrugExhibitsList[0]['owner'] ?? null;
+                            $isExOwnerJoint = !empty($firstDrugExOwner) && (
+                                str_contains(strtolower($firstDrugExOwner), ',') ||
+                                str_contains(strtolower($firstDrugExOwner), '&') ||
+                                str_contains(strtolower($firstDrugExOwner), 'all suspect') ||
+                                str_contains(strtolower($firstDrugExOwner), 'both')
+                            );
+
+                            if ($isExOwnerJoint || (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1)) {
+                                $labOwnerName = !empty($primarySuspectsCombinedNames)
+                                    ? $primarySuspectsCombinedNames
+                                    : ($firstDrugExOwner ?: ($savedLabOwnerName ?: ($case->suspect_name ?? 'Primary Suspect')));
+                            } elseif (
                                 !empty($savedLabOwnerName) &&
                                 strtoupper(trim($savedLabOwnerName)) !== 'PRIMARY SUSPECT'
                             ) {
                                 $labOwnerName = $savedLabOwnerName;
                             } elseif (
-                                !empty($allDrugExhibitsList[0]['owner']) &&
-                                strtoupper(trim($allDrugExhibitsList[0]['owner'])) !== 'PRIMARY SUSPECT'
+                                !empty($firstDrugExOwner) &&
+                                strtoupper(trim($firstDrugExOwner)) !== 'PRIMARY SUSPECT'
                             ) {
-                                $labOwnerName = $allDrugExhibitsList[0]['owner'];
+                                $labOwnerName = $firstDrugExOwner;
                             } else {
                                 $labOwnerName = !empty($primarySuspectsCombinedNames)
                                     ? $primarySuspectsCombinedNames
@@ -7064,7 +7156,8 @@
                                 str_contains($labOwnerLower, ',') ||
                                 str_contains($labOwnerLower, '&') ||
                                 str_contains($labOwnerLower, 'all suspect') ||
-                                str_contains($labOwnerLower, 'all suspects');
+                                str_contains($labOwnerLower, 'all suspects') ||
+                                (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1);
                             if (
                                 !$isJointLabOwner &&
                                 !empty($docketData['suspects']) &&
@@ -7084,25 +7177,18 @@
                                 }
                             }
 
-                            if ($isJointLabOwner) {
-                                $labDossierBadge = 'PRIMARY & CO-SUSPECT DOSSIER';
-                                $labBadgeBg = 'bg-indigo-600';
-                            } else {
-                                $labDossierBadge = 'PRIMARY SUSPECT DOSSIER';
-                                $labBadgeBg = 'bg-emerald-600';
-                            }
                         @endphp
 
                         <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
                         <div id="section5ReadOnlyDisplay"
                             class="space-y-4 {{ !$isDrugCase || !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
-                            <!-- TOP VERIFICATION BANNER -->
-                            <div
-                                class="p-4 bg-emerald-50/90 border-emerald-300 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+
+                            <!-- LABORATORY EXAMINATION HEADER -->
+                            <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
                                 <div class="flex items-center space-x-3">
                                     <div
-                                        class="w-10 h-10 rounded-xl {{ $labBadgeBg }} text-white flex items-center justify-center font-bold shadow-md shrink-0">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                        class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round"
                                                 stroke-width="2.5"
@@ -7110,17 +7196,14 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <div
-                                            class="text-[10px] font-mono-code font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                                            <span
-                                                class="{{ $labBadgeBg }} text-white px-1.5 py-0.5 rounded text-[9px]">{{ $labDossierBadge }}</span>
-                                            <span>&bull;</span>
-                                            <span>SUSPECT: {{ strtoupper($labOwnerName) }}</span>
-                                        </div>
-                                        <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($labOwnerName) }}</div>
+                                        <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($labOwnerName) }}</h3>
+                                        <p class="text-[11px] text-emerald-800 font-semibold">Official Laboratory Analysis Directorate Findings for {{ $labOwnerName }}</p>
                                     </div>
                                 </div>
-
+                                <span
+                                    class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-200 text-emerald-950 border border-emerald-400">
+                                    ✓ VERIFIED RESULT LOGGED
+                                </span>
                             </div>
 
                             <!-- STRUCTURED READ-ONLY LABORATORY EXAMINATION TABLE -->
@@ -7479,6 +7562,21 @@
                                             @php
                                                 $detList = [];
                                                 $rawDetList = $savedLabDetectedSubstances ?? [];
+                                                if (empty($rawDetList) && !empty($labDetectedSubstances)) {
+                                                    $rawDetList = $labDetectedSubstances;
+                                                }
+                                                if (empty($rawDetList) && !empty($dbPrimaryLabExam->detected_substances)) {
+                                                    $rawDetList = $dbPrimaryLabExam->detected_substances;
+                                                }
+                                                if (empty($rawDetList) && !empty($case->detected_substances)) {
+                                                    $rawDetList = $case->detected_substances;
+                                                }
+                                                if (empty($rawDetList) && !empty($docketData['confirmatory_detected_substances'])) {
+                                                    $rawDetList = $docketData['confirmatory_detected_substances'];
+                                                }
+                                                if (empty($rawDetList) && !empty($docketData['lab_examination']['detected_substances'])) {
+                                                    $rawDetList = $docketData['lab_examination']['detected_substances'];
+                                                }
                                                 if (is_string($rawDetList)) {
                                                     $rawDetList = json_decode($rawDetList, true) ?: [];
                                                 }
@@ -7500,6 +7598,8 @@
                                                                         ? ' (' . rtrim(trim($sPct), '%') . '%)'
                                                                         : '');
                                                             }
+                                                        } elseif (is_string($subItem) && trim($subItem) !== '') {
+                                                            $detList[] = trim($subItem);
                                                         }
                                                     }
                                                 }
@@ -8963,13 +9063,25 @@
 
         $labIsAssoc = false;
         $savedLabOwnerName = $docketData['lab_examination']['exhibit_owner_name'] ?? null;
-        if (!empty($savedLabOwnerName) && strtoupper(trim($savedLabOwnerName)) !== 'PRIMARY SUSPECT') {
+        $firstDrugExOwner = $allDrugExhibitsList[0]['owner'] ?? null;
+        $isExOwnerJoint = !empty($firstDrugExOwner) && (
+            str_contains(strtolower($firstDrugExOwner), ',') ||
+            str_contains(strtolower($firstDrugExOwner), '&') ||
+            str_contains(strtolower($firstDrugExOwner), 'all suspect') ||
+            str_contains(strtolower($firstDrugExOwner), 'both')
+        );
+
+        if ($isExOwnerJoint || (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1)) {
+            $labOwnerName = !empty($primarySuspectsCombinedNames)
+                ? $primarySuspectsCombinedNames
+                : ($firstDrugExOwner ?: ($savedLabOwnerName ?: ($case->suspect_name ?? 'Primary Suspect')));
+        } elseif (!empty($savedLabOwnerName) && strtoupper(trim($savedLabOwnerName)) !== 'PRIMARY SUSPECT') {
             $labOwnerName = $savedLabOwnerName;
         } elseif (
-            !empty($allDrugExhibitsList[0]['owner']) &&
-            strtoupper(trim($allDrugExhibitsList[0]['owner'])) !== 'PRIMARY SUSPECT'
+            !empty($firstDrugExOwner) &&
+            strtoupper(trim($firstDrugExOwner)) !== 'PRIMARY SUSPECT'
         ) {
-            $labOwnerName = $allDrugExhibitsList[0]['owner'];
+            $labOwnerName = $firstDrugExOwner;
         } else {
             $labOwnerName = !empty($primarySuspectsCombinedNames)
                 ? $primarySuspectsCombinedNames
@@ -8981,7 +9093,8 @@
             str_contains($labOwnerLower, ',') ||
             str_contains($labOwnerLower, '&') ||
             str_contains($labOwnerLower, 'all suspect') ||
-            str_contains($labOwnerLower, 'all suspects');
+            str_contains($labOwnerLower, 'all suspects') ||
+            (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1);
         if (!$isJointLabOwner && !empty($docketData['suspects']) && count($docketData['suspects']) > 1) {
             $mCount = 0;
             foreach ($docketData['suspects'] as $sp) {
@@ -8995,14 +9108,6 @@
             if ($mCount > 1) {
                 $isJointLabOwner = true;
             }
-        }
-
-        if ($isJointLabOwner) {
-            $labDossierBadge = 'PRIMARY & CO-SUSPECT DOSSIER';
-            $labBadgeBg = 'bg-indigo-600';
-        } else {
-            $labDossierBadge = 'PRIMARY SUSPECT DOSSIER';
-            $labBadgeBg = 'bg-emerald-600';
         }
     @endphp
 
@@ -12474,6 +12579,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     opt.setAttribute('data-sample-taken', dEx.sample_taken || '');
                     opt.setAttribute('data-sample-reserved', dEx.sample_reserved || '');
                     opt.setAttribute('data-findings', dEx.findings || '');
+                    opt.setAttribute('data-detected-substances', JSON.stringify(dEx.detected_substances || []));
 
                     let itemTitle = dEx.name || dEx.cat || `Exhibit #${idx + 1}`;
                     let qtyUnitSuffix = (dEx.unit && dEx.qty && !dEx.qty.toLowerCase().includes(dEx.unit

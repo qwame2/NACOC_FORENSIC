@@ -6,6 +6,70 @@
     $allCases = \App\Models\ForensicCase::allCases();
     $cases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
     $savedReports = \App\Models\DpfReport::latest()->get()->unique('case_number')->values();
+    $allCasesByNum = $allCases->keyBy('case_number');
+
+    $resolveSuspectInfo = function($caseItem, $rep = null) use ($allCasesByNum) {
+        if (!$caseItem && $rep && !empty($rep->case_number)) {
+            $caseItem = $allCasesByNum->get($rep->case_number);
+        }
+
+        $name = null;
+        $mug = null;
+        $alias = null;
+        $coCount = 0;
+
+        if ($caseItem) {
+            $dData = is_array($caseItem->docket_data) ? $caseItem->docket_data : (json_decode($caseItem->docket_data ?? '[]', true) ?: []);
+            $name = $caseItem->suspect_name ?? ($dData['suspects'][0]['suspect_name'] ?? null);
+            $alias = $caseItem->suspect_alias ?? ($dData['suspects'][0]['suspect_alias'] ?? null);
+            $mug = $caseItem->mugshot_front ?? ($dData['suspects'][0]['mugshot_front'] ?? ($dData['mugshots']['front'] ?? null));
+
+            if (!empty($dData['suspects']) && is_array($dData['suspects'])) {
+                $totalSuspects = count($dData['suspects']);
+                $coCount = max(0, $totalSuspects - 1);
+            } elseif (isset($caseItem->underlyingRecord) && $caseItem->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                $totalSuspects = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $caseItem->underlyingRecord->id)->count();
+                $coCount = max(0, $totalSuspects - 1);
+            }
+        }
+
+        if (empty($name) && $rep) {
+            if ($rep->suspect) {
+                $name = $rep->suspect->suspect_name;
+                $alias = $rep->suspect->suspect_alias;
+                $mug = $rep->suspect->mugshot_front;
+            } elseif ($rep->singleSuspectCase) {
+                $name = $rep->singleSuspectCase->suspect_name;
+                $alias = $rep->singleSuspectCase->suspect_alias;
+                $mug = $rep->singleSuspectCase->mugshot_front;
+            } elseif ($rep->multipleSuspectCase) {
+                $firstS = $rep->multipleSuspectCase->suspects()->first();
+                if ($firstS) {
+                    $name = $firstS->suspect_name;
+                    $alias = $firstS->suspect_alias;
+                    $mug = $firstS->mugshot_front;
+                }
+            }
+        }
+
+        if (empty($name)) {
+            $name = 'Unknown Suspect';
+        }
+
+        if (!empty($mug)) {
+            $mug = trim((string)$mug);
+            if (!str_starts_with($mug, 'data:image') && !str_starts_with($mug, 'http://') && !str_starts_with($mug, 'https://') && !str_starts_with($mug, '/')) {
+                $mug = asset($mug);
+            }
+        }
+
+        return [
+            'name'     => $name,
+            'alias'    => ($alias && strtoupper($alias) !== 'N/A') ? $alias : null,
+            'mug'      => !empty($mug) ? $mug : null,
+            'co_count' => $coCount,
+        ];
+    };
 
     $caseMapData = [];
     foreach ($cases as $cItem) {
@@ -182,6 +246,8 @@
 
         $isCourtGranted = $savedForCase && strtoupper(trim($savedForCase->court_order_granted ?? 'NO')) === 'YES';
 
+        $sInfo = $resolveSuspectInfo($cItem, $savedForCase);
+
         $caseMapData[$cNo] = [
             'location'                  => $loc,
             'devices'                   => $devicesStr,
@@ -198,6 +264,38 @@
             'report_witness_notes'      => $cleanRwMsg,
             'intel_shared'              => $savedForCase ? $savedForCase->intel_shared : 'NO',
             'remark'                    => $savedForCase ? $savedForCase->remark : '',
+            'suspect_name'              => $sInfo['name'],
+            'suspect_alias'             => $sInfo['alias'],
+            'suspect_mug'               => $sInfo['mug'],
+            'co_count'                  => $sInfo['co_count'],
+        ];
+    }
+
+    foreach ($savedReports as $repItem) {
+        $rCaseNo = $repItem->case_number ?? '';
+        if (empty($rCaseNo) || isset($caseMapData[$rCaseNo])) continue;
+        $matchedCase = $allCasesByNum->get($rCaseNo);
+        $sInfo = $resolveSuspectInfo($matchedCase, $repItem);
+        $caseMapData[$rCaseNo] = [
+            'location'                  => $repItem->location_post ?? 'Kotoka International Airport (Cargo Wing)',
+            'devices'                   => $repItem->devices_retrieved ?? 'Electronic Devices / Mobile Exhibits',
+            'qty'                       => '1',
+            'description'               => $repItem->brief_case_description ?? '',
+            'date'                      => $repItem->investigation_date ? $repItem->investigation_date->format('Y-m-d') : ($repItem->created_at ? $repItem->created_at->format('Y-m-d') : date('Y-m-d')),
+            'court_order_requested'     => $repItem->court_order_requested ?? 'NO',
+            'court_order_granted'       => $repItem->court_order_granted ?? 'NO',
+            'extraction_status'         => $repItem->extraction_analysis_conducted ?? 'NO',
+            'extraction_notes'          => '',
+            'ongoing_extraction_status' => 'NO',
+            'ongoing_extraction_notes'  => '',
+            'report_witness_status'     => $repItem->report_witness_statement_sent ?? 'NO',
+            'report_witness_notes'      => '',
+            'intel_shared'              => $repItem->intel_shared ?? 'NO',
+            'remark'                    => $repItem->remark ?? '',
+            'suspect_name'              => $sInfo['name'],
+            'suspect_alias'             => $sInfo['alias'],
+            'suspect_mug'               => $sInfo['mug'],
+            'co_count'                  => $sInfo['co_count'],
         ];
     }
 
@@ -602,7 +700,7 @@
 
                         <!-- SEARCH INPUT -->
                         <div class="relative w-full xl:max-w-xs">
-                            <input type="text" id="directorySearchInput" oninput="applyDirectoryFilters()" onkeyup="applyDirectoryFilters()" placeholder="Filter by Case, Location, or Status..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors shadow-2xs">
+                            <input type="text" id="directorySearchInput" oninput="applyDirectoryFilters()" onkeyup="applyDirectoryFilters()" placeholder="Filter by Suspect, Case Ref, Location, or Status..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors shadow-2xs">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
@@ -676,6 +774,7 @@
                             <thead>
                                 <tr class="bg-slate-100 text-slate-700 font-mono-code uppercase text-[10px] tracking-wider border-b border-slate-200">
                                     <th class="p-3">Case Ref</th>
+                                    <th class="p-3">Suspect</th>
                                     <th class="p-3">Logged Date</th>
                                     <th class="p-3">Court Order</th>
                                     <th class="p-3">Extraction &amp; Analysis</th>
@@ -695,6 +794,11 @@
                                         $repDateDisplay = ($repTime && $repTime > 0) ? date('d M Y', $repTime) : date('d M Y');
                                         $repLoc = $rep->location_post ?? ($caseMapData[$rep->case_number]['location'] ?? 'Kotoka International Airport (Cargo Wing)');
                                         $repCourt = strtoupper(trim($rep->court_order_granted ?? 'NO'));
+                                        $sInfo = $caseMapData[$rep->case_number] ?? $resolveSuspectInfo($allCasesByNum->get($rep->case_number), $rep);
+                                        $sName = $sInfo['suspect_name'] ?? ($sInfo['name'] ?? 'Unknown Suspect');
+                                        $sAlias = $sInfo['suspect_alias'] ?? ($sInfo['alias'] ?? null);
+                                        $sMug = $sInfo['suspect_mug'] ?? ($sInfo['mug'] ?? null);
+                                        $sCoCount = $sInfo['co_count'] ?? 0;
                                     @endphp
                                     @php
                                         $extRaw = trim($rep->extraction_analysis_message ?: ($rep->extraction_analysis_conducted ?: 'NO'));
@@ -720,6 +824,7 @@
                                         data-caseref="{{ $rep->case_number }}"
                                         data-code="{{ strtolower($rep->dpf_code ?? '') }}"
                                         data-location="{{ strtolower($repLoc) }}"
+                                        data-suspect="{{ strtolower($sName . ' ' . ($sAlias ?? '')) }}"
                                         data-court="{{ $repCourt }}"
                                         data-extraction="{{ $repExtNormalized }}"
                                         data-intel="{{ strtoupper(trim($rep->intel_shared ?? 'NO')) }}">
@@ -728,6 +833,34 @@
                                             <div class="flex items-center gap-1 mt-0.5">
                                                 <span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">{{ $rep->dpf_code }}</span>
                                                 <span class="text-[9px] text-slate-400 font-sans font-normal truncate max-w-[130px]" title="{{ $repLoc }}">{{ $repLoc }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="p-3 min-w-[170px]">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-9 h-11 rounded-md border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
+                                                    @if(!empty($sMug))
+                                                        <img src="{{ $sMug }}" alt="{{ $sName }}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openMugshotModal('{{ addslashes($sMug) }}', '{{ addslashes($sName) }}')" title="Click to enlarge photo">
+                                                    @else
+                                                        <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400" title="No front mugshot on file">
+                                                            <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                            </svg>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[140px]" title="{{ $sName }}">
+                                                        {{ $sName }}
+                                                    </div>
+                                                    @if(!empty($sAlias))
+                                                        <div class="text-[9px] text-slate-500 font-sans italic truncate max-w-[140px]">a.k.a. {{ $sAlias }}</div>
+                                                    @endif
+                                                    @if($sCoCount > 0)
+                                                        <span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="{{ $sCoCount }} Co-Suspect(s) in case">
+                                                            +{{ $sCoCount }} Co-Suspect{{ $sCoCount > 1 ? 's' : '' }}
+                                                        </span>
+                                                    @endif
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="p-3 whitespace-nowrap">
@@ -827,18 +960,52 @@
                                         $cExt = strtoupper(trim($caseMapData[$cRef]['extraction_status'] ?? 'NO'));
                                         $cRw = strtoupper(trim($caseMapData[$cRef]['report_witness_status'] ?? 'NO'));
                                         $cIntel = strtoupper(trim($caseMapData[$cRef]['intel_shared'] ?? 'NO'));
+                                        $sInfo = $caseMapData[$cRef] ?? $resolveSuspectInfo($cItem);
+                                        $sName = $sInfo['suspect_name'] ?? ($sInfo['name'] ?? 'Unknown Suspect');
+                                        $sAlias = $sInfo['suspect_alias'] ?? ($sInfo['alias'] ?? null);
+                                        $sMug = $sInfo['suspect_mug'] ?? ($sInfo['mug'] ?? null);
+                                        $sCoCount = $sInfo['co_count'] ?? 0;
                                     @endphp
                                     <tr class="hover:bg-emerald-50/40 transition-colors directory-row" 
                                         data-date="{{ $cDateIso }}"
                                         data-case="{{ strtolower($cRef) }}"
                                         data-code=""
                                         data-location="{{ strtolower($cLoc) }}"
+                                        data-suspect="{{ strtolower($sName . ' ' . ($sAlias ?? '')) }}"
                                         data-court="{{ $cCourt }}"
                                         data-extraction="{{ $cExt }}"
                                         data-intel="{{ $cIntel }}">
                                         <td class="p-3 font-extrabold text-slate-900">
                                             <div>{{ $cRef }}</div>
                                             <div class="text-[9px] text-slate-400 font-sans font-normal truncate max-w-[140px]" title="{{ $cLoc }}">{{ $cLoc }}</div>
+                                        </td>
+                                        <td class="p-3 min-w-[170px]">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-9 h-11 rounded-md border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
+                                                    @if(!empty($sMug))
+                                                        <img src="{{ $sMug }}" alt="{{ $sName }}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openMugshotModal('{{ addslashes($sMug) }}', '{{ addslashes($sName) }}')" title="Click to enlarge photo">
+                                                    @else
+                                                        <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400" title="No front mugshot on file">
+                                                            <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                            </svg>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[140px]" title="{{ $sName }}">
+                                                        {{ $sName }}
+                                                    </div>
+                                                    @if(!empty($sAlias))
+                                                        <div class="text-[9px] text-slate-500 font-sans italic truncate max-w-[140px]">a.k.a. {{ $sAlias }}</div>
+                                                    @endif
+                                                    @if($sCoCount > 0)
+                                                        <span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="{{ $sCoCount }} Co-Suspect(s) in case">
+                                                            +{{ $sCoCount }} Co-Suspect{{ $sCoCount > 1 ? 's' : '' }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </td>
                                         <td class="p-3 whitespace-nowrap">
                                             <div class="font-bold text-[11px] text-slate-800">{{ $cDateDisplay }}</div>
@@ -873,7 +1040,7 @@
                                 @endforeach
 
                                 <tr id="directoryNoRecordsRow" class="hidden">
-                                    <td colspan="7" class="p-8 text-center text-slate-400 font-sans">
+                                    <td colspan="8" class="p-8 text-center text-slate-400 font-sans">
                                         <div class="flex flex-col items-center justify-center">
                                             <svg class="w-8 h-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                             <p class="text-xs font-bold text-slate-600 mb-0.5">No Investigation Records Found</p>
@@ -1505,12 +1672,19 @@
             const todayDisplay = `${pad(now.getDate())} ${months[now.getMonth()]} ${now.getFullYear()}`;
             const timeDisplay = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+            const sInfo = (caseMapData && r.case_number && caseMapData[r.case_number]) ? caseMapData[r.case_number] : {};
+            const suspectName = r.suspect_name || sInfo.suspect_name || 'Unknown Suspect';
+            const suspectAlias = r.suspect_alias || sInfo.suspect_alias || '';
+            const suspectMug = r.mugshot_front || sInfo.suspect_mug || null;
+            const coCount = (r.co_count !== undefined) ? r.co_count : (sInfo.co_count || 0);
+
             const repDate = (r.investigation_date ? String(r.investigation_date).slice(0, 10) : todayIso);
             tr.setAttribute('data-date', repDate);
             tr.setAttribute('data-case', (r.case_number || '').toLowerCase());
             tr.setAttribute('data-caseref', r.case_number || '');
             tr.setAttribute('data-code', (r.dpf_code || '').toLowerCase());
             tr.setAttribute('data-location', (r.location_post || '').toLowerCase());
+            tr.setAttribute('data-suspect', (suspectName + ' ' + suspectAlias).toLowerCase());
             tr.setAttribute('data-court', (r.court_order_granted || 'NO').toUpperCase());
             tr.setAttribute('data-extraction', (r.extraction_analysis_conducted || r.extraction_analysis_message || 'NO').toUpperCase());
             tr.setAttribute('data-intel', (r.intel_shared || 'NO').toUpperCase());
@@ -1541,12 +1715,38 @@
                 }
             }
 
+            const escapedSuspectName = suspectName.replace(/"/g, '&quot;');
+            const escapedJsName = suspectName.replace(/'/g, "\\'");
+            const escapedJsMug = suspectMug ? suspectMug.replace(/'/g, "\\'") : '';
+
             tr.innerHTML = `
                 <td class="p-3 font-extrabold text-emerald-950">
                     <div>${r.case_number}</div>
                     <div class="flex items-center gap-1 mt-0.5">
                         <span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">${r.dpf_code || ''}</span>
                         ${r.location_post ? `<span class="text-[9px] text-slate-400 font-sans font-normal truncate max-w-[130px]" title="${r.location_post}">${r.location_post}</span>` : ''}
+                    </div>
+                </td>
+                <td class="p-3 min-w-[170px]">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-11 rounded-md border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
+                            ${suspectMug ? `
+                                <img src="${suspectMug}" alt="${escapedSuspectName}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openMugshotModal('${escapedJsMug}', '${escapedJsName}')" title="Click to enlarge photo">
+                            ` : `
+                                <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400" title="No front mugshot on file">
+                                    <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                </div>
+                            `}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[140px]" title="${escapedSuspectName}">
+                                ${suspectName}
+                            </div>
+                            ${suspectAlias ? `<div class="text-[9px] text-slate-500 font-sans italic truncate max-w-[140px]">a.k.a. ${suspectAlias}</div>` : ''}
+                            ${coCount > 0 ? `<span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="${coCount} Co-Suspect(s) in case">+${coCount} Co-Suspect${coCount > 1 ? 's' : ''}</span>` : ''}
+                        </div>
                     </div>
                 </td>
                 <td class="p-3 whitespace-nowrap">
@@ -1825,6 +2025,7 @@
                 const rowCase = (r.getAttribute('data-case') || '').toLowerCase();
                 const rowCode = (r.getAttribute('data-code') || '').toLowerCase();
                 const rowLoc = (r.getAttribute('data-location') || '').toLowerCase();
+                const rowSuspect = (r.getAttribute('data-suspect') || '').toLowerCase();
                 const rowCourt = (r.getAttribute('data-court') || '').toUpperCase();
                 const rowExt = (r.getAttribute('data-extraction') || '').toUpperCase();
                 const rowText = r.innerText.toLowerCase();
@@ -1835,7 +2036,8 @@
                     matchesText = rowText.includes(query) || 
                                   rowCase.includes(query) || 
                                   rowCode.includes(query) || 
-                                  rowLoc.includes(query);
+                                  rowLoc.includes(query) ||
+                                  rowSuspect.includes(query);
                 }
 
                 // 2. Date Range Filter
@@ -1886,7 +2088,7 @@
 
                     const filterDesc = filtersApplied.length > 0 ? ` (${filtersApplied.join(', ')})` : '';
                     noRecordsRow.innerHTML = `
-                        <td colspan="7" class="py-8 text-center text-slate-400 font-semibold font-mono-code">
+                        <td colspan="8" class="py-8 text-center text-slate-400 font-semibold font-mono-code">
                             <div class="space-y-2">
                                 <p>No matching forensic investigations found for the selected filter criteria${filterDesc}.</p>
                                 <button type="button" onclick="resetDateFilters()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold border border-emerald-200 text-xs transition-colors cursor-pointer">
@@ -1912,6 +2114,74 @@
             }
             applyDirectoryFilters();
         }
+
+        // Suspect Mugshot Lightbox / Enlarge Modal Handlers
+        function openMugshotModal(imgUrl, suspectName) {
+            if (!imgUrl) return;
+            const modal = document.getElementById('mugshotModal');
+            const img = document.getElementById('modalMugshotImg');
+            const nameEl = document.getElementById('modalSuspectName');
+            if (img) img.src = imgUrl;
+            if (nameEl) nameEl.textContent = suspectName || 'Suspect';
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.classList.add('overflow-hidden');
+            }
+        }
+
+        function closeMugshotModal() {
+            const modal = document.getElementById('mugshotModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.classList.remove('overflow-hidden');
+            }
+        }
+
+        function handleMugshotBackdropClick(e) {
+            if (e.target && e.target.id === 'mugshotModal') {
+                closeMugshotModal();
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeMugshotModal();
+            }
+        });
     </script>
+
+    <!-- SUSPECT MUGSHOT ENLARGE PREVIEW MODAL -->
+    <div id="mugshotModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-200" onclick="handleMugshotBackdropClick(event)">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+            <!-- MODAL HEADER -->
+            <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h4 class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-100">Custodial Front Portrait</h4>
+                </div>
+                <button type="button" onclick="closeMugshotModal()" class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer" title="Close Preview">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- MODAL IMAGE BODY -->
+            <div class="p-6 flex flex-col items-center bg-slate-50">
+                <div class="relative w-56 h-64 rounded-2xl overflow-hidden border-2 border-slate-300 bg-slate-200 shadow-md flex items-center justify-center">
+                    <img id="modalMugshotImg" src="" alt="Suspect Mugshot" class="w-full h-full object-cover">
+                </div>
+                <div class="mt-4 text-center">
+                    <div id="modalSuspectName" class="font-mono-code font-black text-sm uppercase text-slate-900 tracking-tight"></div>
+                    <div class="text-[10px] font-mono-code text-slate-500 uppercase mt-0.5 tracking-wider">NACOC Custodial Photographic Archive</div>
+                </div>
+            </div>
+            <!-- MODAL FOOTER -->
+            <div class="px-5 py-3 bg-white border-t border-slate-100 flex items-center justify-end">
+                <button type="button" onclick="closeMugshotModal()" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono-code font-bold rounded-xl transition-colors cursor-pointer">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

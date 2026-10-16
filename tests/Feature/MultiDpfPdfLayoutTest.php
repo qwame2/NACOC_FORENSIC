@@ -108,4 +108,57 @@ class MultiDpfPdfLayoutTest extends TestCase
         $this->assertStringContainsString($finalSentence, $singleContent);
         $this->assertStringNotContainsString('report-flow-body flex-1 min-h-0 flex flex-col justify-between overflow-hidden', $singleContent);
     }
+
+    public function test_uploaded_signature_of_unit_head_shows_in_generated_report(): void
+    {
+        $head = User::factory()->create([
+            'fullname' => 'Ofori Graham',
+            'unit' => 'Digital & Physical Forensics',
+            'is_head' => true,
+            'is_approved' => true,
+            'signature' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        ]);
+
+        $case = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-SIG-TEST',
+            'unit_name' => 'Digital & Physical Forensics',
+            'suspect_name' => 'KOBBY MENSAH',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+
+        \App\Models\DpfReport::create([
+            'dpf_code' => 'DF-STATUS-2026-SIG-001',
+            'case_number' => 'NCC-2026-SIG-TEST',
+            'single_suspect_case_id' => $case->id,
+            'user_id' => $head->id,
+            'investigation_date' => now()->toDateString(),
+            'court_order_granted' => 'YES',
+        ]);
+
+        // 1. Single report (dpf_pdf)
+        $singleResponse = $this->actingAs($head)->get('/Digital_Forensics/dpf-report-pdf/DF-STATUS-2026-SIG-001');
+        $singleResponse->assertStatus(200);
+        $singleContent = $singleResponse->getContent();
+
+        $this->assertStringContainsString('Head of Digital &amp; Physical Forensics', $singleContent);
+        $this->assertStringContainsString('Electronically Signed &amp; Validated', $singleContent);
+        $this->assertStringContainsString('Ofori Graham', $singleContent);
+        $this->assertStringContainsString('Head of Digital &amp; Physical Forensics Unit', $singleContent);
+        $this->assertStringContainsString('Digital &amp; Physical Forensics Unit, NACOC', $singleContent);
+        $this->assertStringContainsString('alt="Official Digital Signature - Ofori Graham"', $singleContent);
+        $this->assertStringContainsString('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', $singleContent);
+
+        // 2. Multi report (multi_dpf_pdf)
+        $multiResponse = $this->actingAs($head)->get('/Digital_Forensics/multi_dpf_pdf?cases=NCC-2026-SIG-TEST');
+        $multiResponse->assertStatus(200);
+        $multiContent = $multiResponse->getContent();
+
+        $this->assertStringContainsString('Head of Digital &amp; Physical Forensics', $multiContent);
+        $this->assertStringContainsString('Electronically Signed &amp; Validated', $multiContent);
+        $this->assertStringContainsString('Ofori Graham', $multiContent);
+        $this->assertStringContainsString('Head of Digital &amp; Physical Forensics Unit, NACOC', $multiContent);
+        $this->assertStringContainsString('alt="Official Digital Signature - Ofori Graham"', $multiContent);
+        $this->assertStringContainsString('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', $multiContent);
+    }
 }

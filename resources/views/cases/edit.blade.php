@@ -112,9 +112,16 @@
 
     // Build unique Lab Examinations List
     $labsList = [];
-    $dbPrimaryLabRecord = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
-        $q->where('single_suspect_case_id', $case->id)
-          ->orWhere('multiple_suspect_case_id', $case->id);
+    $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+        ? $case->isMultipleSuspect()
+        : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+
+    $dbPrimaryLabRecord = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case, $isMultiCase) {
+        if ($isMultiCase) {
+            $q->where('multiple_suspect_case_id', $case->id);
+        } else {
+            $q->where('single_suspect_case_id', $case->id);
+        }
     })->latest('id')->first();
 
     // Primary Suspect Lab Exam (Index 0)

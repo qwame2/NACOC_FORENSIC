@@ -31,8 +31,16 @@
 
             $dbExamExists = false;
             if (!empty($case->id)) {
-                $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
-                    $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+                    ? $case->isMultipleSuspect()
+                    : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+
+                $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case, $isMultiCase) {
+                    if ($isMultiCase) {
+                        $q->where('multiple_suspect_case_id', $case->id);
+                    } else {
+                        $q->where('single_suspect_case_id', $case->id);
+                    }
                 })->exists();
             }
             $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
@@ -1327,7 +1335,7 @@
                                                 </label>
                                                 <div class="relative">
                                                     <select
-                                                        onchange="this.setAttribute('data-user-selected', 'true')"
+                                                        onchange="this.setAttribute('data-user-selected', 'true'); if (typeof syncSection4ExhibitsToLabSection === 'function') syncSection4ExhibitsToLabSection();"
                                                         class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer"
                                                     >
                                                         <option value="All Suspects">All Suspects (Joint Ownership)</option>
@@ -4145,17 +4153,58 @@
                         </div>
                     </div>
 
-                    <!-- ROW 4: CONTACT PHONE NUMBER(S) -->
+                    <!-- ROW 4: CONTACT PHONE NUMBERS CONTAINER (DEDICATED FULL WIDTH CARD FOR CO-SUSPECT) -->
                     <div class="relative z-10 pt-1">
-                        <div>
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex items-center group">
-                                <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                                </span>
-                                <input type="text" data-field="phone" placeholder="e.g. +233 24 555 0192" required class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        <div class="suspect-phones-card bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 transition-all hover:border-slate-300" data-suspect-index="${suspectCount}">
+                            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shadow-2xs">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                        </svg>
+                                    </div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-0">
+                                        Contact Phone Number(s) <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                </div>
+                                <span class="text-[9px] font-mono-code bg-white text-slate-500 font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border border-slate-200/80 shadow-2xs">Multi-Phone</span>
+                            </div>
+
+                            <div class="suspect-phones-list space-y-2.5">
+                                <div class="suspect-phone-row flex items-center gap-2">
+                                    <div class="relative shrink-0">
+                                        <select data-phone-field="label" class="w-28 sm:w-32 px-2.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer shadow-2xs">
+                                            <option value="Primary" selected>Primary</option>
+                                            <option value="Alternate">Alternate</option>
+                                            <option value="WhatsApp">WhatsApp</option>
+                                            <option value="Emergency">Emergency</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="relative flex-1 flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                        </span>
+                                        <input type="text"
+                                               data-field="phone"
+                                               data-phone-field="number"
+                                               placeholder="e.g. +233 24 555 0192"
+                                               required
+                                               class="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 text-xs">
+                                    </div>
+                                    <div class="w-9 h-9 shrink-0 flex items-center justify-center"></div>
+                                </div>
+                            </div>
+
+                            <div class="pt-0.5">
+                                <button type="button"
+                                        onclick="addSuspectPhoneRow(this)"
+                                        class="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-[0.98]">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    <span>Add Phone Number</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -4529,8 +4578,10 @@
                     place_of_birth:   s1POB,
                     hometown:         s1POB,
                     phone:            s1Phone,
+                    phone_label:      document.querySelector('#suspectCard-1 select[name="phone_labels[]"], #suspectPhonesContainer select[data-phone-field="label"]')?.value || 'Primary',
                     phones:           typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []),
                     additional_phones:typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
+                    additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
                     address:          s1Address,
                     residential_address: s1Address,
                     gps:              s1Address,
@@ -4583,7 +4634,46 @@
                 const sEye      = getField('eye_color');
                 const sNat      = getField('nationality') || '';
                 const sPOB      = getField('pob') || getField('place_of_birth') || getField('hometown') || card.querySelector('[data-field="pob"]')?.value?.trim() || card.querySelector('[data-field="place_of_birth"]')?.value?.trim() || card.querySelector('[data-field="hometown"]')?.value?.trim() || '';
-                const sPhone    = getField('phone') || getField('phone_number') || card.querySelector('[data-field="phone"]')?.value?.trim() || '';
+                // Collect multiple phone numbers for this co-suspect
+                let coSuspectPhones = [];
+                if (typeof getCardPhonesPayload === 'function') {
+                    coSuspectPhones = getCardPhonesPayload(card);
+                } else {
+                    const phoneRows = card.querySelectorAll('.suspect-phone-row');
+                    phoneRows.forEach((pRow, pIdx) => {
+                        const numEl = pRow.querySelector('[data-phone-field="number"]') || pRow.querySelector('input[type="text"]');
+                        const lblEl = pRow.querySelector('[data-phone-field="label"]') || pRow.querySelector('select');
+                        const num = numEl?.value?.trim() || '';
+                        const lbl = lblEl?.value?.trim() || (pIdx === 0 ? 'Primary' : 'Alternate');
+                        if (num) {
+                            coSuspectPhones.push({
+                                label: lbl,
+                                number: num,
+                                is_primary: (pIdx === 0)
+                            });
+                        }
+                    });
+                }
+
+                let sPhone = '';
+                let sPhoneLabel = 'Primary';
+                let additionalPhones = [];
+                let additionalPhoneLabels = [];
+
+                if (coSuspectPhones.length > 0) {
+                    sPhone = coSuspectPhones[0].number;
+                    sPhoneLabel = coSuspectPhones[0].label;
+                    for (let i = 1; i < coSuspectPhones.length; i++) {
+                        additionalPhones.push(coSuspectPhones[i].number);
+                        additionalPhoneLabels.push(coSuspectPhones[i].label);
+                    }
+                } else {
+                    sPhone = getField('phone') || getField('phone_number') || card.querySelector('[data-field="phone"]')?.value?.trim() || '';
+                    if (sPhone) {
+                        coSuspectPhones.push({ label: 'Primary', number: sPhone, is_primary: true });
+                    }
+                }
+
                 const sAddress  = getField('address') || getField('residential_address') || getField('gps') || card.querySelector('[data-field="address"]')?.value?.trim() || card.querySelector('[data-field="residential_address"]')?.value?.trim() || '';
                 let sMarital    = getField('marital_status') || card.querySelector('[data-field="marital_status"]')?.value?.trim() || '';
                 if (!sMarital) {
@@ -4661,6 +4751,10 @@
                         place_of_birth:   sPOB,
                         hometown:         sPOB,
                         phone:            sPhone,
+                        phone_label:      sPhoneLabel,
+                        phones:           coSuspectPhones,
+                        additional_phones:additionalPhones,
+                        additional_phone_labels: additionalPhoneLabels,
                         address:          sAddress,
                         residential_address: sAddress,
                         gps:              sAddress,
@@ -5127,7 +5221,7 @@
                 const selectedAssocPerson = block.querySelector('.seizure-associated-person-select')?.value?.trim() || '';
                 let finalAssocPerson = selectedAssocPerson;
                 if (!finalAssocPerson || finalAssocPerson === 'All Suspects') {
-                    finalAssocPerson = jointSuspectNamesLabel || name;
+                    finalAssocPerson = 'All Suspects';
                 }
 
                 seizuresList.push({
@@ -5473,6 +5567,7 @@
                     confirmatory_test_methods: document.getElementById('confirmatoryTestMethods')?.value || null,
                     confirmatory_specifications: document.getElementById('confirmatorySpecifications')?.value || null,
                     confirmatory_remark: document.getElementById('confirmatoryRemark')?.value || null,
+                    detected_substances: typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() : [],
 
                     // Presumptive Result & Legacy JSON docket data
                     presumptive_result: presumptiveVal,
@@ -6347,6 +6442,7 @@
             clone.querySelectorAll('select').forEach(select => {
                 select.selectedIndex = 0;
             });
+            clone.querySelector('.seizure-associated-person-select')?.removeAttribute('data-user-selected');
 
             // Hide all specialized wrappers in clone initially
             const drugWrapper = clone.querySelector('#drugSelectWrapper');
@@ -7383,36 +7479,17 @@
         /**
          * Dynamic Suspect Multi-Phone Manager
          */
-        function addSuspectPhoneRow(label = 'Alternate', number = '') {
-            const list = document.getElementById('suspectPhonesList');
-            const template = document.getElementById('suspectPhoneRowTemplate');
-            if (!list || !template) return null;
-
-            const clone = template.content.cloneNode(true);
-            const row = clone.querySelector('.suspect-phone-row');
-            const select = clone.querySelector('select[name="additional_phone_labels[]"]');
-            const input = clone.querySelector('input[name="additional_phones[]"]');
-
-            if (select && label) select.value = label;
-            if (input && number) input.value = number;
-
-            list.appendChild(clone);
-            if (!number && input) input.focus();
-            if (typeof saveDocketFormDraft === 'function') saveDocketFormDraft();
-            return row;
+        function addSuspectPhoneRow(targetOrLabel = 'Alternate', number = '') {
+            if (typeof window.addSuspectPhoneRow === 'function') {
+                return window.addSuspectPhoneRow(targetOrLabel, number);
+            }
+            return null;
         }
 
         function removeSuspectPhoneRow(btn) {
-            if (!btn) return;
-            const row = btn.closest('.suspect-phone-row');
-            const list = document.getElementById('suspectPhonesList');
-            if (!row || !list) return;
-
-            const allRows = list.querySelectorAll('.suspect-phone-row');
-            if (allRows.length > 0 && allRows[0] === row) return; // Guard: row #1 is primary
-
-            row.remove();
-            if (typeof saveDocketFormDraft === 'function') saveDocketFormDraft();
+            if (typeof window.removeSuspectPhoneRow === 'function') {
+                return window.removeSuspectPhoneRow(btn);
+            }
         }
 
         function hydrateAdditionalPhonesFromOld() {
@@ -7427,41 +7504,16 @@
             }
         }
 
-        function getAdditionalPhonesPayload() {
-            const list = document.getElementById('suspectPhonesList');
-            if (!list) return [];
-            const rows = list.querySelectorAll('.suspect-phone-row');
-            const phones = [];
-            for (let i = 1; i < rows.length; i++) {
-                const labelEl = rows[i].querySelector('select[name="additional_phone_labels[]"]');
-                const numEl = rows[i].querySelector('input[name="additional_phones[]"]');
-                const num = numEl?.value?.trim() || '';
-                if (num) {
-                    phones.push({ label: labelEl?.value || 'Alternate', number: num });
-                }
+        function getAdditionalPhonesPayload(target) {
+            if (typeof window.getAdditionalPhonesPayload === 'function') {
+                return window.getAdditionalPhonesPayload(target);
             }
-            return phones;
+            return [];
         }
 
         function validateSuspectPhones() {
-            const list = document.getElementById('suspectPhonesList');
-            if (!list) return true;
-            const inputs = list.querySelectorAll('input[type="text"]');
-            const seen = new Set();
-            for (const input of inputs) {
-                const clean = input.value.replace(/[\s\-\(\)]/g, '').trim();
-                if (clean) {
-                    if (seen.has(clean)) {
-                        if (typeof showToast === 'function') {
-                            showToast('⚠ Duplicate suspect phone number detected: ' + input.value);
-                        } else {
-                            alert('Duplicate suspect phone number detected: ' + input.value);
-                        }
-                        input.focus();
-                        return false;
-                    }
-                    seen.add(clean);
-                }
+            if (typeof window.validateSuspectPhones === 'function') {
+                return window.validateSuspectPhones();
             }
             return true;
         }
@@ -7997,7 +8049,7 @@
                 const weight = block.querySelector('#newSeizureWeight')?.value || '';
                 const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value || '';
                 const reason = block.querySelector('#newSeizureReason')?.value || '';
-                const owner = block.querySelector('#newSeizureAssociatedPerson')?.value || '';
+                const owner = block.querySelector('.seizure-associated-person-select')?.value || block.querySelector('#newSeizureAssociatedPerson')?.value || '';
 
                 let displayName = name;
                 if (!displayName || displayName.trim() === '') {
@@ -8110,11 +8162,13 @@
             const weight = selectedOption.getAttribute('data-weight') || '';
             const unit = selectedOption.getAttribute('data-unit') || '';
             const reason = selectedOption.getAttribute('data-reason') || '';
+            const owner = selectedOption.getAttribute('data-owner') || '';
 
             let formattedDesc = name || cat || 'Exhibit';
             if (cat) formattedDesc += ` | Category: ${cat}`;
             if (qty || pkg) formattedDesc += ` | Quantity/Packaging: ${qty} ${pkg}`.trim();
             if (weight || unit) formattedDesc += ` | Net Weight/Metrics: ${weight} ${unit}`.trim();
+            if (owner) formattedDesc += ` | Suspect / Ownership: ${owner}`;
             if (reason) formattedDesc += ` | Seizure Facts: ${reason}`;
 
             if (descInput) {
@@ -8551,11 +8605,11 @@
                     select.appendChild(opt);
                 });
 
-                if (suspects.length === 1 && !userHasSelected) {
-                    select.value = suspects[0].name;
+                if (userHasSelected && currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                    select.value = currentVal;
                 } else if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
                     select.value = currentVal;
-                } else if (suspects.length === 1) {
+                } else if (suspects.length === 1 && !userHasSelected) {
                     select.value = suspects[0].name;
                 } else {
                     select.value = currentVal || 'All Suspects';

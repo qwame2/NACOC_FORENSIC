@@ -1,17 +1,50 @@
 @php
     $authUser = auth()->user();
-    $dbDpfHead = \App\Models\User::where(function($q) {
-                    $q->where('unit', 'LIKE', '%Digital%')
-                      ->orWhere('unit', 'LIKE', '%Physical%');
-                })->where('is_head', true)->first()
-                ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
+    $dbDpfHead = null;
+    if ($authUser && $authUser->is_head && (str_contains(strtolower($authUser->unit ?? ''), 'digital') || str_contains(strtolower($authUser->unit ?? ''), 'physical'))) {
+        $dbDpfHead = $authUser;
+    }
+    if (!$dbDpfHead) {
+        $dbDpfHead = \App\Models\User::where(function($q) {
+                        $q->where('unit', 'LIKE', '%Digital%')
+                          ->orWhere('unit', 'LIKE', '%Physical%');
+                    })->where('is_head', true)->first()
+                    ?? \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->first()
+                    ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
+    }
     $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'Ofori Graham';
+    $dpfHeadSignature = $dbDpfHead ? $dbDpfHead->signature : null;
+    if (empty($dpfHeadSignature)) {
+        $oforiUser = \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->whereNotNull('signature')->first();
+        if ($oforiUser) {
+            $dpfHeadSignature = $oforiUser->signature;
+        }
+    }
+    if (!empty($dpfHeadSignature)) {
+        $dpfHeadSignature = trim((string)$dpfHeadSignature);
+        if (!str_starts_with($dpfHeadSignature, 'data:image') && !str_starts_with($dpfHeadSignature, 'http://') && !str_starts_with($dpfHeadSignature, 'https://') && !str_starts_with($dpfHeadSignature, '/')) {
+            $dpfHeadSignature = asset($dpfHeadSignature);
+        }
+    }
 
-    $dbDeptHead = \App\Models\User::where('unit', 'LIKE', '%Directorate%')->where('is_head', true)->first()
-               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Directorate%')->first()
-               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
-               ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
+    $dbDeptHead = null;
+    if ($authUser && $authUser->is_head && (str_contains(strtolower($authUser->unit ?? ''), 'directorate') || str_contains(strtolower($authUser->unit ?? ''), 'forensic head'))) {
+        $dbDeptHead = $authUser;
+    }
+    if (!$dbDeptHead) {
+        $dbDeptHead = \App\Models\User::where('unit', 'LIKE', '%Directorate%')->where('is_head', true)->first()
+                   ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Directorate%')->first()
+                   ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
+                   ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
+    }
     $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : '';
+    $deptHeadSignature = $dbDeptHead ? $dbDeptHead->signature : null;
+    if (!empty($deptHeadSignature)) {
+        $deptHeadSignature = trim((string)$deptHeadSignature);
+        if (!str_starts_with($deptHeadSignature, 'data:image') && !str_starts_with($deptHeadSignature, 'http://') && !str_starts_with($deptHeadSignature, 'https://') && !str_starts_with($deptHeadSignature, '/')) {
+            $deptHeadSignature = asset($deptHeadSignature);
+        }
+    }
 
     $reportObj = $report ?? null;
     $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'NCC-2026-6730');
@@ -456,8 +489,8 @@
         /* A4 Document Styling constraints */
         body {
             font-family: 'Inter', sans-serif;
-            background: #334155;
-            color: #1e293b;
+            background: #ffffffff;
+            color: #ffffffff;
             margin: 0;
             padding: 24px 0;
             -webkit-print-color-adjust: exact;
@@ -974,28 +1007,48 @@
                     </div>
 
                     <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
-                    <div class="flow-block section-signatures mt-3 footer avoid-break">
+                    <div class="flow-block section-signatures mt-3 pb-6 footer avoid-break">
                         <div class="grid grid-cols-2 gap-10">
                             <!-- HEAD OF DIGITAL & PHYSICAL FORENSICS UNIT -->
-                            <div>
+                            <div class="flex flex-col">
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
-                                <div class="mt-3 border-b border-dashed border-slate-300 pb-1">
+                                
+                                <!-- SIGNATURE AREA (MATCHING HEIGHT, FIXED TO PREVENT HEADER MOVING UP) -->
+                                <div class="relative h-20 flex items-end pb-1">
+                                    @if(!empty($dpfHeadSignature))
+                                        <img src="{{ $dpfHeadSignature }}" alt="Official Digital Signature - {{ $dpfHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[300px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
+                                    @endif
+                                </div>
+
+                                <div class="border-b border-dashed border-slate-300 pb-1">
                                     <span class="text-[8px] italic text-slate-700">Electronically Signed &amp; Validated</span>
                                 </div>
-                                <p class="mt-1 text-[10px] font-bold text-slate-900">{{ $dpfHeadName }}</p>
-                                <p class="text-[8px] text-slate-900">Head of Digital &amp; Physical Forensics Unit</p>
-                                <p class="text-[7.5px] text-slate-700">Digital &amp; Physical Forensics Unit, NACOC</p>
+                                <div class="mt-1">
+                                    <p class="text-[10px] font-bold text-slate-900 leading-tight">{{ $dpfHeadName }}</p>
+                                    <p class="text-[8px] text-slate-900 leading-tight">Head of Digital &amp; Physical Forensics Unit</p>
+                                    <p class="text-[7.5px] text-slate-700 leading-tight">Digital &amp; Physical Forensics Unit, NACOC</p>
+                                </div>
                             </div>
 
                             <!-- HEAD OF FORENSIC DEPARTMENT -->
-                            <div>
+                            <div class="flex flex-col">
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
-                                <div class="mt-3 border-b border-dashed border-slate-300 pb-1">
+                                
+                                <!-- SIGNATURE AREA (MATCHING HEIGHT, FIXED TO PREVENT HEADER MOVING UP) -->
+                                <div class="relative h-20 flex items-end pb-1">
+                                    @if(!empty($deptHeadSignature))
+                                        <img src="{{ $deptHeadSignature }}" alt="Official Digital Signature - {{ $deptHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[300px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
+                                    @endif
+                                </div>
+
+                                <div class="border-b border-dashed border-slate-300 pb-1">
                                     <span class="text-[8px] italic text-slate-700">Authorized &amp; Counter-signed</span>
                                 </div>
-                                <p class="mt-1 text-[10px] font-bold text-slate-900">{{ $deptHeadName }}</p>
-                                <p class="text-[8px] text-slate-900">Head of Forensic Department</p>
-                                <p class="text-[7.5px] text-slate-700">Forensic Department, NACOC</p>
+                                <div class="mt-1">
+                                    <p class="text-[10px] font-bold text-slate-900 leading-tight">{{ $deptHeadName }}</p>
+                                    <p class="text-[8px] text-slate-900 leading-tight">Head of Forensic Department</p>
+                                    <p class="text-[7.5px] text-slate-700 leading-tight">Forensic Department, NACOC</p>
+                                </div>
                             </div>
                         </div>
                     </div>

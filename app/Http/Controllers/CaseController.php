@@ -396,8 +396,12 @@ class CaseController extends Controller
 
         if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
             foreach ($docketData['seizures'] as $sIdx => $sz) {
+                $ownership = $sz['suspect_ownership'] ?? null;
                 $assocPerson = $sz['associated_person'] ?? null;
-                if (empty($assocPerson) || strtolower(trim($assocPerson)) === 'primary suspect' || $assocPerson === 'All Suspects') {
+                if ($ownership === 'All Suspects' || $assocPerson === 'All Suspects' || str_contains(strtolower((string)$ownership), 'all suspect') || str_contains(strtolower((string)$assocPerson), 'all suspect')) {
+                    $docketData['seizures'][$sIdx]['associated_person'] = count($allNames) > 1 ? $jointSuspectNameLabel : 'All Suspects';
+                    $docketData['seizures'][$sIdx]['suspect_ownership'] = 'All Suspects';
+                } elseif (empty($assocPerson) || strtolower(trim($assocPerson)) === 'primary suspect') {
                     $docketData['seizures'][$sIdx]['associated_person'] = count($allNames) > 1 ? $jointSuspectNameLabel : $allNames[0];
                 }
             }
@@ -489,7 +493,9 @@ class CaseController extends Controller
             'sample_weight_taken'      => $request->input('sample_weight_taken') ?? null,
             'sample_weight_reserved'   => $request->input('sample_weight_reserved') ?? null,
             'confirmatory_substance_identification' => $request->input('confirmatory_substance_identification') ?? null,
-            'detected_substances'      => $request->input('detected_substances') ?? null,
+            'detected_substances'      => $request->input('detected_substances')
+                ?? ($request->input('docket_data.lab_examination.detected_substances')
+                ?? ($request->input('lab_examination.detected_substances') ?? null)),
             'confirmatory_test_methods'=> $request->input('confirmatory_test_methods') ?? null,
             'confirmatory_specifications' => $request->input('confirmatory_specifications') ?? null,
             'confirmatory_remark'        => $request->input('confirmatory_remark') ?? ($request->input('remark') ?? null),
@@ -714,7 +720,9 @@ class CaseController extends Controller
                 ?? ($validated['presumptive_result'] ?? ($validated['presumptive_test_result'] ?? ($request->input('presumptive_reaction_result_input') ?? ($request->input('docket_data.lab_examination.presumptive_result') ?? null))));
             $confirmatoryVal = $validated['confirmatory_test_result'] ?? ($request->input('confirmatory_test_result') ?? 'YES');
             $labNum          = $request->input('laboratory_number') ?? ($request->input('lab_number') ?? ('Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y')));
-            $labExamRef      = $request->input('lab_exam_reference') ?? ($request->input('exam_reference') ?? ('GSA-FM-T' . rand(10, 99) . '-F'));
+            $isLabAnalysis   = str_contains($userUnit ?? '', 'Lab') || str_contains($request->input('unit_name', ''), 'Lab');
+            $defaultExamRef  = $isLabAnalysis ? ('NLR-FM-T' . rand(10, 99) . '-F') : ('GSA-FM-T' . rand(10, 99) . '-F');
+            $labExamRef      = $request->input('lab_exam_reference') ?? ($request->input('exam_reference') ?? $defaultExamRef);
             $labExhNo        = 'EXH-' . date('Y') . '-' . sprintf('%03d', $case->id);
             $substanceId     = $request->input('confirmatory_substance_identification') ?? ($request->input('docket_data.lab_examination.substance_identification') ?? null);
             $sampleDesc      = $request->input('sample_weight_description') ?? ($request->input('docket_data.lab_examination.sample_weight_description') ?? null);
@@ -753,13 +761,24 @@ class CaseController extends Controller
                     }
                 }
             }
-            $detSubs         = $request->input('detected_substances');
+            $detSubs = $request->input('detected_substances')
+                ?? ($request->input('docket_data.lab_examination.detected_substances')
+                ?? ($request->input('lab_examination.detected_substances') ?? []));
             if (is_string($detSubs)) {
                 $detSubs = json_decode($detSubs, true) ?: [];
             }
             if (!is_array($detSubs)) {
                 $detSubs = [];
             }
+            foreach ($detSubs as &$ds) {
+                if (is_array($ds) && isset($ds['percentage']) && $ds['percentage'] !== '') {
+                    $pctVal = trim($ds['percentage']);
+                    if (!str_ends_with($pctVal, '%')) {
+                        $ds['percentage'] = $pctVal . '%';
+                    }
+                }
+            }
+            unset($ds);
             $testMethods = $request->input('confirmatory_test_methods');
             $specs       = $request->input('confirmatory_specifications');
             $remark      = $request->input('confirmatory_remark') ?? $request->input('remark');
@@ -804,6 +823,7 @@ class CaseController extends Controller
                 $caseDocketData['seizures'][0]['presumptive_result'] = $presumptiveVal;
                 $caseDocketData['seizures'][0]['confirmatory_result'] = $confirmatoryVal;
                 $caseDocketData['seizures'][0]['substance_identification'] = $substanceId;
+                $caseDocketData['seizures'][0]['detected_substances'] = $detSubs;
                 $caseDocketData['seizures'][0]['sample_description'] = $sampleDesc;
                 $caseDocketData['seizures'][0]['sample_units'] = $sampleUnits;
                 $caseDocketData['seizures'][0]['sample_gross'] = $sampleGross;
@@ -857,10 +877,75 @@ class CaseController extends Controller
                     $q->where('suspect_name', $primarySuspectName)
                       ->orWhere('suspect_name', 'Primary Suspect');
                 })->delete();
+
+            if (!empty($detSubs)) {
+                $case->detected_substances = $detSubs;
+                if ($case->underlyingRecord && \Schema::hasColumn($case->underlyingRecord->getTable(), 'detected_substances')) {
+                    try {
+                        $case->underlyingRecord->detected_substances = is_array($detSubs) ? json_encode($detSubs) : $detSubs;
+                        $case->underlyingRecord->save();
+                    } catch (\Throwable $e) {}
+                }
+            }
         }
 
         $case->docket_data = $caseDocketData;
         $case->save();
+
+        // If GSA report files were uploaded during case creation, attach them automatically
+        if ($request->hasFile('gsa_report_images')) {
+            $gsaFiles = $request->file('gsa_report_images');
+            if (!is_array($gsaFiles)) {
+                $gsaFiles = [$gsaFiles];
+            }
+            $targetMultiCase = null;
+            if ($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                $targetMultiCase = $case->underlyingRecord;
+            } else {
+                $targetMultiCase = \App\Models\MultipleSuspectCase::where('case_number', $case->case_number)->first();
+                if (!$targetMultiCase) {
+                    $targetMultiCase = \App\Models\MultipleSuspectCase::create([
+                        'case_number'        => $case->case_number,
+                        'title'              => $case->title ?? ('Forensic Case ' . $case->case_number),
+                        'unit_name'          => $case->unit_name ?? 'Forensic Laboratory',
+                        'suspect_name'       => $case->suspect_name ?? 'Primary Suspect',
+                        'controller_user_id' => auth()->id(),
+                    ]);
+                }
+            }
+            $targetSuspect = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $targetMultiCase->id)->first();
+            if (!$targetSuspect) {
+                $targetSuspect = \App\Models\CaseSuspect::create([
+                    'multiple_suspect_case_id' => $targetMultiCase->id,
+                    'suspect_name'             => $case->suspect_name ?? 'Primary Suspect',
+                    'suspect_number'           => 1,
+                    'role'                     => 'Primary Suspect',
+                ]);
+            }
+            $folder = 'gsa_reports/' . now()->format('Y/m');
+            foreach ($gsaFiles as $file) {
+                if ($file instanceof \Illuminate\Http\UploadedFile) {
+                    $ext    = strtolower($file->getClientOriginalExtension());
+                    $stored = \Illuminate\Support\Str::uuid() . '.' . $ext;
+                    $path   = $file->storeAs($folder, $stored, 'public');
+
+                    \App\Models\SuspectGsaReport::create([
+                        'case_suspect_id'          => $targetSuspect->id,
+                        'multiple_suspect_case_id' => $targetMultiCase->id,
+                        'uploaded_by'              => auth()->id(),
+                        'original_filename'        => $file->getClientOriginalName(),
+                        'stored_filename'          => $stored,
+                        'file_path'                => $path,
+                        'file_type'                => $file->getMimeType(),
+                        'file_extension'           => $ext,
+                        'file_size'                => $file->getSize(),
+                        'lab_number'               => $request->input('laboratory_number') ?? $request->input('lab_number'),
+                        'case_number'              => $case->case_number,
+                        'status'                   => 'active',
+                    ]);
+                }
+            }
+        }
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -1590,6 +1675,7 @@ class CaseController extends Controller
                             if (isset($labObj['sample_weight_taken'])) $case->sample_weight_taken = $labObj['sample_weight_taken'];
                             if (isset($labObj['sample_weight_reserved'])) $case->sample_weight_reserved = $labObj['sample_weight_reserved'];
                             if (isset($labObj['substance_identification'])) $case->confirmatory_substance_identification = $labObj['substance_identification'];
+                            if (isset($labObj['detected_substances'])) $case->detected_substances = $labObj['detected_substances'];
                             if (isset($labObj['test_methods'])) $case->confirmatory_test_methods = $labObj['test_methods'];
                             if (isset($labObj['specifications'])) $case->confirmatory_specifications = $labObj['specifications'];
                             if (isset($labObj['confirmatory_remark'])) $case->confirmatory_remark = $labObj['confirmatory_remark'];
@@ -1932,7 +2018,9 @@ class CaseController extends Controller
                 $case->laboratory_number = $labNum;
             }
 
-            $labExamRef = $request->input('lab_exam_reference') ?: ($request->input('exam_reference') ?: ($docketData['lab_examination']['exam_reference'] ?? ('GSA-FM-T' . rand(10, 99) . '-F')));
+            $isLabAnalysis = str_contains($case->unit_name ?? '', 'Lab') || str_contains($userUnit ?? '', 'Lab') || str_contains($request->input('unit_name', ''), 'Lab');
+            $defaultExamRef = $isLabAnalysis ? ('NLR-FM-T' . rand(10, 99) . '-F') : ('GSA-FM-T' . rand(10, 99) . '-F');
+            $labExamRef = $request->input('lab_exam_reference') ?: ($request->input('exam_reference') ?: ($docketData['lab_examination']['exam_reference'] ?? $defaultExamRef));
             $labExhNo = $request->input('lab_exhibit_number') ?: ($docketData['lab_examination']['exhibit_number'] ?? null);
             $labUnitVal = $request->input('lab_unit') ?: ($docketData['lab_examination']['lab_unit'] ?? null);
 
@@ -1973,17 +2061,21 @@ class CaseController extends Controller
             }
 
             $detSubs = [];
-            if ($request->has('detected_substances')) {
-                $detSubs = $request->input('detected_substances');
+            if ($request->has('detected_substances') || $request->has('docket_data.lab_examination.detected_substances')) {
+                $detSubs = $request->input('detected_substances') ?? $request->input('docket_data.lab_examination.detected_substances');
+                if (is_string($detSubs)) {
+                    $detSubs = json_decode($detSubs, true) ?: [];
+                }
                 if (!empty($detSubs) && is_array($detSubs)) {
                     foreach ($detSubs as &$ds) {
-                        if (isset($ds['percentage']) && $ds['percentage'] !== '') {
+                        if (is_array($ds) && isset($ds['percentage']) && $ds['percentage'] !== '') {
                             $pctVal = trim($ds['percentage']);
                             if (!str_ends_with($pctVal, '%')) {
                                 $ds['percentage'] = $pctVal . '%';
                             }
                         }
                     }
+                    unset($ds);
                     $case->detected_substances = $detSubs;
                 }
             }
@@ -4991,9 +5083,37 @@ class CaseController extends Controller
             $multiCase = \App\Models\MultipleSuspectCase::where('case_number', (string) $caseNumber)->first();
         }
         if (!$multiCase) {
+            $singleCase = null;
+            if ($caseNumber) {
+                $singleCase = \App\Models\SingleSuspectCase::where('case_number', (string) $caseNumber)->first();
+            }
+            if (!$singleCase && $request->filled('multiple_suspect_case_id')) {
+                $singleCase = \App\Models\SingleSuspectCase::find($request->input('multiple_suspect_case_id'));
+            }
+            if ($singleCase) {
+                $multiCase = \App\Models\MultipleSuspectCase::create([
+                    'case_number'        => $singleCase->case_number,
+                    'title'              => $singleCase->title ?? ('Forensic Case ' . $singleCase->case_number),
+                    'unit_name'          => $singleCase->unit_name ?? 'Forensic Laboratory',
+                    'suspect_name'       => $singleCase->suspect_name ?? 'Primary Suspect',
+                    'controller_user_id' => auth()->id(),
+                ]);
+                \App\Models\CaseSuspect::firstOrCreate(
+                    [
+                        'multiple_suspect_case_id' => $multiCase->id,
+                        'suspect_name'             => $singleCase->suspect_name ?? 'Primary Suspect',
+                    ],
+                    [
+                        'suspect_number' => 1,
+                        'role'           => 'Primary Suspect',
+                    ]
+                );
+            }
+        }
+        if (!$multiCase) {
             return response()->json([
                 'success' => false,
-                'message' => 'GSA reports can only be attached to a registered multi-suspect case. No matching case record was found.',
+                'message' => 'GSA reports can only be attached to a registered case. No matching case record was found.',
             ], 422);
         }
 
@@ -5014,6 +5134,15 @@ class CaseController extends Controller
         }
         if (!$suspect) {
             $suspect = $caseSuspects->firstWhere('role', 'Primary Suspect') ?: $caseSuspects->first();
+        }
+        if (!$suspect && $multiCase) {
+            $susName = $request->input('suspect_name') ?: ($multiCase->suspect_name ?: 'Primary Suspect');
+            $suspect = \App\Models\CaseSuspect::create([
+                'multiple_suspect_case_id' => $multiCase->id,
+                'suspect_name'             => $susName,
+                'suspect_number'           => 1,
+                'role'                     => 'Primary Suspect',
+            ]);
         }
         if (!$suspect) {
             return response()->json([

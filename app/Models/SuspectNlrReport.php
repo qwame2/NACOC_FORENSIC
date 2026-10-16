@@ -107,7 +107,6 @@ class SuspectNlrReport extends Model
                 }
                 if (!empty($mId)) {
                     $q->orWhere('multiple_suspect_case_id', $mId);
-                    $q->orWhere('single_suspect_case_id', $mId);
                 }
             })
             ->active()

@@ -268,6 +268,229 @@ class GsaReportUploadTest extends TestCase
         // Now top header buttons are disabled because ALL suspects have reports attached!
         $this->assertStringContainsString('disabled title="Reports have already been generated and attached for all suspects in this case."', $fullHtml);
     }
+
+    #[Test]
+    public function lab_analysis_create_page_uses_nlr_reference_form_for_section_5_examination_info(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Forensic Laboratory',
+            'is_head' => true,
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/create?from=Forensic+Laboratory');
+        $response->assertStatus(200);
+
+        $html = $response->getContent();
+
+        // Section 5 Analysis / Examination Reference input should have NLR format (NLR-FM-T...-F) and NOT GSA format
+        $this->assertMatchesRegularExpression('/id="labExamReferenceInput"[^>]*value="NLR-FM-T\d+-F"/i', $html);
+        $this->assertStringNotContainsString('value="GSA-FM-T', $html);
+
+        // Verification of switcher functions
+        $this->assertStringContainsString('switchToNlrExamSection', $html);
+        $this->assertStringContainsString("examRefInput.value = `NLR-FM-T\${randNum}-F`", $html);
+        $this->assertStringContainsString("examRefInput.value.replace(/^GSA-/, 'NLR-')", $html);
+
+        // Verify Save & Attach GSA Report button is removed from Lab Analysis create page
+        $this->assertStringNotContainsString('Save &amp; Attach GSA Report', $html);
+        $this->assertStringNotContainsString('id="saveGsaFilesBtn"', $html);
+        $this->assertStringContainsString('Auto-saved with Save Case', $html);
+        $this->assertStringContainsString('uploadStagedGsaFiles(data, name)', $html);
+    }
+
+    #[Test]
+    public function saving_case_automatically_saves_and_attaches_uploaded_gsa_report_images(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create([
+            'unit' => 'Forensic Laboratory',
+            'is_head' => true,
+        ]);
+
+        $file1 = UploadedFile::fake()->create('gsa_doc_1.pdf', 200, 'application/pdf');
+        $file2 = UploadedFile::fake()->create('gsa_photo_2.jpg', 300, 'image/jpeg');
+
+        $caseNumber = 'NCC-2026-AUTOGSA-01';
+
+        $response = $this->actingAs($user)->post('/cases', [
+            'case_number' => $caseNumber,
+            'title' => 'Republic vs Auto GSA Suspect',
+            'unit_name' => 'Forensic Laboratory',
+            'suspect_name' => 'Auto GSA Target',
+            'gsa_report_images' => [$file1, $file2],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        // Verify GSA reports were automatically saved and attached
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_number' => $caseNumber,
+            'original_filename' => 'gsa_doc_1.pdf',
+        ]);
+
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_number' => $caseNumber,
+            'original_filename' => 'gsa_photo_2.jpg',
+        ]);
+    }
+
+    #[Test]
+    public function saving_case_persists_detected_substances_and_displays_on_show_review_page(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Forensic Laboratory',
+            'is_head' => true,
+        ]);
+
+        $caseNumber = 'NCC-2026-DETSUB-01';
+        $detectedSubstances = [
+            ['substance' => 'Cocaine Hydrochloride', 'percentage' => '85.4%'],
+            ['substance' => 'Levamisole Adulterant', 'percentage' => '14.6%'],
+        ];
+
+        $response = $this->actingAs($user)->postJson('/cases', [
+            'case_number' => $caseNumber,
+            'title' => 'Republic vs Detected Substance Suspect',
+            'unit_name' => 'Forensic Laboratory',
+            'suspect_name' => 'Substance Test Subject',
+            'detected_substances' => $detectedSubstances,
+            'docket_data' => [
+                'lab_examination' => [
+                    'detected_substances' => $detectedSubstances,
+                    'laboratory_number' => 'LAB-NCC-2026-099',
+                    'presumptive_result' => 'YES (Positive)',
+                    'substance_identification' => 'Cocaine Hydrochloride',
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(200);
+
+        // 1. Verify LaboratoryExaminationResult record has detected_substances stored
+        $labRecord = \App\Models\LaboratoryExaminationResult::where('laboratory_number', 'LAB-NCC-2026-099')
+            ->orWhereHas('singleCase', function($q) use ($caseNumber) {
+                $q->where('case_number', $caseNumber);
+            })->first();
+
+        $this->assertNotNull($labRecord, 'LaboratoryExaminationResult record should have been created');
+        $this->assertIsArray($labRecord->detected_substances);
+        $this->assertEquals('Cocaine Hydrochloride', $labRecord->detected_substances[0]['substance']);
+        $this->assertEquals('85.4%', $labRecord->detected_substances[0]['percentage']);
+
+        // 2. Verify show_review page displays Result (Detected Substances & Purity %)
+        $reviewPage = $this->actingAs($user)->get("/cases/{$caseNumber}/review");
+        $reviewPage->assertStatus(200);
+        $reviewHtml = $reviewPage->getContent();
+
+        $this->assertStringContainsString('Cocaine Hydrochloride (85.4%)', $reviewHtml);
+        $this->assertStringContainsString('Levamisole Adulterant (14.6%)', $reviewHtml);
+    }
+
+    #[Test]
+    public function exhibit_suspect_ownership_associates_correctly_to_specific_suspect_or_all_suspects(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Forensic Laboratory',
+            'is_head' => true,
+        ]);
+
+        $caseNumber = 'LAB-2026-EX-OWN-' . uniqid();
+
+        $response = $this->actingAs($user)->postJson('/cases', [
+            'case_type' => 'MULTIPLE',
+            'case_number' => $caseNumber,
+            'title' => 'Exhibit Suspect Ownership Test Case',
+            'unit_name' => 'Forensic Laboratory',
+            'case_category' => 'Narcotics',
+            'priority' => 'High',
+            'incident_date' => now()->toDateString(),
+            'incident_time' => '12:00',
+            'incident_location' => 'Accra Cargo Terminal',
+            'suspect_name' => 'Suspect Alpha',
+            'docket_data' => [
+                'suspects' => [
+                    [
+                        'suspect_name' => 'Suspect Alpha',
+                        'role' => 'Primary Suspect',
+                        'nationality' => 'Ghanaian',
+                        'gender' => 'Male',
+                        'age' => 30,
+                    ],
+                    [
+                        'suspect_name' => 'Suspect Beta',
+                        'role' => 'Co-Suspect #1',
+                        'nationality' => 'Ghanaian',
+                        'gender' => 'Female',
+                        'age' => 28,
+                    ],
+                ],
+                'seizures' => [
+                    [
+                        'category' => 'Drugs',
+                        'seizure_name_drug' => 'White Powder Alpha',
+                        'associated_person' => 'Suspect Alpha',
+                        'suspect_ownership' => 'Suspect Alpha',
+                        'seizure_quantity' => '2',
+                        'seizure_packaging' => 'Parcels',
+                    ],
+                    [
+                        'category' => 'Drugs',
+                        'seizure_name_drug' => 'Brown Granules Beta',
+                        'associated_person' => 'Suspect Beta',
+                        'suspect_ownership' => 'Suspect Beta',
+                        'seizure_quantity' => '1',
+                        'seizure_packaging' => 'Bag',
+                    ],
+                    [
+                        'category' => 'Drugs',
+                        'seizure_name_drug' => 'Shared Contraband Joint',
+                        'associated_person' => 'All Suspects',
+                        'suspect_ownership' => 'All Suspects',
+                        'seizure_quantity' => '5',
+                        'seizure_packaging' => 'Boxes',
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(200);
+
+        // Fetch case and exhibits
+        $mCase = \App\Models\MultipleSuspectCase::where('case_number', $caseNumber)->with(['exhibits', 'suspects'])->first();
+        $this->assertNotNull($mCase);
+        $this->assertCount(3, $mCase->exhibits);
+
+        $suspectAlpha = $mCase->suspects->firstWhere('suspect_name', 'Suspect Alpha');
+        $suspectBeta = $mCase->suspects->firstWhere('suspect_name', 'Suspect Beta');
+
+        $exhibitAlpha = $mCase->exhibits->firstWhere('commodity_name', 'White Powder Alpha');
+        $this->assertNotNull($exhibitAlpha);
+        $this->assertEquals($suspectAlpha->id, $exhibitAlpha->suspect_id);
+        $this->assertEquals('Suspect Alpha', $exhibitAlpha->associated_person);
+
+        $exhibitBeta = $mCase->exhibits->firstWhere('commodity_name', 'Brown Granules Beta');
+        $this->assertNotNull($exhibitBeta);
+        $this->assertEquals($suspectBeta->id, $exhibitBeta->suspect_id);
+        $this->assertEquals('Suspect Beta', $exhibitBeta->associated_person);
+
+        $exhibitJoint = $mCase->exhibits->firstWhere('commodity_name', 'Shared Contraband Joint');
+        $this->assertNotNull($exhibitJoint);
+        $this->assertNull($exhibitJoint->suspect_id);
+        $this->assertEquals('All Suspects', $exhibitJoint->associated_person);
+
+        // Check show_review page displays ownership accurately
+        $reviewPage = $this->actingAs($user)->get("/cases/{$caseNumber}/review");
+        $reviewPage->assertStatus(200);
+        $reviewHtml = $reviewPage->getContent();
+
+        $this->assertStringContainsString('White Powder Alpha', $reviewHtml);
+        $this->assertStringContainsString('Suspect Alpha', $reviewHtml);
+        $this->assertStringContainsString('Brown Granules Beta', $reviewHtml);
+        $this->assertStringContainsString('Suspect Beta', $reviewHtml);
+        $this->assertStringContainsString('Shared Contraband Joint', $reviewHtml);
+        $this->assertStringContainsString('All Suspects', $reviewHtml);
+    }
 }
 
 

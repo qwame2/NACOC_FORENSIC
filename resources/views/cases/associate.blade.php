@@ -15,8 +15,16 @@
 
         $activeSuspectHasSavedResult = false;
         if (isset($case) && !empty($case->id)) {
-            $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
-                $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+            $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+                ? $case->isMultipleSuspect()
+                : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+
+            $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case, $isMultiCase) {
+                if ($isMultiCase) {
+                    $q->where('multiple_suspect_case_id', $case->id);
+                } else {
+                    $q->where('single_suspect_case_id', $case->id);
+                }
             })->exists();
             $dDataCheck = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
             $docketExamSaved = !empty($dDataCheck['lab_examination']['has_saved']);

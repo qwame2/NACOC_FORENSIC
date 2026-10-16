@@ -301,9 +301,17 @@
 
         // Source 4: Relational DB Table laboratory_examination_results
         if (!$hasSavedLab && !empty($case->id)) {
+            $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+                ? $case->isMultipleSuspect()
+                : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+
             $dbRow = \DB::table('laboratory_examination_results')
-                ->where(function($q) use ($case) {
-                    $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                ->where(function($q) use ($case, $isMultiCase) {
+                    if ($isMultiCase) {
+                        $q->where('multiple_suspect_case_id', $case->id);
+                    } else {
+                        $q->where('single_suspect_case_id', $case->id);
+                    }
                 })
                 ->get()
                 ->first(function($rec) use ($sName, $suspectNamesMatch) {
@@ -312,8 +320,12 @@
             
             if (!$dbRow && count($rawSuspects) <= 1 && !$isAssociate && $idx === 0) {
                 $dbRow = \DB::table('laboratory_examination_results')
-                    ->where(function($q) use ($case) {
-                        $q->where('single_suspect_case_id', $case->id)->orWhere('multiple_suspect_case_id', $case->id);
+                    ->where(function($q) use ($case, $isMultiCase) {
+                        if ($isMultiCase) {
+                            $q->where('multiple_suspect_case_id', $case->id);
+                        } else {
+                            $q->where('single_suspect_case_id', $case->id);
+                        }
                     })
                     ->first();
             }

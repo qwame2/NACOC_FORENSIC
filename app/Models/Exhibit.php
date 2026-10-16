@@ -16,6 +16,7 @@ class Exhibit extends Model
         'single_suspect_case_id',
         'multiple_suspect_case_id',
         'suspect_id',
+        'associated_person',
         'exhibit_number',
         'exhibit_category',
         'exhibit_type',

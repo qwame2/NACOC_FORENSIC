@@ -198,7 +198,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $respPrincilla = $this->actingAs($user)->get('/cases/' . $case->case_number . '/review?from=Lab+Analysis&suspect=Princilla+Addo');
         $htmlPrincilla = $respPrincilla->getContent();
         $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — PRINCILLA ADDO', $htmlPrincilla);
-        $this->assertStringContainsString('SUSPECT: PRINCILLA ADDO', $htmlPrincilla);
+        $this->assertStringNotContainsString('PRIMARY SUSPECT DOSSIER', $htmlPrincilla);
         $this->assertStringContainsString('Tramadol (High-Dose Tablets / Capsules)', $htmlPrincilla);
     }
 

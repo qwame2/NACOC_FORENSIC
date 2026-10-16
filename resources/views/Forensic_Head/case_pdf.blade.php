@@ -379,9 +379,16 @@
         }
     }
 
-    $dbPrimaryLabExamPdf = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case) {
-            $q->where('single_suspect_case_id', $case->id)
-              ->orWhere('multiple_suspect_case_id', $case->id);
+    $isMultiCasePdf = ($case instanceof \App\Models\ForensicCase)
+        ? $case->isMultipleSuspect()
+        : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+
+    $dbPrimaryLabExamPdf = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case, $isMultiCasePdf) {
+            if ($isMultiCasePdf) {
+                $q->where('multiple_suspect_case_id', $case->id);
+            } else {
+                $q->where('single_suspect_case_id', $case->id);
+            }
         })->where('has_saved', true)->latest('id')->first();
 
     if (!$dbPrimaryLabExamPdf) {
@@ -1745,10 +1752,9 @@
                         $isJointPdfOwner = true;
                     }
 
-                    $pdfLabDossierBadge = $isJointPdfOwner ? 'PRIMARY & CO-SUSPECT DOSSIER' : 'PRIMARY SUSPECT DOSSIER';
                     $displayLabExamOwnerPdf = $isJointPdfOwner ? ($primarySuspectsCombinedNames ?: $savedLabExamOwnerPdf) : $savedLabExamOwnerPdf;
                 @endphp
-                <span>{{ $pdfLabDossierBadge }} &bull; {{ $isJointPdfOwner ? 'SUSPECTS' : 'SUSPECT' }}: {{ strtoupper($displayLabExamOwnerPdf) }} &bull; LABORATORY EXAMINATION RESULT — {{ strtoupper($displayLabExamOwnerPdf) }}</span>
+                <span>LABORATORY EXAMINATION RESULT — {{ strtoupper($displayLabExamOwnerPdf) }}</span>
                 <span class="text-[10px] font-mono-code font-black {{ $hasSavedLabData ? 'text-emerald-900' : 'text-slate-600' }} uppercase">
                     {{ $hasSavedLabData ? 'OFFICIAL VERIFIED CERTIFICATE (✓ LAB COMPLETED)' : ($labStatus === 'IN_PROGRESS' ? '⏳ LAB IN PROGRESS' : '⭕ LAB PENDING — AWAITING LAB ANALYSIS') }}
                 </span>

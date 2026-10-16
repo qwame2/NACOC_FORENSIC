@@ -46,6 +46,8 @@ class ForensicCase extends Model
         $instance = new self();
         $instance->underlyingRecord = $record;
         $isMulti = $record instanceof MultipleSuspectCase || isset($record->total_suspects_count);
+        $instance->is_multiple = $isMulti;
+        $instance->case_type = $isMulti ? 'MULTIPLE' : 'SINGLE';
 
         $instance->id = $record->id;
         $instance->case_number = $record->case_number;
@@ -854,6 +856,7 @@ class ForensicCase extends Model
                         'case_type'               => 'MULTIPLE',
                         'multiple_suspect_case_id'=> $multi->id,
                         'suspect_id'              => $createdSuspects[0]->id ?? null,
+                        'associated_person'       => $createdSuspects[0]->suspect_name ?? ($attributes['suspect_name'] ?? 'All Suspects'),
                         'exhibit_number'          => 1,
                         'exhibit_category'        => $attributes['exhibit_category'] ?? 'Drugs',
                         'commodity_name'          => $attributes['seizure_name_drug'] ?? ($attributes['seizure_name'] ?? ($attributes['commodity_name'] ?? 'Exhibits')),
@@ -931,6 +934,7 @@ class ForensicCase extends Model
                         'case_type'               => 'MULTIPLE',
                         'multiple_suspect_case_id'=> $multi->id,
                         'suspect_id'              => $matchedSuspect ? $matchedSuspect->id : null,
+                        'associated_person'       => $isJointOwner ? 'All Suspects' : ($matchedSuspect ? $matchedSuspect->suspect_name : ($ownerName ?: 'All Suspects')),
                         'exhibit_number'          => $sz['exhibit_number'] ?? ($sIdx + 1),
                         'exhibit_category'        => $sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs'),
                         'exhibit_type'            => $sz['exhibit_type'] ?? ($attributes['exhibit_type'] ?? null),
@@ -1006,9 +1010,18 @@ class ForensicCase extends Model
 
             $labDataFromDocket = $docketData['lab_examination'] ?? [];
             if (empty($hasCreatedLabFromSeizure) && (!empty($attributes['presumptive_result']) || !empty($attributes['presumptive_test_result']) || !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket))) {
+                $labSuspectId = null;
+                if (!empty($ex) && !empty($ex->suspect_id)) {
+                    $labSuspectId = $ex->suspect_id;
+                } elseif (!empty($matchedSuspect)) {
+                    $labSuspectId = $matchedSuspect->id;
+                } else {
+                    $labSuspectId = $createdSuspects[0]->id ?? null;
+                }
                 LaboratoryExaminationResult::create([
                     'case_type'               => 'MULTIPLE',
                     'multiple_suspect_case_id'=> $multi->id,
+                    'suspect_id'              => $labSuspectId,
                     'exhibit_id'              => $ex->id ?? null,
                     'laboratory_number'       => $multi->laboratory_number,
                     'analyst'                 => $attributes['analyst'] ?? ($labDataFromDocket['analyst'] ?? null),
@@ -1125,6 +1138,7 @@ class ForensicCase extends Model
                 $ex = Exhibit::create([
                     'case_type'             => 'SINGLE',
                     'single_suspect_case_id'=> $single->id,
+                    'associated_person'     => $single->suspect_name,
                     'exhibit_number'        => 1,
                     'exhibit_category'      => $attributes['exhibit_category'] ?? 'Drugs',
                     'commodity_name'        => $attributes['seizure_name_drug'] ?? ($attributes['seizure_name'] ?? ($attributes['commodity_name'] ?? 'Exhibits')),
@@ -1170,9 +1184,13 @@ class ForensicCase extends Model
             }
         } else {
             foreach ($seizures as $sIdx => $sz) {
+                $isSingleJoint = (!empty($sz['suspect_ownership']) && str_contains(strtolower($sz['suspect_ownership']), 'all suspect'))
+                    || (!empty($sz['associated_person']) && str_contains(strtolower($sz['associated_person']), 'all suspect'));
+
                 $ex = Exhibit::create([
                     'case_type'             => 'SINGLE',
                     'single_suspect_case_id'=> $single->id,
+                    'associated_person'     => $isSingleJoint ? 'All Suspects' : ($sz['associated_person'] ?? ($sz['suspect_ownership'] ?? $single->suspect_name)),
                     'exhibit_number'        => $sIdx + 1,
                     'exhibit_category'      => $sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs'),
                     'exhibit_type'          => $sz['exhibit_type'] ?? ($attributes['exhibit_type'] ?? null),
@@ -1657,9 +1675,10 @@ class ForensicCase extends Model
 
         // Direct DB query for exhibits if case ID is present
         if (!empty($this->id)) {
-            $dbExhibits = Exhibit::where('multiple_suspect_case_id', $this->id)
-                ->orWhere('single_suspect_case_id', $this->id)
-                ->get();
+            $isMultiCase = $this->isMultipleSuspect();
+            $dbExhibits = $isMultiCase
+                ? Exhibit::where('multiple_suspect_case_id', $this->id)->get()
+                : Exhibit::where('single_suspect_case_id', $this->id)->get();
             foreach ($dbExhibits as $exRecord) {
                 $classifyItem([
                     'exhibit_category' => $exRecord->exhibit_category ?? null,
@@ -1701,9 +1720,10 @@ class ForensicCase extends Model
 
         // 3. Linked Laboratory Examination DB Records
         if (!empty($this->id)) {
-            $labRecords = LaboratoryExaminationResult::where('multiple_suspect_case_id', $this->id)
-                ->orWhere('single_suspect_case_id', $this->id)
-                ->get();
+            $isMultiCase = $this->isMultipleSuspect();
+            $labRecords = $isMultiCase
+                ? LaboratoryExaminationResult::where('multiple_suspect_case_id', $this->id)->get()
+                : LaboratoryExaminationResult::where('single_suspect_case_id', $this->id)->get();
             foreach ($labRecords as $labRec) {
                 $classifyItem([
                     'substance_identification' => $labRec->substance_identification ?? null,
@@ -2114,6 +2134,45 @@ class ForensicCase extends Model
     }
 
     /**
+     * Check if this case is a multiple suspect case.
+     */
+    public function isMultipleSuspect(): bool
+    {
+        if ($this->underlyingRecord instanceof MultipleSuspectCase) {
+            return true;
+        }
+        if ($this->underlyingRecord instanceof SingleSuspectCase) {
+            return false;
+        }
+        if (isset($this->is_multiple)) {
+            return (bool)$this->is_multiple;
+        }
+        if ($this->case_type === 'MULTIPLE') {
+            return true;
+        }
+        if ($this->case_type === 'SINGLE') {
+            return false;
+        }
+        if (!empty($this->total_suspects_count) && (int)$this->total_suspects_count > 1) {
+            return true;
+        }
+        if (!empty($this->id)) {
+            if (!empty($this->case_number)) {
+                if (MultipleSuspectCase::where('id', $this->id)->where('case_number', $this->case_number)->exists()) {
+                    return true;
+                }
+                if (SingleSuspectCase::where('id', $this->id)->where('case_number', $this->case_number)->exists()) {
+                    return false;
+                }
+            }
+            if (MultipleSuspectCase::where('id', $this->id)->exists() && !SingleSuspectCase::where('id', $this->id)->exists()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Retrieve specific exhibit records linked to a suspect (by DB ID, associate ID, or suspect name).
      * Enforces strict suspect-to-exhibit relationship and prevents cross-contamination.
      */
@@ -2140,9 +2199,10 @@ class ForensicCase extends Model
 
         // 1. Relational Exhibit records from 'exhibits' DB table
         if (!empty($this->id)) {
-            $dbExhibits = Exhibit::where('multiple_suspect_case_id', $this->id)
-                ->orWhere('single_suspect_case_id', $this->id)
-                ->get();
+            $isMultiCase = $this->isMultipleSuspect();
+            $dbExhibits = $isMultiCase
+                ? Exhibit::where('multiple_suspect_case_id', $this->id)->get()
+                : Exhibit::where('single_suspect_case_id', $this->id)->get();
 
             foreach ($dbExhibits as $ex) {
                 $exSuspectId = $ex->suspect_id;
@@ -2168,6 +2228,26 @@ class ForensicCase extends Model
                     foreach ($exOwners as $ownerStr) {
                         $cleanOwner = strtolower(trim($ownerStr));
                         if ($cleanOwner === $cleanTargetName || str_contains($cleanOwner, $cleanTargetName) || str_contains($cleanTargetName, $cleanOwner)) {
+                            $isMatch = true;
+                            break;
+                        }
+                        // Also check tokenized names if comma/and separated
+                        $ownerTokens = preg_split('/\s*(?:,|;|&|\/|\band\b)\s*/i', $cleanOwner) ?: [];
+                        foreach ($ownerTokens as $tok) {
+                            $tok = trim($tok);
+                            if (!empty($tok) && ($tok === $cleanTargetName || str_contains($cleanTargetName, $tok) || str_contains($tok, $cleanTargetName))) {
+                                $isMatch = true;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+
+                // Shared / Joint exhibit check (e.g. "All Suspects", "Joint", "Both Suspects")
+                if (!$isMatch && !empty($exOwners)) {
+                    foreach ($exOwners as $ownerStr) {
+                        $cleanOwner = strtolower(trim($ownerStr));
+                        if (str_contains($cleanOwner, 'all suspect') || str_contains($cleanOwner, 'joint') || str_contains($cleanOwner, 'both suspect')) {
                             $isMatch = true;
                             break;
                         }
@@ -2211,9 +2291,18 @@ class ForensicCase extends Model
                 if ($isMatch && !empty($exSuspectId) && !empty($suspectDbId) && (int)$exSuspectId !== (int)$suspectDbId) {
                     $isExplicitlyShared = false;
                     foreach ($exOwners as $ownerStr) {
-                        if (str_contains(strtolower($ownerStr), $cleanTargetName)) {
+                        $cOwner = strtolower(trim($ownerStr));
+                        if (str_contains($cOwner, $cleanTargetName) || str_contains($cOwner, 'all suspect') || str_contains($cOwner, 'joint') || str_contains($cOwner, 'both suspect')) {
                             $isExplicitlyShared = true;
                             break;
+                        }
+                        $ownerTokens = preg_split('/\s*(?:,|;|&|\/|\band\b)\s*/i', $cOwner) ?: [];
+                        foreach ($ownerTokens as $tok) {
+                            $tok = trim($tok);
+                            if (!empty($tok) && ($tok === $cleanTargetName || str_contains($cleanTargetName, $tok) || str_contains($tok, $cleanTargetName))) {
+                                $isExplicitlyShared = true;
+                                break 2;
+                            }
                         }
                     }
                     if (!$isExplicitlyShared) {
@@ -2354,12 +2443,21 @@ class ForensicCase extends Model
             if (!$isMatch && !empty($cleanTargetName) && !empty($szOwner)) {
                 if ($szOwner === $cleanTargetName || str_contains($szOwner, $cleanTargetName) || str_contains($cleanTargetName, $szOwner)) {
                     $isMatch = true;
+                } else {
+                    $ownerTokens = preg_split('/\s*(?:,|;|&|\/|\band\b)\s*/i', $szOwner) ?: [];
+                    foreach ($ownerTokens as $tok) {
+                        $tok = trim($tok);
+                        if (!empty($tok) && ($tok === $cleanTargetName || str_contains($cleanTargetName, $tok) || str_contains($tok, $cleanTargetName))) {
+                            $isMatch = true;
+                            break;
+                        }
+                    }
                 }
             }
 
             // Shared / Joint exhibit check
             if (!$isMatch && !empty($szOwner)) {
-                if (str_contains($szOwner, 'all suspect') || str_contains($szOwner, 'joint')) {
+                if (str_contains($szOwner, 'all suspect') || str_contains($szOwner, 'joint') || str_contains($szOwner, 'both suspect')) {
                     $isMatch = true;
                 }
             }
@@ -2378,8 +2476,20 @@ class ForensicCase extends Model
             }
 
             // Reject if exhibit explicitly belongs to a DIFFERENT suspect name or DB ID
-            if ($isMatch && !empty($szOwner) && $szOwner !== 'primary suspect' && $szOwner !== 'associate suspect' && $szOwner !== 'joint suspects' && !str_contains($szOwner, 'all suspect')) {
-                if ($szOwner !== $cleanTargetName && !str_contains($szOwner, $cleanTargetName)) {
+            $isSharedLabel = str_contains($szOwner, 'all suspect') || str_contains($szOwner, 'joint') || str_contains($szOwner, 'both suspect') || $szOwner === 'primary suspect' || $szOwner === 'associate suspect' || $szOwner === 'joint suspects';
+            if ($isMatch && !empty($szOwner) && !$isSharedLabel) {
+                $hasTargetInOwner = ($szOwner === $cleanTargetName || str_contains($szOwner, $cleanTargetName));
+                if (!$hasTargetInOwner) {
+                    $ownerTokens = preg_split('/\s*(?:,|;|&|\/|\band\b)\s*/i', $szOwner) ?: [];
+                    foreach ($ownerTokens as $tok) {
+                        $tok = trim($tok);
+                        if (!empty($tok) && ($tok === $cleanTargetName || str_contains($cleanTargetName, $tok) || str_contains($tok, $cleanTargetName))) {
+                            $hasTargetInOwner = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$hasTargetInOwner) {
                     $isMatch = false;
                 }
             }
@@ -2463,9 +2573,10 @@ class ForensicCase extends Model
 
         // 1. Relational LaboratoryExaminationResult DB records
         if (!empty($this->id)) {
-            $labRecords = LaboratoryExaminationResult::where('multiple_suspect_case_id', $this->id)
-                ->orWhere('single_suspect_case_id', $this->id)
-                ->get();
+            $isMultiCase = $this->isMultipleSuspect();
+            $labRecords = $isMultiCase
+                ? LaboratoryExaminationResult::where('multiple_suspect_case_id', $this->id)->get()
+                : LaboratoryExaminationResult::where('single_suspect_case_id', $this->id)->get();
 
             foreach ($labRecords as $lr) {
                 $isMatch = false;
