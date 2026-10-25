@@ -117,9 +117,25 @@
                     <span class="text-xs">Head Dashboard</span>
                 </a>
                 
+                @php
+                    $isCaseRegisterActive = $isDigitalContext && (
+                        request()->is('Digital_Forensics/cases*') || 
+                        request()->is('Digital_Forensics/case-register*') || 
+                        request()->is('Digital_Forensics/head*') || 
+                        request()->is('digital-forensics/cases*') || 
+                        request()->is('digital-forensics/case-register*') || 
+                        (request()->is('cases/*/review') && request()->query('from') === 'Digital_Forensics_Register')
+                    );
+                    $isCaseDirectoryActive = request()->is('cases*') && 
+                        !request()->is('*/history*') && 
+                        !request()->is('history*') && 
+                        !request()->is('*lab-result*') && 
+                        !$isCaseRegisterActive;
+                @endphp
+
                 <!-- CASE DIRECTORY -->
-                <a href="{{ $caseDirectoryUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') && !request()->is('*lab-result*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('cases*') && !request()->is('*/history*') && !request()->is('history*') && !request()->is('*lab-result*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <a href="{{ $caseDirectoryUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isCaseDirectoryActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isCaseDirectoryActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <span class="text-xs">Case Directory</span>
                 </a>
 
@@ -141,9 +157,6 @@
 
                 @if($isDigitalContext)
                 <!-- DIGITAL FORENSICS CASE REGISTER (DIGITAL & PHYSICAL FORENSICS UNIT ONLY) -->
-                @php
-                    $isCaseRegisterActive = request()->is('Digital_Forensics/cases*') || request()->is('Digital_Forensics/case-register*') || request()->is('Digital_Forensics/head*') || request()->is('digital-forensics/cases*') || request()->is('digital-forensics/case-register*') || (request()->is('cases*') && (request()->query('from') === 'Digital_Forensics_Register' || str_contains(strtolower(request()->query('from') ?? ''), 'digital')));
-                @endphp
                 <a href="{{ url('/Digital_Forensics/cases') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isCaseRegisterActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isCaseRegisterActive ? 'text-white' : 'text-purple-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="text-xs">Digital Forensics Case Register</span>
