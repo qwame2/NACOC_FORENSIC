@@ -5872,7 +5872,6 @@
                                                 onchange="togglePresumptiveTest('YES')"
                                                 class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
                                             <div class="flex items-center space-x-1.5">
-                                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                                                 <span
                                                     class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
                                             </div>
@@ -5886,7 +5885,6 @@
                                                 onchange="togglePresumptiveTest('NO')"
                                                 class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
                                             <div class="flex items-center space-x-1.5">
-                                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
                                                 <span
                                                     class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
                                             </div>
@@ -6018,7 +6016,6 @@
                                                 onchange="toggleConfirmatoryTest('YES')"
                                                 class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
                                             <div class="flex items-center space-x-1.5">
-                                                <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                                                 <span
                                                     class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
                                             </div>
@@ -6032,7 +6029,6 @@
                                                 onchange="toggleConfirmatoryTest('NO')"
                                                 class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
                                             <div class="flex items-center space-x-1.5">
-                                                <span class="w-2 h-2 rounded-full bg-red-500"></span>
                                                 <span
                                                     class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
                                             </div>
@@ -6919,8 +6915,7 @@
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                         <div class="text-xs font-bold text-slate-700 font-mono-code uppercase">Suspect #${mugshotCount} Mugshot Photos</div>
-                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center space-x-1 shadow-2xs">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center shadow-2xs">
                             <span>CO-SUSPECT</span>
                         </span>
                     </div>
@@ -7177,7 +7172,7 @@
                     <span class="font-extrabold text-slate-900 text-sm font-mono-code uppercase flex items-center space-x-2">
                         <span class="suspect-number-badge w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">${suspectCount}</span>
                         <span class="suspect-header-title">Suspect #${suspectCount} Personal Booking Record</span>
-                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center gap-1 shadow-2xs"><span class="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>CO-SUSPECT</span>
+                        <span class="px-2.5 py-0.5 text-[9px] font-mono-code font-extrabold rounded-full bg-amber-100 text-amber-900 border border-amber-300 uppercase tracking-wider flex items-center shadow-2xs">CO-SUSPECT</span>
                     </span>
                     <button type="button" onclick="removeSuspectRow(this)" class="suspect-remove-btn px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors border-none cursor-pointer">
                         &times; Remove Suspect #${suspectCount}

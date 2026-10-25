@@ -305,6 +305,32 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/lab-nlr-pdf/{id}', [CaseController::class, 'showNlrReportPdf']);
     Route::post('/Lab_Analysis/nlr-reports/store', [CaseController::class, 'storeNlrReport'])->name('lab.nlr.store');
 
+    // Dedicated Laboratory Analysis Report & Drug Suspect Register Management Page
+    Route::get('/Lab_Analysis/report', [CaseController::class, 'labReportPage'])->name('lab.report');
+    Route::get('/lab-analysis/report', [CaseController::class, 'labReportPage']);
+
+    // Generated PDF Situational Report & Dossier
+    Route::get('/Lab_Analysis/lab_sitrep_pdf', [CaseController::class, 'labSitrepReport'])->name('lab.sitrep.pdf');
+    Route::get('/lab-analysis/lab_sitrep_pdf', [CaseController::class, 'labSitrepReport']);
+
+    // General / Aside-bar Report Route Handler
+    Route::get('/Report', function (\Illuminate\Http\Request $request) {
+        $user = auth()->user();
+        $unit = $request->query('unit') ?: ($user ? $user->unit : '');
+        $unitLower = strtolower($unit);
+
+        if (str_contains($unitLower, 'lab')) {
+            return app(\App\Http\Controllers\CaseController::class)->labReportPage($request);
+        } elseif (str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical')) {
+            return redirect()->to('/Digital_Forensics/multi_dpf_pdf');
+        } elseif (str_contains($unitLower, 'evidence')) {
+            return redirect()->to('/Evidence_Management');
+        }
+
+        // Default to Lab Analysis Dedicated Report Page
+        return app(\App\Http\Controllers\CaseController::class)->labReportPage($request);
+    })->name('general.report');
+
     Route::get('/Lab_Analysis/examination', function () {
         $case = \App\Models\ForensicCase::find(request('case_id'));
         return view('Lab_Analysis.examination', compact('case'));

@@ -238,11 +238,7 @@
                                 ),
                             );
                         @endphp
-                        <span class="inline-flex items-center space-x-1">
-                            <span
-                                class="w-2 h-2 rounded-full {{ $confVal !== 'NO' ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
-                            <span>{{ $confVal !== 'NO' ? 'YES' : 'NO' }}</span>
-                        </span>
+                        <span class="font-bold {{ $confVal !== 'NO' ? 'text-emerald-700' : 'text-red-700' }}">{{ $confVal !== 'NO' ? 'YES' : 'NO' }}</span>
                     </td>
                 </tr>
                 <tr class="bg-slate-100/90 border-b border-slate-300">
@@ -332,8 +328,6 @@
                                     @endphp
                                     <span
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
-                                        <span
-                                            class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                                         <span>{{ $cName }}</span>
                                         @if ($cPct)
                                             <span

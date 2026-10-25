@@ -495,7 +495,6 @@
                                             <!-- SUB-SECTION 1: LEGAL IDENTITY & PHYSICAL BIOMETRICS -->
                                             <div class="space-y-2">
                                                 <div class="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider font-mono-code flex items-center space-x-1.5">
-                                                    <span class="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
                                                     <span>1. Legal Identity &amp; Physical Biometrics</span>
                                                 </div>
                                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
@@ -549,7 +548,6 @@
                                             <!-- SUB-SECTION 2: FAMILY & RELATIONSHIP RECORDS -->
                                             <div class="space-y-2">
                                                 <div class="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider font-mono-code flex items-center space-x-1.5">
-                                                    <span class="w-2 h-2 rounded-full bg-emerald-600 inline-block"></span>
                                                     <span>2. Family &amp; Relationship Records</span>
                                                 </div>
                                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
@@ -583,7 +581,6 @@
                                             <!-- SUB-SECTION 3: ARREST, OFFENSE & CUSTODY CELL ALLOCATION -->
                                             <div class="space-y-2">
                                                 <div class="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider font-mono-code flex items-center space-x-1.5">
-                                                    <span class="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
                                                     <span>3. Arrest Incident, Offense &amp; Custody Cell</span>
                                                 </div>
                                                 <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 text-[11px] bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/80">
@@ -870,7 +867,6 @@
                                     <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
                                         <input type="checkbox" id="presumptiveTestYes" name="presumptive_test_yes" value="YES" onchange="togglePresumptiveTest('YES')" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
                                         <div class="flex items-center space-x-1.5">
-                                            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                                             <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
                                         </div>
                                     </label>
@@ -878,7 +874,6 @@
                                     <label class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
                                         <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO" checked onchange="togglePresumptiveTest('NO')" class="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
                                         <div class="flex items-center space-x-1.5">
-                                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
                                             <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
                                         </div>
                                     </label>

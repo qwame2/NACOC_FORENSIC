@@ -569,7 +569,6 @@
             <div class="bg-slate-900 text-white p-4 rounded-xl space-y-2 font-mono-code">
                 <div class="flex items-center justify-between text-xs">
                     <span class="text-emerald-400 font-bold flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         DATABASE RECORD: VERIFIED &amp; MATCHED
                     </span>
                     <span class="text-slate-400 text-[10px]">NACOC HR SYSTEM</span>

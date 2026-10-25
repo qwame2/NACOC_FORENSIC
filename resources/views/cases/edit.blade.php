@@ -718,7 +718,7 @@
                                             $priorityDotClass = 'bg-amber-500';
                                         } elseif ($curPriority === 'URGENT') {
                                             $priorityLabel = 'Urgent Priority';
-                                            $priorityDotClass = 'bg-rose-600 animate-pulse';
+                                            $priorityDotClass = 'bg-rose-600';
                                         }
                                     @endphp
                                     <div class="relative z-30">

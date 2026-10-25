@@ -327,7 +327,6 @@
                             onchange="onPresumptiveRadioChange('YES')"
                             class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer">
                         <div class="flex items-center space-x-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                             <span
                                 class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
                         </div>
@@ -342,7 +341,6 @@
                             onchange="onPresumptiveRadioChange('NO')"
                             class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer">
                         <div class="flex items-center space-x-1.5">
-                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
                             <span
                                 class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
                         </div>
@@ -490,7 +488,6 @@
                             onchange="toggleConfirmatoryTestReview('YES')"
                             class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer">
                         <div class="flex items-center space-x-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                             <span
                                 class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
                         </div>
@@ -505,7 +502,6 @@
                             onchange="toggleConfirmatoryTestReview('NO')"
                             class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer">
                         <div class="flex items-center space-x-1.5">
-                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
                             <span
                                 class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
                         </div>

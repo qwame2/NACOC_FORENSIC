@@ -104,23 +104,18 @@
                             <!-- DROPDOWN BUTTONS -->
                             <div id="sidebarEventMenu" class="hidden pl-6 pr-1 py-1 space-y-1">
                                 <a href="{{ url('/Crime_Scene_Support/staff/cargo-parcel-interception') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span>
                                     Cargo/Parcel Interception
                                 </a>
                                 <a href="{{ url('/Crime_Scene_Support/staff/raid') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-red-400 mr-2"></span>
                                     Raid
                                 </a>
                                 <a href="{{ url('/Crime_Scene_Support/staff/search-warrant') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 mr-2"></span>
                                     Search Warrant
                                 </a>
                                 <a href="{{ url('/Crime_Scene_Support/staff/intel-led-ops') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-purple-400 mr-2"></span>
                                     Intel-led Ops
                                 </a>
                                 <a href="{{ url('/Crime_Scene_Support/staff/transferred-case') }}" class="w-full text-left px-3 py-1.5 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800/90 rounded-lg flex items-center transition-colors">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-2"></span>
                                     Transferred case
                                 </a>
                             </div>
@@ -307,22 +302,22 @@
                             <div id="tableEventDropdownMenu" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200 z-30 py-1 font-medium">
                                 <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono-code border-b border-slate-100">Select Event Type</div>
                                 <button type="button" onclick="selectEvent('All Events')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-slate-400 mr-2"></span> All Events
+                                    All Events
                                 </button>
                                 <button type="button" onclick="selectEvent('Cargo/Parcel Interception')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> Cargo/Parcel Interception
+                                    Cargo/Parcel Interception
                                 </button>
                                 <button type="button" onclick="selectEvent('Raid')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-red-500 mr-2"></span> Raid
+                                    Raid
                                 </button>
                                 <button type="button" onclick="selectEvent('Search Warrant')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-amber-500 mr-2"></span> Search Warrant
+                                    Search Warrant
                                 </button>
                                 <button type="button" onclick="selectEvent('Intel-led Ops')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-purple-500 mr-2"></span> Intel-led Ops
+                                    Intel-led Ops
                                 </button>
                                 <button type="button" onclick="selectEvent('Transferred case')" class="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center transition-colors">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> Transferred case
+                                    Transferred case
                                 </button>
                             </div>
                         </div>

@@ -352,7 +352,6 @@
                         </div>
                         <div class="text-3xl font-black text-amber-600 font-mono-code" id="statPendingApprovals">{{ number_format($pendingApprovalsCount) }}</div>
                         <div class="flex items-center text-[11px] text-amber-700 mt-2 font-semibold">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
                             Awaiting Director Signature
                         </div>
                     </div>
@@ -666,7 +665,6 @@
                                                 </span>
                                             @elseif($case->status === 'Declined')
                                                 <span class="status-badge status-declined" id="status-{{ $case->case_number }}">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span>
                                                     Declined
                                                 </span>
                                             @elseif($case->status === 'Under Multi-Unit Processing')
@@ -852,7 +850,6 @@
             <div class="bg-slate-900 text-white p-4 rounded-xl space-y-2 font-mono-code">
                 <div class="flex items-center justify-between text-xs">
                     <span class="text-emerald-400 font-bold flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         CHAIN INTEGRITY: 100% VERIFIED &amp; TAMPER-FREE
                     </span>
                     <span id="modalCaseStatusBadge" class="status-badge status-await">Awaiting Sign-off</span>
@@ -1071,11 +1068,11 @@
                 if (modalBtns) modalBtns.style.display = 'none';
             } else if (status === 'Declined') {
                 badgeEl.className = 'status-badge status-declined';
-                badgeEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span> Declined`;
+                badgeEl.innerHTML = `Declined`;
                 if (modalBtns) modalBtns.style.display = 'none';
             } else {
                 badgeEl.className = 'status-badge status-await';
-                badgeEl.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span> ${status || 'Awaiting Sign-off'}`;
+                badgeEl.innerHTML = `${status || 'Awaiting Sign-off'}`;
                 if (modalBtns) modalBtns.style.display = 'flex';
             }
 
@@ -1133,7 +1130,7 @@
                     const badge = document.getElementById('status-' + ref);
                     if (badge) {
                         badge.className = 'status-badge status-declined';
-                        badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span> Declined`;
+                        badge.innerHTML = `Declined`;
                     }
                     showToast('Case Declined', `Case ${ref} was declined by Department Head.`);
                 } else {
@@ -1296,12 +1293,10 @@
                             </span>`;
                         } else if (c.status === 'Declined') {
                             statusBadge = `<span class="status-badge status-declined" id="status-${c.case_number}">
-                                <span class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span>
                                 Declined
                             </span>`;
                         } else {
                             statusBadge = `<span class="status-badge status-await" id="status-${c.case_number}">
-                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 inline-block"></span>
                                 ${c.status || 'Awaiting Sign-off'}
                             </span>`;
                         }

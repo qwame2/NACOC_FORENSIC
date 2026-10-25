@@ -935,6 +935,36 @@
                         $cleanFilename = str_replace('_', ' ', $cleanFilename);
                         $serverPath = public_path($cleanPath);
                         $fileSizeStr = file_exists($serverPath) ? number_format(filesize($serverPath) / 1024, 1) . ' KB' : null;
+
+                        // Build comprehensive list of suspect(s) for the case/attachment header
+                        $sNames = [];
+                        if (!empty($sr['suspect_name'])) {
+                            $sNames[] = strtoupper(trim($sr['suspect_name']));
+                        }
+                        if (!empty($sr['co_suspects']) && is_array($sr['co_suspects'])) {
+                            foreach ($sr['co_suspects'] as $coS) {
+                                $cName = strtoupper(trim($coS['suspect_name'] ?? ($coS->suspect_name ?? ($coS['name'] ?? ''))));
+                                if (!empty($cName) && !in_array($cName, $sNames)) {
+                                    $sNames[] = $cName;
+                                }
+                            }
+                        } elseif (!empty($sr['co_suspects_display'])) {
+                            foreach (explode(',', $sr['co_suspects_display']) as $cn) {
+                                $cn = strtoupper(trim($cn));
+                                if (!empty($cn) && !in_array($cn, $sNames)) {
+                                    $sNames[] = $cn;
+                                }
+                            }
+                        } elseif (isset($case) && !empty($case->suspects_list) && is_array($case->suspects_list)) {
+                            foreach ($case->suspects_list as $cs) {
+                                $cn = strtoupper(trim($cs['suspect_name'] ?? ''));
+                                if (!empty($cn) && !in_array($cn, $sNames)) {
+                                    $sNames[] = $cn;
+                                }
+                            }
+                        }
+                        $suspectHeaderLabel = count($sNames) > 1 ? 'Suspect(s)' : 'Suspect';
+                        $suspectNamesHeader = !empty($sNames) ? implode(' & ', $sNames) : strtoupper($sr['suspect_name'] ?? 'N/A');
                     @endphp
 
                     <div id="{{ $att['id'] }}" class="a4-page a4-page-attachment relative text-slate-900 page-break">
@@ -945,12 +975,15 @@
                         <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
                             <div>
                                 <div class="relative pt-2 pb-3 border-b border-slate-300 flex items-center justify-between">
-                                    <div>
+                                    <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 max-w-[80%]">
                                         <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
                                             NACOC FORENSIC REPORT &bull; ATTACHED EXHIBIT
                                         </span>
-                                        <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
+                                        <span class="font-mono-code text-[9px] font-semibold text-slate-800">
                                             Ref: {{ $sr['case_number'] }} &bull; {{ $sr['dpf_code'] }}
+                                        </span>
+                                        <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                            &bull; {{ $suspectHeaderLabel }}: <span class="font-mono-code text-slate-800 font-bold">{{ $suspectNamesHeader }}</span>
                                         </span>
                                     </div>
                                     <div class="text-right">
@@ -963,7 +996,7 @@
 
                                 <div class="mt-9 pb-2 flex items-center justify-between">
                                     <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
-                                        {{ $att['title'] }} &bull; Suspect: {{ $sr['suspect_name'] }}
+                                        {{ $att['title'] }} &bull; {{ $suspectHeaderLabel }}: {{ $suspectNamesHeader }}
                                     </h3>
                                     <div class="text-[8px] text-slate-500 font-mono-code">
                                         {{ $cleanFilename }} {{ $fileSizeStr ? '&bull; ' . $fileSizeStr : '' }}
@@ -981,6 +1014,8 @@
                                              data-title="{{ $att['title'] }}"
                                              data-case-no="{{ $sr['case_number'] }}"
                                              data-dpf-code="{{ $sr['dpf_code'] }}"
+                                             data-suspect-label="{{ $suspectHeaderLabel }}"
+                                             data-suspect-name="{{ $suspectNamesHeader }}"
                                              data-watermark="{{ asset('nacoc.jfif') }}">
                                             <div class="flex flex-col items-center gap-2 p-4 text-center">
                                                 <svg class="w-8 h-8 text-emerald-600 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -996,7 +1031,7 @@
 
                             <div class="mt-8 print:mt-2 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; {{ $sr['suspect_name'] }}</span>
+                                    <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; {{ $suspectNamesHeader }}</span>
                                     <span>&bull;</span>
                                     <span>Document Page {{ $attPageNum }}</span>
                                 </div>
@@ -1324,6 +1359,8 @@
                 const attTitle = wrapper.getAttribute('data-title') || 'Judicial Process Exhibit';
                 const caseNo = wrapper.getAttribute('data-case-no') || '';
                 const dpfCode = wrapper.getAttribute('data-dpf-code') || '';
+                const suspectLabel = wrapper.getAttribute('data-suspect-label') || 'Suspect';
+                const suspectName = wrapper.getAttribute('data-suspect-name') || '';
                 const watermarkUrl = wrapper.getAttribute('data-watermark') || '';
 
                 if (!pdfUrl || typeof pdfjsLib === 'undefined') continue;
@@ -1374,13 +1411,18 @@
                             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
                                 <div>
                                     <div class="relative pt-2 pb-3 border-b border-slate-300 flex items-center justify-between">
-                                        <div>
+                                        <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 max-w-[80%]">
                                             <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
                                                 NACOC FORENSIC REPORT &bull; ATTACHED EXHIBIT
                                             </span>
-                                            <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
+                                            <span class="font-mono-code text-[9px] font-semibold text-slate-800">
                                                 Ref: ${caseNo} &bull; ${dpfCode}
                                             </span>
+                                            ${suspectName ? `
+                                            <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                                &bull; ${suspectLabel}: <span class="font-mono-code text-slate-800 font-bold">${suspectName}</span>
+                                            </span>
+                                            ` : ''}
                                         </div>
                                         <div class="text-right">
                                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
@@ -1391,7 +1433,7 @@
                                     </div>
                                     <div class="mt-2 pb-1 flex items-center justify-between">
                                         <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
-                                            ${attTitle}
+                                            ${attTitle} ${suspectName ? `&bull; ${suspectLabel}: ${suspectName}` : ''}
                                         </h3>
                                         <div class="text-[8px] text-slate-500 font-mono-code">
                                             ${filename} ${filesize ? `&bull; ${filesize}` : ''}
@@ -1403,7 +1445,7 @@
                                 </div>
                                 <div class="mt-8 print:mt-2 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none">
                                     <div class="flex items-center gap-2">
-                                        <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU SUSPECT</span>
+                                        <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; ${suspectName || 'OFFICIAL EXHIBIT'}</span>
                                         <span>&bull;</span>
                                         <span>Document Page ${pNum} of ${numPages}</span>
                                     </div>

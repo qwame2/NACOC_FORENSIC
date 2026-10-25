@@ -181,8 +181,23 @@
                     <span class="truncate">{{ $newCaseLabel }}</span>
                 </a>
                 
-                <a href="{{ url('/Report') }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->is('Report*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Report*') ? 'text-white' : 'text-cyan-600' }}"
+                @php
+                    if ($isLabContext) {
+                        $sidebarReportUrl = url('/Lab_Analysis/report');
+                    } elseif ($isDigitalContext) {
+                        $sidebarReportUrl = url('/Digital_Forensics/multi_dpf_pdf');
+                    } elseif ($isEvidenceContext) {
+                        $sidebarReportUrl = url('/Report?unit=Evidence+Management');
+                    } else {
+                        $sidebarReportUrl = url('/Report');
+                    }
+                    $isReportActive = request()->is('Report*') || 
+                                      request()->is('Lab_Analysis/report*') || 
+                                      request()->is('lab-analysis/report*') || 
+                                      request()->is('Lab_Analysis/lab_sitrep_pdf*');
+                @endphp
+                <a href="{{ $sidebarReportUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isReportActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isReportActive ? 'text-white' : 'text-cyan-600' }}"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24"
                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
                         <path d="M9 17V9m4 8V5m4 12v-4M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/>

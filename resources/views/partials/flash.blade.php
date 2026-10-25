@@ -70,7 +70,6 @@
                 {{-- CONTENT --}}
                 <div class="flex-1 min-w-0 pr-1">
                     <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider {{ $isError ? 'text-rose-400' : ($isWarning ? 'text-amber-300' : 'text-emerald-400') }}">
-                        <span class="w-1.5 h-1.5 rounded-full {{ $isError ? 'bg-rose-400' : ($isWarning ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse') }}"></span>
                         <span>{{ $title }}</span>
                     </div>
 
@@ -204,7 +203,6 @@
                     </div>
                     <div class="flex-1 min-w-0 pr-1">
                         <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-400' : (isWarning ? 'text-amber-300' : 'text-emerald-400')}">
-                            <span class="w-1.5 h-1.5 rounded-full ${isError ? 'bg-rose-400' : (isWarning ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse')}"></span>
                             <span>${finalTitle}</span>
                         </div>
                         <div class="text-xs ${isError ? 'text-rose-100' : (isWarning ? 'text-amber-100' : 'text-slate-200')} font-sans mt-1 leading-snug font-medium">

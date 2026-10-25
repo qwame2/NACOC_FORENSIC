@@ -1365,8 +1365,15 @@ class ForensicCase extends Model
             };
         }
 
-        $singles = SingleSuspectCase::where($column, $operator, $value)->where('status', '!=', 'Promoted')->get();
-        $multiples = MultipleSuspectCase::where($column, $operator, $value)->get();
+        if ($column === 'suspect_name') {
+            $singles = SingleSuspectCase::where('suspect_name', $operator, $value)->where('status', '!=', 'Promoted')->get();
+            $multiples = MultipleSuspectCase::whereHas('suspects', function ($q) use ($operator, $value) {
+                $q->where('suspect_name', $operator, $value);
+            })->get();
+        } else {
+            $singles = SingleSuspectCase::where($column, $operator, $value)->where('status', '!=', 'Promoted')->get();
+            $multiples = MultipleSuspectCase::where($column, $operator, $value)->get();
+        }
 
         $collection = collect();
         foreach ($singles as $s) {
@@ -1442,8 +1449,15 @@ class ForensicCase extends Model
             };
         }
 
-        $singles = SingleSuspectCase::whereIn($column, $values)->where('status', '!=', 'Promoted')->get();
-        $multiples = MultipleSuspectCase::whereIn($column, $values)->get();
+        if ($column === 'suspect_name') {
+            $singles = SingleSuspectCase::whereIn('suspect_name', $values)->where('status', '!=', 'Promoted')->get();
+            $multiples = MultipleSuspectCase::whereHas('suspects', function ($q) use ($values) {
+                $q->whereIn('suspect_name', $values);
+            })->get();
+        } else {
+            $singles = SingleSuspectCase::whereIn($column, $values)->where('status', '!=', 'Promoted')->get();
+            $multiples = MultipleSuspectCase::whereIn($column, $values)->get();
+        }
 
         $collection = collect();
         foreach ($singles as $s) {
@@ -1571,7 +1585,7 @@ class ForensicCase extends Model
             $multi = MultipleSuspectCase::with(['user', 'unit', 'suspects', 'exhibits', 'labResults'])->find($ref);
             if ($multi) return self::wrapRecord($multi);
 
-            $single = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->where('status', '!=', 'Promoted')->find($ref);
+            $single = SingleSuspectCase::with(['user', 'unit', 'exhibits', 'labResults'])->find($ref);
             if ($single) return self::wrapRecord($single);
         }
 

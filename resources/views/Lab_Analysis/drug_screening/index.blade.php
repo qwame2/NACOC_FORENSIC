@@ -77,7 +77,6 @@
                         {{-- Body --}}
                         <div class="flex-1 min-w-0 pr-1">
                             <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider text-emerald-600">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span>Drug Screening System</span>
                             </div>
                             <div class="text-xs text-slate-800 font-sans mt-1 leading-snug font-semibold">
@@ -471,7 +470,6 @@
         <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
             <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
                     <span class="text-xs font-mono-code font-bold uppercase tracking-wider">Screening Dossier #<span id="modalScreeningId">001</span></span>
                 </div>
                 <button type="button" onclick="closeScreeningModal()" class="text-slate-400 hover:text-white font-bold text-lg cursor-pointer">✕</button>

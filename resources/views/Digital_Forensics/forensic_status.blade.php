@@ -667,7 +667,6 @@
                         <!-- Submit Bar -->
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
                             <div id="statusAlertMsg" class="hidden items-center gap-2 text-xs font-mono-code font-bold text-emerald-700">
-                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span>✔ Forensic &amp; Investigation Status updated successfully!</span>
                             </div>
                             <div class="flex items-center gap-3 justify-end ml-auto">
@@ -2158,7 +2157,6 @@
             <!-- MODAL HEADER -->
             <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <h4 class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-100">Custodial Front Portrait</h4>
                 </div>
                 <button type="button" onclick="closeMugshotModal()" class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer" title="Close Preview">

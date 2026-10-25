@@ -16,49 +16,45 @@ trait EnforcesMutuallyExclusiveCases
     public static function bootEnforcesMutuallyExclusiveCases(): void
     {
         static::saving(function ($model) {
-            $hasCaseType = array_key_exists('case_type', $model->getAttributes());
-            $caseType = $hasCaseType && !empty($model->case_type) ? strtoupper(trim($model->case_type)) : null;
+            $hasCaseTypeCol = in_array($model->getTable(), ['exhibits', 'laboratory_examination_results']);
+            $explicitCaseType = !empty($model->case_type) ? strtoupper(trim($model->case_type)) : null;
 
             $singleId = $model->single_suspect_case_id ?? null;
             $multiId  = $model->multiple_suspect_case_id ?? null;
 
-            // Scenario 1: Explicit case_type defined
-            if ($caseType === 'SINGLE') {
+            // Priority 1: Explicit case_type supplied
+            if ($explicitCaseType === 'SINGLE') {
                 $model->multiple_suspect_case_id = null;
-            } elseif ($caseType === 'MULTIPLE') {
+                if ($hasCaseTypeCol) $model->case_type = $model->case_type ?: 'SINGLE';
+                return;
+            } elseif ($explicitCaseType === 'MULTIPLE') {
                 $model->single_suspect_case_id = null;
+                if ($hasCaseTypeCol) $model->case_type = $model->case_type ?: 'MULTIPLE';
+                return;
             }
-            // Scenario 2: Overlapping non-null IDs without explicit case_type
-            elseif (!empty($singleId) && !empty($multiId)) {
-                if ($singleId === $multiId) {
-                    // Both IDs identical (the overlap anomaly) - prioritize multiple case or single based on dirty fields
-                    if ($model->isDirty('multiple_suspect_case_id') && !$model->isDirty('single_suspect_case_id')) {
-                        $model->single_suspect_case_id = null;
-                        if ($hasCaseType) $model->case_type = 'MULTIPLE';
-                    } elseif ($model->isDirty('single_suspect_case_id') && !$model->isDirty('multiple_suspect_case_id')) {
-                        $model->multiple_suspect_case_id = null;
-                        if ($hasCaseType) $model->case_type = 'SINGLE';
-                    } else {
-                        // Default to MULTIPLE as the primary relational model for multi-party dockets
-                        $model->single_suspect_case_id = null;
-                        if ($hasCaseType) $model->case_type = 'MULTIPLE';
-                    }
+
+            // Priority 2: Overlapping non-null IDs without explicit case_type
+            if (!empty($singleId) && !empty($multiId)) {
+                if ($model->isDirty('multiple_suspect_case_id') && !$model->isDirty('single_suspect_case_id')) {
+                    $model->single_suspect_case_id = null;
+                    if ($hasCaseTypeCol) $model->case_type = 'MULTIPLE';
+                } elseif ($model->isDirty('single_suspect_case_id') && !$model->isDirty('multiple_suspect_case_id')) {
+                    $model->multiple_suspect_case_id = null;
+                    if ($hasCaseTypeCol) $model->case_type = 'SINGLE';
                 } else {
-                    // Two different IDs supplied simultaneously: keep the dirty/active one
-                    if ($model->isDirty('multiple_suspect_case_id')) {
-                        $model->single_suspect_case_id = null;
-                        if ($hasCaseType) $model->case_type = 'MULTIPLE';
-                    } else {
-                        $model->multiple_suspect_case_id = null;
-                        if ($hasCaseType) $model->case_type = 'SINGLE';
-                    }
+                    $model->single_suspect_case_id = null;
+                    if ($hasCaseTypeCol) $model->case_type = 'MULTIPLE';
                 }
+                return;
             }
-            // Scenario 3: Align case_type with the single active ID
-            elseif ($hasCaseType && empty($caseType)) {
+
+            // Priority 3: Align case_type with active case foreign key
+            if ($hasCaseTypeCol) {
                 if (!empty($multiId)) {
+                    $model->single_suspect_case_id = null;
                     $model->case_type = 'MULTIPLE';
                 } elseif (!empty($singleId)) {
+                    $model->multiple_suspect_case_id = null;
                     $model->case_type = 'SINGLE';
                 }
             }

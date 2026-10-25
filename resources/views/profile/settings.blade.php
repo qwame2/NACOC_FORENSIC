@@ -114,7 +114,6 @@
                     <span class="text-slate-500">{{ $userUnit }}</span>
                     <span class="text-slate-300">/</span>
                     <span class="text-slate-900 font-bold flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span>Profile Settings</span>
                     </span>
                 </div>
@@ -122,7 +121,6 @@
                 <!-- TOP ACTIONS -->
                 <div class="flex items-center space-x-3">
                     <div class="hidden sm:flex items-center px-3 py-1 bg-slate-100/90 rounded-full border border-slate-200/90 text-[11px] font-mono-code font-bold text-slate-700 shadow-2xs">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
                         <span>{{ $serviceId }}</span>
                     </div>
 
@@ -153,7 +151,6 @@
                     </div>
 
                     <div class="hidden md:flex items-center text-xs text-slate-500 gap-1.5 font-medium">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span>TLS 1.3 Certified Terminal</span>
                     </div>
                 </div>
@@ -355,7 +352,6 @@
                                                 </span>
                                                 @if(!empty($authUser->signature))
                                                     <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono-code rounded-lg border border-emerald-200 uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
-                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                                         ACTIVE &amp; REGISTERED
                                                     </span>
                                                 @endif
@@ -520,7 +516,6 @@
                                                     </div>
                                                     <div class="flex items-center justify-between text-[11px] text-slate-500">
                                                         <span class="flex items-center gap-1">
-                                                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                                                             Click <strong>Adopt Signature</strong> after signing to stage it for saving.
                                                         </span>
                                                         <span id="drawStatus" class="font-mono-code text-[10px] text-emerald-600 font-bold hidden">
@@ -537,7 +532,6 @@
                                     <!-- SUBMIT BUTTON -->
                                 <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
                                     <div class="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                                         <span>Press Ctrl+S to save</span>
                                     </div>
 

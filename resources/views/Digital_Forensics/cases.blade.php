@@ -207,7 +207,6 @@
                                             <div class="min-w-0">
                                                 <div class="font-bold text-slate-900 font-sans text-xs leading-snug">{{ $c->title }}</div>
                                                 <div class="text-[9.5px] text-emerald-700 font-mono-code font-bold mt-0.5 flex items-center gap-1">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
                                                     <span>Digital &amp; Mobile Cyber Forensics HQ</span>
                                                 </div>
                                                 <div class="text-[10px] text-slate-500 font-sans mt-0.5 truncate max-w-[220px]" title="{{ $primaryName }}">
@@ -538,7 +537,6 @@
             <!-- MODAL HEADER -->
             <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <h4 class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-100">Custodial Front Portrait</h4>
                 </div>
                 <button type="button" onclick="closeMugshotModal()" class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer" title="Close Preview">

@@ -65,7 +65,6 @@
                         </div>
                         <div class="flex-1 min-w-0 pr-1">
                             <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider text-emerald-600">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 <span>Drug Screening System</span>
                             </div>
                             <div class="text-xs text-slate-800 font-sans mt-1 leading-snug font-semibold">

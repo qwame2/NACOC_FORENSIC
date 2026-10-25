@@ -1094,12 +1094,15 @@
                         <div>
                             <!-- PAGE HEADER -->
                             <div class="relative pt-2 pb-3 border-b border-slate-300 flex items-center justify-between">
-                                <div>
+                                <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 max-w-[80%]">
                                     <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
                                         NACOC DPF REPORT &bull; ATTACHED EXHIBIT
                                     </span>
-                                    <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
+                                    <span class="font-mono-code text-[9px] font-semibold text-slate-800">
                                         Ref: {{ $caseNo }} &bull; {{ $dpfCode }}
+                                    </span>
+                                    <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                        &bull; Suspect: <span class="font-mono-code text-slate-800 font-bold">{{ strtoupper($suspectName) }}</span>
                                     </span>
                                 </div>
                                 <div class="text-right">
@@ -1113,7 +1116,7 @@
                             <!-- ATTACHED FILE TITLE & INFO -->
                             <div class="mt-2.5 pb-1 flex items-center justify-between">
                                 <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
-                                    {{ $att['title'] }}
+                                    {{ $att['title'] }} &bull; Suspect: {{ strtoupper($suspectName) }}
                                 </h3>
                                 <div class="text-[8px] text-slate-500 font-mono-code">
                                     {{ $cleanFilename }}@if($fileSizeStr) &bull; {{ $fileSizeStr }}@endif
@@ -1142,6 +1145,7 @@
                                          data-filesize="{{ $fileSizeStr }}"
                                          data-case-no="{{ $caseNo }}"
                                          data-dpf-code="{{ $dpfCode }}"
+                                         data-suspect-name="{{ strtoupper($suspectName) }}"
                                          data-watermark="{{ asset('nacoc.jfif') }}">
                                         <!-- INITIAL PREVIEW / FALLBACK -->
                                         <div class="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-xs p-8 text-center flex flex-col items-center justify-center min-h-[480px]">
@@ -1216,6 +1220,7 @@
                     const filesize = wrapper.getAttribute('data-filesize') || '';
                     const caseNo = wrapper.getAttribute('data-case-no') || '';
                     const dpfCode = wrapper.getAttribute('data-dpf-code') || '';
+                    const suspectName = wrapper.getAttribute('data-suspect-name') || '';
                     const watermarkUrl = wrapper.getAttribute('data-watermark') || '';
 
                     // Find parent .a4-page to replace or empty wrapper
@@ -1262,13 +1267,18 @@
                             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
                                 <div>
                                     <div class="relative pt-2 pb-2.5 border-b border-slate-300 flex items-center justify-between">
-                                        <div>
+                                        <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 max-w-[80%]">
                                             <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
                                                 NACOC DPF REPORT &bull; ATTACHED EXHIBIT
                                             </span>
-                                            <span class="ml-2 font-mono-code text-[9px] font-semibold text-slate-800">
+                                            <span class="font-mono-code text-[9px] font-semibold text-slate-800">
                                                 Ref: ${caseNo} &bull; ${dpfCode}
                                             </span>
+                                            ${suspectName ? `
+                                            <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                                &bull; Suspect: <span class="font-mono-code text-slate-800 font-bold">${suspectName}</span>
+                                            </span>
+                                            ` : ''}
                                         </div>
                                         <div class="text-right">
                                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
@@ -1282,7 +1292,7 @@
                                     <div class="mt-2.5 pb-1 flex items-center justify-between">
                                         <div class="flex items-center gap-2">
                                             <h3 class="text-[10px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
-                                                ${attTitle}
+                                                ${attTitle} ${suspectName ? `&bull; Suspect: ${suspectName}` : ''}
                                             </h3>
                                         </div>
                                         <div class="text-[8px] text-slate-500 font-mono-code">

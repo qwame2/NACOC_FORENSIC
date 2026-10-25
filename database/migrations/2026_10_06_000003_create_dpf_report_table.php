@@ -57,12 +57,14 @@ return new class extends Migration
         }
 
         // Also support dpf_reports plural alias if queried directly
-        if (!Schema::hasTable('dpf_reports')) {
+        try {
+            DB::statement('DROP VIEW IF EXISTS dpf_reports');
+            DB::statement('CREATE VIEW dpf_reports AS SELECT * FROM dpf_report');
+        } catch (\Throwable $e) {
+            // If views aren't supported or fail, create table mirror only if it does not already exist
             try {
-                DB::statement('CREATE VIEW dpf_reports AS SELECT * FROM dpf_report');
-            } catch (\Throwable $e) {
-                // If views aren't supported or fail, create table mirror
-                Schema::create('dpf_reports', function (Blueprint $table) {
+                if (!Schema::hasTable('dpf_reports')) {
+                    Schema::create('dpf_reports', function (Blueprint $table) {
                     $table->id();
                     $table->string('dpf_code')->nullable()->index();
                     $table->string('case_number')->nullable()->index();
@@ -95,8 +97,9 @@ return new class extends Migration
                     $table->timestamps();
                 });
             }
-        }
+        } catch (\Throwable $inner) {}
     }
+}
 
     /**
      * Reverse the migrations.

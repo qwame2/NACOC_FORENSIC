@@ -1457,7 +1457,6 @@
                             <div class="flex items-center gap-2">
                                 <div id="descSaveStatus"
                                     class="hidden items-center gap-1.5 text-xs font-mono-code font-bold">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                     <span class="text-emerald-700">Description saved to dossier.</span>
                                 </div>
                                 <p class="text-[11px] text-slate-400 font-mono-code">Ref: {{ $caseNo }} •

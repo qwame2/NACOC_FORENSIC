@@ -2048,8 +2048,6 @@
                                         </span>
                                     @elseif($status === 'Declined')
                                         <span class="status-badge status-declined">
-                                            <span
-                                                class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span>
                                             Declined
                                         </span>
                                     @else
@@ -8801,13 +8799,13 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     const badge = document.getElementById('headerStatusBadge');
                     if (badge) {
                         badge.innerHTML =
-                            `<span class="status-badge status-declined"><span class="w-1.5 h-1.5 rounded-full bg-red-600 mr-1.5 inline-block"></span> Declined</span>`;
+                            `<span class="status-badge status-declined">Declined</span>`;
                     }
 
                     const container = document.getElementById('executiveActionContainer');
                     if (container) {
                         container.innerHTML =
-                            `<div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-800 border border-red-300 font-mono-code font-bold text-xs shadow-sm"><span class="w-2 h-2 rounded-full bg-red-600"></span> CASE DECLINED BY DIRECTORATE HEAD</div>`;
+                            `<div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-800 border border-red-300 font-mono-code font-bold text-xs shadow-sm">CASE DECLINED BY DIRECTORATE HEAD</div>`;
                     }
 
                     showToast(`❌ Case ${ref} has been officially DECLINED by ${officerName} (${officerRole}).`);

@@ -175,7 +175,6 @@
                         <div class="mt-3">
                             <div class="text-2xl font-extrabold text-slate-900 font-mono-code tracking-tight">5,892</div>
                             <div class="text-[11px] font-semibold text-slate-600 mt-1">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1"></span>
                                 <span>100% Chain Integrity Verified</span>
                             </div>
                         </div>
@@ -444,7 +443,6 @@
 
                         <div class="space-y-3">
                             <div class="flex items-start space-x-3 text-xs p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 shrink-0"></div>
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between">
                                         <span class="font-bold text-slate-900 font-mono-code">FSD-2026-8842</span>
@@ -454,7 +452,6 @@
                                 </div>
                             </div>
                             <div class="flex items-start space-x-3 text-xs p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 shrink-0"></div>
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between">
                                         <span class="font-bold text-slate-900 font-mono-code">FSD-2026-8839</span>

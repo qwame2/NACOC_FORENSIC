@@ -469,7 +469,6 @@
                 <!-- SENDER -->
                 <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                     <div class="flex items-center space-x-2 text-slate-900 font-extrabold text-xs">
-                        <span class="w-2 h-2 rounded-full bg-slate-700"></span>
                         <span>Sender / Consignor Details (as Stated on Label)</span>
                     </div>
                     <div>
@@ -492,7 +491,6 @@
                 <!-- RECIPIENT -->
                 <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
                     <div class="flex items-center space-x-2 text-slate-900 font-extrabold text-xs">
-                        <span class="w-2 h-2 rounded-full bg-purple-600"></span>
                         <span>Recipient / Consignee Details (as Stated on Label)</span>
                     </div>
                     <div>

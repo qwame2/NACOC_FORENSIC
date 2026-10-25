@@ -57,10 +57,10 @@
                     <span class="ml-auto {{ request()->is('units-oversight*') ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">4 Units</span>
                 </a>
 
-                <!-- COURT EVIDENCE REPORTS -->
-                <a href="#" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('court-evidence*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('court-evidence*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    <span class="text-xs flex-1">Court Evidence Reports</span>
+                <!-- COURT EVIDENCE REPORTS / SITREP -->
+                <a href="{{ url('/Lab_Analysis/report') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('court-evidence*') || request()->is('Lab_Analysis/report*') || request()->is('Lab_Analysis/lab_sitrep_pdf*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('court-evidence*') || request()->is('Lab_Analysis/report*') || request()->is('Lab_Analysis/lab_sitrep_pdf*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span class="text-xs flex-1">Court Evidence &amp; SITREP</span>
                 </a>
 
             </nav>
