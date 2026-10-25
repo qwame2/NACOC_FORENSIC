@@ -8,7 +8,7 @@
         $officerName = auth()->user()->fullname ?? session('user_name') ?? 'Handling Officer';
         $todayDate = date('Y-m-d');
         $caseNumClean = preg_replace('/[^A-Za-z0-9]/', '', $case->case_number ?? 'CASE-001');
-        $examRefAuto = 'GSA-FM-T' . rand(10, 99) . '-F';
+        $examRefAuto = 'NLR-FM-T35-F';
         $caseRefAuto = $case->case_number ?? ('CR-' . date('Y') . '/0098');
         $exhibitRefAuto = 'EXH-' . $caseNumClean . '-01';
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');

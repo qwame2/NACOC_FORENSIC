@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\EnforcesMutuallyExclusiveCases;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class NlrReport extends Model
 {
-    use HasFactory;
+    use HasFactory, EnforcesMutuallyExclusiveCases;
 
     protected $table = 'nlr_reports';
 
@@ -32,43 +33,37 @@ class NlrReport extends Model
     {
         $query = static::query();
 
-        $hasCondition = false;
-
-        if (!empty($caseId)) {
-            $query->where(function ($q) use ($caseId) {
-                $q->where('single_suspect_case_id', $caseId)
-                  ->orWhere('multiple_suspect_case_id', $caseId);
-            });
-            $hasCondition = true;
-        }
-
+        // 1. If unique case_number is provided, query strictly by case_number first
         if (!empty($caseNo)) {
-            if ($hasCondition) {
-                $query->orWhere('case_number', $caseNo);
-            } else {
-                $query->where('case_number', $caseNo);
-                $hasCondition = true;
-            }
+            $rec = (clone $query)->where('case_number', (string)$caseNo)->latest('id')->first();
+            if ($rec) return $rec;
         }
 
+        // 2. If non-numeric string was passed as $caseId (e.g. case_number passed as first argument)
+        if (!empty($caseId) && !is_numeric($caseId)) {
+            $rec = (clone $query)->where('case_number', (string)$caseId)->latest('id')->first();
+            if ($rec) return $rec;
+        }
+
+        // 3. If laboratory_number is provided
         if (!empty($labNo)) {
-            $cleanLab = str_replace('Lab No. ', '', $labNo);
-            if ($hasCondition) {
-                $query->orWhere('laboratory_number', $labNo)
-                      ->orWhere('laboratory_number', $cleanLab);
-            } else {
-                $query->where(function($q) use ($labNo, $cleanLab) {
-                    $q->where('laboratory_number', $labNo)
-                      ->orWhere('laboratory_number', $cleanLab);
-                });
-                $hasCondition = true;
-            }
+            $cleanLab = str_replace('Lab No. ', '', (string)$labNo);
+            $rec = (clone $query)->where(function($q) use ($labNo, $cleanLab) {
+                $q->where('laboratory_number', (string)$labNo)
+                  ->orWhere('laboratory_number', $cleanLab);
+            })->latest('id')->first();
+            if ($rec) return $rec;
         }
 
-        if (!$hasCondition) {
-            return null;
+        // 4. Fallback to numeric ID only if case_number was not matched
+        if (!empty($caseId) && is_numeric($caseId)) {
+            $rec = (clone $query)->where(function ($q) use ($caseId) {
+                $q->where('single_suspect_case_id', (int)$caseId)
+                  ->orWhere('multiple_suspect_case_id', (int)$caseId);
+            })->latest('id')->first();
+            if ($rec) return $rec;
         }
 
-        return $query->latest('id')->first();
+        return null;
     }
 }

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\EnforcesMutuallyExclusiveCases;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Exhibit extends Model
 {
-    use HasFactory;
+    use HasFactory, EnforcesMutuallyExclusiveCases;
 
     protected $table = 'exhibits';
 
@@ -33,6 +34,7 @@ class Exhibit extends Model
         'seizure_location',
         'seizure_officer',
         'seizure_reason',
+        'source_of_exhibits',
         'veh_make',
         'veh_model',
         'veh_type',

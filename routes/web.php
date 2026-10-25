@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\DrugScreeningController;
 use App\Models\User;
 use App\Models\ForensicCase;
 use App\Http\Middleware\EnsureHeadOfficer;
@@ -46,6 +47,19 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
 });
 Route::post('/api/login', [AuthController::class, 'login']);
 Route::post('/api/logout', [AuthController::class, 'logout']);
+Route::get('/api/dashboard/realtime', [CaseController::class, 'dashboardRealtime']);
+Route::get('/dashboard', function () {
+    $cases = ForensicCase::allCases();
+    $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
+    $pendingCount = User::where('is_approved', false)->count();
+    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
+});
+Route::get('/finnova-dashboard', function () {
+    $cases = ForensicCase::allCases();
+    $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
+    $pendingCount = User::where('is_approved', false)->count();
+    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
+});
 
 
 /*
@@ -232,11 +246,27 @@ Route::middleware(['auth'])->group(function () {
         return view('Crime_Scene_Support.head.CrimeSceneCreate');
     });
 
-    Route::get('/Crime_Scene_Support', function () {
+    Route::get('/Crime_Scene_Support', function (\Illuminate\Http\Request $request) {
+        $from = strtolower($request->query('from', '') . ' ' . $request->query('unit', ''));
+        if (str_contains($from, 'lab')) {
+            return redirect('/Lab_Analysis');
+        } elseif (str_contains($from, 'digital') || str_contains($from, 'physical')) {
+            return redirect('/Digital_Forensics');
+        } elseif (str_contains($from, 'evidence')) {
+            return redirect('/Evidence_Management');
+        }
         return view('Crime_Scene_Support.head.head');
     });
 
-    Route::get('/Crime_Scene_Support/head', function () {
+    Route::get('/Crime_Scene_Support/head', function (\Illuminate\Http\Request $request) {
+        $from = strtolower($request->query('from', '') . ' ' . $request->query('unit', ''));
+        if (str_contains($from, 'lab')) {
+            return redirect('/Lab_Analysis');
+        } elseif (str_contains($from, 'digital') || str_contains($from, 'physical')) {
+            return redirect('/Digital_Forensics');
+        } elseif (str_contains($from, 'evidence')) {
+            return redirect('/Evidence_Management');
+        }
         return view('Crime_Scene_Support.head.head');
     });
 
@@ -306,6 +336,21 @@ Route::middleware(['auth'])->group(function () {
         return response()->json(['success' => true, 'reports' => $reports]);
     })->name('lab.gsa.fetch');
 
+    // DRUG SCREENING MODULE ROUTES (LAB ANALYSIS)
+    Route::get('/Lab_Analysis/drug-screening', [DrugScreeningController::class, 'index'])->name('lab.drug_screening.index');
+    Route::get('/Lab_Analysis/drug-screening/create', [DrugScreeningController::class, 'create'])->name('lab.drug_screening.create');
+    Route::post('/Lab_Analysis/drug-screening', [DrugScreeningController::class, 'store'])->name('lab.drug_screening.store');
+    Route::get('/Lab_Analysis/drug-screening/suspect/{id}', [DrugScreeningController::class, 'getBySuspect'])->name('lab.drug_screening.suspect');
+    Route::get('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'show'])->name('lab.drug_screening.show');
+    Route::put('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'update'])->name('lab.drug_screening.update');
+    Route::delete('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'destroy'])->name('lab.drug_screening.destroy');
+
+    // Route shortcuts & API
+    Route::get('/api/suspect/{id}/drug-screening', [DrugScreeningController::class, 'getBySuspect'])->name('api.suspect.drug_screening');
+    Route::get('/drug-screening', [DrugScreeningController::class, 'index']);
+    Route::get('/drug-screening/create', [DrugScreeningController::class, 'create']);
+    Route::post('/drug-screening', [DrugScreeningController::class, 'store']);
+    Route::put('/drug-screening/{id}', [DrugScreeningController::class, 'update']);
 
     // EVIDENCE MANAGEMENT UNIT DEDICATED ROUTES
     Route::get('/Evidence_Management', function () {

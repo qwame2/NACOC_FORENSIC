@@ -16,7 +16,13 @@
         ? strtoupper(substr($nameParts[0], 0, 1) . substr(end($nameParts), 0, 1))
         : strtoupper(substr($userName, 0, 2));
 
-    $backDashboardUrl = $backUrl ?? ($isForensicHeadSidebar ? url('/Forensic_Head') : url('/Crime_Scene_Support/head?from=' . urlencode($userUnit)));
+    $backDashboardUrl = $backUrl ?? ($isForensicHeadSidebar ? url('/Forensic_Head') : (
+        str_contains(strtolower($userUnit), 'lab') ? url('/Lab_Analysis') : (
+            str_contains(strtolower($userUnit), 'digital') || str_contains(strtolower($userUnit), 'physical') ? url('/Digital_Forensics') : (
+                str_contains(strtolower($userUnit), 'evidence') ? url('/Evidence_Management') : url('/Crime_Scene_Support/head')
+            )
+        )
+    ));
     $displayRole = $roleLabel ?? ($authUser->is_head ? 'Head of Unit (' . $userUnit . ')' : 'Forensic Staff Officer');
 @endphp
 <!DOCTYPE html>

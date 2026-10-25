@@ -421,8 +421,8 @@
             $detSubstances = is_string($labExamData['detected_substances']) ? (json_decode($labExamData['detected_substances'], true) ?: []) : $labExamData['detected_substances'];
         }
 
-        // Fallbacks for display
-        $examRef = !empty($labExamData['exam_reference']) ? $labExamData['exam_reference'] : (!empty($labExamData['analysis_reference']) ? $labExamData['analysis_reference'] : (!empty($docketData['lab_examination']['exam_reference']) ? $docketData['lab_examination']['exam_reference'] : ($case->lab_exam_reference ?: 'GSA-FM-T77-F')));
+        $rawExamRef = !empty($labExamData['exam_reference']) ? $labExamData['exam_reference'] : (!empty($labExamData['analysis_reference']) ? $labExamData['analysis_reference'] : (!empty($docketData['lab_examination']['exam_reference']) ? $docketData['lab_examination']['exam_reference'] : ($case->lab_exam_reference ?: 'NLR-FM-T35-F')));
+        $examRef = str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawExamRef ?: 'NLR-FM-T35-F');
         $exhibitNo = $labExamData['exhibit_number'] ?? ('EXH-0' . ($idx + 1));
         $lNo = $labExamData['laboratory_number'] ?? $labNo;
         $analyst = $labExamData['analyst'] ?? $analystName;

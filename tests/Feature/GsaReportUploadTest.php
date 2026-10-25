@@ -166,7 +166,7 @@ class GsaReportUploadTest extends TestCase
         $this->assertDatabaseHas('suspect_nlr_reports', [
             'case_suspect_id' => $suspect->id,
             'multiple_suspect_case_id' => $mCase->id,
-            'file_path' => 'Lab_Analysis/nlr-report-pdf/' . $mCase->id,
+            'file_path' => 'Lab_Analysis/nlr-report-pdf/' . $mCase->case_number,
         ]);
 
         // Assert analytical page displays attached report file
@@ -490,6 +490,130 @@ class GsaReportUploadTest extends TestCase
         $this->assertStringContainsString('Suspect Beta', $reviewHtml);
         $this->assertStringContainsString('Shared Contraband Joint', $reviewHtml);
         $this->assertStringContainsString('All Suspects', $reviewHtml);
+    }
+
+    #[Test]
+    public function gsa_upload_section_in_create_page_contains_gsa_lab_no_case_reference_and_status_inputs_and_persists_to_database()
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->head()->create([
+            'unit' => 'Lab Analysis',
+        ]);
+
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'CSS-2026-GSA99',
+            'title' => 'Republic vs GSA Metadata Test',
+            'unit_name' => 'Crime Scene Support',
+            'controller_user_id' => $user->id,
+        ]);
+
+        $suspect = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'Suspect GSA Detailed',
+            'role' => 'Primary Suspect',
+        ]);
+
+        // 1. Verify fields render on Lab Analysis create page
+        $createPageResponse = $this->actingAs($user)->get('/Lab_Analysis/create');
+        $createPageResponse->assertStatus(200);
+        $createHtml = $createPageResponse->getContent();
+
+        $this->assertStringContainsString('id="gsaLabNumberInput"', $createHtml);
+        $this->assertStringContainsString('id="gsaCaseReferenceInput"', $createHtml);
+        $this->assertStringContainsString('id="gsaStatusInput"', $createHtml);
+        $this->assertStringContainsString('GSA Lab No.', $createHtml);
+        $this->assertStringContainsString('GSA Case Reference', $createHtml);
+        $this->assertStringContainsString('GSA Status', $createHtml);
+
+        // 2. Upload file with GSA Lab No., GSA Case Reference, and GSA Status
+        $file = UploadedFile::fake()->create('gsa_certified_report.pdf', 300, 'application/pdf');
+
+        $response = $this->actingAs($user)
+            ->postJson("/cases/{$mCase->case_number}/upload-gsa-report", [
+                'case_suspect_id' => $suspect->id,
+                'multiple_suspect_case_id' => $mCase->id,
+                'case_number' => $mCase->case_number,
+                'gsa_lab_number' => 'GSA/LAB/2026/9941',
+                'gsa_case_reference' => 'GSA-CR-ACC-2026-REF1',
+                'gsa_status' => 'Verified by Quality Assurance • Certificate Validated',
+                'gsa_report_images' => [$file],
+            ]);
+
+        $response->assertStatus(200)->assertJson(['success' => true]);
+
+        // 3. Verify suspect_gsa_reports table has these data
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_number' => 'CSS-2026-GSA99',
+            'gsa_lab_number' => 'GSA/LAB/2026/9941',
+            'gsa_case_reference' => 'GSA-CR-ACC-2026-REF1',
+            'gsa_status' => 'Verified by Quality Assurance • Certificate Validated',
+            'original_filename' => 'gsa_certified_report.pdf',
+        ]);
+    }
+
+    #[Test]
+    public function source_of_exhibits_is_present_on_create_and_show_review_and_persists_to_database()
+    {
+        $user = User::factory()->head()->create([
+            'fullname' => 'Lab Specialist',
+            'unit' => 'Forensic Laboratory',
+        ]);
+
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'LAB-2026-SRC01',
+            'title' => 'State vs Contraband Syndicate',
+            'unit_name' => 'Forensic Laboratory',
+            'controller_user_id' => $user->id,
+        ]);
+
+        $suspect = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'Kojo Darko',
+            'role' => 'Primary Suspect',
+        ]);
+
+        // 1. Check create.blade.php for Source of Exhibits input box
+        $createPageResponse = $this->actingAs($user)->get('/Lab_Analysis/create');
+        $createPageResponse->assertStatus(200);
+        $createHtml = $createPageResponse->getContent();
+
+        $this->assertStringContainsString('Source of Exhibits', $createHtml);
+        $this->assertStringContainsString('id="newSeizureSourceOfExhibits"', $createHtml);
+
+        // 2. Check show_review.blade.php for Source of Exhibits input box and table header
+        $showPageResponse = $this->actingAs($user)->get("/cases/{$mCase->case_number}/review");
+        $showPageResponse->assertStatus(200);
+        $showHtml = $showPageResponse->getContent();
+
+        $this->assertStringContainsString('Source of Exhibits', $showHtml);
+        $this->assertStringContainsString('id="newSeizureSourceOfExhibits"', $showHtml);
+
+        // 3. Persist exhibit with source_of_exhibits into exhibits table
+        $exhibit = \App\Models\Exhibit::create([
+            'case_type' => 'MULTIPLE',
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_id' => $suspect->id,
+            'associated_person' => 'Kojo Darko',
+            'exhibit_number' => 'EXH-01',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Cocaine Slab',
+            'source_of_exhibits' => 'Tema Port Cargo Container #GH-8820',
+        ]);
+
+        $this->assertDatabaseHas('exhibits', [
+            'id' => $exhibit->id,
+            'multiple_suspect_case_id' => $mCase->id,
+            'source_of_exhibits' => 'Tema Port Cargo Container #GH-8820',
+        ]);
+
+        // 4. Reload show_review to verify Source of Exhibits is rendered in the review table
+        $showReloadResponse = $this->actingAs($user)->get("/cases/{$mCase->case_number}/review");
+        $showReloadResponse->assertStatus(200);
+        $showReloadHtml = $showReloadResponse->getContent();
+        $this->assertStringContainsString('Tema Port Cargo Container #GH-8820', $showReloadHtml);
     }
 }
 

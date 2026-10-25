@@ -121,14 +121,18 @@
     if (!empty($rawDetSubstances) && is_array($rawDetSubstances)) {
         foreach ($rawDetSubstances as $dsItem) {
             if (is_array($dsItem)) {
-                $subName = $dsItem['substance'] ?? ($dsItem['name'] ?? '');
-                $subPct  = $dsItem['percentage'] ?? ($dsItem['purity'] ?? '');
-                $subSpec = $dsItem['specificationsVal'] ?? ($dsItem['specifications'] ?? $specificationsVal);
-                $subTest = $dsItem['testMethodsVal'] ?? ($dsItem['test_methods'] ?? $testMethodsVal);
+                $subName = $dsItem['compound'] ?? ($dsItem['substance'] ?? ($dsItem['name'] ?? ''));
+                $subPct  = $dsItem['purity'] ?? ($dsItem['percentage'] ?? ($dsItem['concentration'] ?? ''));
+                $subSpec = $dsItem['specifications'] ?? ($dsItem['specificationsVal'] ?? $specificationsVal);
+                $subTest = $dsItem['method'] ?? ($dsItem['test_methods'] ?? ($dsItem['testMethodsVal'] ?? $testMethodsVal));
                 if ($subName !== '' || $subPct !== '') {
+                    $pctStr = '—';
+                    if ($subPct !== '' && $subPct !== null && $subPct !== '—') {
+                        $pctStr = rtrim((string)$subPct, '%') . '%';
+                    }
                     $detectedSubstancesRows[] = [
                         'substance'         => $subName ?: $substanceIdVal,
-                        'percentage'        => $subPct !== '' ? (str_contains($subPct, '%') ? $subPct : $subPct . '%') : '—',
+                        'percentage'        => $pctStr,
                         'specificationsVal' => $subSpec,
                         'testMethodsVal'    => $subTest,
                     ];
@@ -146,8 +150,8 @@
 
     if (empty($detectedSubstancesRows)) {
         $detectedSubstancesRows[] = [
-            'substance'         => $substanceIdVal ?: ($drugName ?? 'Cocaine Hydrochloride'),
-            'percentage'        => '85.4%',
+            'substance'         => $substanceIdVal ?: ($drugName ?? 'Controlled Narcotic Substance'),
+            'percentage'        => '—',
             'specificationsVal' => $specificationsVal,
             'testMethodsVal'    => $testMethodsVal,
         ];
@@ -193,6 +197,7 @@
         return $val . ' ' . $unit;
     };
 
+    $seenExhibitKeys = [];
     if (!empty($suspectLabResults) && is_array($suspectLabResults)) {
         foreach ($suspectLabResults as $sIdx => $sRes) {
             $sw = $sRes['sample_weight'] ?? [];
@@ -230,6 +235,15 @@
             } elseif (!empty($formattedUnits)) {
                 $unitsGross = $formattedUnits;
             }
+
+            // Deduplicate exhibits by exhibit number and exhibit content
+            $dedupKey = strtolower(trim((string)$exNo)) . '|' . strtolower(trim((string)$desc)) . '|' . strtolower(trim((string)$unitsGross)) . '|' . strtolower(trim((string)$formattedTaken)) . '|' . strtolower(trim((string)$formattedReserved));
+            $exKey = 'ex_' . strtolower(trim((string)$exNo));
+            if (isset($seenExhibitKeys[$dedupKey]) || isset($seenExhibitKeys[$exKey])) {
+                continue;
+            }
+            $seenExhibitKeys[$dedupKey] = true;
+            $seenExhibitKeys[$exKey] = true;
 
             $sampleWeightRowsData[] = [
                 'exhibit' => $exNo,
@@ -362,7 +376,7 @@
     ];
     $conditionReservedVal = $conditionMap[strtolower($conditionReservedRaw)] ?? (ucwords(str_replace('_', ' ', $conditionReservedRaw)) ?: 'Sealed & Labelled');
 
-    // Determine NLR Code for NLR Report (strictly format as NLR-*, never output GSA-FM-T51-F)
+    // Determine NLR Code for NLR Report (strictly format as NLR-FM-T35-F, never output GSA-FM-T28-F or GSA-FM-T51-F)
     $rawNlrRef = $nlrRecord->nlr_code 
         ?? ($nlr_code 
         ?? ($examRef 
@@ -372,9 +386,9 @@
         ?? ($case->lab_exam_reference ?? null))))));
 
     if (!empty($rawNlrRef)) {
-        $nlrCodeVal = str_starts_with($rawNlrRef, 'GSA-') ? str_replace('GSA-', 'NLR-', $rawNlrRef) : $rawNlrRef;
+        $nlrCodeVal = str_replace(['GSA-', 'T28', 'T51'], ['NLR-', 'T35', 'T35'], $rawNlrRef);
     } else {
-        $nlrCodeVal = 'NLR-FM-T51-F';
+        $nlrCodeVal = 'NLR-FM-T35-F';
     }
 @endphp
 <div id="nlrReportSheet" class="printable-document">
@@ -473,7 +487,7 @@
 
                     <div class="mx-auto mt-4 h-[2px] w-16 bg-emerald-700"></div>
 
-                    <p class="mt-3 text-[9px] font-medium uppercase tracking-wider text-slate-900">
+                    <p class="mt-9 text-[9px] font-medium uppercase tracking-wider text-slate-900">
                         HIGH COURT ADMISSIBLE FORENSIC EVIDENCE DOSSIER
                     </p>
 
@@ -768,7 +782,7 @@
 
 
                 <!-- DOCUMENT TITLE -->
-                <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div class="mt-9 pt-2 border-t border-slate-100 flex items-center justify-between">
 
                     <div>
 
@@ -820,7 +834,7 @@
             </div>
 
             <!-- SAMPLE WEIGHT -->
-            <div class="mt-3">
+            <div class="mt-9">
                 <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Sample Weight
@@ -877,7 +891,7 @@
             </div>
 
             <!-- PRESUMPTIVE REACTION -->
-            <div class="mt-3">
+            <div class="mt-9">
                 <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Presumptive Reaction
@@ -922,7 +936,7 @@
             </div>
 
             <!-- RESULT (DETECTED SUBSTANCES & PURITY %) -->
-            <div class="mt-3">
+            <div class="mt-9">
                 <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Result (Detected Substances &amp; Purity %)
@@ -988,7 +1002,7 @@
             </div>
 
             <!-- REMARK -->
-            <div class="mt-3">
+            <div class="mt-9">
                 <div class="flex items-center justify-between mb-1">
                     <h3 class="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-900">
                         Remark
@@ -1048,7 +1062,7 @@
             <!-- PAGE 2 FOOTER & SIGNATURES WRAPPER -->
             <div>
                 <!-- SIGNATURES -->
-                <div class="mt-2 pt-2 pb-1 border-t border-slate-300 footer break-inside-avoid">
+                <div class="mt-10 pt-2 pb-1 border-t border-slate-300 footer break-inside-avoid">
 
                 <div class="grid grid-cols-2 gap-10">
 

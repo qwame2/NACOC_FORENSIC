@@ -493,7 +493,7 @@
         }
     }
     $caseNumericId = sprintf('%03d', $case->id ?? 1);
-    $labExamRef = !empty($rawLabExamRef) ? $rawLabExamRef : ('GSA-FM-T' . rand(10, 99) . '-F');
+    $labExamRef = !empty($rawLabExamRef) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawLabExamRef) : 'NLR-FM-T35-F';
 
     $labCaseRef = $case->case_number;
 
@@ -1001,8 +1001,8 @@
                     }
                 }
             }
-            $primarySuspectsCombinedNames = !empty($primaryAndCoNamesList) ? implode(', ', $primaryAndCoNamesList) : (!empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Eric Addo'));
-            $associateSuspectsCombinedNames = !empty($associateSuspectNamesList) ? implode(', ', array_unique($associateSuspectNamesList)) : 'Atta Budo';
+            $primarySuspectsCombinedNames = !empty($primaryAndCoNamesList) ? implode(', ', $primaryAndCoNamesList) : (!empty($primarySuspectNamesList) ? implode(', ', array_unique($primarySuspectNamesList)) : ($case->suspect_name ?? 'Primary Suspect'));
+            $associateSuspectsCombinedNames = !empty($associateSuspectNamesList) ? implode(', ', array_unique($associateSuspectNamesList)) : 'Associate Suspect';
             $renderedPrimaryExhibit = false;
 
             $targetPrimaryIndex = 0;
@@ -1312,6 +1312,69 @@
                     </tbody>
                 </table>
             </div>
+
+            {{-- SUSPECT CLINICAL DRUG SCREENING RECORD --}}
+            @php
+                $pdfDrugScreening = \App\Models\DrugScreening::forSuspect($sItem['id'] ?? null, $sName);
+            @endphp
+            @if(!empty($pdfDrugScreening))
+            <div class="space-y-1.5 avoid-break relative z-10 pt-2">
+                <div class="text-xs font-black text-slate-950 uppercase font-mono-code border-b border-slate-400 pb-1 flex items-center justify-between">
+                    <span>DRUG SCREENING REPORT &mdash; {{ strtoupper($sName) }}</span>
+                    @php
+                        $pdfRes = strtoupper($pdfDrugScreening->result ?? 'PENDING');
+                        $pdfTextCls = $pdfRes === 'POSITIVE' ? 'text-rose-700' : ($pdfRes === 'NEGATIVE' ? 'text-emerald-700' : 'text-amber-700');
+                    @endphp
+                    <span class="text-[10px] font-mono-code font-black {{ $pdfTextCls }}">
+                        SCREENING OUTCOME: {{ $pdfRes }}
+                    </span>
+                </div>
+                <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs mb-2">
+                    <tbody>
+                        <tr>
+                            <td class="pdf-label-cell w-1/5">Screening Dossier #:</td>
+                            <td class="pdf-value-cell font-mono-code font-black text-slate-900 w-3/10">
+                                SCR-{{ str_pad($pdfDrugScreening->id, 3, '0', STR_PAD_LEFT) }}
+                            </td>
+                            <td class="pdf-label-cell w-1/5">Date of Screening:</td>
+                            <td class="pdf-value-cell font-mono-code font-bold text-slate-900 w-3/10">
+                                {{ $pdfDrugScreening->formatted_date }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Purpose of Screening:</td>
+                            <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
+                                {{ $pdfDrugScreening->purpose }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="pdf-label-cell">Screening Outcome:</td>
+                            <td class="pdf-value-cell font-mono-code font-black {{ $pdfRes === 'POSITIVE' ? 'text-rose-800' : ($pdfRes === 'NEGATIVE' ? 'text-emerald-800' : 'text-amber-800') }}">
+                                {{ $pdfRes }}
+                            </td>
+                            <td class="pdf-label-cell">Substance(s) Found:</td>
+                            <td class="pdf-value-cell font-bold font-mono-code text-slate-900">
+                                {{ $pdfDrugScreening->substances_found ?: ($pdfRes === 'NEGATIVE' ? 'No substance(s) found' : 'None specified') }}
+                            </td>
+                        </tr>
+                        @if(!empty($pdfDrugScreening->notes) || !empty($pdfDrugScreening->note))
+                        <tr>
+                            <td class="pdf-label-cell">Clinical Remarks:</td>
+                            <td class="pdf-value-cell font-medium text-slate-800 leading-relaxed" colspan="3">
+                                {{ $pdfDrugScreening->notes ?? $pdfDrugScreening->note }}
+                            </td>
+                        </tr>
+                        @endif
+                        <tr>
+                            <td class="pdf-label-cell">Examining Authority:</td>
+                            <td class="pdf-value-cell text-[10px] text-slate-600" colspan="3">
+                                NACOC Forensic Chemistry &amp; Toxicology Laboratory &bull; Logged: {{ $pdfDrugScreening->created_at ? $pdfDrugScreening->created_at->format('d M Y, H:i') : 'Active' }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            @endif
 
             @if(!$isAssociate || $isCoSuspect)
                 @php 
@@ -2149,7 +2212,8 @@
                         $hasThisAssocSavedLabPdf = true;
                     }
 
-                    $assocExamRef = $dbAssocExamPdf ? $dbAssocExamPdf->exam_reference : (!empty($docketAssocExamPdf['exam_reference']) ? $docketAssocExamPdf['exam_reference'] : (!empty($firstAssocEx['exam_reference']) ? $firstAssocEx['exam_reference'] : (!empty($assocLabExamPdf['exam_reference']) ? $assocLabExamPdf['exam_reference'] : ('GSA-FM-T' . rand(10, 99) . '-F'))));
+                    $assocExamRefRaw = $dbAssocExamPdf ? $dbAssocExamPdf->exam_reference : (!empty($docketAssocExamPdf['exam_reference']) ? $docketAssocExamPdf['exam_reference'] : (!empty($firstAssocEx['exam_reference']) ? $firstAssocEx['exam_reference'] : (!empty($assocLabExamPdf['exam_reference']) ? $assocLabExamPdf['exam_reference'] : 'NLR-FM-T35-F')));
+                    $assocExamRef = str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $assocExamRefRaw ?: 'NLR-FM-T35-F');
 
                     $assocExhibitNo = $dbAssocExamPdf ? $dbAssocExamPdf->exhibit_number : (!empty($docketAssocExamPdf['exhibit_number']) ? $docketAssocExamPdf['exhibit_number'] : (!empty($firstAssocEx['exhibit_number']) ? $firstAssocEx['exhibit_number'] : (!empty($assocLabExamPdf['exhibit_number']) ? $assocLabExamPdf['exhibit_number'] : 'N/A')));
 

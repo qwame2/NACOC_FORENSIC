@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\EnforcesMutuallyExclusiveCases;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class CaseHandover extends Model
 {
-    use HasFactory;
+    use HasFactory, EnforcesMutuallyExclusiveCases;
 
     protected $guarded = [];
 

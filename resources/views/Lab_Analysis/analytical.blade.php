@@ -5,20 +5,20 @@
         : (json_decode($case->docket_data ?? '[]', true) ?:
         []);
 
-    $rawLab = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'Lab No. 72/FS09/2026');
+    $rawLab = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'N/A');
     $labNo = str_starts_with($rawLab, 'Lab No.') ? $rawLab : 'Lab No. ' . $rawLab;
-    $caseNo = $case->case_number ?? 'NCC-2026-6730';
+    $caseNo = $case->case_number ?? 'N/A';
     $raidLoc =
         $case->raid_location ??
-        ($docketData['raid_location'] ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)'));
+        ($docketData['raid_location'] ?? ($case->location ?? 'N/A'));
 
     $drugName =
         $case->seizure_name_drug ??
-        ($case->seizure_name ?? ($docketData['drug_name'] ?? 'Heroin (Brown Sugar / Diacetylmorphine)'));
-    $drugCategory = $case->exhibit_category ?? ($docketData['drug_category'] ?? 'Narcotic Controlled Substances');
-    $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? '90 Kilograms (kg)');
+        ($case->seizure_name ?? ($docketData['drug_name'] ?? 'N/A'));
+    $drugCategory = $case->exhibit_category ?? ($docketData['drug_category'] ?? 'N/A');
+    $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? 'N/A');
 
-    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'Det. Insp. K. Mensah');
+    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'N/A');
 
     $rawAnalyst = $docketData['analyst'] 
         ?? ($docketData['lab_examination']['analyst'] 
@@ -31,16 +31,16 @@
     } elseif ($authUser && (str_contains(strtolower($authUser->unit ?? ''), 'lab') || !empty($authUser->fullname))) {
         $analystName = $authUser->fullname;
     } else {
-        $analystName = 'John Mensah';
+        $analystName = 'N/A';
     }
 
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-    $headName = $dbLabHead ? $dbLabHead->fullname : 'Dr. Samuel Atta (Head of Forensic Laboratory)';
+    $headName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
 
 
     // Unified Presumptive Result Parser Helper
     $parsePresumptiveResult = function ($raw) use ($drugName) {
-        $fallback = [['result' => 'YES', 'presence' => 'Colorimetric Reaction', 'purity' => $drugName]];
+        $fallback = [['result' => 'NO', 'presence' => 'No Result', 'purity' => 'N/A']];
         if (empty($raw) || !is_string($raw)) {
             return $fallback;
         }
@@ -336,207 +336,15 @@
             continue;
         }
 
-        $hasSavedLab = false;
-        $labExamData = [];
-
-        // Source 0: Docket Data lab_examination (Primary suspect explicit lab examination data)
-        if (
-            !$hasSavedLab &&
-            !$isAssociate &&
-            $idx === 0 &&
-            !empty($docketData['lab_examination']) &&
-            is_array($docketData['lab_examination'])
-        ) {
-            if (
-                !empty($docketData['lab_examination']['has_saved']) ||
-                !empty($docketData['lab_examination']['exam_reference'])
-            ) {
-                $hasSavedLab = true;
-                $labExamData = $docketData['lab_examination'];
-            }
-        }
-
-        // Source 1: Docket Data associate_lab_examinations
-        if (!$hasSavedLab && !empty($docketData['associate_lab_examinations'])) {
-            foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
-                if ($suspectNamesMatch($kAssoc, $sName) && !empty($vAssoc['has_saved'])) {
-                    $hasSavedLab = true;
-                    $labExamData = $vAssoc;
-                    break;
-                }
-            }
-        }
-
-        // Source 2: Docket Data lab_examinations_list
-        if (!$hasSavedLab && !empty($docketData['lab_examinations_list'])) {
-            foreach ($docketData['lab_examinations_list'] as $lItem) {
-                $ownerMatch =
-                    !empty($lItem['exhibit_owner_name']) && $suspectNamesMatch($lItem['exhibit_owner_name'], $sName);
-                $sMatch = !empty($lItem['suspect_name']) && $suspectNamesMatch($lItem['suspect_name'], $sName);
-                if (
-                    ($ownerMatch || $sMatch) &&
-                    (!empty($lItem['has_saved']) ||
-                        !empty($lItem['presumptive_result']) ||
-                        !empty($lItem['substance_identification']))
-                ) {
-                    $hasSavedLab = true;
-                    $labExamData = $lItem;
-                    break;
-                }
-            }
-        }
-
-        // Source 3: Docket Data lab_examination (Primary suspect)
-        if (
-            !$hasSavedLab &&
-            !$isAssociate &&
-            $idx === 0 &&
-            !empty($docketData['lab_examination']) &&
-            is_array($docketData['lab_examination'])
-        ) {
-            if (
-                !empty($docketData['lab_examination']['has_saved']) ||
-                !empty($docketData['lab_examination']['exam_reference']) ||
-                !empty($docketData['lab_examination']['substance_identification']) ||
-                !empty($docketData['lab_examination']['presumptive_result'])
-            ) {
-                $hasSavedLab = true;
-                $labExamData = $docketData['lab_examination'];
-            }
-        }
-
-        // Source 4: Relational DB Table laboratory_examination_results
-        if (!$hasSavedLab && !empty($case->id)) {
-            $dbRow = \DB::table('laboratory_examination_results')
-                ->where(function ($q) use ($case, $isMultiCase) {
-                    if ($isMultiCase) {
-                        $q->where('multiple_suspect_case_id', $case->id);
-                    } else {
-                        $q->where('single_suspect_case_id', $case->id);
-                    }
-                })
-                ->get()
-                ->first(function ($rec) use ($sName, $suspectNamesMatch) {
-                    return !empty($rec->suspect_name) && $suspectNamesMatch($rec->suspect_name, $sName);
-                });
-
-            if (!$dbRow && count($rawSuspects) <= 1 && !$isAssociate && $idx === 0) {
-                $dbRow = \DB::table('laboratory_examination_results')
-                    ->where(function ($q) use ($case, $isMultiCase) {
-                        if ($isMultiCase) {
-                            $q->where('multiple_suspect_case_id', $case->id);
-                        } else {
-                            $q->where('single_suspect_case_id', $case->id);
-                        }
-                    })
-                    ->first();
-            }
-
-            if (
-                $dbRow &&
-                (!empty($dbRow->has_saved) ||
-                    !empty($dbRow->substance_identification) ||
-                    !empty($dbRow->presumptive_result))
-            ) {
-                $hasSavedLab = true;
-                $labExamData = (array) $dbRow;
-            }
-        }
-
-        // Source 5: Relational DB Table associate_lab_examinations
-        if (!$hasSavedLab && !empty($case->id)) {
-            $assocRow = \App\Models\AssociateLabExamination::where('case_id', $case->id)
-                ->get()
-                ->first(function ($rec) use ($sName, $suspectNamesMatch) {
-                    return !empty($rec->suspect_name) && $suspectNamesMatch($rec->suspect_name, $sName);
-                });
-            if (
-                $assocRow &&
-                (!empty($assocRow->has_saved) ||
-                    !empty($assocRow->substance_identification) ||
-                    !empty($assocRow->presumptive_result))
-            ) {
-                $hasSavedLab = true;
-                $labExamData = (array) $assocRow;
-            }
-        }
-
-        // Ensure sample_weight array structure
-        $sw = [];
-        if (!empty($labExamData['sample_weight'])) {
-            $sw = is_string($labExamData['sample_weight'])
-                ? (json_decode($labExamData['sample_weight'], true) ?:
-                [])
-                : $labExamData['sample_weight'];
-        }
-
-        // Parse detected_substances if needed
-        $detSubstances = [];
-        if (!empty($labExamData['detected_substances'])) {
-            $detSubstances = is_string($labExamData['detected_substances'])
-                ? (json_decode($labExamData['detected_substances'], true) ?:
-                [])
-                : $labExamData['detected_substances'];
-        }
-        $detSubstancesStr = 'Colorimetric Reaction (' . ($labExamData['substance_identification'] ?? $drugName) . '%)';
-        if (!empty($detSubstances) && is_array($detSubstances)) {
-            $parts = [];
-            foreach ($detSubstances as $ds) {
-                $subStr = is_array($ds)
-                    ? ($ds['substance'] ?? '') . (!empty($ds['purity']) ? ' (' . $ds['purity'] . '%)' : '')
-                    : (string) $ds;
-                if (!empty($subStr)) {
-                    $parts[] = $subStr;
-                }
-            }
-            if (!empty($parts)) {
-                $detSubstancesStr = implode(', ', $parts);
-            }
-        }
-
-        $rawExamRef = !empty($labExamData['exam_reference'])
-            ? $labExamData['exam_reference']
-            : (!empty($labExamData['analysis_reference'])
-                ? $labExamData['analysis_reference']
-                : ($case->lab_exam_reference ?: 'NLR-FM-T51-F'));
-        $examRef = str_starts_with($rawExamRef, 'GSA-') ? str_replace('GSA-', 'NLR-', $rawExamRef) : $rawExamRef;
-        $exhibitNo = $labExamData['exhibit_number'] ?? '1';
-        $lNo = $labExamData['laboratory_number'] ?? $labNo;
-        $analyst = $labExamData['analyst'] ?? $analystName;
-        $dateRec = !empty($labExamData['date_received'])
-            ? date('M d, Y H:i', strtotime($labExamData['date_received']))
-            : date('M d, Y 09:30');
-        $dateStart = !empty($labExamData['date_started'])
-            ? date('M d, Y H:i', strtotime($labExamData['date_started']))
-            : date('M d, Y 11:00');
-        $dateComp = !empty($labExamData['date_completed'])
-            ? date('M d, Y H:i', strtotime($labExamData['date_completed']))
-            : date('M d, Y 16:45');
-        $presumptiveText =
-            $labExamData['presumptive_result'] ??
-            'YES (Presence of: Colorimetric Reaction - Purity/Percentage: ' . $drugName . ')';
-        $confirmatoryVal = strtoupper(
-            trim((string) ($labExamData['confirmatory_result'] ?? ($labExamData['confirmatory_test_result'] ?? 'YES'))),
+        $labExam = $case->resolveLabExamForSuspect(
+            $sName,
+            $s['id'] ?? ($s['suspect_id'] ?? null),
+            $s['associate_id'] ?? null,
+            $s['role'] ?? ($s['association_role'] ?? null),
+            $idx
         );
-        $substanceId = $labExamData['substance_identification'] ?? $drugName;
-        $specificationsText = !empty($labExamData['specifications'])
-            ? $labExamData['specifications']
-            : 'Official Forensic Standard ISO/IEC 17025 Compliant';
-        $testMethodsText = !empty($labExamData['test_methods'])
-            ? $labExamData['test_methods']
-            : (!empty($labExamData['test_method'])
-                ? $labExamData['test_method']
-                : 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay');
-        $remarkText = !empty($labExamData['remark'])
-            ? $labExamData['remark']
-            : (!empty($labExamData['remarks'])
-                ? $labExamData['remarks']
-                : 'Controlled Narcotic Substance verified under strict laboratory chain of custody protocol.');
-        $findingsText = !empty($labExamData['findings'])
-            ? $labExamData['findings']
-            : 'Certified chemical analysis confirms positive identification of ' .
-                $substanceId .
-                '. High Court Admissible.';
+
+        $hasSavedLab = !empty($labExam['has_saved']);
 
         // Resolve suspect FRONT mugshot image
         $rawFrontMug = $s['mugshots']['front'] ?? ($s['mugshots']['front-profile'] ?? ($s['mugshot_front'] ?? null));
@@ -567,30 +375,24 @@
             'orig_idx' => $idx,
             'mugshot_front' => $frontMugUrl,
             'has_saved_lab' => $hasSavedLab,
-            'exam_reference' => $examRef,
-            'exhibit_number' => $exhibitNo,
-            'laboratory_number' => $lNo,
-            'analyst' => $analyst,
-            'date_received' => $dateRec,
-            'date_started' => $dateStart,
-            'date_completed' => $dateComp,
-            'presumptive_raw' => $presumptiveText,
-            'presumptive_rows' => $parsePresumptiveResult($presumptiveText),
-            'confirmatory' => $confirmatoryVal !== 'NO' ? 'YES' : 'NO',
-            'sample_weight' => [
-                'description' => $sw['description'] ?? ($s['exhibit_description'] ?? $drugName),
-                'units_packaging' => $sw['units_packaging'] ?? '20 Slabs',
-                'gross_weight' => $sw['gross_weight'] ?? '90 Kilograms (kg)',
-                'sample_taken' => $sw['sample_taken'] ?? '7 Kilograms (kg)',
-                'reserved_samples' => $sw['reserved_samples'] ?? '83 kg',
-            ],
-            'substance_identification' => $substanceId,
-            'detected_substances' => $detSubstances,
-            'detected_substances_str' => $detSubstancesStr,
-            'specifications' => $specificationsText,
-            'test_methods' => $testMethodsText,
-            'remark' => $remarkText,
-            'findings' => $findingsText,
+            'lab_exam' => $labExam,
+            'exam_reference' => $labExam['exam_reference'] ?? '',
+            'exhibit_number' => $labExam['exhibit_number'] ?? '',
+            'laboratory_number' => $labExam['laboratory_number'] ?? '',
+            'analyst' => $labExam['analyst'] ?? '',
+            'date_received' => $labExam['date_received'] ?? '',
+            'date_started' => $labExam['date_started'] ?? '',
+            'date_completed' => $labExam['date_completed'] ?? '',
+            'presumptive_raw' => $labExam['presumptive_result'] ?? '',
+            'presumptive_rows' => $labExam['presumptive_rows'] ?? [],
+            'confirmatory' => $labExam['confirmatory'] ?? 'YES',
+            'sample_weight' => $labExam['sample_weight'] ?? [],
+            'substance_identification' => $labExam['substance_identification'] ?? '',
+            'detected_substances' => $labExam['detected_substances'] ?? [],
+            'specifications' => $labExam['specifications'] ?? '',
+            'test_methods' => $labExam['test_methods'] ?? '',
+            'remark' => $labExam['remark'] ?? '',
+            'findings' => $labExam['findings'] ?? '',
         ];
     }
 
@@ -1283,274 +1085,11 @@
                             </div>
 
                             <!-- LABORATORY EXAMINATION RESULT TABLE — matches show_review layout -->
-                            <div
-                                class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-2">
-                                <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
-                                    <div class="flex items-center space-x-3">
-                                        <div
-                                            class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2.5"
-                                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT
-                                                — {{ $group['names_label'] }}</h3>
-                                            <p class="text-[11px] text-emerald-800 font-semibold">
-                                                @if ($isJointGroup)
-                                                    Official Laboratory Analysis Directorate Joint Findings (single drug
-                                                    exhibit) for {{ $group['names_label'] }}
-                                                @else
-                                                    Official Laboratory Analysis Directorate Findings for
-                                                    {{ $group['names_label'] }}
-                                                @endif
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-200 text-emerald-950 border border-emerald-400 shrink-0">
-                                        ✓ VERIFIED RESULT LOGGED
-                                    </span>
-                                </div>
-
-                                <table
-                                    class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs bg-white">
-                                    <tbody>
-                                        {{-- Row 1: Analysis Reference | Exhibit Number --}}
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                                                Analysis Reference:</td>
-                                            <td
-                                                class="p-2.5 font-black text-emerald-900 font-mono-code border-r border-slate-300 w-3/10">
-                                                {{ $res['exam_reference'] }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                                                Exhibit Number:</td>
-                                            <td class="p-2.5 font-black text-emerald-900 font-mono-code">
-                                                {{ $res['exhibit_number'] }}</td>
-                                        </tr>
-                                        {{-- Row 2: Case Reference | Laboratory Number --}}
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Case Reference:</td>
-                                            <td
-                                                class="p-2.5 font-black text-blue-900 font-mono-code border-r border-slate-300">
-                                                {{ $caseNo }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Laboratory Number:</td>
-                                            <td class="p-2.5 font-black text-slate-900 font-mono-code">
-                                                {{ $res['laboratory_number'] }}</td>
-                                        </tr>
-                                        {{-- Row 3: Exhibit Description --}}
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Exhibit Description:</td>
-                                            <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                                                {{ $res['sample_weight']['description'] }}
-                                            </td>
-                                        </tr>
-                                        {{-- Row 4: Analyst | Examination Timeline --}}
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Analyst / Examiner:</td>
-                                            <td class="p-2.5 font-black text-slate-900 border-r border-slate-300">
-                                                {{ $res['analyst'] }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Examination Timeline:</td>
-                                            <td class="p-2 bg-white">
-                                                <div
-                                                    class="flex items-center gap-2 font-mono-code text-[11px] font-bold flex-wrap">
-                                                    <span>Received: <strong
-                                                            class="text-blue-900">{{ $res['date_received'] }}</strong></span>
-                                                    <span>|</span>
-                                                    <span>Started: <strong
-                                                            class="text-amber-900">{{ $res['date_started'] }}</strong></span>
-                                                    <span>|</span>
-                                                    <span>Completed: <strong
-                                                            class="text-emerald-900">{{ $res['date_completed'] }}</strong></span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {{-- Row 5: Presumptive Reaction | Confirmatory Test --}}
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Presumptive Reaction:</td>
-                                            <td class="p-2 border-r border-slate-300 bg-white">
-                                                <table
-                                                    class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                                                    <thead
-                                                        class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                                        <tr class="border-b border-slate-300">
-                                                            <th
-                                                                class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                                Result</th>
-                                                            <th
-                                                                class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                                Presence of</th>
-                                                            <th class="px-2 py-1 text-left bg-slate-200/70">
-                                                                Purity/Percentage</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody class="bg-white">
-                                                        @foreach ($res['presumptive_rows'] as $pRowD)
-                                                            <tr class="border-b border-slate-200 last:border-b-0">
-                                                                <td
-                                                                    class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pRowD['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">
-                                                                    {{ $pRowD['result'] }}</td>
-                                                                <td
-                                                                    class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                                                    {{ $pRowD['presence'] }}</td>
-                                                                <td class="px-2 py-1 font-bold text-slate-900">
-                                                                    {{ $pRowD['purity'] }}</td>
-                                                            </tr>
-                                                        @endforeach
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Confirmatory Test:</td>
-                                            <td class="p-2.5 font-black text-emerald-900">
-                                                <span class="inline-flex items-center space-x-1">
-                                                    <span
-                                                        class="w-2 h-2 rounded-full {{ $res['confirmatory'] !== 'NO' ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
-                                                    <span>{{ $res['confirmatory'] !== 'NO' ? 'YES' : 'NO' }}</span>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        {{-- Row 6: Sample Metrology --}}
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Sample Metrology:</td>
-                                            <td class="p-2.5 bg-white" colspan="3">
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Units:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $res['sample_weight']['units_packaging'] }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Gross
-                                                            Wt:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $res['sample_weight']['gross_weight'] }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Taken:</span>
-                                                        <span
-                                                            class="font-bold text-emerald-900 ml-1">{{ $res['sample_weight']['sample_taken'] }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Reserved:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $res['sample_weight']['reserved_samples'] }}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {{-- Row 7: Substance Identified | Test Specifications --}}
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Substance Identified:</td>
-                                            <td class="p-2.5 font-black text-slate-950 border-r border-slate-300">
-                                                {{ $res['substance_identification'] }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Test Specifications:</td>
-                                            <td class="p-2.5 font-bold text-slate-900">{{ $res['specifications'] }}
-                                            </td>
-                                        </tr>
-                                        {{-- Row 8: Detected Substances (conditional) --}}
-                                        @if (
-                                            !empty($res['detected_substances']) &&
-                                                is_array($res['detected_substances']) &&
-                                                count($res['detected_substances']) > 0)
-                                            <tr class="bg-amber-50/70 border-b border-slate-300">
-                                                <td
-                                                    class="p-2.5 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
-                                                    Result (Detected Substances &amp; Purity %):</td>
-                                                <td class="p-2.5" colspan="3">
-                                                    <div class="flex flex-wrap gap-2">
-                                                        @foreach ($res['detected_substances'] as $cSub)
-                                                            @php
-                                                                $cName = is_array($cSub)
-                                                                    ? $cSub['compound'] ??
-                                                                        ($cSub['name'] ??
-                                                                            ($cSub['substance'] ?? 'Unknown'))
-                                                                    : $cSub;
-                                                                $cPct = is_array($cSub)
-                                                                    ? $cSub['purity'] ??
-                                                                        ($cSub['percentage'] ??
-                                                                            ($cSub['concentration'] ?? null))
-                                                                    : null;
-                                                                $cMeth = is_array($cSub)
-                                                                    ? $cSub['method'] ?? null
-                                                                    : null;
-                                                            @endphp
-                                                            <span
-                                                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
-                                                                <span
-                                                                    class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                                                <span>{{ $cName }}</span>
-                                                                @if ($cPct)
-                                                                    <span
-                                                                        class="text-emerald-800 font-mono font-extrabold">({{ $cPct }}%)</span>
-                                                                @endif
-                                                                @if ($cMeth)
-                                                                    <span
-                                                                        class="text-slate-500 font-mono text-[10px]">[{{ $cMeth }}]</span>
-                                                                @endif
-                                                            </span>
-                                                        @endforeach
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endif
-                                        {{-- Row 9: Test Methods --}}
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Test Methods:</td>
-                                            <td class="p-2.5 font-bold text-slate-900 border-r border-slate-300"
-                                                colspan="3">{{ $res['test_methods'] }}</td>
-                                        </tr>
-                                        {{-- Row 10: Analysis Remark --}}
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Analysis Remark:</td>
-                                            <td class="p-2.5 font-bold text-slate-900" colspan="3">
-                                                {{ $res['remark'] }}</td>
-                                        </tr>
-                                        {{-- Row 11: Analytical Findings (dark) --}}
-                                        <tr class="bg-slate-900 text-white">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">
-                                                Analytical Findings:</td>
-                                            <td class="p-2.5 font-medium text-slate-100 leading-relaxed bg-slate-900"
-                                                colspan="3">
-                                                {{ $res['findings'] }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            @include('partials.lab_examination_result_card', [
+                                'labExam' => $res['lab_exam'] ?? $res,
+                                'labHeadingName' => $group['names_label'],
+                                'case' => $case,
+                            ])
 
                             {{-- ATTACHED GSA / NLR REPORT FILES FOR THIS DOSSIER'S SUSPECT(S) --}}
                             @php
@@ -1574,6 +1113,25 @@
                                 'gsaFiles' => $cardGsaFiles,
                                 'gsaForName' => $cardGsaNames,
                             ])
+
+                            {{-- ATTACHED DRUG SCREENING RESULT FOR SUSPECT(S) IN THIS DOSSIER --}}
+                            @foreach ($group['members'] as $gMem)
+                                @php
+                                    $gMemId = $getSuspectId($gMem['suspect_info'] ?? null);
+                                    $gMemName = $gMem['suspect_name'] ?? null;
+                                    $gDrugScreening = \App\Models\DrugScreening::forSuspect($gMemId, $gMemName);
+                                @endphp
+                                @if ($gDrugScreening)
+                                    @include('partials.suspect_drug_screening_card', [
+                                        'screening' => $gDrugScreening,
+                                        'suspectName' => $gMemName,
+                                        'suspectId' => $gMemId,
+                                        'caseNumber' => $caseNo ?? ($case->case_number ?? 'NCC-2026'),
+                                        'showEmpty' => false,
+                                        'showActions' => true,
+                                    ])
+                                @endif
+                            @endforeach
 
                             <!-- FOOTER ACTION BAR -->
                             <div
@@ -2427,7 +1985,7 @@
 
             if (labData) {
                 const rawNlrRef = labData.nlr_code || labData.exam_reference || '';
-                const nlrCode = rawNlrRef ? (rawNlrRef.startsWith('GSA-') ? rawNlrRef.replace(/^GSA-/, 'NLR-') : rawNlrRef) : 'NLR-FM-T51-F';
+                const nlrCode = rawNlrRef ? (rawNlrRef.startsWith('GSA-') ? rawNlrRef.replace(/^GSA-/, 'NLR-').replace('T28', 'T35') : rawNlrRef.replace('T28', 'T35').replace('T51', 'T35')) : 'NLR-FM-T35-F';
                 if (document.getElementById('nlrExamRef')) document.getElementById('nlrExamRef').innerText = nlrCode;
                 if (document.getElementById('nlrExamRefBadge')) document.getElementById('nlrExamRefBadge').innerText = 'Ref: ' + nlrCode;
                 if (document.getElementById('nlrDocNo')) document.getElementById('nlrDocNo').innerText = nlrCode;
@@ -2541,28 +2099,30 @@
                     if (labData.detected_substances && Array.isArray(labData.detected_substances) && labData.detected_substances.length > 0) {
                         dsRows = labData.detected_substances.map(ds => {
                             if (typeof ds === 'object' && ds !== null) {
-                                const sub = ds.substance || ds.name || labData.substance_identification || '{{ $drugName }}';
-                                let pct = ds.percentage || ds.purity || '—';
-                                if (pct !== '—' && !pct.includes('%')) pct = pct + '%';
-                                return { substance: sub, percentage: pct };
+                                const sub = ds.compound || ds.substance || ds.name || labData.substance_identification || '{{ $drugName }}';
+                                let pct = ds.purity || ds.percentage || ds.concentration || '—';
+                                if (pct !== '—' && !String(pct).includes('%')) pct = pct + '%';
+                                const meth = ds.method || ds.test_methods || labData.test_methods || 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay';
+                                const spec = ds.specifications || labData.specifications || 'Official Forensic Standard ISO/IEC 17025 Compliant';
+                                return { substance: sub, percentage: pct, test_methods: meth, specifications: spec };
                             }
-                            return { substance: String(ds), percentage: '—' };
+                            return { substance: String(ds), percentage: '—', test_methods: labData.test_methods, specifications: labData.specifications };
                         });
                     } else {
                         const sub = labData.substance_identification || '{{ $drugName }}';
-                        dsRows = [{ substance: sub, percentage: '85.4%' }];
+                        dsRows = [{ substance: sub, percentage: '—', test_methods: labData.test_methods, specifications: labData.specifications }];
                     }
                     const subId = labData.substance_identification || '{{ $drugName }}';
-                    const testMethods = labData.test_methods || 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay';
-                    const specifications = labData.specifications || 'Official Forensic Standard ISO/IEC 17025 Compliant';
                     detSubContainer.innerHTML = dsRows.map((r, index) => {
                         const compoundWithPurity = (r.percentage && r.percentage !== '—') ? `${r.substance} (${r.percentage})` : r.substance;
+                        const tMethod = r.test_methods || labData.test_methods || 'Gas Chromatography-Mass Spectrometry (GC-MS) & Marquis Reagent Assay';
+                        const tSpec = r.specifications || labData.specifications || 'Official Forensic Standard ISO/IEC 17025 Compliant';
                         return `
                         <tr class="border-b border-slate-200 last:border-b-0">
                             <td class="py-1.5 px-2 font-extrabold text-slate-900 border-r border-slate-300">${index === 0 ? `<span id="nlrSubstanceId">${subId}</span>` : subId}</td>
                             <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300">${compoundWithPurity}</td>
-                            <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300 font-mono-code text-[9px]">${index === 0 ? `<span id="nlrTestMethods">${testMethods}</span>` : testMethods}</td>
-                            <td class="py-1.5 px-2 font-semibold text-emerald-800 font-mono-code text-[9px]">${index === 0 ? `<span id="nlrSpecifications">${specifications}</span>` : specifications}</td>
+                            <td class="py-1.5 px-2 font-semibold text-slate-900 border-r border-slate-300 font-mono-code text-[9px]">${index === 0 ? `<span id="nlrTestMethods">${tMethod}</span>` : tMethod}</td>
+                            <td class="py-1.5 px-2 font-semibold text-emerald-800 font-mono-code text-[9px]">${index === 0 ? `<span id="nlrSpecifications">${tSpec}</span>` : tSpec}</td>
                         </tr>
                         `;
                     }).join('');
@@ -2597,17 +2157,24 @@
             // Open window synchronously on user click to avoid popup blocker
             const previewWin = window.open('about:blank', '_blank');
 
+            const sName = (window.activeNlrLabData && window.activeNlrLabData.suspect_name) ? window.activeNlrLabData.suspect_name : '';
+            const sId = (window.activeNlrLabData && window.activeNlrLabData.suspect_info) ? window.activeNlrLabData.suspect_info.id : null;
+
             const payload = {
-                case_id: "{{ $case->id }}",
+                case_id: "{{ $caseNo }}",
                 case_number: "{{ $caseNo }}",
                 laboratory_number: "{{ $labNo }}",
                 detailed_exhibit_description: el.value.trim(),
                 condition_of_reserved_sample: condEl ? condEl.value : null,
-                suspect_id: (window.activeNlrLabData && window.activeNlrLabData.suspect_info) ? window.activeNlrLabData.suspect_info.id : null,
+                suspect_id: sId,
+                suspect_name: sName,
                 _token: "{{ csrf_token() }}"
             };
 
-            const pdfUrl = "{{ route('lab.nlr.pdf', ['id' => $case->id]) }}";
+            let pdfUrl = "{{ route('lab.nlr.pdf', ['id' => $caseNo]) }}";
+            if (sName) {
+                pdfUrl += (pdfUrl.includes('?') ? '&' : '?') + 'suspect=' + encodeURIComponent(sName);
+            }
 
             fetch("{{ route('lab.nlr.store') }}", {
                 method: "POST",

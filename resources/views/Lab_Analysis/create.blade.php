@@ -18,8 +18,8 @@
         $officerName =
             auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName));
         $examRefAuto = !empty($case->lab_exam_reference)
-            ? (str_starts_with($case->lab_exam_reference, 'GSA-') ? str_replace('GSA-', 'NLR-', $case->lab_exam_reference) : $case->lab_exam_reference)
-            : ('NLR-FM-T' . rand(10, 99) . '-F');
+            ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $case->lab_exam_reference)
+            : 'NLR-FM-T35-F';
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
         $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
@@ -295,6 +295,9 @@
                             Chemical Samples &amp; Laboratory Assay Dockets</p>
                     </div>
                 </div>
+
+                <!-- CONDITIONAL CARGO / PARCEL FORM -->
+                @include('partials.cargo_parcel_form')
 
                 <!-- DOCKET LOGGING FORM -->
                 <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();"
@@ -4684,7 +4687,7 @@
                                         </div>
 
                                         <!-- REASON FOR SEIZURE -->
-                                        <div class="col-span-full md:col-span-1">
+                                        <div class="col-span-full md:col-span-2">
                                             <label
                                                 class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason
                                                 for Seizure <span class="text-red-600 font-bold">*</span></label>
@@ -4701,6 +4704,26 @@
                                                 <textarea id="newSeizureReason" rows="3"
                                                     placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop."
                                                     class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            </div>
+                                        </div>
+
+                                        <!-- SOURCE OF EXHIBITS -->
+                                        <div class="col-span-full md:col-span-2">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
+                                            <div class="relative flex items-center group">
+                                                <span
+                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                    </svg>
+                                                </span>
+                                                <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
+                                                    placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
+                                                    class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                             </div>
                                         </div>
 
@@ -5511,6 +5534,57 @@
                             </div>
                         </div>
 
+                        <!-- GSA DETAILS: GSA Lab No., GSA Case Reference & GSA Status -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                            <!-- GSA Lab No. -->
+                            <div class="space-y-1.5">
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                        </svg>
+                                        GSA Lab No.
+                                    </span>
+                                    <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Official No.</span>
+                                </label>
+                                <input type="text" id="gsaLabNumberInput" name="gsa_lab_number"
+                                    placeholder="Enter GSA Lab No. (e.g. GSA/LAB/2026/0892)"
+                                    class="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-xs shadow-2xs">
+                            </div>
+
+                            <!-- GSA Case Reference -->
+                            <div class="space-y-1.5">
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        GSA Case Reference
+                                    </span>
+                                    <span class="text-[9px] font-mono-code text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded font-bold uppercase">Reference</span>
+                                </label>
+                                <textarea id="gsaCaseReferenceInput" name="gsa_case_reference" rows="2"
+                                    placeholder="Enter GSA Case Reference details..."
+                                    class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                            </div>
+
+                            <!-- GSA Status -->
+                            <div class="space-y-1.5">
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        GSA Status
+                                    </span>
+                                    <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Status</span>
+                                </label>
+                                <textarea id="gsaStatusInput" name="gsa_status" rows="2"
+                                    placeholder="Enter GSA Status (e.g. Analysis Complete, Certified...)"
+                                    class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                            </div>
+                        </div>
+
                         <!-- DROP ZONE -->
                         <div id="gsaDropZone" ondragover="gsaDragOver(event)" ondragleave="gsaDragLeave(event)" ondrop="gsaHandleDrop(event)" class="relative w-full border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:border-blue-400 transition-all overflow-hidden">
                             <!-- FILE LIST (inside the zone) -->
@@ -6281,11 +6355,11 @@
             // Ensure Analysis / Examination Reference in Section 5 uses the NLR reference form instead of GSA form
             const examRefInput = document.getElementById('labExamReferenceInput');
             if (examRefInput) {
-                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-')) {
-                    const randNum = Math.floor(Math.random() * 90 + 10);
+                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
+                    const randNum = 35;
                     examRefInput.value = `NLR-FM-T${randNum}-F`;
                 } else if (examRefInput.value.startsWith('GSA-')) {
-                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-');
+                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-').replace('T28', 'T35');
                 }
             }
 
@@ -6414,6 +6488,12 @@
             if (grid) grid.innerHTML = '';
             const input = document.getElementById('gsaReportImageInput');
             if (input) input.value = '';
+            const gsaLabInput = document.getElementById('gsaLabNumberInput');
+            if (gsaLabInput) gsaLabInput.value = '';
+            const gsaCaseRef = document.getElementById('gsaCaseReferenceInput');
+            if (gsaCaseRef) gsaCaseRef.value = '';
+            const gsaStatus = document.getElementById('gsaStatusInput');
+            if (gsaStatus) gsaStatus.value = '';
             gsaUpdateCount();
         }
 
@@ -6461,6 +6541,10 @@
                 || (caseData && caseData.case && caseData.case.laboratory_number)
                 || '';
 
+            const gsaLabNoVal = document.getElementById('gsaLabNumberInput')?.value?.trim() || '';
+            const gsaCaseRefVal = document.getElementById('gsaCaseReferenceInput')?.value?.trim() || '';
+            const gsaStatusVal = document.getElementById('gsaStatusInput')?.value?.trim() || '';
+
             formData.append('case_number', caseNoVal);
             if (caseIdVal) {
                 formData.append('multiple_suspect_case_id', caseIdVal);
@@ -6470,6 +6554,18 @@
             }
             if (labNumberVal) {
                 formData.append('lab_number', labNumberVal);
+            }
+            if (gsaLabNoVal) {
+                formData.append('gsa_lab_number', gsaLabNoVal);
+                if (!labNumberVal) {
+                    formData.append('lab_number', gsaLabNoVal);
+                }
+            }
+            if (gsaCaseRefVal) {
+                formData.append('gsa_case_reference', gsaCaseRefVal);
+            }
+            if (gsaStatusVal) {
+                formData.append('gsa_status', gsaStatusVal);
             }
             formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}');
 
@@ -8358,6 +8454,7 @@
                     const seizureLocation = block.querySelector('#newSeizureLocation')?.value || '';
                     const seizureOfficer = getSeizureOfficersFormatted(block);
                     const seizureReason = block.querySelector('#newSeizureReason')?.value || '';
+                    const seizureSourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
 
                     // Device fields
                     const devModel = block.querySelector('#newDevModel')?.value || '';
@@ -8465,6 +8562,7 @@
                         seizure_location: seizureLocation,
                         seizure_officer: seizureOfficer,
                         seizure_reason: seizureReason,
+                        source_of_exhibits: seizureSourceOfExhibits,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,
@@ -8649,6 +8747,9 @@
                     lab_exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
                     exhibit_number: document.getElementById('labExhibitNumberInput')?.value || '',
                     laboratory_number: document.getElementById('labNumberInput')?.value || '',
+                    gsa_lab_number: document.getElementById('gsaLabNumberInput')?.value?.trim() || '',
+                    gsa_case_reference: document.getElementById('gsaCaseReferenceInput')?.value?.trim() || '',
+                    gsa_status: document.getElementById('gsaStatusInput')?.value?.trim() || '',
                     presumptive_result: presumptiveVal,
                     substance_identification: document.getElementById('confirmatorySubstanceIdentification')?.value ||
                         '',
@@ -8759,6 +8860,7 @@
                         seizure_location: primarySeizure.seizure_location || null,
                         seizure_officer: primarySeizure.seizure_officer || null,
                         seizure_reason: primarySeizure.seizure_reason || null,
+                        source_of_exhibits: primarySeizure.source_of_exhibits || null,
                         exhibit_type: primarySeizure.exhibit_type || null,
                         drug_classification: primarySeizure.drug_classification || null,
                         valuation: valuationText,
@@ -9272,6 +9374,9 @@
             }
 
             closeAllDropdowns();
+            if (typeof window.handleCargoParcelOperationTypeSwitch === 'function') {
+                window.handleCargoParcelOperationTypeSwitch(val);
+            }
             if (typeof saveDocketFormDraft === 'function') {
                 saveDocketFormDraft();
             }
@@ -11541,11 +11646,11 @@
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
             if (examRefInput) {
-                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-')) {
-                    const randNum = Math.floor(Math.random() * 90 + 10);
+                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
+                    const randNum = 35;
                     examRefInput.value = `NLR-FM-T${randNum}-F`;
                 } else if (examRefInput.value.startsWith('GSA-')) {
-                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-');
+                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-').replace('T28', 'T35');
                 }
             }
 

@@ -51,7 +51,60 @@
         return strtoupper($s['suspect_name'] ?? ($s['name'] ?? 'SUSPECT'));
     }, $rawSuspects);
     $dossierSuspectNames = implode(', ', array_unique($allSuspectNames));
+
+    // Resolve authoritative lab examinations for all suspects
+    $selectedSuspectQuery = request('suspect') ?: (request('suspect_name') ?: null);
+    $selectedSuspectId = request('suspect_id') ?: null;
+
     $suspectLabResults = [];
+    foreach ($rawSuspects as $idx => $s) {
+        $sName = trim((string)($s['suspect_name'] ?? ($s['name'] ?? '')));
+        $sId = $s['id'] ?? ($s['suspect_id'] ?? null);
+        $sRole = $s['role'] ?? ($s['association_role'] ?? null);
+        $sAssocId = $s['associate_id'] ?? null;
+
+        $labExam = $case->resolveLabExamForSuspect($sName, $sId, $sAssocId, $sRole, $idx);
+        if ($labExam) {
+            $suspectLabResults[] = array_merge($labExam, [
+                'suspect_info' => $s,
+                'suspect_name' => $sName,
+                'orig_idx' => $idx,
+                'has_saved_lab' => !empty($labExam['has_saved']),
+                'lab_exam' => $labExam,
+                'presumptive_raw' => $labExam['presumptive_result'] ?? '',
+                'presumptive_rows' => $labExam['presumptive_rows'] ?? [],
+            ]);
+        }
+    }
+
+    // Sort suspects: prioritize requested suspect, then suspect with saved lab examination
+    if (!empty($selectedSuspectQuery) || !empty($selectedSuspectId)) {
+        usort($suspectLabResults, function ($a, $b) use ($selectedSuspectQuery, $selectedSuspectId) {
+            $aMatch = ($selectedSuspectId && ($a['suspect_info']['id'] ?? null) == $selectedSuspectId) ||
+                      ($selectedSuspectQuery && str_contains(strtolower($a['suspect_name']), strtolower($selectedSuspectQuery)));
+            $bMatch = ($selectedSuspectId && ($b['suspect_info']['id'] ?? null) == $selectedSuspectId) ||
+                      ($selectedSuspectQuery && str_contains(strtolower($b['suspect_name']), strtolower($selectedSuspectQuery)));
+            return $bMatch <=> $aMatch;
+        });
+    } else {
+        usort($suspectLabResults, function ($a, $b) {
+            return ($b['has_saved_lab'] ? 1 : 0) <=> ($a['has_saved_lab'] ? 1 : 0);
+        });
+    }
+
+    if (empty($suspectLabResults)) {
+        $defExam = $case->resolveLabExamForSuspect();
+        if ($defExam) {
+            $suspectLabResults[] = array_merge($defExam, [
+                'suspect_name' => $case->suspect_name ?? 'KOJO ADU',
+                'orig_idx' => 0,
+                'has_saved_lab' => !empty($defExam['has_saved']),
+                'lab_exam' => $defExam,
+                'presumptive_raw' => $defExam['presumptive_result'] ?? '',
+                'presumptive_rows' => $defExam['presumptive_rows'] ?? [],
+            ]);
+        }
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="en">

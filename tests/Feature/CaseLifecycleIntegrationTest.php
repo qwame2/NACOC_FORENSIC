@@ -907,7 +907,7 @@ class CaseLifecycleIntegrationTest extends TestCase
                 ],
                 'lab_examination' => [
                     'has_saved' => true,
-                    'exam_reference' => 'GSA-FM-T99-F',
+                    'exam_reference' => 'NLR-FM-T35-F',
                     'exhibit_number' => 'EXH-01',
                     'laboratory_number' => 'Lab No. 99/FS01/2026',
                     'analyst' => 'Dr. E. Quaye',
@@ -929,7 +929,7 @@ class CaseLifecycleIntegrationTest extends TestCase
 
         $this->assertStringContainsString('3. LABORATORY EXAMINATION RESULT OF THE SUSPECT', $html);
         $this->assertStringContainsString('LABORATORY EXAMINATION RESULT — BEN ADU', $html);
-        $this->assertStringContainsString('GSA-FM-T99-F', $html);
+        $this->assertStringContainsString('NLR-FM-T35-F', $html);
         $this->assertStringContainsString('Cocaine Hydrochloride', $html);
         $this->assertStringContainsString('High purity sample verified under GC-MS analysis.', $html);
     }
@@ -954,7 +954,7 @@ class CaseLifecycleIntegrationTest extends TestCase
                 ],
                 'lab_examination' => [
                     'has_saved' => true,
-                    'exam_reference' => 'GSA-FM-T51-F',
+                    'exam_reference' => 'NLR-FM-T35-F',
                     'exhibit_number' => '1',
                     'laboratory_number' => 'Lab No. 41/FS09/2026',
                     'analyst' => 'John Mensah',
@@ -988,8 +988,8 @@ class CaseLifecycleIntegrationTest extends TestCase
         $this->assertTrue(str_contains($pdfHtml, 'NACOC_LOGO.PNG') || str_contains($pdfHtml, 'NACOC LOGO.jfif'));
         $this->assertStringContainsString('nacoc.jfif', $pdfHtml);
         $this->assertStringContainsString('nlrReportSheet', $pdfHtml);
-        $this->assertStringContainsString('NLR-FM-T51-F', $pdfHtml);
-        $this->assertStringNotContainsString('GSA-FM-T51-F', $pdfHtml);
+        $this->assertStringContainsString('NLR-FM-T35-F', $pdfHtml);
+        $this->assertStringNotContainsString('GSA-FM-T28-F', $pdfHtml);
     }
 
     public function test_nlr_report_store_and_database_persistence(): void

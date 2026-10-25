@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\EnforcesMutuallyExclusiveCases;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class LaboratoryExaminationResult extends Model
 {
-    use HasFactory;
+    use HasFactory, EnforcesMutuallyExclusiveCases;
 
     protected $table = 'laboratory_examination_results';
 
@@ -18,6 +19,7 @@ class LaboratoryExaminationResult extends Model
         'suspect_id',
         'exhibit_id',
         'laboratory_number',
+        'gsa_lab_number',
         'exam_reference',
         'analyst',
         'date_received',

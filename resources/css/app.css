@@ -8,4 +8,12 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-finnova-purple: #5c56df;
+    --color-finnova-dark: #181926;
+    --color-finnova-darker: #12131d;
+    --color-finnova-card: #2b2a5c;
+    --color-finnova-light: #f4f5fa;
+    --shadow-finnova: 0 20px 50px -15px rgba(24, 25, 38, 0.08);
+    --shadow-finnova-dark: 0 25px 60px -15px rgba(10, 11, 20, 0.5);
+    --shadow-tactical-glow: 0 0 50px rgba(16, 185, 129, 0.35);
 }

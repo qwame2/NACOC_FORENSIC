@@ -88,6 +88,21 @@ class CaseSuspect extends Model
     {
         return $this->hasMany(SuspectNlrReport::class, 'case_suspect_id');
     }
+
+    public function drugScreenings()
+    {
+        return $this->hasMany(DrugScreening::class, 'suspect_id');
+    }
+
+    public function latestDrugScreening()
+    {
+        return $this->hasOne(DrugScreening::class, 'suspect_id')->latestOfMany();
+    }
+
+    public function getDrugScreeningAttribute()
+    {
+        return $this->latestDrugScreening;
+    }
 }
 
 

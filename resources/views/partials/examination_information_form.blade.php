@@ -30,15 +30,6 @@
                 class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
                 LAB ANALYSIS EXCLUSIVE
             </span>
-            <button type="button" onclick="toggleSection5()"
-                class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-extrabold rounded-lg border border-slate-300 transition-colors flex items-center gap-1 cursor-pointer">
-                <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 012.122-.363c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
-                </svg>
-                <span class="s5ToggleTextSpan">Hide Section 5</span>
-            </button>
         </div>
     </div>
 

@@ -17,7 +17,7 @@
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
         $officerName =
             auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName));
-        $examRefAuto = 'GSA-FM-T' . rand(10, 99) . '-F';
+        $examRefAuto = 'NLR-FM-T35-F';
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
         $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
@@ -293,6 +293,9 @@
                             Tagging &amp; Chain of Custody Intake</p>
                     </div>
                 </div>
+
+                <!-- CONDITIONAL CARGO / PARCEL FORM -->
+                @include('partials.cargo_parcel_form')
 
                 <!-- DOCKET LOGGING FORM -->
                 <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();"
@@ -8396,6 +8399,9 @@
             }
 
             closeAllDropdowns();
+            if (typeof window.handleCargoParcelOperationTypeSwitch === 'function') {
+                window.handleCargoParcelOperationTypeSwitch(val);
+            }
             if (typeof saveDocketFormDraft === 'function') {
                 saveDocketFormDraft();
             }
@@ -10659,9 +10665,8 @@
 
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
-            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-'))) {
-                const randNum = Math.floor(Math.random() * 90 + 10);
-                examRefInput.value = `GSA-FM-T${randNum}-F`;
+            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-'))) {
+                examRefInput.value = 'NLR-FM-T35-F';
             }
 
             const name = selectedOption.getAttribute('data-name') || '';

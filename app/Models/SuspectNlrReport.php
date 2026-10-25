@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\EnforcesMutuallyExclusiveCases;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SuspectNlrReport extends Model
 {
+    use EnforcesMutuallyExclusiveCases;
+
     protected $table = 'suspect_nlr_reports';
 
     protected $fillable = [

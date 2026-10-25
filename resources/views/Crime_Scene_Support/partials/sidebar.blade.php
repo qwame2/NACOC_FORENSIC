@@ -1,27 +1,45 @@
 @php
     $sidebarUser = auth()->user();
-    $reqUnit = request()->query('unit') ?? request()->query('from');
+    $currentPath = strtolower(request()->path());
+    $reqUnit = request()->query('unit');
+    $reqFrom = request()->query('from');
 
-    if (!empty($reqUnit)) {
-        if (str_contains(strtolower($reqUnit), 'crime') || str_contains(strtolower($reqUnit), 'field')) {
-            $sidebarUnit = 'Crime Scene Support';
-        } elseif (str_contains(strtolower($reqUnit), 'lab')) {
+    // 1. PRIMARY: If the current page path belongs to a specific forensic unit, it ALWAYS determines the sidebar unit
+    if (str_contains($currentPath, 'lab') || (isset($isLabAnalysis) && $isLabAnalysis) || (isset($unit) && str_contains(strtolower($unit), 'lab'))) {
+        $sidebarUnit = 'Lab Analysis';
+    } elseif (str_contains($currentPath, 'evidence') || (isset($unit) && str_contains(strtolower($unit), 'evidence'))) {
+        $sidebarUnit = 'Evidence Management';
+    } elseif (str_contains($currentPath, 'digital') || str_contains($currentPath, 'dpf') || (isset($unit) && (str_contains(strtolower($unit), 'digital') || str_contains(strtolower($unit), 'physical')))) {
+        $sidebarUnit = 'Digital & Physical Forensics';
+    } elseif (str_contains($currentPath, 'crime') || str_contains($currentPath, 'scene') || (isset($unit) && str_contains(strtolower($unit), 'crime'))) {
+        $sidebarUnit = 'Crime Scene Support';
+    // 2. SECONDARY: If on shared/generic pages (e.g. /cases, /Report, /history), respect explicit ?unit= query parameter
+    } elseif (!empty($reqUnit)) {
+        if (str_contains(strtolower($reqUnit), 'lab')) {
             $sidebarUnit = 'Lab Analysis';
         } elseif (str_contains(strtolower($reqUnit), 'evidence')) {
             $sidebarUnit = 'Evidence Management';
         } elseif (str_contains(strtolower($reqUnit), 'digital') || str_contains(strtolower($reqUnit), 'physical')) {
             $sidebarUnit = 'Digital & Physical Forensics';
+        } elseif (str_contains(strtolower($reqUnit), 'crime') || str_contains(strtolower($reqUnit), 'field')) {
+            $sidebarUnit = 'Crime Scene Support';
         } else {
             $sidebarUnit = $reqUnit;
         }
-    } elseif (request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*') || (isset($isLabAnalysis) && $isLabAnalysis)) {
-        $sidebarUnit = 'Lab Analysis';
-    } elseif (request()->is('Evidence_Management*') || request()->is('evidence-management*')) {
-        $sidebarUnit = 'Evidence Management';
-    } elseif (request()->is('Digital_Forensics*') || request()->is('digital-forensics*')) {
-        $sidebarUnit = 'Digital & Physical Forensics';
-    } elseif (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*')) {
-        $sidebarUnit = 'Crime Scene Support';
+    // 3. TERTIARY: Check ?from= referrer on generic shared pages
+    } elseif (!empty($reqFrom)) {
+        if (str_contains(strtolower($reqFrom), 'lab')) {
+            $sidebarUnit = 'Lab Analysis';
+        } elseif (str_contains(strtolower($reqFrom), 'evidence')) {
+            $sidebarUnit = 'Evidence Management';
+        } elseif (str_contains(strtolower($reqFrom), 'digital') || str_contains(strtolower($reqFrom), 'physical')) {
+            $sidebarUnit = 'Digital & Physical Forensics';
+        } elseif (str_contains(strtolower($reqFrom), 'crime') || str_contains(strtolower($reqFrom), 'field')) {
+            $sidebarUnit = 'Crime Scene Support';
+        } else {
+            $sidebarUnit = $reqFrom;
+        }
+    // 4. FALLBACK: Authenticated user's unit or session
     } elseif ($sidebarUser && !empty($sidebarUser->unit)) {
         $sidebarUnit = $sidebarUser->unit;
     } else {
@@ -30,30 +48,51 @@
 
     $isLabContext = str_contains(strtolower($sidebarUnit), 'lab');
     $isDigitalContext = str_contains(strtolower($sidebarUnit), 'digital') || str_contains(strtolower($sidebarUnit), 'physical');
+    $isEvidenceContext = str_contains(strtolower($sidebarUnit), 'evidence');
 
     $sidebarUnitUpper = strtoupper(str_replace([' Unit', ' unit'], '', $sidebarUnit));
     if (!str_contains($sidebarUnitUpper, 'UNIT')) {
         $sidebarUnitUpper .= ' UNIT';
     }
 
-    $headDashboardBase = ($sidebarUser && $sidebarUser->is_head && str_contains(strtolower($sidebarUser->unit ?? ''), 'forensic')) 
-        ? url('/Forensic_Head') 
-        : url('/Crime_Scene_Support/head');
-    $headDashboardUrl = $headDashboardBase . ($isLabContext ? '?from=Lab+Analysis' : '?from=' . urlencode($sidebarUnit));
+    if ($isLabContext) {
+        $headDashboardUrl = url('/Lab_Analysis');
+    } elseif ($isDigitalContext) {
+        $headDashboardUrl = url('/Digital_Forensics');
+    } elseif ($isEvidenceContext) {
+        $headDashboardUrl = url('/Evidence_Management');
+    } else {
+        $headDashboardBase = ($sidebarUser && $sidebarUser->is_head && str_contains(strtolower($sidebarUser->unit ?? ''), 'forensic')) 
+            ? url('/Forensic_Head') 
+            : url('/Crime_Scene_Support/head');
+        $headDashboardUrl = $headDashboardBase . '?from=' . urlencode($sidebarUnit);
+    }
     $caseDirectoryUrl = url('/cases') . '?from=' . urlencode($sidebarUnit);
     
-    if (str_contains(strtolower($sidebarUnit), 'lab')) {
+    if ($isLabContext) {
         $newCaseUrl = url('/Lab_Analysis/create');
-        $newCaseLabel = 'Chemical Assay & Docket Intake';
-    } elseif (str_contains(strtolower($sidebarUnit), 'evidence')) {
+        $newCaseLabel = 'Create New Case';
+    } elseif ($isEvidenceContext) {
         $newCaseUrl = url('/Evidence_Management/create');
-        $newCaseLabel = 'Exhibit & Property Lodgement';
-    } elseif (str_contains(strtolower($sidebarUnit), 'digital') || str_contains(strtolower($sidebarUnit), 'physical')) {
+        $newCaseLabel = 'Create New Case';
+    } elseif ($isDigitalContext) {
         $newCaseUrl = url('/Digital_Forensics/create');
-        $newCaseLabel = 'Digital Device & Media Intake';
+        $newCaseLabel = 'Create New Case';
     } else {
         $newCaseUrl = url('/Crime_Scene_Support/create');
-        $newCaseLabel = 'Arrest & Seizure (New Case)';
+        $newCaseLabel = 'Create New Case';
+    }
+
+    // Determine if Head Dashboard link should be active
+    $isHeadDashboardActive = false;
+    if ($isLabContext) {
+        $isHeadDashboardActive = (request()->is('Lab_Analysis') || request()->is('Lab_Analysis/head') || request()->is('lab-analysis') || request()->is('lab_analysis')) && !request()->is('*create*') && !request()->is('*result*') && !request()->is('*analytical*') && !request()->is('*certificate*') && !request()->is('*staff*') && !request()->is('*drug-screening*');
+    } elseif ($isDigitalContext) {
+        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('Digital_Forensics/head') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*');
+    } elseif ($isEvidenceContext) {
+        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*');
+    } else {
+        $isHeadDashboardActive = (request()->is('Crime_Scene_Support') || request()->is('Crime_Scene_Support/head') || request()->is('crime-scene-support') || request()->is('Forensic_Head') || request()->is('Forensic_Head/')) && !request()->is('*create*') && !request()->is('*arrest*') && !request()->is('cases*');
     }
 @endphp
 <!-- LEFT UNIT COMMAND SIDEBAR (EXECUTIVE GRAY THEME WITH SHADOW) -->
@@ -85,8 +124,8 @@
                 
 
                 <!-- HEAD OVERVIEW -->
-                <a href="{{ $headDashboardUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || request()->is('Forensic_Head*')) && !request()->is('cases*') && !request()->is('Lab_Analysis*') && !request()->is('Crime_Scene_Support/create*') && !request()->is('arrest-person*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || request()->is('Forensic_Head*')) && !request()->is('cases*') && !request()->is('Lab_Analysis*') && !request()->is('Crime_Scene_Support/create*') && !request()->is('arrest-person*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                <a href="{{ $headDashboardUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isHeadDashboardActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isHeadDashboardActive ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
                     <span class="text-xs">Head Dashboard</span>
                 </a>
                 
@@ -101,6 +140,14 @@
                 <a href="{{ url('/Lab_Analysis/lab-result') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white' : 'text-amber-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     <span class="text-xs">Lab Analysis Result</span>
+                </a>
+
+                <!-- DRUG SCREENING (LAB ANALYSIS UNIT ONLY) -->
+                <a href="{{ url('/Lab_Analysis/drug-screening') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*drug-screening*') || request()->is('Lab_Analysis/drug-screening*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*drug-screening*') || request()->is('Lab_Analysis/drug-screening*') ? 'text-white' : 'text-teal-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                    </svg>
+                    <span class="text-xs">Drug Screening</span>
                 </a>
                 @endif
 

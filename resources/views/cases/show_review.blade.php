@@ -209,24 +209,16 @@
         []);
 
     $exCat = strtolower($case->exhibit_category ?? '');
-    $szDrug = $case->seizure_name_drug ?? '';
-    $szName = strtolower($case->seizure_name ?? '');
-    $exSum = strtolower($case->exhibits_summary ?? '');
     $dSeizures = $docketData['seizures'] ?? [];
     $hasDrugSeizureInDocket = false;
     if (is_array($dSeizures)) {
         foreach ($dSeizures as $sz) {
-            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
-            $name = strtolower($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? ''));
+            $cat = strtolower($sz['exhibit_category'] ?? ($sz['category'] ?? ''));
+            $type = strtolower($sz['exhibit_type'] ?? '');
             if (
-                $cat === 'drugs' ||
-                $cat === 'narcotics' ||
                 str_contains($cat, 'drug') ||
-                !empty($sz['seizure_name_drug']) ||
-                str_contains($name, 'heroin') ||
-                str_contains($name, 'cocaine') ||
-                str_contains($name, 'cannabis') ||
-                str_contains($name, 'drug')
+                str_contains($cat, 'narcotic') ||
+                str_contains($type, 'drug')
             ) {
                 $hasDrugSeizureInDocket = true;
                 break;
@@ -234,18 +226,8 @@
         }
     }
     $isDrugCase =
-        !empty($szDrug) ||
         str_contains($exCat, 'drug') ||
         str_contains($exCat, 'narcotic') ||
-        str_contains($exCat, 'substance') ||
-        str_contains($szName, 'cocaine') ||
-        str_contains($szName, 'heroin') ||
-        str_contains($szName, 'cannabis') ||
-        str_contains($szName, 'drug') ||
-        str_contains($exSum, 'cocaine') ||
-        str_contains($exSum, 'heroin') ||
-        str_contains($exSum, 'cannabis') ||
-        str_contains($exSum, 'drug') ||
         $hasDrugSeizureInDocket;
 
     $primarySuspectName = strtolower(trim($case->suspect_name ?? ''));
@@ -410,33 +392,12 @@
     }
 
     $isPrimaryDrugCase = false;
-    $drugKeywords = [
-        'drug',
-        'narcotic',
-        'opioid',
-        'cocaine',
-        'heroin',
-        'cannabis',
-        'marijuana',
-        'weed',
-        'hashish',
-        'hash',
-        'meth',
-        'methamphetamine',
-        'fentanyl',
-        'tramadol',
-        'codeine',
-        'morphine',
-        'opium',
-        'amphetamine',
-        'mdma',
-        'ecstasy',
-    ];
-
     $allExhibitsCheck = [];
     if (!empty($case->exhibit_category) || !empty($case->seizure_name_drug) || !empty($case->seizure_name)) {
         $allExhibitsCheck[] = [
             'category' => $case->exhibit_category ?? '',
+            'exhibit_category' => $case->exhibit_category ?? '',
+            'exhibit_type' => $case->exhibit_type ?? '',
             'seizure_name_drug' => $case->seizure_name_drug ?? '',
             'seizure_name' => $case->seizure_name ?? '',
         ];
@@ -459,47 +420,25 @@
 
     $isAnyDrugCase = false;
     foreach ($allExhibitsCheck as $exCheck) {
-        $cat = strtolower($exCheck['category'] ?? ($exCheck['exhibit_category'] ?? ''));
-        $dName = strtolower($exCheck['seizure_name_drug'] ?? '');
-        $sName = strtolower(
-            $exCheck['seizure_name'] ??
-                ($exCheck['name'] ?? ($exCheck['commodity_name'] ?? ($exCheck['description'] ?? ''))),
-        );
+        $cat = strtolower($exCheck['exhibit_category'] ?? ($exCheck['category'] ?? ''));
+        $type = strtolower($exCheck['exhibit_type'] ?? '');
 
-        if (!empty($dName)) {
+        if (str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($type, 'drug')) {
             $isAnyDrugCase = true;
             break;
-        }
-
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $isAnyDrugCase = true;
-                break 2;
-            }
         }
     }
 
     foreach ($primaryExhibitsCheck as $exCheck) {
-        $cat = strtolower($exCheck['category'] ?? ($exCheck['exhibit_category'] ?? ''));
-        $dName = strtolower($exCheck['seizure_name_drug'] ?? '');
-        $sName = strtolower(
-            $exCheck['seizure_name'] ??
-                ($exCheck['name'] ?? ($exCheck['commodity_name'] ?? ($exCheck['description'] ?? ''))),
-        );
+        $cat = strtolower($exCheck['exhibit_category'] ?? ($exCheck['category'] ?? ''));
+        $type = strtolower($exCheck['exhibit_type'] ?? '');
 
-        if (!empty($dName)) {
+        if (str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($type, 'drug')) {
             $isPrimaryDrugCase = true;
             break;
         }
-
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $isPrimaryDrugCase = true;
-                break 2;
-            }
-        }
     }
-    $isDrugCase = $case->isDrugCase();
+    $isDrugCase = $isDrugCase || $isPrimaryDrugCase || $isAnyDrugCase || (method_exists($case, 'isDrugCase') ? $case->isDrugCase() : false);
 
     $controllerUser = $case->getControllerUser();
     $isCaseController =
@@ -603,123 +542,32 @@
     }
 
     // CLASSIFY EXHIBIT CATEGORIES FOR ACTIVE SUSPECT
-    $drugKeywords = [
-        'drug',
-        'narcotic',
-        'opioid',
-        'cocaine',
-        'heroin',
-        'cannabis',
-        'marijuana',
-        'weed',
-        'hashish',
-        'hash',
-        'meth',
-        'methamphetamine',
-        'fentanyl',
-        'tramadol',
-        'codeine',
-        'morphine',
-        'opium',
-        'amphetamine',
-        'mdma',
-        'ecstasy',
-    ];
-    $electronicKeywords = [
-        'phone',
-        'mobile',
-        'laptop',
-        'computer',
-        'tablet',
-        'hard drive',
-        'hdd',
-        'ssd',
-        'usb',
-        'flash drive',
-        'memory card',
-        'sd card',
-        'electronic',
-        'digital',
-        'device',
-    ];
-    $crimeSceneKeywords = [
-        'weapon',
-        'pistol',
-        'rifle',
-        'firearm',
-        'gun',
-        'ammunition',
-        'ammo',
-        'bullet',
-        'currency',
-        'cash',
-        'money',
-        'usd',
-        'ghs',
-        'gold',
-        'precious metal',
-        'vehicle',
-        'vehicles',
-        'veh',
-        'car',
-        'truck',
-        'automobile',
-        'vessel',
-        'zonda',
-    ];
-
     $suspectHasDrug = false;
     $suspectHasElectronic = false;
     $suspectHasCrimeScene = false;
 
     foreach ($suspectLinkedExhibits as $ex) {
         $cat = strtolower($ex['category'] ?? ($ex['exhibit_category'] ?? ''));
+        $type = strtolower($ex['exhibit_type'] ?? '');
         $dName = strtolower($ex['seizure_name_drug'] ?? '');
         $sName = strtolower(
             $ex['seizure_name'] ?? ($ex['name'] ?? ($ex['commodity_name'] ?? ($ex['description'] ?? ''))),
         );
 
-        if (!empty($dName)) {
+        if (
+            str_contains($cat, 'drug') ||
+            str_contains($cat, 'narcotic') ||
+            str_contains($type, 'drug')
+        ) {
             $suspectHasDrug = true;
-        }
-        if (str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($cat, 'substance')) {
-            $suspectHasDrug = true;
-        }
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $suspectHasDrug = true;
-                break;
-            }
         }
 
-        if (str_contains($cat, 'electronic') || str_contains($cat, 'digital')) {
+        if (str_contains($cat, 'electronic') || str_contains($cat, 'digital') || str_contains($cat, 'device')) {
             $suspectHasElectronic = true;
         }
-        foreach ($electronicKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $suspectHasElectronic = true;
-                break;
-            }
-        }
 
-        if (
-            str_contains($cat, 'weapon') ||
-            str_contains($cat, 'ammunition') ||
-            str_contains($cat, 'currency') ||
-            str_contains($cat, 'gold') ||
-            str_contains($cat, 'precious') ||
-            str_contains($cat, 'vehicle') ||
-            str_contains($cat, 'vessel') ||
-            str_contains($cat, 'car') ||
-            str_contains($cat, 'truck')
-        ) {
+        if (str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'vehicle') || str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold')) {
             $suspectHasCrimeScene = true;
-        }
-        foreach ($crimeSceneKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $suspectHasCrimeScene = true;
-                break;
-            }
         }
     }
 
@@ -1160,7 +1008,7 @@
         }
     }
     $caseNumericId = sprintf('%03d', $case->id ?? 1);
-    $labExamRef = !empty($rawLabExamRef) ? $rawLabExamRef : 'GSA-FM-T' . rand(10, 99) . '-F';
+    $labExamRef = !empty($rawLabExamRef) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawLabExamRef) : 'NLR-FM-T35-F';
 
     $labCaseRef = $case->case_number;
 
@@ -1257,16 +1105,13 @@
     $topDrugExhibits = [];
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $idx => $sz) {
-            $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
+            $cat = strtolower($sz['exhibit_category'] ?? ($sz['category'] ?? ''));
+            $type = strtolower($sz['exhibit_type'] ?? '');
             $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
             if (
-                !empty($sz['seizure_name_drug']) ||
                 str_contains($cat, 'drug') ||
                 str_contains($cat, 'narcotic') ||
-                str_contains(strtolower($sName), 'cocaine') ||
-                str_contains(strtolower($sName), 'heroin') ||
-                str_contains(strtolower($sName), 'cannabis') ||
-                str_contains(strtolower($sName), 'drug')
+                str_contains($type, 'drug')
             ) {
                 $topDrugExhibits[] = [
                     'index' => $idx + 1,
@@ -1308,44 +1153,14 @@
         : ($defaultUnits ?:
         $case->exhibits_summary ?? '');
 
-    $nonDrugKeywords = [
-        'truck',
-        'vehicle',
-        'car',
-        'pistol',
-        'rifle',
-        'weapon',
-        'currency',
-        'zonda',
-        'cash',
-        'usd',
-        'ghs',
-        'laptop',
-        'phone',
-    ];
-
     $rawSampleDesc = !empty($labSampleWeight['description'])
         ? $labSampleWeight['description']
         : (!empty($case->sample_weight_description)
             ? $case->sample_weight_description
             : '');
-    $isNonDrugDesc = false;
-    if (!empty($rawSampleDesc)) {
-        $lDesc = strtolower($rawSampleDesc);
-        foreach ($nonDrugKeywords as $kw) {
-            if (str_contains($lDesc, $kw)) {
-                $isNonDrugDesc = true;
-                break;
-            }
-        }
-        if (
-            !empty($case->seizure_name) &&
-            strtolower($case->exhibit_category) !== 'drugs' &&
-            strtolower($rawSampleDesc) === strtolower($case->seizure_name)
-        ) {
-            $isNonDrugDesc = true;
-        }
-    }
+    $caseCat = strtolower($case->exhibit_category ?? '');
+    $caseType = strtolower($case->exhibit_type ?? '');
+    $isNonDrugDesc = !str_contains($caseCat, 'drug') && !str_contains($caseType, 'drug');
     $labSampleDesc = !empty($rawSampleDesc) && !$isNonDrugDesc ? $rawSampleDesc : $defaultDrugName;
 
     $rawSampleUnits = !empty($labSampleWeight['units_packaging'])
@@ -1417,23 +1232,7 @@
         : (!empty($case->confirmatory_substance_identification)
             ? $case->confirmatory_substance_identification
             : '');
-    $isNonDrugSub = false;
-    if (!empty($rawSubstanceId)) {
-        $lSub = strtolower($rawSubstanceId);
-        foreach ($nonDrugKeywords as $kw) {
-            if (str_contains($lSub, $kw)) {
-                $isNonDrugSub = true;
-                break;
-            }
-        }
-        if (
-            !empty($case->seizure_name) &&
-            strtolower($case->exhibit_category) !== 'drugs' &&
-            strtolower($rawSubstanceId) === strtolower($case->seizure_name)
-        ) {
-            $isNonDrugSub = true;
-        }
-    }
+    $isNonDrugSub = !str_contains($caseCat, 'drug') && !str_contains($caseType, 'drug');
     $labSubstanceId = !empty($rawSubstanceId) && !$isNonDrugSub ? $rawSubstanceId : $defaultDrugName;
     $labDetectedSubstances = !empty($labExam['detected_substances'])
         ? $labExam['detected_substances']
@@ -1543,17 +1342,12 @@
 
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $idxCheck => $szItemCheck) {
-            $catCheck = strtolower($szItemCheck['category'] ?? ($szItemCheck['exhibit_category'] ?? ''));
+            $catCheck = strtolower($szItemCheck['exhibit_category'] ?? ($szItemCheck['category'] ?? ''));
+            $typeCheck = strtolower($szItemCheck['exhibit_type'] ?? '');
             $sNameCheck = $szItemCheck['seizure_name_drug'] ?? ($szItemCheck['seizure_name'] ?? '');
-            $isDrugCheck = !empty($szItemCheck['seizure_name_drug']);
-            if (!$isDrugCheck) {
-                foreach ($drugKeywords as $kw) {
-                    if (str_contains($catCheck, $kw) || str_contains(strtolower($sNameCheck), $kw)) {
-                        $isDrugCheck = true;
-                        break;
-                    }
-                }
-            }
+            $isDrugCheck = str_contains($catCheck, 'drug') ||
+                str_contains($catCheck, 'narcotic') ||
+                str_contains($typeCheck, 'drug');
             if ($isDrugCheck) {
                 $exNoCheck = $szItemCheck['exhibit_number'] ?? '';
                 $assocPersonNameCheck =
@@ -2271,17 +2065,7 @@
 
                         <!-- QUICK ACTIONS IN HERO -->
                         <div class="flex items-center gap-3 shrink-0">
-                            @if ($isLabAnalysis && !$isEvidenceManagement)
-                                <button type="button" onclick="toggleLabFormSections()"
-                                    class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer shadow-sm">
-                                    <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858-5.908a10.025 10.025 0 012.122-.363c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21M3 3l18 18" />
-                                    </svg>
-                                    <span class="toggleLabFormTextSpan">Hide Examination Section</span>
-                                </button>
-                            @endif
+
                             <a href="/cases/{{ $case->case_number }}/edit"
                                 class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
                                 <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor"
@@ -3013,11 +2797,140 @@
                         ? implode(', ', $primaryAndCoNamesList)
                         : (!empty($primarySuspectNamesList)
                             ? implode(', ', array_unique($primarySuspectNamesList))
-                            : $case->suspect_name ?? 'Eric Addo');
+                            : ($case->suspect_name ?? 'Primary Suspect'));
                     $associateSuspectsCombinedNames = !empty($associateSuspectNamesList)
                         ? implode(', ', array_unique($associateSuspectNamesList))
-                        : 'Atta Budo';
+                        : 'Associate Suspect';
                     $renderedPrimaryExhibit = false;
+
+                    $hasCoSuspectsInCase = false;
+                    if (!empty($rawSuspects) && is_array($rawSuspects) && count($rawSuspects) > 1) {
+                        foreach ($rawSuspects as $spCheck) {
+                            $rCheck = strtolower(
+                                $spCheck['association_role'] ?? ($spCheck['role'] ?? ''),
+                            );
+                            if (
+                                str_contains($rCheck, 'co-suspect') ||
+                                !empty($spCheck['is_co_suspect'])
+                            ) {
+                                $hasCoSuspectsInCase = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!$hasCoSuspectsInCase && !empty($coSuspectNamesList)) {
+                        $hasCoSuspectsInCase = true;
+                    }
+
+                    $isJointExhibitCheck = function ($ex) use ($primaryAndCoNamesList) {
+                        if (empty($ex)) return false;
+                        $owner = '';
+                        if (is_array($ex)) {
+                            $owner = $ex['associated_person'] ??
+                                ($ex['owner_name'] ??
+                                    ($ex['owner'] ??
+                                        ($ex['suspect_name'] ??
+                                            ($ex['associated_suspect'] ??
+                                                ($ex['veh_owner'] ??
+                                                    ($ex['wpn_owner'] ??
+                                                        ($ex['dev_owner'] ?? '')))))));
+                        } elseif (is_object($ex)) {
+                            $owner = $ex->associated_person ??
+                                ($ex->owner_name ??
+                                    ($ex->owner ??
+                                        ($ex->suspect_name ??
+                                            ($ex->associated_suspect ??
+                                                ($ex->veh_owner ??
+                                                    ($ex->wpn_owner ??
+                                                        ($ex->dev_owner ?? '')))))));
+                        }
+                        $cleanOwner = strtolower(trim((string) $owner));
+                        if (empty($cleanOwner)) {
+                            return false;
+                        }
+
+                        if (
+                            str_contains($cleanOwner, 'all suspect') ||
+                            str_contains($cleanOwner, 'both') ||
+                            str_contains($cleanOwner, 'joint') ||
+                            str_contains($cleanOwner, ',') ||
+                            str_contains($cleanOwner, ';') ||
+                            str_contains($cleanOwner, '&') ||
+                            str_contains($cleanOwner, ' and ')
+                        ) {
+                            return true;
+                        }
+
+                        if (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1) {
+                            $matched = 0;
+                            foreach ($primaryAndCoNamesList as $pName) {
+                                $pNameClean = strtolower(trim($pName));
+                                if (!empty($pNameClean) && str_contains($cleanOwner, $pNameClean)) {
+                                    $matched++;
+                                }
+                            }
+                            if ($matched > 1) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+
+                    $extractAllPhotosHelper = function ($item) {
+                        $found = [];
+                        if (empty($item)) return $found;
+                        if (is_object($item)) $item = (array) $item;
+                        if (!is_array($item)) return $found;
+                        $keys = [
+                            'photos', 'exhibit_photos', 'evidence_photos', 'photo', 'exhibit_photo',
+                            'photo_url', 'image', 'image_path', 'image_url', 'file_path', 'attachment', 'attachments',
+                        ];
+                        foreach ($keys as $k) {
+                            if (!empty($item[$k])) {
+                                $val = $item[$k];
+                                if (is_string($val)) {
+                                    $val = trim($val);
+                                    if (str_starts_with($val, '[') || str_starts_with($val, '{')) {
+                                        $dec = json_decode($val, true);
+                                        if (is_array($dec)) {
+                                            foreach ($dec as $p) {
+                                                if (!empty($p) && is_string($p)) $found[] = $p;
+                                            }
+                                        } else {
+                                            $found[] = $val;
+                                        }
+                                    } else {
+                                        $found[] = $val;
+                                    }
+                                } elseif (is_array($val)) {
+                                    foreach ($val as $p) {
+                                        if (!empty($p) && is_string($p)) $found[] = $p;
+                                    }
+                                }
+                            }
+                        }
+                        return array_values(array_unique($found));
+                    };
+
+                    $formatPhotoUrlHelper = function ($p) {
+                        if (empty($p)) return '';
+                        $p = trim((string) $p);
+                        if (str_starts_with($p, 'http://') || str_starts_with($p, 'https://') || str_starts_with($p, 'data:')) {
+                            return $p;
+                        }
+                        $clean = ltrim($p, '/');
+                        if (str_starts_with($clean, 'storage/')) {
+                            return asset($clean);
+                        }
+                        if (file_exists(public_path($clean))) {
+                            return asset($clean);
+                        }
+                        return asset('storage/' . $clean);
+                    };
+
+                    $capturedJointExhibits = [];
+                    $savedJointLabExam = null;
+                    $savedJointLabHeadingName = null;
                 @endphp
 
                 @foreach ($suspectsList as $sIdx => $sItem)
@@ -3450,6 +3363,19 @@
                                     class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold uppercase tracking-wider border {{ $dispBadgeCls }}">
                                     {{ strtoupper($sDisp) }}
                                 </span>
+                                @php
+                                    $sHeaderDrugScreening = \App\Models\DrugScreening::forSuspect($sItem['id'] ?? ($sId ?? null), $sName);
+                                @endphp
+                                @if ($sHeaderDrugScreening)
+                                    @php
+                                        $sScreeningTextCls = $sHeaderDrugScreening->isPositive()
+                                            ? 'text-red-600'
+                                            : ($sHeaderDrugScreening->isNegative() ? 'text-emerald-600' : 'text-amber-600');
+                                    @endphp
+                                    <span class="text-xs font-mono-code font-black uppercase tracking-wider {{ $sScreeningTextCls }}" title="Substances: {{ $sHeaderDrugScreening->substances_found ?: 'None' }}">
+                                        DRUG SCREENING: {{ strtoupper($sHeaderDrugScreening->result) }}
+                                    </span>
+                                @endif
                                 <div>
                                     <h2 class="text-base font-black text-slate-900 flex items-center gap-2">
                                         {{ $sName }} — Personal Booking Details
@@ -3736,6 +3662,47 @@
                                         $assocExhibits = $directEx;
                                     }
                                 }
+
+                                if (!empty($assocExhibits)) {
+                                    $assocExhibits = array_values(
+                                        array_filter($assocExhibits, function ($ex) use ($sName, $primarySuspectNamesList) {
+                                            $owner = '';
+                                            if (is_array($ex)) {
+                                                $owner = $ex['associated_person'] ??
+                                                    ($ex['owner_name'] ??
+                                                        ($ex['owner'] ??
+                                                            ($ex['suspect_name'] ?? ($ex['associated_suspect'] ?? ''))));
+                                            } elseif (is_object($ex)) {
+                                                $owner = $ex->associated_person ??
+                                                    ($ex->owner_name ??
+                                                        ($ex->owner ??
+                                                            ($ex->suspect_name ?? ($ex->associated_suspect ?? ''))));
+                                            }
+                                            $cleanOwner = strtolower(trim((string) $owner));
+                                            if (empty($cleanOwner)) {
+                                                return false;
+                                            }
+                                            $isJoint =
+                                                str_contains($cleanOwner, 'all suspect') ||
+                                                str_contains($cleanOwner, 'both') ||
+                                                str_contains($cleanOwner, 'joint') ||
+                                                str_contains($cleanOwner, ',') ||
+                                                str_contains($cleanOwner, ';') ||
+                                                str_contains($cleanOwner, '&') ||
+                                                str_contains($cleanOwner, ' and ');
+                                            if (!$isJoint && !empty($primarySuspectNamesList)) {
+                                                foreach ($primarySuspectNamesList as $pName) {
+                                                    $pNameClean = strtolower(trim($pName));
+                                                    if (!empty($pNameClean) && (str_contains($cleanOwner, $pNameClean) || $cleanOwner === $pNameClean)) {
+                                                        $isJoint = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            return !$isJoint;
+                                        }),
+                                    );
+                                }
                             @endphp
 
                             @if (!empty($assocExhibits) && count($assocExhibits) > 0)
@@ -3822,6 +3789,17 @@
                                                 </div>
                                             @endif
 
+                                            @if (!empty($aEx['source_of_exhibits']) || !empty($aEx['source']))
+                                                <div
+                                                    class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                    <div
+                                                        class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                                                        Source of Exhibits</div>
+                                                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                        {{ $aEx['source_of_exhibits'] ?? $aEx['source'] }}</div>
+                                                </div>
+                                            @endif
+
                                             @if (!empty($aEx['other_exhibit_description']) || !empty($aEx['other_description']))
                                                 <div
                                                     class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-full">
@@ -3851,14 +3829,7 @@
                                                     !empty($aEx['weapon_condition_at_recovery']) ||
                                                     !empty($aEx['weapon_location_found']) ||
                                                     !empty($aEx['weapon_distinguishing_marks']);
-                                                $isWeaponEx =
-                                                    str_contains($catLower, 'weapon') ||
-                                                    str_contains($nameLower, 'ak-47') ||
-                                                    str_contains($nameLower, 'pistol') ||
-                                                    str_contains($nameLower, 'rifle') ||
-                                                    str_contains($nameLower, 'shotgun') ||
-                                                    str_contains($nameLower, 'firearm') ||
-                                                    $hasWeaponData;
+                                                $isWeaponEx = str_contains($catLower, 'weapon') || str_contains($catLower, 'firearm') || $hasWeaponData;
 
                                                 $hasVehicleData =
                                                     !empty($aEx['veh_make']) ||
@@ -3870,19 +3841,7 @@
                                                     !empty($aEx['vehicle_make_model']) ||
                                                     !empty($aEx['vehicle_registration']) ||
                                                     !empty($aEx['vehicle_chassis_vin']);
-                                                $isVehEx =
-                                                    str_contains($catLower, 'vehicle') ||
-                                                    str_contains($catLower, 'vessel') ||
-                                                    str_contains($catLower, 'car') ||
-                                                    str_contains($catLower, 'truck') ||
-                                                    str_contains($catLower, 'automobile') ||
-                                                    str_contains($nameLower, 'zonda') ||
-                                                    str_contains($nameLower, 'toyota') ||
-                                                    str_contains($nameLower, 'nissan') ||
-                                                    str_contains($nameLower, 'honda') ||
-                                                    str_contains($nameLower, 'benz') ||
-                                                    str_contains($nameLower, 'bmw') ||
-                                                    $hasVehicleData;
+                                                $isVehEx = str_contains($catLower, 'vehicle') || str_contains($catLower, 'vessel') || str_contains($catLower, 'automobile') || $hasVehicleData;
 
                                                 $hasDeviceData =
                                                     !empty($aEx['dev_model']) ||
@@ -3911,17 +3870,7 @@
                                                     !empty($case->dev_storage) ||
                                                     !empty($case->dev_colour) ||
                                                     !empty($case->dev_marks);
-                                                $isDevEx =
-                                                    str_contains($catLower, 'device') ||
-                                                    str_contains($catLower, 'electronic') ||
-                                                    str_contains($catLower, 'digital') ||
-                                                    str_contains($nameLower, 'phone') ||
-                                                    str_contains($nameLower, 'laptop') ||
-                                                    str_contains($nameLower, 'iphone') ||
-                                                    str_contains($nameLower, 'samsung') ||
-                                                    str_contains($nameLower, 'macbook') ||
-                                                    str_contains($nameLower, 'hard drive') ||
-                                                    $hasDeviceData;
+                                                $isDevEx = str_contains($catLower, 'device') || str_contains($catLower, 'electronic') || str_contains($catLower, 'digital') || $hasDeviceData;
                                             @endphp
 
                                             @if ($isVehEx)
@@ -4380,12 +4329,7 @@
                                                 if (is_string($aAmmo)) {
                                                     $aAmmo = json_decode($aAmmo, true) ?: [];
                                                 }
-                                                $isAmmoEx =
-                                                    str_contains($catLower, 'ammo') ||
-                                                    str_contains($catLower, 'ammunition') ||
-                                                    str_contains($nameLower, 'ammo') ||
-                                                    str_contains($nameLower, 'round') ||
-                                                    (!empty($aAmmo) && is_array($aAmmo) && array_filter($aAmmo));
+                                                $isAmmoEx = str_contains($catLower, 'ammo') || str_contains($catLower, 'ammunition') || (!empty($aAmmo) && is_array($aAmmo) && array_filter($aAmmo));
                                             @endphp
 
                                             @if ($isAmmoEx && !empty($aAmmo) && is_array($aAmmo))
@@ -4579,1066 +4523,61 @@
                                     }
                                 }
                             @endphp
-
-                            @if (!empty($primaryExhibits) && count($primaryExhibits) > 0)
-                                @php
-                                    $hasCoSuspectsInCase = false;
-                                    if (!empty($rawSuspects) && is_array($rawSuspects) && count($rawSuspects) > 1) {
-                                        foreach ($rawSuspects as $spCheck) {
-                                            $rCheck = strtolower(
-                                                $spCheck['association_role'] ?? ($spCheck['role'] ?? ''),
-                                            );
-                                            if (
-                                                str_contains($rCheck, 'co-suspect') ||
-                                                !empty($spCheck['is_co_suspect'])
-                                            ) {
-                                                $hasCoSuspectsInCase = true;
-                                                break;
-                                            }
+                            @php
+                                $primarySoleExhibits = [];
+                                if (!empty($primaryExhibits) && is_array($primaryExhibits)) {
+                                    foreach ($primaryExhibits as $pEx) {
+                                        if ($isJointExhibitCheck($pEx)) {
+                                            $capturedJointExhibits[] = $pEx;
+                                        } else {
+                                            $primarySoleExhibits[] = $pEx;
                                         }
                                     }
-                                    $dossierBadgeText = $hasCoSuspectsInCase
-                                        ? 'PRIMARY & CO-SUSPECT EXHIBIT DOSSIER'
-                                        : 'PRIMARY EXHIBIT DOSSIER';
-                                    $primaryDossierHeadingName = $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)
-                                        ? $primarySuspectsCombinedNames
-                                        : $sName;
-                                    $dossierHeadingText = $hasCoSuspectsInCase
-                                        ? "Primary & Co-Suspect Seizures & Exhibits — {$primaryDossierHeadingName}"
-                                        : "Primary Exhibits — {$sName}";
-                                @endphp
-                                <!-- LOGGED SEIZURES & EXHIBITS DOSSIER FOR {{ strtoupper($primaryDossierHeadingName) }} -->
-                                <div class="p-5 bg-slate-50 border-2 border-slate-300 rounded-2xl space-y-4 shadow-sm">
-                                    <div
-                                        class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
-                                        <div class="flex items-center space-x-2">
-                                            <span
-                                                class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-extrabold bg-slate-900 text-white uppercase tracking-wider shadow-2xs">
-                                                {{ $dossierBadgeText }}
-                                            </span>
-                                            <div>
-                                                <h3
-                                                    class="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                                                    {{ $dossierHeadingText }}
-                                                </h3>
-                                                <p class="text-[11px] text-slate-600">Confiscated items and exhibit
-                                                    inventory attached to {{ $primaryDossierHeadingName }}</p>
-                                            </div>
-                                        </div>
-                                        <span
-                                            class="px-2.5 py-1 rounded-full text-[10px] font-mono-code font-extrabold bg-slate-200 text-slate-800 border border-slate-300 w-max">
-                                            {{ count($primaryExhibits) }} EXHIBIT ITEM(S) LOGGED
-                                        </span>
-                                    </div>
+                                }
+                            @endphp
 
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                                        @foreach ($primaryExhibits as $pEx)
-                                            <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                                                <div
-                                                    class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                    Exhibit Category</div>
-                                                <div
-                                                    class="font-extrabold text-amber-700 text-xs mt-0.5 font-mono-code">
-                                                    {{ $pEx['category'] ?? ($pEx['exhibit_category'] ?? 'General Exhibit') }}
-                                                </div>
-                                            </div>
-                                            <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                                                <div
-                                                    class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                    Seizure / Commodity Name</div>
-                                                <div class="font-extrabold text-slate-900 text-xs mt-0.5">
-                                                    {{ $pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? ($pEx['name'] ?? 'N/A')) }}
-                                                </div>
-                                            </div>
-                                            <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                                                <div
-                                                    class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                    Quantity / Weight</div>
-                                                <div
-                                                    class="font-extrabold text-slate-900 font-mono-code text-xs mt-0.5">
-                                                    @if (!empty($pEx['seizure_quantity']) || !empty($pEx['seizure_weight']))
-                                                        {{ implode(' • ', array_filter([!empty($pEx['seizure_quantity']) ? "Qty: {$pEx['seizure_quantity']}" : null, !empty($pEx['seizure_weight']) ? "Wt: {$pEx['seizure_weight']} " . ($pEx['seizure_unit'] ?? '') : null])) }}
-                                                    @else
-                                                        N/A
-                                                    @endif
-                                                </div>
-                                            </div>
-                                            <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                                                <div
-                                                    class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                    Estimated Valuation</div>
-                                                @php
-                                                    $rawValP = $pEx['seizure_value'] ?? ($pEx['value'] ?? null);
-                                                    $cleanValP =
-                                                        !empty($rawValP) &&
-                                                        !str_contains($rawValP, 'Item #') &&
-                                                        !str_contains($rawValP, "\n")
-                                                            ? trim($rawValP)
-                                                            : 'N/A';
-                                                @endphp
-                                                <div
-                                                    class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5">
-                                                    {{ $cleanValP }}</div>
-                                            </div>
-
-                                            @if (!empty($pEx['other_exhibit_description']) || !empty($pEx['other_description']))
-                                                <div
-                                                    class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-full">
-                                                    <div
-                                                        class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                        Other Exhibit Description / Specifications</div>
-                                                    <div
-                                                        class="font-extrabold text-slate-900 text-xs mt-0.5 whitespace-pre-line">
-                                                        {{ $pEx['other_exhibit_description'] ?? $pEx['other_description'] }}
-                                                    </div>
-                                                </div>
-                                            @endif
-
-                                            @php
-                                                $catLower = strtolower(
-                                                    $pEx['category'] ?? ($pEx['exhibit_category'] ?? ''),
-                                                );
-                                                $nameLower = strtolower(
-                                                    $pEx['seizure_name'] ??
-                                                        ($pEx['commodity_name'] ?? ($pEx['name'] ?? '')),
-                                                );
-                                                $hasWeaponData =
-                                                    !empty($pEx['weapon_model']) ||
-                                                    !empty($pEx['weapon_serial_number']) ||
-                                                    !empty($pEx['weapon_calibre']) ||
-                                                    !empty($pEx['weapon_loaded_status']) ||
-                                                    !empty($pEx['weapon_condition_at_recovery']) ||
-                                                    !empty($pEx['weapon_location_found']) ||
-                                                    !empty($pEx['weapon_distinguishing_marks']);
-                                                $isWeaponEx =
-                                                    str_contains($catLower, 'weapon') ||
-                                                    str_contains($nameLower, 'ak-47') ||
-                                                    str_contains($nameLower, 'pistol') ||
-                                                    str_contains($nameLower, 'rifle') ||
-                                                    str_contains($nameLower, 'shotgun') ||
-                                                    str_contains($nameLower, 'firearm') ||
-                                                    $hasWeaponData;
-
-                                                $hasVehicleData =
-                                                    !empty($pEx['veh_make']) ||
-                                                    !empty($pEx['veh_model']) ||
-                                                    !empty($pEx['veh_reg_no']) ||
-                                                    !empty($pEx['veh_vin']) ||
-                                                    !empty($pEx['veh_colour']) ||
-                                                    !empty($pEx['veh_type']) ||
-                                                    !empty($pEx['vehicle_make_model']) ||
-                                                    !empty($pEx['vehicle_registration']) ||
-                                                    !empty($pEx['vehicle_chassis_vin']);
-                                                $isVehEx =
-                                                    str_contains($catLower, 'vehicle') ||
-                                                    str_contains($catLower, 'vessel') ||
-                                                    str_contains($catLower, 'car') ||
-                                                    str_contains($catLower, 'truck') ||
-                                                    str_contains($catLower, 'automobile') ||
-                                                    str_contains($nameLower, 'zonda') ||
-                                                    str_contains($nameLower, 'toyota') ||
-                                                    str_contains($nameLower, 'nissan') ||
-                                                    str_contains($nameLower, 'honda') ||
-                                                    str_contains($nameLower, 'benz') ||
-                                                    str_contains($nameLower, 'bmw') ||
-                                                    $hasVehicleData;
-
-                                                $hasDeviceData =
-                                                    !empty($pEx['dev_model']) ||
-                                                    !empty($pEx['dev_serial_no']) ||
-                                                    !empty($pEx['dev_imei1']) ||
-                                                    !empty($pEx['dev_imei_1']) ||
-                                                    !empty($pEx['dev_imei2']) ||
-                                                    !empty($pEx['dev_imei_2']) ||
-                                                    !empty($pEx['dev_mac_address']) ||
-                                                    !empty($pEx['dev_storage']) ||
-                                                    !empty($pEx['storage_capacity']) ||
-                                                    !empty($pEx['dev_storage_capacity']) ||
-                                                    !empty($pEx['storage']) ||
-                                                    !empty($pEx['dev_colour']) ||
-                                                    !empty($pEx['dev_color']) ||
-                                                    !empty($pEx['colour']) ||
-                                                    !empty($pEx['color']) ||
-                                                    !empty($pEx['device_color']) ||
-                                                    !empty($pEx['dev_marks']) ||
-                                                    !empty($pEx['dev_other_marks']) ||
-                                                    !empty($pEx['marks']) ||
-                                                    !empty($pEx['other_marks']) ||
-                                                    !empty($pEx['distinguishing_marks']) ||
-                                                    !empty($pEx['device_model']) ||
-                                                    !empty($pEx['device_serial']) ||
-                                                    !empty($case->dev_storage) ||
-                                                    !empty($case->dev_colour) ||
-                                                    !empty($case->dev_marks);
-                                                $isDevEx =
-                                                    str_contains($catLower, 'device') ||
-                                                    str_contains($catLower, 'electronic') ||
-                                                    str_contains($catLower, 'digital') ||
-                                                    str_contains($nameLower, 'phone') ||
-                                                    str_contains($nameLower, 'laptop') ||
-                                                    str_contains($nameLower, 'iphone') ||
-                                                    str_contains($nameLower, 'samsung') ||
-                                                    str_contains($nameLower, 'macbook') ||
-                                                    str_contains($nameLower, 'hard drive') ||
-                                                    $hasDeviceData;
-                                            @endphp
-
-                                            @if ($isVehEx)
-                                                @php
-                                                    $vMake = !empty($pEx['veh_make']) ? $pEx['veh_make'] : null;
-                                                    $vModel = !empty($pEx['veh_model']) ? $pEx['veh_model'] : null;
-                                                    $vMakeModelFull = implode(' ', array_filter([$vMake, $vModel]));
-                                                    if (empty($vMakeModelFull)) {
-                                                        $vMakeModelFull =
-                                                            $pEx['vehicle_make_model'] ??
-                                                            ($pEx['seizure_name'] ??
-                                                                ($pEx['commodity_name'] ?? ($pEx['name'] ?? 'N/A')));
-                                                    }
-
-                                                    $vRegNo =
-                                                        $pEx['veh_reg_no'] ??
-                                                        ($pEx['vehicle_registration'] ??
-                                                            ($pEx['registration_number'] ?? 'N/A'));
-                                                    $vVin =
-                                                        $pEx['veh_vin'] ??
-                                                        ($pEx['vehicle_chassis_vin'] ??
-                                                            ($pEx['chassis_number'] ?? 'N/A'));
-                                                    $vType =
-                                                        $pEx['veh_type'] ?? ($pEx['vehicle_type'] ?? 'Vehicle Exhibit');
-                                                    $vColor =
-                                                        $pEx['veh_colour'] ?? ($pEx['vehicle_color_type'] ?? 'N/A');
-                                                    $vYear = $pEx['veh_year'] ?? ($pEx['vehicle_year'] ?? 'N/A');
-                                                    $vEngine =
-                                                        $pEx['veh_engine_no'] ?? ($pEx['engine_number'] ?? 'N/A');
-                                                    $vCountry =
-                                                        $pEx['veh_country_reg'] ??
-                                                        ($pEx['country_of_registration'] ?? 'N/A');
-                                                    $vOwner =
-                                                        $pEx['veh_owner'] ??
-                                                        ($pEx['vehicle_owner'] ??
-                                                            ($primarySuspectName ??
-                                                                ($case->suspect_name ?? 'Primary Suspect')));
-                                                    $vDriver = $pEx['veh_driver'] ?? ($pEx['vehicle_driver'] ?? 'N/A');
-
-                                                    $vLoc = $pEx['seizure_location'] ?? ($pEx['location'] ?? 'N/A');
-                                                    $vOfficer = $pEx['seizure_officer'] ?? ($pEx['officer'] ?? 'N/A');
-                                                    $vDate = !empty($pEx['seizure_date']) ? $pEx['seizure_date'] : null;
-                                                    $vTime = !empty($pEx['seizure_time'])
-                                                        ? "@ {$pEx['seizure_time']}"
-                                                        : '';
-                                                    $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
-                                                    $vReason = $pEx['seizure_reason'] ?? 'N/A';
-                                                @endphp
-                                                <div
-                                                    class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
-                                                    <div
-                                                        class="flex items-center justify-between border-b border-slate-800 pb-2">
-                                                        <div class="flex items-center space-x-2">
-                                                            <span
-                                                                class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">VEHICLE
-                                                                / VESSEL SPECIFIC DETAILS</span>
-                                                            <span
-                                                                class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($vMakeModelFull) }}</span>
-                                                        </div>
-                                                        <div class="flex items-center gap-2">
-                                                            @if (!empty($vRegNo) && $vRegNo !== 'N/A')
-                                                                <span
-                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">REG
-                                                                    #: {{ strtoupper($vRegNo) }}</span>
-                                                            @endif
-                                                            @if (!empty($vVin) && $vVin !== 'N/A')
-                                                                <span
-                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-blue-300 font-extrabold border border-blue-500/30">VIN:
-                                                                    {{ strtoupper($vVin) }}</span>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                MAKE / MODEL / TRIM</div>
-                                                            <div class="font-black text-white text-xs mt-0.5">
-                                                                {{ $vMakeModelFull }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                REGISTRATION NUMBER</div>
-                                                            <div
-                                                                class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                                                {{ $vRegNo }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                VIN / CHASSIS NUMBER</div>
-                                                            <div
-                                                                class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
-                                                                {{ $vVin }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                COLOUR / FINISH</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vColor }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                VEHICLE TYPE / BODY</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vType }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                MANUFACTURE YEAR</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vYear }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                ENGINE NUMBER</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vEngine }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                REGISTERED OWNER</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vOwner }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                DRIVER AT RECOVERY</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vDriver }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                RECOVERY LOCATION</div>
-                                                            <div
-                                                                class="font-extrabold text-emerald-400 text-xs mt-0.5">
-                                                                {{ $vLoc }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                SEIZING OFFICER</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vOfficer }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                RECOVERY DATE & TIME</div>
-                                                            <div
-                                                                class="font-bold text-slate-200 text-xs mt-0.5 font-mono-code">
-                                                                {{ $vDateTime }}</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            @endif
-
-                                            @if ($isDevEx)
-                                                @php
-                                                    $dModel = $pEx['dev_model'] ?? ($pEx['device_model'] ?? 'N/A');
-                                                    $dSerial =
-                                                        $pEx['dev_serial_no'] ??
-                                                        ($pEx['device_serial'] ?? ($pEx['serial_number'] ?? 'N/A'));
-                                                    $dImei1 =
-                                                        $pEx['dev_imei1'] ??
-                                                        ($pEx['dev_imei_1'] ?? ($pEx['imei1'] ?? 'N/A'));
-                                                    $dImei2 =
-                                                        $pEx['dev_imei2'] ??
-                                                        ($pEx['dev_imei_2'] ?? ($pEx['imei2'] ?? 'N/A'));
-                                                    $dMac = $pEx['dev_mac_address'] ?? ($pEx['mac_address'] ?? 'N/A');
-                                                    $dStorage = !empty($pEx['dev_storage']) ? $pEx['dev_storage'] : (
-                                                        !empty($pEx['storage_capacity']) ? $pEx['storage_capacity'] : (
-                                                            !empty($pEx['dev_storage_capacity']) ? $pEx['dev_storage_capacity'] : (
-                                                                !empty($pEx['storage']) ? $pEx['storage'] : (
-                                                                    !empty($case->dev_storage) ? $case->dev_storage : 'N/A'
-                                                                )
-                                                            )
-                                                        )
-                                                    );
-                                                    $dColor = !empty($pEx['dev_colour']) ? $pEx['dev_colour'] : (
-                                                        !empty($pEx['dev_color']) ? $pEx['dev_color'] : (
-                                                            !empty($pEx['colour']) ? $pEx['colour'] : (
-                                                                !empty($pEx['color']) ? $pEx['color'] : (
-                                                                    !empty($pEx['device_color']) ? $pEx['device_color'] : (
-                                                                        !empty($case->dev_colour) ? $case->dev_colour : 'N/A'
-                                                                    )
-                                                                )
-                                                            )
-                                                        )
-                                                    );
-                                                    $dMarks = !empty($pEx['dev_marks']) ? $pEx['dev_marks'] : (
-                                                        !empty($pEx['dev_other_marks']) ? $pEx['dev_other_marks'] : (
-                                                            !empty($pEx['marks']) ? $pEx['marks'] : (
-                                                                !empty($pEx['other_marks']) ? $pEx['other_marks'] : (
-                                                                    !empty($pEx['distinguishing_marks']) ? $pEx['distinguishing_marks'] : (
-                                                                        !empty($case->dev_marks) ? $case->dev_marks : 'N/A'
-                                                                    )
-                                                                )
-                                                            )
-                                                        )
-                                                    );
-                                                @endphp
-                                                <div
-                                                    class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
-                                                    <div
-                                                        class="flex items-center justify-between border-b border-slate-800 pb-2">
-                                                        <div class="flex items-center space-x-2">
-                                                            <span
-                                                                class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">ELECTRONIC DEVICE FORENSIC SPECIFICATIONS</span>
-                                                            <span
-                                                                class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($dModel !== 'N/A' ? $dModel : $pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? 'Electronic Device Exhibit')) }}</span>
-                                                        </div>
-                                                        <div class="flex items-center gap-2">
-                                                            @if (!empty($dSerial) && $dSerial !== 'N/A')
-                                                                <span
-                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">SERIAL
-                                                                    #: {{ strtoupper($dSerial) }}</span>
-                                                            @endif
-                                                            @if (!empty($dImei1) && $dImei1 !== 'N/A')
-                                                                <span
-                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-blue-300 font-extrabold border border-blue-500/30">IMEI
-                                                                    1: {{ strtoupper($dImei1) }}</span>
-                                                            @endif
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                MODEL / MAKE</div>
-                                                            <div class="font-black text-white text-xs mt-0.5">
-                                                                {{ $dModel }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                SERIAL NUMBER</div>
-                                                            <div
-                                                                class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                                                {{ $dSerial }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                IMEI 1</div>
-                                                            <div
-                                                                class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
-                                                                {{ $dImei1 }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                IMEI 2</div>
-                                                            <div
-                                                                class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
-                                                                {{ $dImei2 }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                MAC ADDRESS</div>
-                                                            <div
-                                                                class="font-mono-code font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $dMac }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                STORAGE CAPACITY</div>
-                                                            <div class="font-bold text-emerald-400 text-xs mt-0.5">
-                                                                {{ $dStorage }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                COLOUR / FINISH</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $dColor }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                OTHER MARKS / CONDITION</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $dMarks }}</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            @endif
-
-
-                                            @if ($isWeaponEx)
-                                                <div
-                                                    class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-red-500/40 space-y-3 mt-2 shadow-md">
-                                                    <div
-                                                        class="flex items-center justify-between border-b border-slate-800 pb-2">
-                                                        <div class="flex items-center space-x-2">
-                                                            <span
-                                                                class="px-2 py-0.5 bg-red-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">FIREARM
-                                                                / WEAPON SPECIFIC DETAILS</span>
-                                                            <span
-                                                                class="text-xs font-black text-slate-200">{{ $pEx['weapon_model'] ?? ($pEx['seizure_name'] ?? 'Firearm / Weapon Exhibit') }}</span>
-                                                        </div>
-                                                        @if (!empty($pEx['weapon_serial_number']))
-                                                            <span
-                                                                class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">SERIAL
-                                                                #: {{ $pEx['weapon_serial_number'] }}</span>
-                                                        @endif
-                                                    </div>
-
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                                        @if (!empty($pEx['weapon_model']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    MODEL / TYPE</div>
-                                                                <div class="font-bold text-white text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_model'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_calibre']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    CALIBRE / GAUGE</div>
-                                                                <div
-                                                                    class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_calibre'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_color']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    COLOUR / FINISH</div>
-                                                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_color'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_size_length']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    SIZE / LENGTH</div>
-                                                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_size_length'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_loaded_status']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    LOADED STATUS</div>
-                                                                <div
-                                                                    class="font-extrabold text-red-400 text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_loaded_status'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_condition_at_recovery']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    CONDITION AT RECOVERY</div>
-                                                                <div
-                                                                    class="font-extrabold text-emerald-400 text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_condition_at_recovery'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_location_found']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-2">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    EXACT LOCATION FOUND</div>
-                                                                <div class="font-bold text-slate-100 text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_location_found'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                        @if (!empty($pEx['weapon_distinguishing_marks']))
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-full">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    DISTINGUISHING MARKS / ENGRAVINGS</div>
-                                                                <div class="font-bold text-slate-100 text-xs mt-0.5">
-                                                                    {{ $pEx['weapon_distinguishing_marks'] }}</div>
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    </div>
-
-                                    @php
-                                        $primPhotos = [];
-                                        if (!empty($primaryExhibits) && is_array($primaryExhibits)) {
-                                            foreach ($primaryExhibits as $pExItem) {
-                                                $extractedP = $extractAllPhotosHelper($pExItem);
-                                                foreach ($extractedP as $p) {
-                                                    if ($p && !in_array($p, $primPhotos)) {
-                                                        $primPhotos[] = $p;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (!empty($sItem['evidence_photos'])) {
-                                            $sEvP = is_array($sItem['evidence_photos'])
-                                                ? $sItem['evidence_photos']
-                                                : (json_decode($sItem['evidence_photos'], true) ?:
-                                                []);
-                                            if (is_array($sEvP)) {
-                                                foreach ($sEvP as $sp) {
-                                                    if ($sp && !in_array($sp, $primPhotos)) {
-                                                        $primPhotos[] = $sp;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (empty($primPhotos) && !empty($docketData['evidence_photos'])) {
-                                            foreach ($docketData['evidence_photos'] as $p) {
-                                                if ($p && !in_array($p, $primPhotos)) {
-                                                    $primPhotos[] = $p;
-                                                }
-                                            }
-                                        }
-
-                                    @endphp
-                                    @if (!empty($primPhotos) && count($primPhotos) > 0)
-                                        <div class="pt-3 border-t border-slate-200 space-y-2 mt-3">
-                                            <div class="flex items-center justify-between">
-                                                <span
-                                                    class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE
-                                                    &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($sName) }})</span>
-                                                <span
-                                                    class="text-[10px] font-mono-code font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">{{ count($primPhotos) }}
-                                                    Attached Photo(s)</span>
-                                            </div>
-                                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                                @foreach ($primPhotos as $pIdx => $pUrl)
-                                                    @php
-                                                        $pUrlFormatted = $formatPhotoUrlHelper($pUrl);
-                                                    @endphp
-                                                    <div
-                                                        class="p-1 bg-white border border-slate-200 rounded-xl space-y-1 text-center shadow-2xs group hover:border-emerald-500 transition-colors">
-                                                        <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative"
-                                                            data-img-src="{{ $pUrlFormatted }}"
-                                                            data-img-title="Exhibit Photo #{{ $pIdx + 1 }} — {{ $sName }}"
-                                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
-                                                            <img src="{{ $pUrlFormatted }}"
-                                                                class="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                                                alt="Exhibit Photo"
-                                                                onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
-                                                        </div>
-                                                        <div
-                                                            class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">
-                                                            Exhibit Photo #{{ $pIdx + 1 }}</div>
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
+                            @if (!empty($primarySoleExhibits) && count($primarySoleExhibits) > 0)
+                                @include('partials.exhibit_dossier_card', [
+                                    'dossierBadgeText' => 'PRIMARY EXHIBIT DOSSIER',
+                                    'dossierHeadingText' => "Primary Exhibits — {$sName}",
+                                    'dossierHeadingName' => $sName,
+                                    'dossierExhibits' => $primarySoleExhibits,
+                                    'formatPhotoUrlHelper' => $formatPhotoUrlHelper,
+                                    'extractAllPhotosHelper' => $extractAllPhotosHelper,
+                                    'case' => $case,
+                                    'docketData' => $docketData,
+                                ])
                             @endif
                         @endif
 
 
-
                         @php
                             $currSuspectExhibits = $isAssociate ? ($assocExhibits ?? []) : ($primaryExhibits ?? []);
-                            $sDossierLabExam = null;
-                            $sDossierHasSavedLab = false;
+                            $sDossierLabExam = $case->resolveLabExamForSuspect(
+                                $sName,
+                                $sItem['id'] ?? null,
+                                $sId,
+                                $sRoleLabel,
+                                $sIdx
+                            );
+                            $sDossierHasSavedLab = !empty($sDossierLabExam['has_saved']);
 
-                            // Source 1: DB relationship check
-                            if ($isAssociate) {
-                                $dbAssoc = $case->associateLabExaminations
-                                    ? $case->associateLabExaminations->first(
-                                        fn($a) => strtolower(trim($a->suspect_name)) === strtolower(trim($sName)),
-                                    )
-                                    : null;
-                                if ($dbAssoc && $dbAssoc->has_saved) {
-                                    $sDossierHasSavedLab = true;
-                                    $sDossierLabExam = [
-                                        'exam_reference' => $dbAssoc->exam_reference,
-                                        'exhibit_number' => $dbAssoc->exhibit_number,
-                                        'laboratory_number' => $dbAssoc->laboratory_number,
-                                        'analyst' => $dbAssoc->analyst,
-                                        'date_received' => is_object($dbAssoc->date_received)
-                                            ? $dbAssoc->date_received->format('Y-m-d')
-                                            : substr((string) $dbAssoc->date_received, 0, 10),
-                                        'date_started' => is_object($dbAssoc->date_started)
-                                            ? $dbAssoc->date_started->format('Y-m-d')
-                                            : substr((string) $dbAssoc->date_started, 0, 10),
-                                        'date_completed' => is_object($dbAssoc->date_completed)
-                                            ? $dbAssoc->date_completed->format('Y-m-d')
-                                            : substr((string) $dbAssoc->date_completed, 0, 10),
-                                        'presumptive_result' => $dbAssoc->presumptive_result,
-                                        'confirmatory_result' => $dbAssoc->confirmatory_result,
-                                        'sample_weight' => [
-                                            'description' => $dbAssoc->sample_weight_description,
-                                            'units_packaging' => $dbAssoc->sample_weight_units,
-                                            'gross_weight' => $dbAssoc->sample_weight_gross,
-                                            'sample_taken' => $dbAssoc->sample_weight_taken,
-                                            'reserved_samples' => $dbAssoc->sample_weight_reserved,
-                                        ],
-                                        'substance_identification' => $dbAssoc->substance_identification,
-                                        'detected_substances' => is_string($dbAssoc->detected_substances)
-                                            ? json_decode($dbAssoc->detected_substances, true)
-                                            : $dbAssoc->detected_substances ?? [],
-                                        'test_methods' => $dbAssoc->test_methods,
-                                        'specifications' => $dbAssoc->specifications,
-                                        'remark' => $dbAssoc->remark,
-                                        'findings' => $dbAssoc->findings,
-                                    ];
-                                }
-                            } else {
-                                if (!empty($dbPrimaryLabExam) && $dbPrimaryLabExam->has_saved) {
-                                    $sDossierHasSavedLab = true;
-                                    $sDossierLabExam = [
-                                        'exam_reference' => $dbPrimaryLabExam->exam_reference,
-                                        'exhibit_number' => $dbPrimaryLabExam->exhibit_number,
-                                        'laboratory_number' => $dbPrimaryLabExam->laboratory_number,
-                                        'analyst' => $dbPrimaryLabExam->analyst,
-                                        'date_received' => is_object($dbPrimaryLabExam->date_received)
-                                            ? $dbPrimaryLabExam->date_received->format('Y-m-d')
-                                            : substr((string) $dbPrimaryLabExam->date_received, 0, 10),
-                                        'date_started' => is_object($dbPrimaryLabExam->date_started)
-                                            ? $dbPrimaryLabExam->date_started->format('Y-m-d')
-                                            : substr((string) $dbPrimaryLabExam->date_started, 0, 10),
-                                        'date_completed' => is_object($dbPrimaryLabExam->date_completed)
-                                            ? $dbPrimaryLabExam->date_completed->format('Y-m-d')
-                                            : substr((string) $dbPrimaryLabExam->date_completed, 0, 10),
-                                        'presumptive_result' => $dbPrimaryLabExam->presumptive_result,
-                                        'confirmatory_result' => $dbPrimaryLabExam->confirmatory_result,
-                                        'sample_weight' => [
-                                            'description' => $dbPrimaryLabExam->sample_weight_description,
-                                            'units_packaging' => $dbPrimaryLabExam->sample_weight_units,
-                                            'gross_weight' => $dbPrimaryLabExam->sample_weight_gross,
-                                            'sample_taken' => $dbPrimaryLabExam->sample_weight_taken,
-                                            'reserved_samples' => $dbPrimaryLabExam->sample_weight_reserved,
-                                        ],
-                                        'substance_identification' => $dbPrimaryLabExam->substance_identification,
-                                        'detected_substances' => is_string($dbPrimaryLabExam->detected_substances)
-                                            ? json_decode($dbPrimaryLabExam->detected_substances, true)
-                                            : $dbPrimaryLabExam->detected_substances ?? [],
-                                        'test_methods' => $dbPrimaryLabExam->test_methods,
-                                        'specifications' => $dbPrimaryLabExam->specifications,
-                                        'remark' => $dbPrimaryLabExam->remark,
-                                        'findings' => $dbPrimaryLabExam->findings,
-                                    ];
-                                }
-                            }
-
-                            // Source 2: Docket Data associate_lab_examinations
-                            if (!$sDossierHasSavedLab && !empty($docketData['associate_lab_examinations'])) {
-                                foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
-                                    if (
-                                        strtolower(trim($kAssoc)) === strtolower(trim($sName)) &&
-                                        !empty($vAssoc['has_saved'])
-                                    ) {
-                                        $sDossierHasSavedLab = true;
-                                        $sDossierLabExam = $vAssoc;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Source 3: Docket Data lab_examinations_list
-                            if (!$sDossierHasSavedLab && !empty($docketData['lab_examinations_list'])) {
-                                foreach ($docketData['lab_examinations_list'] as $lItem) {
-                                    $ownerMatch =
-                                        !empty($lItem['exhibit_owner_name']) &&
-                                        strtolower(trim($lItem['exhibit_owner_name'])) === strtolower(trim($sName));
-                                    $sMatch =
-                                        !empty($lItem['suspect_name']) &&
-                                        strtolower(trim($lItem['suspect_name'])) === strtolower(trim($sName));
-                                    if (
-                                        ($ownerMatch || $sMatch) &&
-                                        (!empty($lItem['has_saved']) ||
-                                            !empty($lItem['presumptive_result']) ||
-                                            !empty($lItem['substance_identification']))
-                                    ) {
-                                        $sDossierHasSavedLab = true;
-                                        $sDossierLabExam = $lItem;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Source 4: Docket Data lab_examination (for primary suspect)
-                            if (
-                                !$sDossierHasSavedLab &&
-                                !$isAssociate &&
-                                $sIdx === 0 &&
-                                !empty($docketData['lab_examination']['has_saved'])
-                            ) {
-                                $labOwner = $docketData['lab_examination']['exhibit_owner_name'] ?? 'Primary Suspect';
-                                if (
-                                    strtolower(trim($labOwner)) === 'primary suspect' ||
-                                    strtolower(trim($labOwner)) === strtolower(trim($sName))
-                                ) {
-                                    $sDossierHasSavedLab = true;
-                                    $sDossierLabExam = $docketData['lab_examination'];
-                                }
-                            }
-
-                            // Source 6: Exhibit level saved lab examination findings
-                            if (!$sDossierHasSavedLab && !empty($currSuspectExhibits)) {
-                                foreach ($currSuspectExhibits as $eCheck) {
-                                    if (
-                                        !empty($eCheck['lab_examination']) &&
-                                        is_array($eCheck['lab_examination']) &&
-                                        (!empty($eCheck['lab_examination']['has_saved']) ||
-                                            !empty($eCheck['lab_examination']['substance_identification']) ||
-                                            !empty($eCheck['lab_examination']['presumptive_result']))
-                                    ) {
-                                        $sDossierHasSavedLab = true;
-                                        $sDossierLabExam = $eCheck['lab_examination'];
-                                        break;
-                                    }
-                                    if (
-                                        !empty($eCheck['lab_result']) &&
-                                        is_array($eCheck['lab_result']) &&
-                                        (!empty($eCheck['lab_result']['has_saved']) ||
-                                            !empty($eCheck['lab_result']['substance_identification']) ||
-                                            !empty($eCheck['lab_result']['presumptive_result']))
-                                    ) {
-                                        $sDossierHasSavedLab = true;
-                                        $sDossierLabExam = $eCheck['lab_result'];
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Source 7: DB direct table check
-                            if (!$sDossierHasSavedLab && isset($case->id)) {
-                                try {
-                                    if ($isAssociate) {
-                                        $assocDbRow = \DB::table('associate_lab_examinations')
-                                            ->where('case_id', $case->id)
-                                            ->where('suspect_name', $sName)
-                                            ->first();
-                                        if (
-                                            $assocDbRow &&
-                                            (!empty($assocDbRow->has_saved) ||
-                                                !empty($assocDbRow->substance_identification) ||
-                                                !empty($assocDbRow->presumptive_result))
-                                        ) {
-                                            $sDossierHasSavedLab = true;
-                                            $sDossierLabExam = (array) $assocDbRow;
-                                        }
-                                    } else {
-                                        $primDbRow = \DB::table('laboratory_examination_results')
-                                            ->where(function ($q) use ($case, $isMultiCase) {
-                                                if ($isMultiCase) {
-                                                    $q->where('multiple_suspect_case_id', $case->id);
-                                                } else {
-                                                    $q->where('single_suspect_case_id', $case->id);
-                                                }
-                                            })
-                                            ->first();
-                                        if (
-                                            $primDbRow &&
-                                            (!empty($primDbRow->has_saved) ||
-                                                !empty($primDbRow->substance_identification) ||
-                                                !empty($primDbRow->presumptive_result))
-                                        ) {
-                                            $sDossierHasSavedLab = true;
-                                            $sDossierLabExam = (array) $primDbRow;
-                                        }
-                                    }
-                                } catch (\Throwable $e) {
-                                }
-                            }
-
-                            // Source 8: Fallback for Drug Cases / Suspect Drug Exhibits when no lab examination has been saved yet
                             $currSuspectHasDrug = false;
                             if (!empty($currSuspectExhibits)) {
                                 foreach ($currSuspectExhibits as $eCh) {
                                     $eCatLower = strtolower(trim($eCh['exhibit_category'] ?? ($eCh['category'] ?? '')));
-                                    $eNameLower = strtolower(
-                                        trim(
-                                            $eCh['seizure_name_drug'] ??
-                                                ($eCh['commodity_name'] ??
-                                                    ($eCh['seizure_name'] ?? ($eCh['name'] ?? ''))),
-                                        ),
-                                    );
+                                    $eTypeLower = strtolower(trim($eCh['exhibit_type'] ?? ''));
                                     if (
                                         str_contains($eCatLower, 'drug') ||
                                         str_contains($eCatLower, 'narcotic') ||
-                                        !empty($eCh['seizure_name_drug']) ||
-                                        str_contains($eNameLower, 'cannabis') ||
-                                        str_contains($eNameLower, 'cocaine') ||
-                                        str_contains($eNameLower, 'heroin') ||
-                                        str_contains($eNameLower, 'meth') ||
-                                        str_contains($eNameLower, 'tramadol')
+                                        str_contains($eTypeLower, 'drug')
                                     ) {
                                         $currSuspectHasDrug = true;
                                         break;
                                     }
                                 }
                             }
-
-                            if (
-                                !$sDossierHasSavedLab &&
-                                ($currSuspectHasDrug || (!$isAssociate && ($isDrugCase ?? false)))
-                            ) {
-                                $sDossierHasSavedLab = true;
-                                $sDossierLabExam = [
-                                    'exam_reference' => $labExamRef ?? 'GSA-FM-T77-F',
-                                    'exhibit_number' => !empty($currSuspectExhibits[0]['exhibit_number'])
-                                        ? $currSuspectExhibits[0]['exhibit_number']
-                                        : ($case->exhibit_number ?:
-                                        'EXH-01'),
-                                    'laboratory_number' => $case->laboratory_number ?: 'Lab No. 12/FS05/2025',
-                                    'exhibit_description' => !empty($currSuspectExhibits[0]['commodity_name'])
-                                        ? $currSuspectExhibits[0]['commodity_name']
-                                        : ($case->seizure_name_drug ?:
-                                        ($case->seizure_name ?:
-                                        'Drug Exhibit')),
-                                    'analyst' => $case->submitting_officer ?: 'Lab Analyst',
-                                    'date_received' => $case->incident_date
-                                        ? substr((string) $case->incident_date, 0, 10)
-                                        : date('Y-m-d'),
-                                    'date_started' => date('Y-m-d'),
-                                    'date_completed' => date('Y-m-d'),
-                                    'presumptive_result' => $case->presumptive_test_result ?: 'N/A',
-                                    'confirmatory_result' => $case->confirmatory_test_result ?: 'YES',
-                                    'sample_weight' => [
-                                        'description' => $case->sample_weight_description,
-                                        'units_packaging' => $case->sample_weight_units,
-                                        'gross_weight' => $case->sample_weight_gross,
-                                        'sample_taken' => $case->sample_weight_taken,
-                                        'reserved_samples' => $case->sample_weight_reserved,
-                                    ],
-                                    'substance_identification' => $case->confirmatory_substance_identification ?: 'N/A',
-                                    'detected_substances' => [],
-                                    'test_methods' => $case->confirmatory_test_methods ?: 'N/A',
-                                    'specifications' => $case->confirmatory_specifications ?: 'N/A',
-                                    'remark' => $case->confirmatory_remark ?: 'N/A',
-                                    'findings' =>
-                                        $case->laboratory_analytical_findings ?:
-                                        'Awaiting laboratory examination completion.',
-                                ];
-                            }
-
-                            if (!empty($sDossierLabExam)) {
-                                if (
-                                    empty($sDossierLabExam['exhibit_number']) ||
-                                    $sDossierLabExam['exhibit_number'] === 'N/A'
-                                ) {
-                                    $sDossierLabExam['exhibit_number'] =
-                                        $sDossierLabExam['exhibit_no'] ??
-                                        ($sDossierLabExam['exhibit_id'] ??
-                                            ($case->exhibit_number ?: $labExhibitNo ?? 'EXH-01'));
-                                }
-                                if (
-                                    empty($sDossierLabExam['exam_reference']) ||
-                                    $sDossierLabExam['exam_reference'] === 'N/A'
-                                ) {
-                                    $sDossierLabExam['exam_reference'] = $labExamRef ?? 'GSA-FM-T77-F';
-                                }
-                                if (
-                                    empty($sDossierLabExam['laboratory_number']) ||
-                                    $sDossierLabExam['laboratory_number'] === 'N/A'
-                                ) {
-                                    $sDossierLabExam['laboratory_number'] = $labNumber ?? 'Lab No. 12/FS05/2025';
-                                }
-                                if (empty($sDossierLabExam['analyst']) || $sDossierLabExam['analyst'] === 'N/A') {
-                                    $sDossierLabExam['analyst'] = $labAnalyst ?? 'John Adu';
-                                }
-
-                                $defRecDate = !empty($case->incident_date)
-                                    ? substr((string) $case->incident_date, 0, 10)
-                                    : (is_object($case->created_at)
-                                        ? $case->created_at->format('Y-m-d')
-                                        : substr((string) $case->created_at, 0, 10));
-
-                                $rRec = $sDossierLabExam['date_received'] ?? null;
-                                if (empty($rRec) || $rRec === 'N/A') {
-                                    $rRec = $defRecDate;
-                                }
-                                $sDossierLabExam['date_received'] = is_object($rRec)
-                                    ? $rRec->format('Y-m-d')
-                                    : substr((string) $rRec, 0, 10);
-
-                                $rStart = $sDossierLabExam['date_started'] ?? null;
-                                if (empty($rStart) || $rStart === 'N/A') {
-                                    $rStart = $sDossierLabExam['date_received'];
-                                }
-                                $sDossierLabExam['date_started'] = is_object($rStart)
-                                    ? $rStart->format('Y-m-d')
-                                    : substr((string) $rStart, 0, 10);
-
-                                $rComp = $sDossierLabExam['date_completed'] ?? null;
-                                if (empty($rComp) || $rComp === 'N/A') {
-                                    $rComp = $sDossierLabExam['date_started'];
-                                }
-                                $sDossierLabExam['date_completed'] = is_object($rComp)
-                                    ? $rComp->format('Y-m-d')
-                                    : substr((string) $rComp, 0, 10);
-                            }
                         @endphp
-
                         @if (
                             !$isAssociate &&
                             ($currSuspectHasDrug || ($isDrugCase ?? false)) &&
@@ -5654,385 +4593,24 @@
                                 if (!$sDossierIsJointLab && $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)) {
                                     $sDossierIsJointLab = true;
                                 }
+                                if (!$sDossierIsJointLab && !empty($capturedJointExhibits)) {
+                                    $sDossierIsJointLab = true;
+                                }
                                 $labExamHeadingName = $sDossierIsJointLab && !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : $sName;
+                                if ($sDossierIsJointLab) {
+                                    $savedJointLabExam = $sDossierLabExam;
+                                    $savedJointLabHeadingName = $labExamHeadingName;
+                                }
                             @endphp
-                            <!-- LABORATORY EXAMINATION RESULT FOR {{ strtoupper($labExamHeadingName) }} -->
-                            <div
-                                class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-4">
-                                <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
-                                    <div class="flex items-center space-x-3">
-                                        <div
-                                            class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2.5"
-                                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($labExamHeadingName) }}</h3>
-                                            <p class="text-[11px] text-emerald-800 font-semibold">Official Laboratory
-                                                Analysis Directorate Findings for {{ $labExamHeadingName }}</p>
-                                        </div>
-                                    </div>
-                                    <span
-                                        class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-200 text-emerald-950 border border-emerald-400">
-                                        ✓ VERIFIED RESULT LOGGED
-                                    </span>
-                                </div>
 
-                                <table
-                                    class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs bg-white">
-                                    <tbody>
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                                                Analysis Reference:</td>
-                                            <td
-                                                class="p-2.5 font-black text-emerald-900 font-mono-code border-r border-slate-300 w-3/10">
-                                                {{ $sDossierLabExam['exam_reference'] ?? 'GSA-FM-T77-F' }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                                                Exhibit Number:</td>
-                                            <td class="p-2.5 font-black text-emerald-900 font-mono-code">
-                                                {{ $sDossierLabExam['exhibit_number'] ?? 'N/A' }}</td>
-                                        </tr>
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Case Reference:</td>
-                                            <td
-                                                class="p-2.5 font-black text-blue-900 font-mono-code border-r border-slate-300">
-                                                {{ $case->case_number }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Laboratory Number:</td>
-                                            <td class="p-2.5 font-black text-slate-900 font-mono-code">
-                                                {{ $sDossierLabExam['laboratory_number'] ?? 'N/A' }}</td>
-                                        </tr>
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Exhibit Description:</td>
-                                            <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                                                {{ $sDossierLabExam['exhibit_description'] ?? ($sDossierLabExam['description'] ?? ($sDossierLabExam['sample_weight']['description'] ?? 'N/A')) }}
-                                            </td>
-                                        </tr>
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Analyst / Examiner:</td>
-                                            <td class="p-2.5 font-black text-slate-900 border-r border-slate-300">
-                                                {{ $sDossierLabExam['analyst'] ?? 'N/A' }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Examination Timeline:</td>
-                                            <td class="p-2 bg-white">
-                                                <div
-                                                    class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
-                                                    <span>Received: <strong
-                                                            class="text-blue-900">{{ $sDossierLabExam['date_received'] ?? 'N/A' }}</strong></span>
-                                                    <span>|</span>
-                                                    <span>Started: <strong
-                                                            class="text-amber-900">{{ $sDossierLabExam['date_started'] ?? 'N/A' }}</strong></span>
-                                                    <span>|</span>
-                                                    <span>Completed: <strong
-                                                            class="text-emerald-900">{{ $sDossierLabExam['date_completed'] ?? 'N/A' }}</strong></span>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Presumptive Reaction:</td>
-                                            <td class="p-2 border-r border-slate-300 bg-white">
-                                                @php
-                                                    $pRawDos = trim($sDossierLabExam['presumptive_result'] ?? '');
-                                                    $pRowsDos = [];
-                                                    if (!empty($pRawDos) && $pRawDos !== 'N/A') {
-                                                        $overallResultDos = 'N/A';
-                                                        if (
-                                                            preg_match(
-                                                                '/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i',
-                                                                $pRawDos,
-                                                                $mResD,
-                                                            )
-                                                        ) {
-                                                            $overallResultDos = strtoupper($mResD[1]);
-                                                            if (
-                                                                $overallResultDos === 'POS' ||
-                                                                $overallResultDos === 'POSITIVE'
-                                                            ) {
-                                                                $overallResultDos = 'YES';
-                                                            }
-                                                            if (
-                                                                $overallResultDos === 'NEG' ||
-                                                                $overallResultDos === 'NEGATIVE'
-                                                            ) {
-                                                                $overallResultDos = 'NO';
-                                                            }
-                                                        }
-
-                                                        $cleanPDos = $pRawDos;
-                                                        if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRawDos, $mPD)) {
-                                                            $cleanPDos = $mPD[1];
-                                                        }
-
-                                                        $segmentsDos = preg_split(
-                                                            '/;\s*(?=\[\d+\]|Presence of:)/i',
-                                                            $cleanPDos,
-                                                        );
-                                                        if (empty($segmentsDos)) {
-                                                            $segmentsDos = [$cleanPDos];
-                                                        }
-
-                                                        foreach ($segmentsDos as $segD) {
-                                                            $segD = trim($segD);
-                                                            if (empty($segD)) {
-                                                                continue;
-                                                            }
-
-                                                            $presenceD = 'N/A';
-                                                            $purityD = 'N/A';
-
-                                                            if (
-                                                                preg_match(
-                                                                    '/Presence of:\s*([^\-\;\)]+)/i',
-                                                                    $segD,
-                                                                    $mPresD,
-                                                                )
-                                                            ) {
-                                                                $presenceD = trim($mPresD[1]);
-                                                            } elseif (
-                                                                preg_match('/^\[\d+\]\s*([^\-\;\)]+)/i', $segD, $mPresD)
-                                                            ) {
-                                                                $presenceD = trim($mPresD[1]);
-                                                            } elseif (!empty($segD) && !str_contains($segD, 'Purity')) {
-                                                                $presenceD = trim($segD);
-                                                            }
-
-                                                            if (
-                                                                $presenceD === 'YES' ||
-                                                                $presenceD === 'NO' ||
-                                                                $presenceD === 'POS' ||
-                                                                $presenceD === 'NEG'
-                                                            ) {
-                                                                $presenceD = 'N/A';
-                                                            }
-
-                                                            if (
-                                                                preg_match(
-                                                                    '/Purity\/Percentage:\s*([^\;\)]+)/i',
-                                                                    $segD,
-                                                                    $mPurD,
-                                                                )
-                                                            ) {
-                                                                $purityD = trim($mPurD[1]);
-                                                            }
-
-                                                            if (
-                                                                $presenceD !== 'N/A' ||
-                                                                $purityD !== 'N/A' ||
-                                                                count($segmentsDos) === 1
-                                                            ) {
-                                                                $pRowsDos[] = [
-                                                                    'result' => $overallResultDos,
-                                                                    'presence' => $presenceD,
-                                                                    'purity' => $purityD,
-                                                                ];
-                                                            }
-                                                        }
-                                                    }
-                                                    if (empty($pRowsDos)) {
-                                                        $pRowsDos[] = [
-                                                            'result' => 'N/A',
-                                                            'presence' => 'N/A',
-                                                            'purity' => 'N/A',
-                                                        ];
-                                                    }
-                                                @endphp
-                                                <table
-                                                    class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                                                    <thead
-                                                        class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                                        <tr class="border-b border-slate-300">
-                                                            <th
-                                                                class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                                Result</th>
-                                                            <th
-                                                                class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                                Presence of</th>
-                                                            <th class="px-2 py-1 text-left bg-slate-200/70">
-                                                                Purity/Percentage</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody class="bg-white">
-                                                        @foreach ($pRowsDos as $pRowD)
-                                                            <tr class="border-b border-slate-200 last:border-b-0">
-                                                                <td
-                                                                    class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pRowD['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">
-                                                                    {{ $pRowD['result'] }}</td>
-                                                                <td
-                                                                    class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                                                    {{ $pRowD['presence'] }}</td>
-                                                                <td class="px-2 py-1 font-bold text-slate-900">
-                                                                    {{ $pRowD['purity'] }}</td>
-                                                            </tr>
-                                                        @endforeach
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Confirmatory Test:</td>
-                                            <td class="p-2.5 font-black text-emerald-900">
-                                                @php
-                                                    $confVal = strtoupper(
-                                                        trim(
-                                                            (string) ($sDossierLabExam['confirmatory_result'] ?? 'YES'),
-                                                        ),
-                                                    );
-                                                @endphp
-                                                <span class="inline-flex items-center space-x-1">
-                                                    <span
-                                                        class="w-2 h-2 rounded-full {{ $confVal !== 'NO' ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
-                                                    <span>{{ $confVal !== 'NO' ? 'YES' : 'NO' }}</span>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Sample Metrology:</td>
-                                            <td class="p-2.5 bg-white" colspan="3">
-                                                @php
-                                                    $sw = $sDossierLabExam['sample_weight'] ?? [];
-                                                @endphp
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                                                    <div
-                                                        class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Description:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $sw['description'] ?? 'N/A' }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Units:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $sw['units_packaging'] ?? 'N/A' }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Gross
-                                                            Wt:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $sw['gross_weight'] ?? 'N/A' }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Taken:</span>
-                                                        <span
-                                                            class="font-bold text-emerald-900 ml-1">{{ $sw['sample_taken'] ?? '—' }}</span>
-                                                    </div>
-                                                    <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                                        <span
-                                                            class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Reserved:</span>
-                                                        <span
-                                                            class="font-bold text-slate-900 ml-1">{{ $sw['reserved_samples'] ?? '—' }}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Substance Identified:</td>
-                                            <td class="p-2.5 font-black text-slate-950 border-r border-slate-300">
-                                                {{ $sDossierLabExam['substance_identification'] ?? 'N/A' }}</td>
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Test Specifications:</td>
-                                            <td class="p-2.5 font-bold text-slate-900">
-                                                {{ $sDossierLabExam['specifications'] ?? 'N/A' }}</td>
-                                        </tr>
-                                        @php
-                                            $detSubs = $sDossierLabExam['detected_substances'] ?? [];
-                                            if (is_string($detSubs)) {
-                                                $detSubs = json_decode($detSubs, true) ?: [];
-                                            }
-                                        @endphp
-                                        @if (!empty($detSubs) && is_array($detSubs) && count($detSubs) > 0)
-                                            <tr class="bg-amber-50/70 border-b border-slate-300">
-                                                <td
-                                                    class="p-2.5 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
-                                                    Result (Detected Substances & Purity %):</td>
-                                                <td class="p-2.5" colspan="3">
-                                                    <div class="flex flex-wrap gap-2">
-                                                        @foreach ($detSubs as $cSub)
-                                                            @php
-                                                                $cName = is_array($cSub)
-                                                                    ? $cSub['compound'] ??
-                                                                        ($cSub['name'] ??
-                                                                            ($cSub['substance'] ?? 'Unknown'))
-                                                                    : $cSub;
-                                                                $cPct = is_array($cSub)
-                                                                    ? $cSub['purity'] ??
-                                                                        ($cSub['percentage'] ??
-                                                                            ($cSub['concentration'] ?? null))
-                                                                    : null;
-                                                                $cMeth = is_array($cSub)
-                                                                    ? $cSub['method'] ?? null
-                                                                    : null;
-                                                            @endphp
-                                                            <span
-                                                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
-                                                                <span
-                                                                    class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                                                <span>{{ $cName }}</span>
-                                                                @if ($cPct)
-                                                                    <span
-                                                                        class="text-emerald-800 font-mono font-extrabold">({{ $cPct }}%)</span>
-                                                                @endif
-                                                                @if ($cMeth)
-                                                                    <span
-                                                                        class="text-slate-500 font-mono text-[10px]">[{{ $cMeth }}]</span>
-                                                                @endif
-                                                            </span>
-                                                        @endforeach
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        @endif
-                                        <tr class="bg-slate-100/90 border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Test Methods:</td>
-                                            <td class="p-2.5 font-bold text-slate-900 border-r border-slate-300"
-                                                colspan="3">{{ $sDossierLabExam['test_methods'] ?? 'N/A' }}</td>
-                                        </tr>
-                                        <tr class="border-b border-slate-300">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                                Analysis Remark:</td>
-                                            <td class="p-2.5 font-bold text-slate-900" colspan="3">
-                                                {{ $sDossierLabExam['remark'] ?? 'N/A' }}</td>
-                                        </tr>
-                                        <tr class="bg-slate-900 text-white">
-                                            <td
-                                                class="p-2.5 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">
-                                                Analytical Findings:</td>
-                                            <td class="p-2.5 font-medium text-slate-100 leading-relaxed bg-slate-900"
-                                                colspan="3">
-                                                {{ $sDossierLabExam['findings'] ?? 'No specific laboratory analytical findings logged yet.' }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            @if (!$sDossierIsJointLab)
+                                @include('partials.lab_examination_result_card', [
+                                    'labExam' => $sDossierLabExam,
+                                    'labHeadingName' => $labExamHeadingName,
+                                    'case' => $case,
+                                ])
+                            @endif
                         @endif
-
                         {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT --}}
                         @php
                             $allGsaForReview = \App\Models\SuspectGsaReport::forCase(
@@ -6058,6 +4636,19 @@
                             })->values();
                         @endphp
                         @include('partials.gsa_report_files', ['gsaFiles' => $sGsaFiles, 'gsaForName' => $sName])
+
+                        {{-- ATTACHED DRUG SCREENING RESULT FOR THIS SPECIFIC SUSPECT --}}
+                        @php
+                            $sDrugScreening = \App\Models\DrugScreening::forSuspect($sItem['id'] ?? ($sId ?? null), $sName);
+                        @endphp
+                        @include('partials.suspect_drug_screening_card', [
+                            'screening' => $sDrugScreening,
+                            'suspectName' => $sName,
+                            'suspectId' => $sItem['id'] ?? ($sId ?? null),
+                            'caseNumber' => $case->case_number ?? ($case->id ?? 'NCC-2026'),
+                            'showEmpty' => (bool) $isLabContext,
+                            'showActions' => (bool) $isLabContext,
+                        ])
                     </div>
                 @endforeach
 
@@ -6255,6 +4846,55 @@
                     }
                     $allCaseExhibitPhotos = array_values(array_unique($allCaseExhibitPhotos));
                 @endphp
+                                @php
+                    $jointCaseExhibits = [];
+                    $seenJointKeys = [];
+                    foreach ($allCaseExhibits as $cEx) {
+                        if ($isJointExhibitCheck($cEx)) {
+                            $jKey = ($cEx['id'] ?? '') . '_' . ($cEx['seizure_name'] ?? ($cEx['commodity_name'] ?? ''));
+                            if (!isset($seenJointKeys[$jKey])) {
+                                $seenJointKeys[$jKey] = true;
+                                $jointCaseExhibits[] = $cEx;
+                            }
+                        }
+                    }
+                    if (empty($jointCaseExhibits) && !empty($capturedJointExhibits)) {
+                        foreach ($capturedJointExhibits as $cEx) {
+                            $jKey = ($cEx['id'] ?? '') . '_' . ($cEx['seizure_name'] ?? ($cEx['commodity_name'] ?? ''));
+                            if (!isset($seenJointKeys[$jKey])) {
+                                $seenJointKeys[$jKey] = true;
+                                $jointCaseExhibits[] = $cEx;
+                            }
+                        }
+                    }
+                    $isJointExhibitCase = !empty($jointCaseExhibits);
+                    $jointDossierHeadingName = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : 'Primary & Co-Suspect';
+                @endphp
+
+                @if ($isJointExhibitCase)
+                    <!-- PRIMARY & CO-SUSPECT EXHIBIT DOSSIER (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) -->
+                    @include('partials.exhibit_dossier_card', [
+                        'dossierBadgeText' => 'PRIMARY & CO-SUSPECT EXHIBIT DOSSIER',
+                        'dossierHeadingText' => "Primary & Co-Suspect Seizures & Exhibits — {$jointDossierHeadingName}",
+                        'dossierHeadingName' => $jointDossierHeadingName,
+                        'dossierExhibits' => $jointCaseExhibits,
+                        'dossierPhotos' => $allCaseExhibitPhotos,
+                        'formatPhotoUrlHelper' => $formatPhotoUrlHelper,
+                        'extractAllPhotosHelper' => $extractAllPhotosHelper,
+                        'case' => $case,
+                        'docketData' => $docketData,
+                    ])
+
+                    {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
+                    @if (!empty($savedJointLabExam))
+                        @include('partials.lab_examination_result_card', [
+                            'labExam' => $savedJointLabExam,
+                            'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
+                            'case' => $case,
+                        ])
+                    @endif
+                @endif
+
                 @if (!empty($allCaseExhibits) && count($allCaseExhibits) > 0)
                     <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
                     <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm mt-4">
@@ -6279,6 +4919,7 @@
                                         <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
                                         <th class="py-2.5 px-4 font-bold">Category</th>
                                         <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
+                                        <th class="py-2.5 px-4 font-bold">Source of Exhibits</th>
                                         <th class="py-2.5 px-4 font-bold">Quantity</th>
                                         <th class="py-2.5 px-4 font-bold">Weight / Unit</th>
                                         <th class="py-2.5 px-4 font-bold">Packaging</th>
@@ -6380,6 +5021,8 @@
                                                 {{ $szCat }}</td>
                                             <td class="py-2.5 px-4 font-extrabold text-slate-900">
                                                 {{ $szNameVal }}</td>
+                                            <td class="py-2.5 px-4 font-mono-code text-slate-700">
+                                                {{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</td>
                                             <td class="py-2.5 px-4 font-mono-code">{{ $szQtyVal }}</td>
                                             <td class="py-2.5 px-4 font-mono-code">{{ $szWtVal }}</td>
                                             <td class="py-2.5 px-4 font-mono-code">{{ $szPkgVal }}</td>
@@ -6611,7 +5254,7 @@
                                         'laboratory_number' =>
                                             $dbPrimaryLabExam->laboratory_number ?: $case->laboratory_number ?? null,
                                         'exam_reference' =>
-                                            $dbPrimaryLabExam->exam_reference ?: 'GSA-FM-T' . rand(10, 99) . '-F',
+                                            (!empty($dbPrimaryLabExam->exam_reference) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $dbPrimaryLabExam->exam_reference) : 'NLR-FM-T35-F'),
                                         'exhibit_number' =>
                                             $dbPrimaryLabExam->exhibit_number ?:
                                             'EXH-' .
@@ -6711,37 +5354,11 @@
                                         return false;
                                     }
                                     $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? '')));
-                                    $name = strtolower(
-                                        trim(
-                                            $ex['seizure_name_drug'] ??
-                                                ($ex['commodity_name'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))),
-                                        ),
-                                    );
-                                    $nonDrugKws = [
-                                        'weapon',
-                                        'firearm',
-                                        'pistol',
-                                        'rifle',
-                                        'shotgun',
-                                        'ammunition',
-                                        'vehicle',
-                                        'truck',
-                                        'car',
-                                        'cash',
-                                        'currency',
-                                        'usd',
-                                        'ghs',
-                                        'laptop',
-                                        'phone',
-                                        'electronics',
-                                        'document',
-                                    ];
-                                    foreach ($nonDrugKws as $kw) {
-                                        if (str_contains($cat, $kw) || str_contains($name, $kw)) {
-                                            return false;
-                                        }
-                                    }
-                                    return true;
+                                    $type = strtolower(trim($ex['exhibit_type'] ?? ''));
+                                    return str_contains($cat, 'drug') ||
+                                        str_contains($cat, 'narcotic') ||
+                                        str_contains($type, 'drug') ||
+                                        !empty($ex['seizure_name_drug']);
                                 }),
                             );
 
@@ -6871,67 +5488,16 @@
                                     return false;
                                 }
                                 $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? '')));
-                                $name = strtolower(
-                                    trim(
-                                        $ex['seizure_name_drug'] ??
-                                            ($ex['commodity_name'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))),
-                                    ),
-                                );
-                                $nonDrugKws = [
-                                    'weapon',
-                                    'firearm',
-                                    'pistol',
-                                    'rifle',
-                                    'shotgun',
-                                    'ammunition',
-                                    'vehicle',
-                                    'truck',
-                                    'car',
-                                    'cash',
-                                    'currency',
-                                    'usd',
-                                    'ghs',
-                                    'laptop',
-                                    'phone',
-                                    'electronics',
-                                    'document',
-                                ];
-                                foreach ($nonDrugKws as $kw) {
-                                    if (str_contains($cat, $kw) || str_contains($name, $kw)) {
-                                        return false;
-                                    }
-                                }
+                                $type = strtolower(trim($ex['exhibit_type'] ?? ''));
                                 if (
-                                    $cat === 'drugs' ||
-                                    $cat === 'narcotics' ||
-                                    $cat === 'drug' ||
-                                    !empty($ex['seizure_name_drug'])
+                                    str_contains($cat, 'drug') ||
+                                    str_contains($cat, 'narcotic') ||
+                                    str_contains($type, 'drug')
                                 ) {
                                     return true;
                                 }
-                                $drugKws = [
-                                    'drug',
-                                    'narcotic',
-                                    'opioid',
-                                    'cocaine',
-                                    'heroin',
-                                    'cannabis',
-                                    'marijuana',
-                                    'weed',
-                                    'meth',
-                                    'fentanyl',
-                                    'tramadol',
-                                    'codeine',
-                                    'morphine',
-                                    'opium',
-                                    'amphetamine',
-                                    'mdma',
-                                    'ecstasy',
-                                ];
-                                foreach ($drugKws as $kw) {
-                                    if (str_contains($cat, $kw) || str_contains($name, $kw)) {
-                                        return true;
-                                    }
+                                if (!empty($ex['seizure_name_drug'])) {
+                                    return true;
                                 }
                                 return false;
                             };
@@ -8860,6 +7426,26 @@
                                         </div>
                                     </div>
 
+                                    <!-- SOURCE OF EXHIBITS -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
+                                        <div class="relative flex items-center group">
+                                            <span
+                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                </svg>
+                                            </span>
+                                            <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
+                                                placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
+                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
                                     <!-- SEIZING OFFICERS (MULTI-ROW) -->
                                     <div class="col-span-full">
                                         <div class="flex items-center justify-between mb-1.5">
@@ -9159,46 +7745,23 @@
             if (empty($ex) || !is_array($ex)) {
                 return false;
             }
-            $cat = strtolower(
-                trim($ex['exhibit_category'] ?? ($ex['category'] ?? ($ex['seizure_category'] ?? ($ex['type'] ?? '')))),
-            );
-            $name = strtolower(trim($ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))));
-            $type = strtolower(trim($ex['seizure_type'] ?? ($ex['exhibit_type'] ?? '')));
 
-            $nonDrugKws = [
-                'weapon',
-                'firearm',
-                'pistol',
-                'rifle',
-                'shotgun',
-                'ammunition',
-                'vehicle',
-                'truck',
-                'car',
-                'cash',
-                'currency',
-                'usd',
-                'ghs',
-                'laptop',
-                'phone',
-                'electronics',
-                'document',
-            ];
-            foreach ($nonDrugKws as $kw) {
-                if (str_contains($cat, $kw) || str_contains($name, $kw) || str_contains($type, $kw)) {
-                    return false;
-                }
-            }
-            if ($cat === 'drugs' || $cat === 'narcotics' || $cat === 'drug' || !empty($ex['seizure_name_drug'])) {
+            $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? '')));
+            $type = strtolower(trim($ex['exhibit_type'] ?? ''));
+
+            if (
+                str_contains($cat, 'drug') ||
+                str_contains($cat, 'narcotic') ||
+                str_contains($type, 'drug')
+            ) {
                 return true;
             }
-            if (
-                !empty($cat) &&
-                in_array($cat, ['weapons', 'weapon', 'vehicles', 'vehicle', 'cash', 'currency', 'firearm', 'firearms'])
-            ) {
-                return false;
+
+            if (!empty($ex['seizure_name_drug'])) {
+                return true;
             }
-            return true;
+
+            return false;
         };
 
         $associateSuspectsForLab = [];
@@ -9352,8 +7915,8 @@ $assocExamRef =
                 ? $assocLabExam['exam_reference']
                 : (!empty($firstAssocEx['exam_reference'])
                     ? $firstAssocEx['exam_reference']
-                    : ($case->lab_exam_reference ?:
-                    'GSA-FM-T' . rand(10, 99) . '-F'))));
+                    : (!empty($case->lab_exam_reference) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $case->lab_exam_reference) :
+                    'NLR-FM-T35-F'))));
 
 $assocExhibitNo =
     $dbAssocExam && !empty($dbAssocExam->exhibit_number)
@@ -9613,21 +8176,11 @@ $hasThisAssocDrug = false;
 if (!empty($aSpExhibits)) {
     foreach ($aSpExhibits as $aEx) {
         $aCatLower = strtolower(trim($aEx['exhibit_category'] ?? ($aEx['category'] ?? '')));
-        $aNameLower = strtolower(
-            trim(
-                $aEx['seizure_name_drug'] ??
-                    ($aEx['commodity_name'] ?? ($aEx['seizure_name'] ?? ($aEx['name'] ?? ''))),
-            ),
-        );
+        $aTypeLower = strtolower(trim($aEx['exhibit_type'] ?? ''));
         if (
             str_contains($aCatLower, 'drug') ||
             str_contains($aCatLower, 'narcotic') ||
-            !empty($aEx['seizure_name_drug']) ||
-            str_contains($aNameLower, 'cannabis') ||
-            str_contains($aNameLower, 'cocaine') ||
-            str_contains($aNameLower, 'heroin') ||
-            str_contains($aNameLower, 'meth') ||
-            str_contains($aNameLower, 'tramadol')
+            str_contains($aTypeLower, 'drug')
         ) {
             $hasThisAssocDrug = true;
             break;
@@ -9643,7 +8196,7 @@ if (!$hasThisAssocSavedLab && $hasThisAssocDrug) {
         $assocSubstanceId = 'N/A';
     }
     if (empty($assocExamRef)) {
-        $assocExamRef = 'GSA-FM-T77-F';
+        $assocExamRef = 'NLR-FM-T35-F';
     }
     if (empty($assocExhibitNo)) {
         $assocExhibitNo = !empty($aSpExhibits[0]['exhibit_number'])
@@ -11246,6 +9799,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                     const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                     const location = block.querySelector('#newSeizureLocation')?.value || '';
+                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
 
@@ -11281,6 +9835,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             seizure_date: dateSeized,
                             seizure_time: timeSeized,
                             seizure_location: location,
+                            source_of_exhibits: sourceOfExhibits,
                             seizure_officer: seizingOfficer,
                             dev_model: devModel,
                             dev_serial_no: devSerialNo,
@@ -13613,6 +12168,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                 const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                 const location = block.querySelector('#newSeizureLocation')?.value || '';
+                const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                 const seizingOfficer = getSeizureOfficersFormatted(block);
 
                 const devModel = block.querySelector('#newDevModel')?.value || '';
@@ -13652,6 +12208,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         seizure_date: dateSeized,
                         seizure_time: timeSeized,
                         seizure_location: location,
+                        source_of_exhibits: sourceOfExhibits,
                         seizure_officer: seizingOfficer,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
