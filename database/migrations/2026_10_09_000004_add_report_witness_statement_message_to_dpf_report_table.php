@@ -20,24 +20,9 @@ return new class extends Migration
             });
 
             if (DB::getDriverName() !== 'sqlite') {
-                $isPgsql = DB::getDriverName() === 'pgsql';
-                if ($isPgsql) {
-                    try {
-                        DB::statement('DROP VIEW IF EXISTS dpf_reports CASCADE');
-                    } catch (\Throwable $e) {}
-                }
-
-                try {
-                    Schema::table('dpf_report', function (Blueprint $table) {
-                        $table->text('report_witness_statement_sent')->nullable()->change();
-                    });
-                } catch (\Throwable $e) {}
-
-                if ($isPgsql) {
-                    try {
-                        DB::statement('CREATE VIEW dpf_reports AS SELECT * FROM dpf_report');
-                    } catch (\Throwable $e) {}
-                }
+                Schema::table('dpf_report', function (Blueprint $table) {
+                    $table->text('report_witness_statement_sent')->nullable()->change();
+                });
             }
         }
     }
