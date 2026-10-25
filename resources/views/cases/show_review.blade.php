@@ -208,26 +208,48 @@
         : (json_decode($case->docket_data ?? '[]', true) ?:
         []);
 
+    $checkIsDrugExhibit = function ($item) {
+        if (empty($item)) {
+            return false;
+        }
+        if (is_object($item)) {
+            $item = (array) $item;
+        }
+        if (!is_array($item)) {
+            return false;
+        }
+        $cat = strtolower(trim((string) ($item['exhibit_category'] ?? ($item['category'] ?? ''))));
+        $type = strtolower(trim((string) ($item['exhibit_type'] ?? ($item['type'] ?? ''))));
+        $dName = strtolower(trim((string) ($item['seizure_name_drug'] ?? '')));
+
+        if (str_contains($cat, 'non-drug') || str_contains($type, 'non-drug')) {
+            return false;
+        }
+        $nonDrugCategories = ['electronic', 'digital', 'device', 'phone', 'laptop', 'computer', 'weapon', 'vehicle', 'currency', 'cash', 'gold', 'sim card'];
+        foreach ($nonDrugCategories as $ndc) {
+            if (str_contains($cat, $ndc) && empty($dName)) {
+                return false;
+            }
+        }
+        if (!empty($dName) && !in_array($dName, ['n/a', 'none', 'null', '-', 'unknown'])) {
+            return true;
+        }
+        return (str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || (str_contains($type, 'drug') && !str_contains($type, 'non-drug')));
+    };
+
     $exCat = strtolower($case->exhibit_category ?? '');
     $dSeizures = $docketData['seizures'] ?? [];
     $hasDrugSeizureInDocket = false;
     if (is_array($dSeizures)) {
         foreach ($dSeizures as $sz) {
-            $cat = strtolower($sz['exhibit_category'] ?? ($sz['category'] ?? ''));
-            $type = strtolower($sz['exhibit_type'] ?? '');
-            if (
-                str_contains($cat, 'drug') ||
-                str_contains($cat, 'narcotic') ||
-                str_contains($type, 'drug')
-            ) {
+            if ($checkIsDrugExhibit($sz)) {
                 $hasDrugSeizureInDocket = true;
                 break;
             }
         }
     }
     $isDrugCase =
-        str_contains($exCat, 'drug') ||
-        str_contains($exCat, 'narcotic') ||
+        (!str_contains($exCat, 'non-drug') && (str_contains($exCat, 'drug') || str_contains($exCat, 'narcotic'))) ||
         $hasDrugSeizureInDocket;
 
     $primarySuspectName = strtolower(trim($case->suspect_name ?? ''));
@@ -420,25 +442,26 @@
 
     $isAnyDrugCase = false;
     foreach ($allExhibitsCheck as $exCheck) {
-        $cat = strtolower($exCheck['exhibit_category'] ?? ($exCheck['category'] ?? ''));
-        $type = strtolower($exCheck['exhibit_type'] ?? '');
-
-        if (str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($type, 'drug')) {
+        if ($checkIsDrugExhibit($exCheck)) {
             $isAnyDrugCase = true;
             break;
         }
     }
 
     foreach ($primaryExhibitsCheck as $exCheck) {
-        $cat = strtolower($exCheck['exhibit_category'] ?? ($exCheck['category'] ?? ''));
-        $type = strtolower($exCheck['exhibit_type'] ?? '');
-
-        if (str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains($type, 'drug')) {
+        if ($checkIsDrugExhibit($exCheck)) {
             $isPrimaryDrugCase = true;
             break;
         }
     }
-    $isDrugCase = $isDrugCase || $isPrimaryDrugCase || $isAnyDrugCase || (method_exists($case, 'isDrugCase') ? $case->isDrugCase() : false);
+
+    // A case is strictly considered a drug case only when definitive drug exhibit or seizure data is present
+    $hasDefinitiveDrugData = $isDrugCase || $isPrimaryDrugCase || $isAnyDrugCase ||
+        (!empty($case->seizure_name_drug) && !in_array(strtolower(trim($case->seizure_name_drug)), ['n/a', 'none', 'null', '-'])) ||
+        (!empty($hasDrugSeizureInDocket) && $hasDrugSeizureInDocket);
+
+    // Prevent digital cases from being falsely flagged via generic case-level method fallback
+    $isDrugCase = $hasDefinitiveDrugData || (!$isDigitalForensics && empty($allExhibitsCheck) && (method_exists($case, 'isDrugCase') ? $case->isDrugCase() : false));
 
     $controllerUser = $case->getControllerUser();
     $isCaseController =
@@ -554,11 +577,7 @@
             $ex['seizure_name'] ?? ($ex['name'] ?? ($ex['commodity_name'] ?? ($ex['description'] ?? ''))),
         );
 
-        if (
-            str_contains($cat, 'drug') ||
-            str_contains($cat, 'narcotic') ||
-            str_contains($type, 'drug')
-        ) {
+        if ($checkIsDrugExhibit($ex)) {
             $suspectHasDrug = true;
         }
 
@@ -571,7 +590,7 @@
         }
     }
 
-    $activeSuspectHasDrugExhibit = !empty($suspectHasDrug);
+    $activeSuspectHasDrugExhibit = (bool) !empty($suspectHasDrug);
     $hasAnySpecialistUnit = $suspectHasCrimeScene || $suspectHasDrug || $suspectHasElectronic;
 
     // DYNAMIC UNITS LIST DETERMINATION FOR SELECTED SUSPECT (Operational Units only; HOF is the Final Step card)
@@ -609,104 +628,106 @@
     // CHECK IF VALID EXAMINATION INFORMATION HAS ACTUALLY BEEN SAVED FOR THIS SELECTED SUSPECT
     $suspectLabExamSaved = false;
 
-    // 1. Check AssociateLabExamination model strictly matching active suspect name
-    if (!empty($case->id)) {
-        $suspectLabExamSaved = \App\Models\AssociateLabExamination::where('case_id', $case->id)
-            ->where('has_saved', true)
-            ->get()
-            ->contains(function ($aRec) use ($activeSuspectNameLower) {
-                $aName = strtolower(trim($aRec->suspect_name ?? ''));
-                return !empty($aName) &&
-                    ($aName === $activeSuspectNameLower ||
-                        str_contains($aName, $activeSuspectNameLower) ||
-                        str_contains($activeSuspectNameLower, $aName));
-            });
-    }
+    if ($activeSuspectHasDrugExhibit) {
+        // 1. Check AssociateLabExamination model strictly matching active suspect name
+        if (!empty($case->id)) {
+            $suspectLabExamSaved = \App\Models\AssociateLabExamination::where('case_id', $case->id)
+                ->where('has_saved', true)
+                ->get()
+                ->contains(function ($aRec) use ($activeSuspectNameLower) {
+                    $aName = strtolower(trim($aRec->suspect_name ?? ''));
+                    return !empty($aName) &&
+                        ($aName === $activeSuspectNameLower ||
+                            str_contains($aName, $activeSuspectNameLower) ||
+                            str_contains($activeSuspectNameLower, $aName));
+                });
+        }
 
-    // 2. If primary suspect, check LaboratoryExaminationResult model
-    if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($case->id)) {
-        $suspectLabExamSaved = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
-            if ($isMultiCase) {
-                $q->where('multiple_suspect_case_id', $case->id);
-            } else {
-                $q->where('single_suspect_case_id', $case->id);
-            }
-        })
-            ->where(function ($q) {
-                $q->where('has_saved', true)
-                    ->orWhereNotNull('substance_identification')
-                    ->orWhereNotNull('test_methods');
+        // 2. If primary suspect, check LaboratoryExaminationResult model
+        if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($case->id)) {
+            $suspectLabExamSaved = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
+                if ($isMultiCase) {
+                    $q->where('multiple_suspect_case_id', $case->id);
+                } else {
+                    $q->where('single_suspect_case_id', $case->id);
+                }
             })
-            ->exists();
-    }
+                ->where(function ($q) {
+                    $q->where('has_saved', true)
+                        ->orWhereNotNull('substance_identification')
+                        ->orWhereNotNull('test_methods');
+                })
+                ->exists();
+        }
 
-    // 3. Check lab_examinations_list strictly matching active suspect name
-    if (
-        !$suspectLabExamSaved &&
-        !empty($docketData['lab_examinations_list']) &&
-        is_array($docketData['lab_examinations_list'])
-    ) {
-        foreach ($docketData['lab_examinations_list'] as $lItem) {
-            $lOwner = strtolower(trim($lItem['exhibit_owner_name'] ?? ''));
-            if (
-                !empty($lItem['has_saved']) &&
-                ($lOwner === $activeSuspectNameLower ||
-                    str_contains($lOwner, $activeSuspectNameLower) ||
-                    str_contains($activeSuspectNameLower, $lOwner))
-            ) {
-                $suspectLabExamSaved = true;
-                break;
+        // 3. Check lab_examinations_list strictly matching active suspect name
+        if (
+            !$suspectLabExamSaved &&
+            !empty($docketData['lab_examinations_list']) &&
+            is_array($docketData['lab_examinations_list'])
+        ) {
+            foreach ($docketData['lab_examinations_list'] as $lItem) {
+                $lOwner = strtolower(trim($lItem['exhibit_owner_name'] ?? ''));
+                if (
+                    !empty($lItem['has_saved']) &&
+                    ($lOwner === $activeSuspectNameLower ||
+                        str_contains($lOwner, $activeSuspectNameLower) ||
+                        str_contains($activeSuspectNameLower, $lOwner))
+                ) {
+                    $suspectLabExamSaved = true;
+                    break;
+                }
             }
         }
-    }
 
-    // 4. Check associate_lab_examinations in docket_data
-    if (
-        !$suspectLabExamSaved &&
-        !empty($docketData['associate_lab_examinations']) &&
-        is_array($docketData['associate_lab_examinations'])
-    ) {
-        foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
-            $kLow = strtolower(trim($kAssoc));
-            if (
-                !empty($vAssoc['has_saved']) &&
-                ($kLow === $activeSuspectNameLower ||
-                    str_contains($kLow, $activeSuspectNameLower) ||
-                    str_contains($activeSuspectNameLower, $kLow))
-            ) {
-                $suspectLabExamSaved = true;
-                break;
+        // 4. Check associate_lab_examinations in docket_data
+        if (
+            !$suspectLabExamSaved &&
+            !empty($docketData['associate_lab_examinations']) &&
+            is_array($docketData['associate_lab_examinations'])
+        ) {
+            foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
+                $kLow = strtolower(trim($kAssoc));
+                if (
+                    !empty($vAssoc['has_saved']) &&
+                    ($kLow === $activeSuspectNameLower ||
+                        str_contains($kLow, $activeSuspectNameLower) ||
+                        str_contains($activeSuspectNameLower, $kLow))
+                ) {
+                    $suspectLabExamSaved = true;
+                    break;
+                }
             }
         }
-    }
 
-    // 5. Check primary lab_examination in docket_data
-    if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($docketData['lab_examination'])) {
-        $hasLabData =
-            !empty($docketData['lab_examination']['has_saved']) ||
-            !empty($docketData['lab_examination']['substance_identification']) ||
-            !empty($docketData['lab_examination']['confirmatory_result']) ||
-            !empty($docketData['lab_examination']['presumptive_result']);
-        if ($hasLabData) {
-            $pOwner = strtolower(trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''));
-            if (
-                empty($pOwner) ||
-                $pOwner === 'primary suspect' ||
-                $pOwner === $activeSuspectNameLower ||
-                str_contains($pOwner, $activeSuspectNameLower) ||
-                str_contains($activeSuspectNameLower, $pOwner)
-            ) {
-                $suspectLabExamSaved = true;
+        // 5. Check primary lab_examination in docket_data
+        if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($docketData['lab_examination'])) {
+            $hasLabData =
+                !empty($docketData['lab_examination']['has_saved']) ||
+                !empty($docketData['lab_examination']['substance_identification']) ||
+                !empty($docketData['lab_examination']['confirmatory_result']) ||
+                !empty($docketData['lab_examination']['presumptive_result']);
+            if ($hasLabData) {
+                $pOwner = strtolower(trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''));
+                if (
+                    empty($pOwner) ||
+                    $pOwner === 'primary suspect' ||
+                    $pOwner === $activeSuspectNameLower ||
+                    str_contains($pOwner, $activeSuspectNameLower) ||
+                    str_contains($activeSuspectNameLower, $pOwner)
+                ) {
+                    $suspectLabExamSaved = true;
+                }
             }
         }
-    }
 
-    // 6. Check seizures linked to this suspect in docket_data
-    if (!$suspectLabExamSaved) {
-        foreach ($suspectLinkedExhibits as $szItem) {
-            if (!empty($szItem['has_saved_lab'])) {
-                $suspectLabExamSaved = true;
-                break;
+        // 6. Check seizures linked to this suspect in docket_data
+        if (!$suspectLabExamSaved) {
+            foreach ($suspectLinkedExhibits as $szItem) {
+                if (!empty($szItem['has_saved_lab'])) {
+                    $suspectLabExamSaved = true;
+                    break;
+                }
             }
         }
     }
@@ -1105,14 +1126,8 @@
     $topDrugExhibits = [];
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $idx => $sz) {
-            $cat = strtolower($sz['exhibit_category'] ?? ($sz['category'] ?? ''));
-            $type = strtolower($sz['exhibit_type'] ?? '');
-            $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
-            if (
-                str_contains($cat, 'drug') ||
-                str_contains($cat, 'narcotic') ||
-                str_contains($type, 'drug')
-            ) {
+            if ($checkIsDrugExhibit($sz)) {
+                $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
                 $topDrugExhibits[] = [
                     'index' => $idx + 1,
                     'name' => $sName ?: 'Drug Exhibit',
@@ -1342,13 +1357,9 @@
 
     if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
         foreach ($docketData['seizures'] as $idxCheck => $szItemCheck) {
-            $catCheck = strtolower($szItemCheck['exhibit_category'] ?? ($szItemCheck['category'] ?? ''));
-            $typeCheck = strtolower($szItemCheck['exhibit_type'] ?? '');
-            $sNameCheck = $szItemCheck['seizure_name_drug'] ?? ($szItemCheck['seizure_name'] ?? '');
-            $isDrugCheck = str_contains($catCheck, 'drug') ||
-                str_contains($catCheck, 'narcotic') ||
-                str_contains($typeCheck, 'drug');
+            $isDrugCheck = $checkIsDrugExhibit($szItemCheck);
             if ($isDrugCheck) {
+                $sNameCheck = $szItemCheck['seizure_name_drug'] ?? ($szItemCheck['seizure_name'] ?? '');
                 $exNoCheck = $szItemCheck['exhibit_number'] ?? '';
                 $assocPersonNameCheck =
                     $szItemCheck['associated_person'] ??
@@ -1763,7 +1774,7 @@
                             Back to Case Register
                         </a>
                     @elseif($isDigitalForensicsRegister)
-                        <a href="{{ url('/Digital_Forensics') }}" class="btn-back">
+                        <a href="{{ url('/Digital_Forensics/cases') }}" class="btn-back">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -4565,13 +4576,7 @@
                             $currSuspectHasDrug = false;
                             if (!empty($currSuspectExhibits)) {
                                 foreach ($currSuspectExhibits as $eCh) {
-                                    $eCatLower = strtolower(trim($eCh['exhibit_category'] ?? ($eCh['category'] ?? '')));
-                                    $eTypeLower = strtolower(trim($eCh['exhibit_type'] ?? ''));
-                                    if (
-                                        str_contains($eCatLower, 'drug') ||
-                                        str_contains($eCatLower, 'narcotic') ||
-                                        str_contains($eTypeLower, 'drug')
-                                    ) {
+                                    if ($checkIsDrugExhibit($eCh)) {
                                         $currSuspectHasDrug = true;
                                         break;
                                     }
@@ -4580,8 +4585,8 @@
                         @endphp
                         @if (
                             !$isAssociate &&
-                            ($currSuspectHasDrug || ($isDrugCase ?? false)) &&
-                                ($sDossierHasSavedLab || !empty($sDossierLabExam)))
+                            $currSuspectHasDrug && 
+                            ($sDossierHasSavedLab || !empty($sDossierLabExam)))
                             @php
                                 $sDossierIsJointLab = false;
                                 if (!empty($sDossierLabExam)) {
@@ -4886,7 +4891,7 @@
                     ])
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
-                    @if (!empty($savedJointLabExam))
+                    @if (!empty($savedJointLabExam) && $activeSuspectHasDrugExhibit)
                         @include('partials.lab_examination_result_card', [
                             'labExam' => $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
@@ -5349,20 +5354,12 @@
                                 $activeSuspectItem['role'] ?? null,
                             );
                             $activeSuspectDrugExhibits = array_values(
-                                array_filter($activeSuspectExhibits, function ($ex) {
-                                    if (empty($ex) || !is_array($ex)) {
-                                        return false;
-                                    }
-                                    $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? '')));
-                                    $type = strtolower(trim($ex['exhibit_type'] ?? ''));
-                                    return str_contains($cat, 'drug') ||
-                                        str_contains($cat, 'narcotic') ||
-                                        str_contains($type, 'drug') ||
-                                        !empty($ex['seizure_name_drug']);
+                                array_filter($activeSuspectExhibits, function ($ex) use ($checkIsDrugExhibit) {
+                                    return $checkIsDrugExhibit($ex);
                                 }),
                             );
 
-                            if (empty($activeSuspectDrugExhibits) && empty($dbActiveLabExam)) {
+                            if (empty($activeSuspectDrugExhibits) || !$activeSuspectHasDrugExhibit) {
                                 $activeSuspectHasSavedResult = false;
                                 $activeSuspectLabExam = null;
                             }
@@ -5483,24 +5480,7 @@
                                     : $savedLabDateStarted;
                             }
 
-                            $checkIsDrugExhibitReview = function ($ex) {
-                                if (empty($ex) || !is_array($ex)) {
-                                    return false;
-                                }
-                                $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? '')));
-                                $type = strtolower(trim($ex['exhibit_type'] ?? ''));
-                                if (
-                                    str_contains($cat, 'drug') ||
-                                    str_contains($cat, 'narcotic') ||
-                                    str_contains($type, 'drug')
-                                ) {
-                                    return true;
-                                }
-                                if (!empty($ex['seizure_name_drug'])) {
-                                    return true;
-                                }
-                                return false;
-                            };
+                            $checkIsDrugExhibitReview = $checkIsDrugExhibit;
 
                             $allDrugExhibitsList = [];
                             if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
@@ -5747,7 +5727,7 @@
 
                         <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
                         <div id="section5ReadOnlyDisplay"
-                            class="space-y-4 {{ !$isDrugCase || !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
+                            class="space-y-4 {{ !$activeSuspectHasDrugExhibit || !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
 
                             <!-- LABORATORY EXAMINATION HEADER -->
                             <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
@@ -7741,28 +7721,7 @@
             return false;
         };
 
-        $checkIsDrugExhibit = function ($ex) {
-            if (empty($ex) || !is_array($ex)) {
-                return false;
-            }
-
-            $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? '')));
-            $type = strtolower(trim($ex['exhibit_type'] ?? ''));
-
-            if (
-                str_contains($cat, 'drug') ||
-                str_contains($cat, 'narcotic') ||
-                str_contains($type, 'drug')
-            ) {
-                return true;
-            }
-
-            if (!empty($ex['seizure_name_drug'])) {
-                return true;
-            }
-
-            return false;
-        };
+        // Use authoritative $checkIsDrugExhibit closure defined in outer scope
 
         $associateSuspectsForLab = [];
         if (!empty($suspectsList) && is_array($suspectsList)) {
@@ -8173,8 +8132,8 @@ if (!empty($docketData['suspects'])) {
     }
 }
 $hasThisAssocDrug = false;
-if (!empty($aSpExhibits)) {
-    foreach ($aSpExhibits as $aEx) {
+if (!empty($assocExhibitsList)) {
+    foreach ($assocExhibitsList as $aEx) {
         $aCatLower = strtolower(trim($aEx['exhibit_category'] ?? ($aEx['category'] ?? '')));
         $aTypeLower = strtolower(trim($aEx['exhibit_type'] ?? ''));
         if (
@@ -8188,42 +8147,48 @@ if (!empty($aSpExhibits)) {
     }
 }
 if (!$hasThisAssocSavedLab && $hasThisAssocDrug) {
-    $hasThisAssocSavedLab = true;
-    if (empty($assocPresumptiveText)) {
-        $assocPresumptiveText = 'N/A';
+    if ($isDrugCase || $activeSuspectHasDrugExhibit) {
+        $hasThisAssocSavedLab = true;
+        if (empty($assocPresumptiveText)) {
+            $assocPresumptiveText = 'N/A';
+        }
+        if (empty($assocSubstanceId)) {
+            $assocSubstanceId = 'N/A';
+        }
+        if (empty($assocExamRef)) {
+            $assocExamRef = 'NLR-FM-T35-F';
+        }
+        if (empty($assocExhibitNo)) {
+            $assocExhibitNo = !empty($assocExhibitsList[0]['exhibit_number'])
+                ? $assocExhibitsList[0]['exhibit_number']
+                : 'EXH-01';
+        }
+        if (empty($assocLabNumber)) {
+            $assocLabNumber = $case->laboratory_number ?: 'Lab No. 12/FS05/2025';
+        }
+        if (empty($assocAnalyst)) {
+            $assocAnalyst = $case->submitting_officer ?: 'Lab Analyst';
+        }
+        if (empty($assocDateReceived)) {
+            $assocDateReceived = date('Y-m-d');
+        }
+        if (empty($assocDateStarted)) {
+            $assocDateStarted = date('Y-m-d');
+        }
+        if (empty($assocDateCompleted)) {
+            $assocDateCompleted = date('Y-m-d');
+        }
+    } else {
+        $hasThisAssocSavedLab = false;
     }
-    if (empty($assocSubstanceId)) {
-        $assocSubstanceId = 'N/A';
-    }
-    if (empty($assocExamRef)) {
-        $assocExamRef = 'NLR-FM-T35-F';
-    }
-    if (empty($assocExhibitNo)) {
-        $assocExhibitNo = !empty($aSpExhibits[0]['exhibit_number'])
-            ? $aSpExhibits[0]['exhibit_number']
-            : 'EXH-01';
-    }
-    if (empty($assocLabNumber)) {
-        $assocLabNumber = $case->laboratory_number ?: 'Lab No. 12/FS05/2025';
-    }
-    if (empty($assocAnalyst)) {
-        $assocAnalyst = $case->submitting_officer ?: 'Lab Analyst';
-    }
-    if (empty($assocDateReceived)) {
-        $assocDateReceived = date('Y-m-d');
-    }
-    if (empty($assocDateStarted)) {
-        $assocDateStarted = date('Y-m-d');
-    }
-    if (empty($assocDateCompleted)) {
-        $assocDateCompleted = date('Y-m-d');
-    }
+} elseif (!$hasThisAssocDrug) {
+    $hasThisAssocSavedLab = false;
 }
 $secondaryBadge = $isCoSuspect ? 'CO-SUSPECT DOSSIER' : 'ASSOCIATE DOSSIER';
 $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
         @endphp
 
-        @if ($hasThisAssocSavedLab && !$isCoveredByMainReport)
+        @if ($hasThisAssocSavedLab && !$isCoveredByMainReport && $hasThisAssocDrug)
             <div class="mt-6 p-4 sm:p-5 bg-amber-50/60 rounded-2xl border-2 border-amber-300 space-y-4 shadow-sm">
                 <!-- ASSOCIATE TOP BANNER -->
                 <div

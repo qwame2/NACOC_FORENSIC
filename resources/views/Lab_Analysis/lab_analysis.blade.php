@@ -211,12 +211,12 @@
         <div>
           <div class="flex items-center space-x-2">
             <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">NACOC FORENSIC</h1>
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/60 font-mono-code">
-              Lab Analysis Unit
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-200/60 font-mono-code uppercase">
+              LAB ANALYSIS UNIT
             </span>
           </div>
           <p class="text-xs text-slate-500 font-medium mt-0.5">
-            Central Forensic Laboratory & Chemical Analysis • Real-time Ghana Evidence & Case Radar
+            Laboratory Analysis Headquarters • Central Forensic Laboratory & Chemical Analysis • Real-time Ghana Evidence & Case Radar
           </p>
         </div>
       </div>

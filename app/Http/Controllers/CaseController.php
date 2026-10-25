@@ -10,6 +10,7 @@ use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class CaseController extends Controller
 {
@@ -341,12 +342,34 @@ class CaseController extends Controller
             : $allNames[0];
 
         // -----------------------------------------------------------------------
+        // Double-Click & Rapid-Fire Prevention (Backend Cache Lock)
+        // -----------------------------------------------------------------------
+        $userId     = $user ? $user->id : ($request->ip() ?: 'guest');
+        $sigSuspect = strtolower(trim((string)($validated['suspect_name'] ?? $request->input('suspect_name', ''))));
+        $sigTitle   = strtolower(trim((string)($validated['title'] ?? $request->input('title', ''))));
+        $sigDate    = strtolower(trim((string)($validated['arrest_date'] ?? ($request->input('arrest_date') ?? ($request->input('incident_date', ''))))));
+
+        $requestHash = md5("{$sigSuspect}|{$sigTitle}|{$sigDate}");
+        $lockKey     = "case_creation_lock_{$userId}_{$requestHash}";
+
+        if (Cache::has($lockKey)) {
+            return response()->json([
+                'message' => 'A submission for this case is already being processed. Please wait a moment.',
+                'error'   => 'Duplicate request detected. Case submission is already in progress.',
+            ], 429);
+        }
+
+        // Place lock in cache for 10 seconds before proceeding
+        Cache::put($lockKey, true, now()->addSeconds(10));
+
+        // -----------------------------------------------------------------------
         // Smart Duplicate Case Detection (Server-side validation)
         // -----------------------------------------------------------------------
         if (!$request->boolean('confirm_duplicate') && !$request->boolean('ignore_duplicate')) {
             $detector = new \App\Services\CaseDuplicateDetector();
             $dupAnalysis = $detector->checkCaseDuplicate($validated, $allSuspects);
             if (!empty($dupAnalysis['duplicate_detected'])) {
+                Cache::forget($lockKey);
                 return response()->json($dupAnalysis, 409);
             }
         }
@@ -563,12 +586,17 @@ class CaseController extends Controller
         };
 
         // -----------------------------------------------------------------------
-        // CREATE SINGLE CASE RECORD (Supports multiple suspects in single row)
+        // CREATE SINGLE CASE RECORD (WITH DATABASE TRANSACTION)
         // -----------------------------------------------------------------------
-        $primarySuspect = $allSuspects[0];
-        $primaryPersonalFields = $suspectFields($primarySuspect);
+        try {
+            $case = DB::transaction(function () use (
+                $allSuspects, $suspectFields, $sharedFields, $caseRef, $validated,
+                $user, $request
+            ) {
+                $primarySuspect = $allSuspects[0];
+                $primaryPersonalFields = $suspectFields($primarySuspect);
 
-        $case = ForensicCase::create(array_merge($sharedFields, $primaryPersonalFields, [
+                $case = ForensicCase::create(array_merge($sharedFields, $primaryPersonalFields, [
             'case_number'    => $caseRef,
             'suspect_number' => 1,
             'parent_case_id' => null,
@@ -951,6 +979,26 @@ class CaseController extends Controller
                     ]);
                 }
             }
+        }
+
+                return $case;
+            });
+
+            // Release the cache lock immediately after transaction commits
+            Cache::forget($lockKey);
+        } catch (\Throwable $e) {
+            // Ensure cache lock is released on error so user isn't permanently locked out
+            Cache::forget($lockKey);
+            \Illuminate\Support\Facades\Log::error('Case creation failed: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'An error occurred while creating the case docket: ' . $e->getMessage(),
+                    'error'   => $e->getMessage(),
+                ], 500);
+            }
+            throw $e;
         }
 
         if ($request->wantsJson()) {

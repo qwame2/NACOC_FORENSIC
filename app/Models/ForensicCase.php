@@ -933,6 +933,13 @@ class ForensicCase extends Model
                             }
                         }
                     }
+                    if (!$matchedSuspect && !$isJointOwner && empty($ownerName) && !empty($createdSuspects[0])) {
+                        if (isset($sz['is_associate']) && $sz['is_associate'] === false) {
+                            $matchedSuspect = $createdSuspects[0];
+                        } elseif ($sIdx === 0 && empty($sz['is_associate'])) {
+                            $matchedSuspect = $createdSuspects[0];
+                        }
+                    }
                     // Do NOT fall back to index-based matching for joint/unowned exhibits
                     // suspect_id = null means the exhibit is jointly owned by all suspects
 
@@ -942,7 +949,7 @@ class ForensicCase extends Model
                         'suspect_id'              => $matchedSuspect ? $matchedSuspect->id : null,
                         'associated_person'       => $isJointOwner ? 'All Suspects' : ($matchedSuspect ? $matchedSuspect->suspect_name : ($ownerName ?: 'All Suspects')),
                         'exhibit_number'          => $sz['exhibit_number'] ?? ($sIdx + 1),
-                        'exhibit_category'        => $sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs'),
+                        'exhibit_category'        => $sz['exhibit_category'] ?? ($sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs')),
                         'exhibit_type'            => $sz['exhibit_type'] ?? ($attributes['exhibit_type'] ?? null),
                         'drug_classification'     => $sz['drug_classification'] ?? ($attributes['drug_classification'] ?? null),
                         'commodity_name'          => $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? ($attributes['seizure_name'] ?? 'Exhibits')),
@@ -1200,7 +1207,7 @@ class ForensicCase extends Model
                     'single_suspect_case_id'=> $single->id,
                     'associated_person'     => $isSingleJoint ? 'All Suspects' : ($sz['associated_person'] ?? ($sz['suspect_ownership'] ?? $single->suspect_name)),
                     'exhibit_number'        => $sIdx + 1,
-                    'exhibit_category'      => $sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs'),
+                    'exhibit_category'      => $sz['exhibit_category'] ?? ($sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs')),
                     'exhibit_type'          => $sz['exhibit_type'] ?? ($attributes['exhibit_type'] ?? null),
                     'drug_classification'   => $sz['drug_classification'] ?? ($attributes['drug_classification'] ?? null),
                     'commodity_name'        => $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? ($attributes['seizure_name'] ?? 'Exhibits')),
@@ -1590,7 +1597,7 @@ class ForensicCase extends Model
         'drug', 'narcotic', 'opioid', 'cocaine', 'heroin', 'cannabis', 'marijuana',
         'weed', 'hashish', 'hash', 'meth', 'methamphetamine', 'fentanyl', 'tramadol',
         'codeine', 'morphine', 'opium', 'amphetamine', 'mdma', 'ecstasy', 'hemp',
-        'ephedrine', 'precursor', 'substance',
+        'ephedrine', 'precursor',
     ];
 
     private static array $ELECTRONIC_KEYWORDS = [
@@ -1645,7 +1652,6 @@ class ForensicCase extends Model
                 $ex['presumptive_result'] ?? null,
                 $ex['confirmatory_result'] ?? null,
                 $ex['sample_weight_description'] ?? null,
-                $ex['remarks'] ?? ($ex['remark'] ?? null),
             ]);
 
             // Drug shortcut: non-empty seizure_name_drug field means drug exhibit

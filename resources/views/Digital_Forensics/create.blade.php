@@ -2562,42 +2562,6 @@
                                 </div>
                                 </div>
                             </div>
-                        <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
-                        <div class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">Sections 1–4 Docket Actions</h4>
-                                    <p class="text-[11px] text-slate-500 font-medium">Save case file or store as Draft to resume Sections 1 to 4 operations later.</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
-                                <button 
-                                    type="button" 
-                                    onclick="handleDraftAndContinueLater()" 
-                                    class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
-                                >
-                                    Draft and Continue Later
-                                </button>
-                                <button 
-                                    type="button" 
-                                    onclick="processNewArrested()" 
-                                    id="submitSection1To4DocketBtn" 
-                                    class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
-                                    </svg>
-                                    <span>Save Case</span>
-                                </button>
-                            </div>
-                        </div>
-
-
                         <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
                         <div class="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div class="flex items-center space-x-3">
@@ -4284,13 +4248,50 @@
             return true;
         }
 
+        let isCaseSubmitting = false;
+
+        function setSubmittingState(isSubmitting) {
+            isCaseSubmitting = isSubmitting;
+            const btns = document.querySelectorAll('#submitArrestDocketBtn, #submitSection1To4DocketBtn, button[onclick*="processNewArrested"]');
+            btns.forEach(btn => {
+                btn.disabled = isSubmitting;
+                if (isSubmitting) {
+                    if (!btn.dataset.originalHtml) {
+                        btn.dataset.originalHtml = btn.innerHTML;
+                    }
+                    btn.classList.add('opacity-75', 'cursor-not-allowed');
+                    btn.innerHTML = `
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>Saving... Please wait</span>
+                    `;
+                } else {
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    if (btn.dataset.originalHtml) {
+                        btn.innerHTML = btn.dataset.originalHtml;
+                    }
+                }
+            });
+        }
+
         function processNewArrested(confirmDuplicate = false) {
+            // Check global lock immediately to prevent duplicate submissions on double-click
+            if (isCaseSubmitting) {
+                console.warn('Case submission already in progress. Ignoring duplicate click.');
+                return;
+            }
+
             if (!validateSuspectDocketForm()) {
                 return;
             }
             if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
                 return;
             }
+
+            // Immediately lock submission and disable button
+            setSubmittingState(true);
 
             const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
             const name = document.getElementById('newArrestedName')?.value?.trim() || '';
@@ -4817,16 +4818,23 @@
             })
             .then(async res => {
                 if (res.status === 401) {
+                    setSubmittingState(false);
                     alert('Your session has expired. Please log in again to continue.');
                     window.location.href = '/login?expired=1';
                     throw new Error('SESSION_EXPIRED');
                 }
                 const data = await res.json();
                 if (res.status === 409) {
+                    setSubmittingState(false);
                     showDuplicateCaseModal(data);
                     throw new Error('DUPLICATE_CASE_INTERCEPTED');
                 }
+                if (res.status === 429) {
+                    setSubmittingState(false);
+                    throw new Error(data.message || data.error || 'A submission for this case is already being processed. Please wait a moment.');
+                }
                 if (!res.ok) {
+                    setSubmittingState(false);
                     let errMsg = data.message || 'Validation failed. Please check all required suspect details.';
                     if (data.errors) {
                         const detailList = Object.values(data.errors).flat().join('\n• ');
@@ -4837,6 +4845,7 @@
                 return data;
             })
             .then(data => {
+                setSubmittingState(false);
                 const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                 const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
 
@@ -4884,6 +4893,7 @@
                 showSuccessPopover(finalRef);
             })
             .catch(err => {
+                setSubmittingState(false);
                 if (err.message === 'DUPLICATE_CASE_INTERCEPTED' || err.message === 'SESSION_EXPIRED') return;
                 console.error('Error saving case:', err);
                 const msg = err.message || 'An error occurred while saving the case. Please enter all required suspect details.';
@@ -7015,6 +7025,9 @@
         function closeDuplicateCaseModal() {
             const modal = document.getElementById('duplicateCaseModal');
             if (modal) modal.classList.add('hidden');
+            if (typeof setSubmittingState === 'function') {
+                setSubmittingState(false);
+            }
         }
 
         function viewMatchedDuplicateCase() {
@@ -7025,6 +7038,9 @@
 
         function confirmAndRegisterDuplicateCase() {
             closeDuplicateCaseModal();
+            if (typeof setSubmittingState === 'function') {
+                setSubmittingState(false);
+            }
             processNewArrested(true);
         }
 

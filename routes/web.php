@@ -378,6 +378,28 @@ Route::middleware(['auth'])->group(function () {
         return view('Digital_Forensics.digital_forensics');
     });
 
+    Route::get('/Digital_Forensics/cases', function () {
+        $authUser = auth()->user();
+        $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Digital%')->orWhere('unit', 'LIKE', '%Physical%')->where('is_head', true)->first()
+                   ?? \App\Models\User::where('is_head', true)->first();
+        $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
+        $allCases = ForensicCase::allCases();
+        $cases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+        return view('Digital_Forensics.cases', compact('cases', 'headName'));
+    })->name('digital_forensics.cases');
+
+    Route::get('/Digital_Forensics/case-register', function () {
+        return redirect('/Digital_Forensics/cases');
+    });
+
+    Route::get('/digital-forensics/cases', function () {
+        return redirect('/Digital_Forensics/cases');
+    });
+
+    Route::get('/digital-forensics/case-register', function () {
+        return redirect('/Digital_Forensics/cases');
+    });
+
     Route::get('/Digital_Forensics/forensic-status', function () {
         return view('Digital_Forensics.forensic_status');
     });
@@ -1337,7 +1359,13 @@ Route::middleware(['auth'])->group(function () {
     })->name('digital_forensics.create');
 
     Route::get('/Digital_Forensics/head', function () {
-        return view('Digital_Forensics.digital_forensics');
+        $authUser = auth()->user();
+        $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Digital%')->orWhere('unit', 'LIKE', '%Physical%')->where('is_head', true)->first()
+                   ?? \App\Models\User::where('is_head', true)->first();
+        $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
+        $allCases = ForensicCase::allCases();
+        $cases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+        return view('Digital_Forensics.cases', compact('cases', 'headName'));
     });
 
     Route::get('/Digital_Forensics/staff', function () {

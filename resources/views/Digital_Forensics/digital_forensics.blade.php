@@ -279,9 +279,9 @@
           <i data-lucide="cpu" class="w-3.5 h-3.5 text-indigo-600"></i>
           <span>Forensic & Investigation Status</span>
         </a>
-        <a href="{{ url("/cases?from=Digital+Forensics") }}" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors flex items-center space-x-1.5 font-semibold">
+        <a href="{{ url("/Digital_Forensics/cases") }}" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors flex items-center space-x-1.5 font-semibold">
           <i data-lucide="folder-search" class="w-3.5 h-3.5 text-indigo-600"></i>
-          <span>Cyber Case Directory</span>
+          <span>Cyber Case Register</span>
         </a>
         <a href="{{ url("/Report?unit=Digital+Forensics") }}" class="px-3 py-1.5 rounded-xl hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition-colors flex items-center space-x-1.5 font-semibold">
           <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-600"></i>

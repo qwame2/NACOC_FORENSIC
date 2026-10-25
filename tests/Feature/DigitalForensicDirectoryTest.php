@@ -163,7 +163,7 @@ class DigitalForensicDirectoryTest extends TestCase
             'seizure_unit' => 'Pieces',
         ]);
 
-        $response = $this->actingAs($officer)->get('/Digital_Forensics');
+        $response = $this->actingAs($officer)->get('/Digital_Forensics/cases');
 
         $response->assertStatus(200);
 

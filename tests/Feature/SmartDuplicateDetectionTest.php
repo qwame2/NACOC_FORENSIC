@@ -160,4 +160,66 @@ class SmartDuplicateDetectionTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('success', true);
     }
+
+    /** @test */
+    public function rapid_concurrent_submission_is_blocked_with_429_too_many_requests()
+    {
+        $payload = [
+            'title'            => 'Anti-Smuggling Operation North',
+            'suspect_name'     => 'Kwadwo Asamoah',
+            'ghana_card'       => 'GHA-77665544-2',
+            'dob'              => '1992-03-10',
+            'arrest_date'      => '2026-10-15',
+            'raid_location'    => 'Kumasi Central',
+            'exhibit_category' => 'General Contraband',
+        ];
+
+        // Simulate concurrent execution: Pre-set the cache lock key for this user & case payload
+        $userId = $this->user->id;
+        $sigSuspect = strtolower(trim('Kwadwo Asamoah'));
+        $sigTitle = strtolower(trim('Anti-Smuggling Operation North'));
+        $sigDate = strtolower(trim('2026-10-15'));
+        $requestHash = md5("{$sigSuspect}|{$sigTitle}|{$sigDate}");
+        $lockKey = "case_creation_lock_{$userId}_{$requestHash}";
+
+        \Illuminate\Support\Facades\Cache::put($lockKey, true, now()->addSeconds(10));
+
+        // Attempting to submit while lock is active should return HTTP 429
+        $response = $this->actingAs($this->user)->postJson('/cases', $payload);
+
+        $response->assertStatus(429)
+            ->assertJsonPath('error', 'Duplicate request detected. Case submission is already in progress.');
+
+        // Clean up lock
+        \Illuminate\Support\Facades\Cache::forget($lockKey);
+    }
+
+    /** @test */
+    public function cache_lock_is_released_after_successful_case_creation()
+    {
+        $payload = [
+            'title'            => 'Border Patrol Interception East',
+            'suspect_name'     => 'Salifu Mahama',
+            'ghana_card'       => 'GHA-11223344-9',
+            'dob'              => '1988-07-22',
+            'arrest_date'      => '2026-10-20',
+            'raid_location'    => 'Aflao Border Post',
+            'exhibit_category' => 'Electronic Devices',
+        ];
+
+        $userId = $this->user->id;
+        $sigSuspect = strtolower(trim('Salifu Mahama'));
+        $sigTitle = strtolower(trim('Border Patrol Interception East'));
+        $sigDate = strtolower(trim('2026-10-20'));
+        $requestHash = md5("{$sigSuspect}|{$sigTitle}|{$sigDate}");
+        $lockKey = "case_creation_lock_{$userId}_{$requestHash}";
+
+        $response = $this->actingAs($this->user)->postJson('/cases', $payload);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        // Lock must be released after commit
+        $this->assertFalse(\Illuminate\Support\Facades\Cache::has($lockKey));
+    }
 }

@@ -4,42 +4,30 @@
     $reqUnit = request()->query('unit');
     $reqFrom = request()->query('from');
 
-    // 1. PRIMARY: If the current page path belongs to a specific forensic unit, it ALWAYS determines the sidebar unit
-    if (str_contains($currentPath, 'lab') || (isset($isLabAnalysis) && $isLabAnalysis) || (isset($unit) && str_contains(strtolower($unit), 'lab'))) {
+    // 1. PRIMARY: If explicit ?from= or ?unit= query parameter is provided (e.g. from navigation links)
+    if (!empty($reqFrom) || !empty($reqUnit)) {
+        $navParam = !empty($reqFrom) ? $reqFrom : $reqUnit;
+        if (str_contains(strtolower($navParam), 'lab')) {
+            $sidebarUnit = 'Lab Analysis';
+        } elseif (str_contains(strtolower($navParam), 'evidence')) {
+            $sidebarUnit = 'Evidence Management';
+        } elseif (str_contains(strtolower($navParam), 'digital') || str_contains(strtolower($navParam), 'physical')) {
+            $sidebarUnit = 'Digital & Physical Forensics';
+        } elseif (str_contains(strtolower($navParam), 'crime') || str_contains(strtolower($navParam), 'field')) {
+            $sidebarUnit = 'Crime Scene Support';
+        } else {
+            $sidebarUnit = $navParam;
+        }
+    // 2. SECONDARY: If the current page path belongs to a dedicated unit route prefix
+    } elseif (request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->is('lab-result*') || (isset($isLabAnalysis) && $isLabAnalysis) || (isset($unit) && str_contains(strtolower($unit), 'lab'))) {
         $sidebarUnit = 'Lab Analysis';
-    } elseif (str_contains($currentPath, 'evidence') || (isset($unit) && str_contains(strtolower($unit), 'evidence'))) {
+    } elseif (request()->is('Evidence_Management*') || request()->is('evidence-management*') || (isset($unit) && str_contains(strtolower($unit), 'evidence'))) {
         $sidebarUnit = 'Evidence Management';
-    } elseif (str_contains($currentPath, 'digital') || str_contains($currentPath, 'dpf') || (isset($unit) && (str_contains(strtolower($unit), 'digital') || str_contains(strtolower($unit), 'physical')))) {
+    } elseif (request()->is('Digital_Forensics*') || request()->is('digital-forensics*') || (isset($unit) && (str_contains(strtolower($unit), 'digital') || str_contains(strtolower($unit), 'physical')))) {
         $sidebarUnit = 'Digital & Physical Forensics';
-    } elseif (str_contains($currentPath, 'crime') || str_contains($currentPath, 'scene') || (isset($unit) && str_contains(strtolower($unit), 'crime'))) {
+    } elseif (request()->is('Crime_Scene_Support*') || request()->is('crime-scene-support*') || (isset($unit) && str_contains(strtolower($unit), 'crime'))) {
         $sidebarUnit = 'Crime Scene Support';
-    // 2. SECONDARY: If on shared/generic pages (e.g. /cases, /Report, /history), respect explicit ?unit= query parameter
-    } elseif (!empty($reqUnit)) {
-        if (str_contains(strtolower($reqUnit), 'lab')) {
-            $sidebarUnit = 'Lab Analysis';
-        } elseif (str_contains(strtolower($reqUnit), 'evidence')) {
-            $sidebarUnit = 'Evidence Management';
-        } elseif (str_contains(strtolower($reqUnit), 'digital') || str_contains(strtolower($reqUnit), 'physical')) {
-            $sidebarUnit = 'Digital & Physical Forensics';
-        } elseif (str_contains(strtolower($reqUnit), 'crime') || str_contains(strtolower($reqUnit), 'field')) {
-            $sidebarUnit = 'Crime Scene Support';
-        } else {
-            $sidebarUnit = $reqUnit;
-        }
-    // 3. TERTIARY: Check ?from= referrer on generic shared pages
-    } elseif (!empty($reqFrom)) {
-        if (str_contains(strtolower($reqFrom), 'lab')) {
-            $sidebarUnit = 'Lab Analysis';
-        } elseif (str_contains(strtolower($reqFrom), 'evidence')) {
-            $sidebarUnit = 'Evidence Management';
-        } elseif (str_contains(strtolower($reqFrom), 'digital') || str_contains(strtolower($reqFrom), 'physical')) {
-            $sidebarUnit = 'Digital & Physical Forensics';
-        } elseif (str_contains(strtolower($reqFrom), 'crime') || str_contains(strtolower($reqFrom), 'field')) {
-            $sidebarUnit = 'Crime Scene Support';
-        } else {
-            $sidebarUnit = $reqFrom;
-        }
-    // 4. FALLBACK: Authenticated user's unit or session
+    // 3. FALLBACK: Authenticated user's unit or session
     } elseif ($sidebarUser && !empty($sidebarUser->unit)) {
         $sidebarUnit = $sidebarUser->unit;
     } else {
@@ -88,7 +76,7 @@
     if ($isLabContext) {
         $isHeadDashboardActive = (request()->is('Lab_Analysis') || request()->is('Lab_Analysis/head') || request()->is('lab-analysis') || request()->is('lab_analysis')) && !request()->is('*create*') && !request()->is('*result*') && !request()->is('*analytical*') && !request()->is('*certificate*') && !request()->is('*staff*') && !request()->is('*drug-screening*');
     } elseif ($isDigitalContext) {
-        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('Digital_Forensics/head') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*');
+        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*') && !request()->is('*cases*') && !request()->is('*case-register*') && !request()->is('Digital_Forensics/head');
     } elseif ($isEvidenceContext) {
         $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*');
     } else {
@@ -154,9 +142,9 @@
                 @if($isDigitalContext)
                 <!-- DIGITAL FORENSICS CASE REGISTER (DIGITAL & PHYSICAL FORENSICS UNIT ONLY) -->
                 @php
-                    $isCaseRegisterActive = (request()->is('Digital_Forensics') || request()->is('Digital_Forensics/head') || request()->is('Digital_Forensics/staff')) && !request()->is('*forensic-status*');
+                    $isCaseRegisterActive = request()->is('Digital_Forensics/cases*') || request()->is('Digital_Forensics/case-register*') || request()->is('Digital_Forensics/head*') || request()->is('digital-forensics/cases*') || request()->is('digital-forensics/case-register*') || (request()->is('cases*') && (request()->query('from') === 'Digital_Forensics_Register' || str_contains(strtolower(request()->query('from') ?? ''), 'digital')));
                 @endphp
-                <a href="{{ url('/Digital_Forensics') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isCaseRegisterActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                <a href="{{ url('/Digital_Forensics/cases') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isCaseRegisterActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isCaseRegisterActive ? 'text-white' : 'text-purple-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="text-xs">Digital Forensics Case Register</span>
                 </a>

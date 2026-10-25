@@ -413,8 +413,7 @@
                         <div class="flex items-center justify-between border-b border-slate-800 pb-2">
                             <div class="flex items-center space-x-2">
                                 <span
-                                    class="px-2 py-0.5 bg-emerald-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">ELECTRONIC
-                                    / DIGITAL DEVICE DETAILS</span>
+                                    class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">ELECTRONIC DEVICE FORENSIC SPECIFICATIONS</span>
                                 <span
                                     class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($dModel) }}</span>
                             </div>

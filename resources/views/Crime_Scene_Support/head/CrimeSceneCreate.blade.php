@@ -4435,13 +4435,50 @@
             return true;
         }
 
+        let isCaseSubmitting = false;
+
+        function setSubmittingState(isSubmitting) {
+            isCaseSubmitting = isSubmitting;
+            const btns = document.querySelectorAll('#submitArrestDocketBtn, #submitSection1To4DocketBtn, button[onclick*="processNewArrested"]');
+            btns.forEach(btn => {
+                btn.disabled = isSubmitting;
+                if (isSubmitting) {
+                    if (!btn.dataset.originalHtml) {
+                        btn.dataset.originalHtml = btn.innerHTML;
+                    }
+                    btn.classList.add('opacity-75', 'cursor-not-allowed');
+                    btn.innerHTML = `
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>Saving... Please wait</span>
+                    `;
+                } else {
+                    btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    if (btn.dataset.originalHtml) {
+                        btn.innerHTML = btn.dataset.originalHtml;
+                    }
+                }
+            });
+        }
+
         function processNewArrested(confirmDuplicate = false) {
+            // Check global lock immediately to prevent duplicate submissions on double-click
+            if (isCaseSubmitting) {
+                console.warn('Case submission already in progress. Ignoring duplicate click.');
+                return;
+            }
+
             if (!validateSuspectDocketForm()) {
                 return;
             }
             if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
                 return;
             }
+
+            // Immediately lock submission and disable button
+            setSubmittingState(true);
 
             const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
             const name = document.getElementById('newArrestedName')?.value?.trim() || '';
@@ -4968,16 +5005,23 @@
             })
             .then(async res => {
                 if (res.status === 401) {
+                    setSubmittingState(false);
                     alert('Your session has expired. Please log in again to continue.');
                     window.location.href = '/login?expired=1';
                     throw new Error('SESSION_EXPIRED');
                 }
                 const data = await res.json();
                 if (res.status === 409) {
+                    setSubmittingState(false);
                     showDuplicateCaseModal(data);
                     throw new Error('DUPLICATE_CASE_INTERCEPTED');
                 }
+                if (res.status === 429) {
+                    setSubmittingState(false);
+                    throw new Error(data.message || data.error || 'A submission for this case is already being processed. Please wait a moment.');
+                }
                 if (!res.ok) {
+                    setSubmittingState(false);
                     let errMsg = data.message || 'Validation failed. Please check all required suspect details.';
                     if (data.errors) {
                         const detailList = Object.values(data.errors).flat().join('\n• ');
@@ -4988,6 +5032,7 @@
                 return data;
             })
             .then(data => {
+                setSubmittingState(false);
                 const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                 const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
 
@@ -5035,6 +5080,7 @@
                 showSuccessPopover(finalRef);
             })
             .catch(err => {
+                setSubmittingState(false);
                 if (err.message === 'DUPLICATE_CASE_INTERCEPTED' || err.message === 'SESSION_EXPIRED') return;
                 console.error('Error saving case:', err);
                 const msg = err.message || 'An error occurred while saving the case. Please enter all required suspect details.';
@@ -7153,6 +7199,9 @@
         function closeDuplicateCaseModal() {
             const modal = document.getElementById('duplicateCaseModal');
             if (modal) modal.classList.add('hidden');
+            if (typeof setSubmittingState === 'function') {
+                setSubmittingState(false);
+            }
         }
 
         function viewMatchedDuplicateCase() {
@@ -7163,6 +7212,9 @@
 
         function confirmAndRegisterDuplicateCase() {
             closeDuplicateCaseModal();
+            if (typeof setSubmittingState === 'function') {
+                setSubmittingState(false);
+            }
             processNewArrested(true);
         }
 
