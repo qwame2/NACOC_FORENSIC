@@ -311,7 +311,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -704,9 +704,9 @@
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700 font-mono-code font-bold">READ-ONLY</span>@endif
                                     </label>
                                     @php
-                                        $curPriority = strtoupper(trim($case->priority ?? 'NORMAL'));
-                                        $priorityLabel = 'Normal Priority';
-                                        $priorityDotClass = 'bg-slate-500';
+                                        $curPriority = strtoupper(trim($case->priority ?? 'HIGH'));
+                                        $priorityLabel = 'High Priority';
+                                        $priorityDotClass = 'bg-red-600';
                                         if ($curPriority === 'HIGH') {
                                             $priorityLabel = 'High Priority';
                                             $priorityDotClass = 'bg-red-600';
@@ -768,7 +768,6 @@
                                 </div>
                                 <input type="hidden" name="location" value="{{ $case->location }}">
                                 <input type="hidden" name="submitting_officer" value="{{ $case->submitting_officer }}">
-                                <input type="hidden" name="commanding_officer" value="{{ $case->commanding_officer }}">
                             </div>
                         </div>
 

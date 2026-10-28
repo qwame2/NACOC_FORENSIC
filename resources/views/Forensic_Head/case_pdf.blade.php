@@ -4,7 +4,7 @@
     $officerRole = ($authUser && $authUser->is_head) ? 'Forensic Head' : 'Commanding Officer';
 
     $status = $case->status ?? 'Approved';
-    $priority = strtoupper($case->priority ?? 'NORMAL');
+    $priority = strtoupper($case->priority ?? 'HIGH');
     
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     
@@ -159,7 +159,7 @@
     };
 
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-    $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
+    $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
 
     $unitProgress = $docketData['unit_progress'] ?? [];
 
@@ -258,11 +258,11 @@
         ];
     } elseif ($isLabCreatedCasePdf) {
         $defaultProgress = [
-            'Evidence Management' => ['status' => 'COMPLETED', 'officer' => $case->submitting_officer ?? ($case->commanding_officer ?? 'Evidence Officer'), 'updated_at' => optional($case->created_at)->toDateTimeString()],
+            'Evidence Management' => ['status' => 'COMPLETED', 'officer' => $case->submitting_officer ?? 'Evidence Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
         ];
     } else {
         $defaultProgress = [
-            'Crime Scene Support'          => ['status' => 'COMPLETED', 'officer' => $case->commanding_officer ?? 'Crime Scene Officer', 'updated_at' => optional($case->created_at)->toDateTimeString()],
+            'Crime Scene Support'          => ['status' => 'COMPLETED', 'officer' => $case->user?->fullname ?? ($case->user_id ? \App\Models\User::find($case->user_id)?->fullname : ($case->submitting_officer ?? 'Crime Scene Officer')), 'updated_at' => optional($case->created_at)->toDateTimeString()],
             'Evidence Management'          => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
             'Digital & Physical Forensics' => ['status' => 'PENDING', 'officer' => null, 'updated_at' => null],
         ];
@@ -515,7 +515,7 @@
     $labNumber = !empty($rawLabNumber) ? $rawLabNumber : ('Lab No. ' . rand(10, 99) . '/FS' . date('m', strtotime($case->created_at ?? 'now')) . '/' . date('Y', strtotime($case->created_at ?? 'now')));
     $labUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : (!empty($unitProgress['Lab Analysis']['unit']) ? $unitProgress['Lab Analysis']['unit'] : 'Chemistry & Narcotics Unit');
     $currentLoggedInName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? '');
-    $labAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : (!empty($unitProgress['Lab Analysis']['officer']) ? $unitProgress['Lab Analysis']['officer'] : (!empty($currentLoggedInName) ? $currentLoggedInName : $defaultLabHeadName));
+    $labAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : (!empty($unitProgress['Lab Analysis']['officer']) ? $unitProgress['Lab Analysis']['officer'] : (!empty($currentLoggedInName) ? $currentLoggedInName : ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
     $labDateReceived = (!empty($labExam['date_received']) && $labExam['date_received'] !== 'N/A') ? $labExam['date_received'] : (!empty($docketData['lab_examination']['date_received']) && $docketData['lab_examination']['date_received'] !== 'N/A' ? $docketData['lab_examination']['date_received'] : (!empty($docketData['seizures'][0]['date_received']) && $docketData['seizures'][0]['date_received'] !== 'N/A' ? $docketData['seizures'][0]['date_received'] : (!empty($docketData['seizures'][0]['seizure_date']) && $docketData['seizures'][0]['seizure_date'] !== 'N/A' ? $docketData['seizures'][0]['seizure_date'] : (!empty($case->incident_date) ? substr((string)$case->incident_date, 0, 10) : (is_object($case->created_at) ? $case->created_at->format('Y-m-d') : substr((string)$case->created_at, 0, 10))))));
     $labDateStarted = (!empty($labExam['date_started']) && $labExam['date_started'] !== 'N/A') ? $labExam['date_started'] : (!empty($docketData['lab_examination']['date_started']) && $docketData['lab_examination']['date_started'] !== 'N/A' ? $docketData['lab_examination']['date_started'] : (!empty($docketData['seizures'][0]['date_started']) && $docketData['seizures'][0]['date_started'] !== 'N/A' ? $docketData['seizures'][0]['date_started'] : $labDateReceived));
     $labDateCompleted = (!empty($labExam['date_completed']) && $labExam['date_completed'] !== 'N/A') ? $labExam['date_completed'] : (!empty($docketData['lab_examination']['date_completed']) && $docketData['lab_examination']['date_completed'] !== 'N/A' ? $docketData['lab_examination']['date_completed'] : (!empty($docketData['seizures'][0]['date_completed']) && $docketData['seizures'][0]['date_completed'] !== 'N/A' ? $docketData['seizures'][0]['date_completed'] : $labDateStarted));
@@ -653,7 +653,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
 
     <style>
         * { box-sizing: border-box; }
@@ -1354,7 +1354,7 @@
                             </td>
                             <td class="pdf-label-cell">Substance(s) Found:</td>
                             <td class="pdf-value-cell font-bold font-mono-code text-slate-900">
-                                {{ $pdfDrugScreening->substances_found ?: ($pdfRes === 'NEGATIVE' ? 'No substance(s) found' : 'None specified') }}
+                                {{ $pdfDrugScreening->substances_found ?: ($pdfRes === 'NEGATIVE' ? 'No drug(s) detected' : 'None specified') }}
                             </td>
                         </tr>
                         @if(!empty($pdfDrugScreening->notes) || !empty($pdfDrugScreening->note))
@@ -1412,7 +1412,7 @@
                             $pDate = $pEx['seizure_date'] ?? ($pEx['date'] ?? ($case->seizure_date ?: ($case->incident_date ?: ($case->arrest_date ?? null))));
                             $pTime = $pEx['seizure_time'] ?? ($pEx['time'] ?? ($case->seizure_time ?: ($case->arrest_time ?? null)));
                             $pLoc = $pEx['seizure_location'] ?? ($pEx['location'] ?? ($case->seizure_location ?: ($case->raid_location ?: 'N/A')));
-                            $pOfficer = !empty($pEx['seizure_officer']) ? $pEx['seizure_officer'] : (!empty($pEx['seizer']) ? $pEx['seizer'] : (!empty($case->seizure_officer) ? $case->seizure_officer : ((!empty($case->submitting_officer) && $case->submitting_officer !== 'Field Arrest Officer') ? $case->submitting_officer : ($case->commanding_officer ?: 'N/A'))));
+                            $pOfficer = !empty($pEx['seizure_officer']) ? $pEx['seizure_officer'] : (!empty($pEx['seizer']) ? $pEx['seizer'] : (!empty($case->seizure_officer) ? $case->seizure_officer : ((!empty($case->submitting_officer) && $case->submitting_officer !== 'Field Arrest Officer') ? $case->submitting_officer : 'N/A')));
                             $pReason = !empty($pEx['seizure_reason']) ? $pEx['seizure_reason'] : (!empty($pEx['reason']) ? $pEx['reason'] : (!empty($case->seizure_reason) ? $case->seizure_reason : ((!empty($case->operation_code_name) && $case->operation_code_name !== 'Raid') ? $case->operation_code_name : (!empty($case->operation_code) && $case->operation_code !== 'Raid' ? $case->operation_code : ($case->offense_description ?: 'N/A')))));
 
                             // Vehicle Specs
@@ -1611,7 +1611,7 @@
 
                             @php
                                 $aRawOfficer = $aEx['seizure_officer'] ?? ($aEx['seizer'] ?? ($case->seizure_officer ?: ($case->submitting_officer ?: null)));
-                                $aOfficer = (!empty($aRawOfficer) && $aRawOfficer !== 'Field Arrest Officer') ? $aRawOfficer : ($case->commanding_officer ?: 'N/A');
+                                $aOfficer = (!empty($aRawOfficer) && $aRawOfficer !== 'Field Arrest Officer') ? $aRawOfficer : ($case->submitting_officer ?: 'N/A');
 
                                 $aRawReason = $aEx['seizure_reason'] ?? ($aEx['reason'] ?? ($case->seizure_reason ?: ($case->operation_code_name ?: ($case->operation_code ?: null))));
                                 $aReason = (!empty($aRawReason) && $aRawReason !== 'Raid') ? $aRawReason : ($case->offense_description ?: 'N/A');
@@ -2812,8 +2812,8 @@
                     @endphp
                     @if(!empty($photoUrl))
                     <div class="p-1.5 {{ $isAssoc ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-50 border-slate-300' }} border rounded-xl space-y-1 text-center">
-                        <div class="w-full h-28 bg-slate-200 rounded-lg overflow-hidden border border-slate-300">
-                            <img src="{{ $getImgSrc($photoUrl) }}" class="w-full h-full object-cover" alt="{{ $photoLabel }} Photo {{ $idx + 1 }}">
+                        <div class="w-full h-36 bg-slate-100 rounded-lg overflow-hidden border border-slate-300 flex items-center justify-center p-1">
+                            <img src="{{ $getImgSrc($photoUrl) }}" class="max-w-full max-h-full object-contain" alt="{{ $photoLabel }} Photo {{ $idx + 1 }}">
                         </div>
                         <div class="text-[8px] font-mono-code font-bold text-slate-700 uppercase">
                             Exhibit Photo #{{ $idx + 1 }}

@@ -19,7 +19,7 @@
         $isPend = !$isPos && !$isNeg;
 
         $resTextColor = $isPos ? 'text-red-600' : ($isNeg ? 'text-emerald-600' : 'text-amber-600');
-        $badgeText = $isPos ? 'POSITIVE — SUBSTANCES DETECTED' : ($isNeg ? 'NEGATIVE — NO SUBSTANCES DETECTED' : 'PENDING — AWAITING LAB OUTCOME');
+        $badgeText = $isPos ? 'POSITIVE — SUBSTANCES DETECTED' : ($isNeg ? 'NEGATIVE — NO DRUGS DETECTED' : 'PENDING — AWAITING LAB OUTCOME');
         $substances = $screening->substance_list;
         $canShowActions = !empty($showActions);
     @endphp
@@ -117,7 +117,7 @@
                                     <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                     </svg>
-                                    <span>No substance(s) found</span>
+                                    <span>No drug(s) detected</span>
                                 </span>
                             @else
                                 <span class="text-amber-600 italic font-mono-code">Awaiting laboratory outcome</span>

@@ -1,39 +1,72 @@
+{{--
+    WHY: Prior versions used hardcoded fallbacks like fabricated officer names/IDs
+    and default cell numbers when real data was missing. In a forensic system,
+    showing a fabricated officer name or cell number in a legal PDF is
+    unacceptable — it can mislead courts and audit trails. All fallbacks now
+    resolve to 'N/A' or an empty field, forcing the officer to enter real data.
+--}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     @php
         $authUser = auth()->user();
-        $userUnit = $authUser->unit ?? session('user_unit') ?? request()->query('unit') ?? '';
         $isLabAnalysis = request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->query('from') === 'lab' || request()->query('unit') === 'Lab Analysis';
-        $officerName = auth()->user()->fullname ?? session('user_name') ?? 'Handling Officer';
         $todayDate = date('Y-m-d');
         $caseNumClean = preg_replace('/[^A-Za-z0-9]/', '', $case->case_number ?? 'CASE-001');
-        $examRefAuto = 'NLR-FM-T35-F';
-        $caseRefAuto = $case->case_number ?? ('CR-' . date('Y') . '/0098');
-        $exhibitRefAuto = 'EXH-' . $caseNumClean . '-01';
-        $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
 
+        // WHY: Prior code json_decode'd $case->docket_data twice (once for
+        // $dDataCheck and again for $dData). Decode once and reuse.
+        $dData = is_array($case->docket_data)
+            ? $case->docket_data
+            : (json_decode($case->docket_data ?? '[]', true) ?: []);
+
+        // WHY: Use CaseReferenceService for consistent, collision-resistant
+        // reference generation across the application.
+        $caseRefService = app(\App\Services\CaseReferenceService::class);
+        $examRefAuto    = $caseRefService->resolveExamReference($case ?? null, $dData ?? []);
+        $caseRefAuto    = $case->case_number ?? ('CR-' . date('Y') . '/0098');
+        $labNumberAuto  = $case->laboratory_number ?? $caseRefService->generateLabNumber();
+
+        $existingSeizures = (isset($dData['seizures']) && is_array($dData['seizures']) && count($dData['seizures']) > 0)
+            ? $dData['seizures']
+            : ($case->seizure_name || $case->exhibits_summary ? [[
+                'category'         => $case->exhibit_category ?? 'General Exhibit',
+                'seizure_name'     => $case->seizure_name ?? $case->exhibits_summary ?? 'Logged Exhibit Package',
+                'seizure_quantity' => $case->seizure_quantity ?? 'N/A',
+                'seizure_weight'   => $case->seizure_weight ? ($case->seizure_weight . ' ' . ($case->seizure_unit ?? '')) : 'N/A',
+                'seizure_value'    => $case->seizure_value ?? $case->valuation ?? 'N/A'
+            ]] : []);
+
+        $exhibitRefAuto = $caseRefService->nextExhibitReference(
+            $case->case_number ?? 'CASE-001',
+            count($existingSeizures ?? [])
+        );
+
+        // WHY: Prior code checked whether ANY exhibit for the case had a saved
+        // lab result, and hid Section 4 case-wide. This blocked entering lab
+        // data for newly-associated exhibits on any case that already had one
+        // result saved — the exact workflow this page exists to enable.
+        // Now scoped to the ACTIVE (most recently added) exhibit only.
         $activeSuspectHasSavedResult = false;
         if (isset($case) && !empty($case->id)) {
-            $isMultiCase = ($case instanceof \App\Models\ForensicCase)
+            $isMultiCase = ($case instanceof \App\Models\ForensicCase && method_exists($case, 'isMultipleSuspect'))
                 ? $case->isMultipleSuspect()
-                : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase || ($case instanceof \App\Models\MultipleSuspectCase));
+                : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase
+                   || ($case instanceof \App\Models\MultipleSuspectCase));
 
-            $dbExamExists = \App\Models\LaboratoryExaminationResult::where(function($q) use ($case, $isMultiCase) {
-                if ($isMultiCase) {
-                    $q->where('multiple_suspect_case_id', $case->id);
-                } else {
-                    $q->where('single_suspect_case_id', $case->id);
-                }
-            })->exists();
-            $dDataCheck = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
-            $docketExamSaved = !empty($dDataCheck['lab_examination']['has_saved']);
-            if ($dbExamExists || $docketExamSaved) {
-                $activeSuspectHasSavedResult = true;
+            $activeExhibit = $case->exhibits()
+                ->latest('id')
+                ->first(); // active exhibit = most recently added
+
+            if ($activeExhibit) {
+                $activeSuspectHasSavedResult = \App\Models\LaboratoryExaminationResult::where('exhibit_id', $activeExhibit->id)->exists();
             }
+            // If no exhibits exist yet (fresh case, no exhibits), the form
+            // MUST stay visible so the officer can enter lab data for the
+            // FIRST exhibit being associated here.
+            $activeSuspectHasSavedResult = $activeExhibit ? $activeSuspectHasSavedResult : false;
         }
 
-        $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
         $existingSuspects = (isset($dData['suspects']) && is_array($dData['suspects']) && count($dData['suspects']) > 0)
             ? $dData['suspects']
             : [[
@@ -51,23 +84,13 @@
                 'phone'            => $case->phone ?? null,
                 'address'          => $case->address ?? null,
                 'marital_status'   => $case->marital_status ?? null,
-                'holding_facility' => $case->holding_facility ?? 'NACOC Holding Cell',
+                'holding_facility' => $case->holding_facility ?? 'N/A',
                 'offense'          => $case->offense_description ?? $case->description ?? null,
                 'date_of_arrest'   => $case->arrest_date ?? null,
                 'mugshot_front'    => $case->mugshot_front ?? ($dData['mugshot_front'] ?? null),
                 'mugshot_left'     => $case->mugshot_left ?? ($dData['mugshot_left'] ?? null),
                 'mugshot_right'    => $case->mugshot_right ?? ($dData['mugshot_right'] ?? null),
             ]];
-
-        $existingSeizures = (isset($dData['seizures']) && is_array($dData['seizures']) && count($dData['seizures']) > 0)
-            ? $dData['seizures']
-            : ($case->seizure_name || $case->exhibits_summary ? [[
-                'category'         => $case->exhibit_category ?? 'General Exhibit',
-                'seizure_name'     => $case->seizure_name ?? $case->exhibits_summary ?? 'Logged Exhibit Package',
-                'seizure_quantity' => $case->seizure_quantity ?? 'N/A',
-                'seizure_weight'   => $case->seizure_weight ? ($case->seizure_weight . ' ' . ($case->seizure_unit ?? '')) : 'N/A',
-                'seizure_value'    => $case->seizure_value ?? $case->valuation ?? 'N/A'
-            ]] : []);
 
         $exhibitCategory = strtolower($case->exhibit_category ?? '');
         $seizureNameDrug = $case->seizure_name_drug ?? '';
@@ -87,8 +110,24 @@
             foreach ($existingSeizures as $sz) { $allExhibitsCheckAssoc[] = $sz; }
         }
 
+        // WHY: Prior code only scanned $case->exhibit_category, $case->seizure_name_drug,
+        // $existingSeizures, and docket_data. If docket_data was stale but the
+        // exhibits table had real drug records, $isDrugCase was false and Section 4
+        // stayed hidden for actual drug cases. Merge exhibits relation into the check.
+        if (!empty($case->exhibits)) {
+            foreach ($case->exhibits as $ex) {
+                $allExhibitsCheckAssoc[] = [
+                    'category'          => $ex->exhibit_category ?? '',
+                    'seizure_name_drug' => $ex->commodity_name ?? '',
+                    'seizure_name'      => $ex->commodity_name ?? '',
+                ];
+            }
+        }
+
         $isDrugCase = false;
-        $drugKeywords = ['drug', 'narcotic', 'opioid', 'cocaine', 'heroin', 'cannabis', 'marijuana', 'weed', 'hashish', 'hash', 'meth', 'methamphetamine', 'fentanyl', 'tramadol', 'codeine', 'morphine', 'opium', 'amphetamine', 'mdma', 'ecstasy'];
+        // WHY: Prior code duplicated drug keywords in Blade, causing divergence
+        // from the controller's list. Read from config for a single source of truth.
+        $drugKeywords = config('forensic.drug_keywords', []);
 
         foreach ($allExhibitsCheckAssoc as $exCheck) {
             $cat   = strtolower($exCheck['category'] ?? ($exCheck['exhibit_category'] ?? ''));
@@ -107,6 +146,12 @@
                 }
             }
         }
+
+        // WHY: Blade escapes HTML entities but does NOT validate URL schemes.
+        // A malicious 'javascript:' or 'file:' URL inside <img src> is harmless
+        // today, but if the code ever renders <a href> with the same value, it
+        // becomes an XSS vector. Restrict to https, data:image, or root-relative.
+        $isSafeMugshot = fn($u) => $u && preg_match('/^(https?:\/\/|data:image\/|\/)/i', $u);
     @endphp
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -119,15 +164,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <!-- jQuery & Select2 CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+    <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
 
     <!-- Styles / Scripts -->
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -224,11 +269,7 @@
             transition: all 0.2s ease !important;
             border: none !important;
         }
-        .select2-container--default .select2-selection--single .select2-selection__clear:hover {
-            color: #ffffff !important;
-            background-color: #ef4444 !important;
-            transform: translateY(-50%) scale(1.15) !important;
-        }
+        /* clear:hover guarded above */
 
         /* Dropdown Popup Panel */
         .select2-dropdown {
@@ -329,7 +370,7 @@
                     </div>
                     <div class="flex items-center space-x-2 shrink-0">
                         <span class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-700 shadow-2xs">
-                            Status: <span class="text-emerald-600">{{ $case->status }}</span>
+                            Status: <span class="text-emerald-600">{{ $case->status ?? 'DRAFT' }}</span>
                         </span>
                     </div>
                 </div>
@@ -369,20 +410,28 @@
                             </div>
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Submitting Officer</label>
-                                <input type="text" value="{{ $case->submitting_officer ?? $case->commanding_officer ?? 'Handling Officer' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
+                                <input type="text" value="{{ $case->submitting_officer ?? 'Handling Officer' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
                             </div>
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Seizing Officer(s)</label>
-                                <input type="text" value="{{ $case->seizure_officer ?? ($case->seizing_officer ?? 'Davel Addo (43543)') }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
+                                <input type="text" value="{{ $case->seizure_officer ?? $case->seizing_officer ?? 'N/A' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
                             </div>
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Arrest Location / Vault</label>
-                                <input type="text" value="{{ $case->location ?? 'NACOC Vault Storage' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
+                                <input type="text" value="{{ $case->location ?? 'N/A' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
                             </div>
                         </div>
 
                         <!-- SAVED SUSPECTS DETAILED CARDS & MUGSHOTS (READ ONLY) -->
                         <div class="space-y-4 pt-2">
+                        @if(empty($dData['suspects']))
+                            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900">
+                                <strong>Note:</strong> This is the primary suspect profile derived from the case record.
+                                To edit bio-data, use the
+                                <a href="{{ url('/cases/'.$case->case_number.'/edit') }}" class="underline font-bold">Case Edit</a>
+                                page.
+                            </div>
+                        @endif
                             <h4 class="font-extrabold text-slate-900 text-xs font-mono-code uppercase tracking-wider border-b border-slate-200 pb-2">
                                 Saved Suspect Profiles &amp; Facial Mugshots ({{ count($existingSuspects) }})
                             </h4>
@@ -414,7 +463,7 @@
                                         $sRaid       = $s['raid_location'] ?? ($sNum == 1 ? ($case->raid_location ?: ($case->location ?: null)) : null);
                                         $sArrestDate = $s['date_of_arrest'] ?? ($sNum == 1 ? $case->arrest_date : null);
                                         $sArrestTime = $s['time_of_arrest'] ?? ($sNum == 1 ? $case->arrest_time : null);
-                                        $sFacility   = $s['holding_facility'] ?? ($sNum == 1 ? ($case->holding_facility ?? 'NACOC Holding Facility') : 'NACOC Holding Facility');
+                                        $sFacility   = $s['holding_facility'] ?? ($sNum == 1 ? ($case->holding_facility ?? 'N/A') : 'N/A');
                                         $sOffense    = $s['offense'] ?? ($sNum == 1 ? ($case->offense_description ?: ($case->description ?: null)) : null);
                                         $sRole       = $s['association_role'] ?? ($s['role'] ?? null);
 
@@ -607,7 +656,7 @@
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Seizing Officer(s):</span>
                                                         <strong class="text-slate-900 font-extrabold">
-                                                            {{ $s['seizing_officer'] ?? ($s['seizure_officer'] ?? ($case->seizure_officer ?? $case->seizing_officer ?? 'Davel Addo (43543)')) }}
+                                                            {{ $s['seizing_officer'] ?? ($s['seizure_officer'] ?? ($case->seizure_officer ?? $case->seizing_officer ?? 'N/A')) }}
                                                             @if(!empty($s['seizing_officer_id']))
                                                                 <span class="font-mono-code text-slate-600">({{ $s['seizing_officer_id'] }})</span>
                                                             @endif
@@ -615,7 +664,7 @@
                                                     </div>
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Allocated Holding Facility:</span>
-                                                        <strong class="text-emerald-700 font-extrabold">{{ $sFacility ?: 'NACOC Holding Cell' }}</strong>
+                                                        <strong class="text-emerald-700 font-extrabold">{{ $sFacility ?: 'N/A' }}</strong>
                                                     </div>
                                                     <div>
                                                         <span class="text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black block mb-0.5">Alleged Offense / Charges:</span>
@@ -670,7 +719,7 @@
                                                 <td class="py-3 px-4 font-mono-code">{{ $ex['seizure_quantity'] ?? $ex['quantity'] ?? 'N/A' }}</td>
                                                 <td class="py-3 px-4 font-mono-code">{{ $ex['seizure_weight'] ?? $ex['weight'] ?? 'N/A' }}</td>
                                                 <td class="py-3 px-4 font-mono-code font-bold text-emerald-700">{{ $ex['seizure_value'] ?? $ex['value'] ?? 'N/A' }}</td>
-                                                <td class="py-3 px-4 font-mono-code font-extrabold text-slate-800">{{ $ex['seizure_officer'] ?? $ex['seizing_officer'] ?? ($case->seizure_officer ?? $case->seizing_officer ?? 'Davel Addo (43543)') }}</td>
+                                                <td class="py-3 px-4 font-mono-code font-extrabold text-slate-800">{{ $ex['seizure_officer'] ?? $ex['seizing_officer'] ?? ($case->seizure_officer ?? $case->seizing_officer ?? 'N/A') }}</td>
                                             </tr>
                                         @empty
                                             <tr>
@@ -697,7 +746,7 @@
                                     <p class="text-xs text-slate-500">Register new accomplices, drivers, buyers, informants, or co-suspects associated with this case file</p>
                                 </div>
                             </div>
-                            <button type="button" onclick="addAssociatePersonCard()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
+                            <button type="button" onclick="addAssociatePersonCard()" data-testid="add-person-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                 <span>+ Add Person Details Row</span>
                             </button>
@@ -723,7 +772,7 @@
                                     <p class="text-xs text-slate-500">Record illicit substance types, weight/quantity, packaging, street valuation, or property linked to this investigation</p>
                                 </div>
                             </div>
-                            <button type="button" onclick="addAssociateSeizureBlock()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
+                            <button type="button" onclick="addAssociateSeizureBlock()" data-testid="add-seizure-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                 <span>+ Add Seizure Block</span>
                             </button>
@@ -758,7 +807,15 @@
                         </div>
 
                         <!-- EXAMINATION INFORMATION CONTAINER (HIDDEN WHEN RESULT EXISTS FOR ACTIVE SUSPECT/EXHIBIT) -->
-                        <div id="section5FormContainer" class="space-y-6 {{ $activeSuspectHasSavedResult ? 'hidden' : '' }}">
+                                                @if($activeSuspectHasSavedResult)
+                        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                            <strong>Note:</strong> The most recently added exhibit already has a saved lab result.
+                            Any new submission below will create a NEW examination record for the exhibit you associate here.
+                        </div>
+                        @endif
+
+                        <!-- Section 4 remains visible ALWAYS in associate mode -->
+                        <div id="section5FormContainer" class="space-y-6">
                         <!-- SUB-SECTION 4A: EXAMINATION INFORMATION -->
                         <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
                             <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
@@ -821,7 +878,7 @@
                                         <span>Analyst / Examiner</span>
                                         <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner Name</span>
                                     </label>
-                                    <input type="text" id="labAnalystInput" name="lab_analyst" value="{{ auth()->user()->fullname ?? session('user_name') ?? 'Lab Examiner' }}" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs" placeholder="e.g. John Adu">
+                                    <input type="text" id="labAnalystInput" name="lab_analyst" value="{{ auth()->user()->fullname ?? session('user_name') ?? 'Lab Examiner' }}" class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs" placeholder="Examiner / Analyst Name">
                                 </div>
                             </div>
 
@@ -1191,7 +1248,7 @@
                             <a href="{{ url('/cases') . ($isLabAnalysis ? '?unit=Lab+Analysis' : '') }}" class="w-1/2 sm:w-auto px-5 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl text-center transition-all cursor-pointer">
                                 Cancel
                             </a>
-                            <button type="submit" id="submitAssocFormBtn" class="w-1/2 sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none">
+                            <button type="submit" id="submitAssocFormBtn" data-testid="assoc-submit-btn" class="w-1/2 sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all hover:scale-[1.02] cursor-pointer border-none">
                                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                 <span>Save Associated Case Data &amp; Update Docket</span>
                             </button>
@@ -1208,28 +1265,40 @@
     <script>
         let personCounter = 0;
 
-        const worldNationalitiesList = [
-            "Ghanaian", "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Antiguan and Barbudan", "Argentine", "Armenian",
-            "Australian", "Austrian", "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian", "Belarusian", "Belgian", "Belizean",
-            "Beninese", "Bhutanese", "Bolivian", "Bosnian", "Motswana (Botswana)", "Brazilian", "British", "Bruneian", "Bulgarian", "Burkinabe (Burkina Faso)",
-            "Burundian", "Cabo Verdean", "Cambodian", "Cameroonian", "Canadian", "Central African", "Chadian", "Chilean", "Chinese", "Colombian",
-            "Comorian", "Congolese (Brazzaville)", "Congolese (Kinshasa)", "Costa Rican", "Ivorian (Côte d'Ivoire)", "Croatian", "Cuban", "Cypriot", "Czech",
-            "Dane (Danish)", "Djiboutian", "Dominican (Dominica)", "Dominican (Dominican Republic)", "Dutch (Netherlands)", "East Timorese", "Ecuadorean", "Egyptian", "Salvadoran",
-            "Equatorial Guinean", "Eritrean", "Estonian", "Swazi (Eswatini)", "Ethiopian", "Fijian", "Finn (Finnish)", "French", "Gabonese", "Gambian",
-            "Georgian", "German", "Greek", "Grenadian", "Guatemalan", "Guinean", "Bissau-Guinean", "Guyanese", "Haitian", "Honduran",
-            "Hungarian", "Icelander", "Indian", "Indonesian", "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Jamaican",
-            "Japanese", "Jordanian", "Kazakhstani", "Kenyan", "I-Kiribati", "North Korean", "South Korean", "Kuwaiti", "Kyrgyz", "Laotian",
-            "Latvian", "Lebanese", "Basotho (Lesotho)", "Liberian", "Libyan", "Liechtenstein citizen", "Lithuanian", "Luxembourgish", "Malagasy", "Malawian",
-            "Malaysian", "Maldivian", "Malian", "Maltese", "Marshallese", "Mauritanian", "Mauritian", "Mexican", "Micronesian", "Moldovan",
-            "Monegasque", "Mongolian", "Montenegrin", "Moroccan", "Mozambican", "Burmese (Myanmar)", "Namibian", "Nauruan", "Nepali", "New Zealander",
-            "Nicaraguan", "Nigerien", "Nigerian", "North Macedonian", "Norwegian", "Omani", "Pakistani", "Palauan", "Palestinian", "Panamanian",
-            "Papua New Guinean", "Paraguayan", "Peruvian", "Filipino", "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Rwandan",
-            "Kittitian or Nevisian", "Saint Lucian", "Vincentian", "Samoan", "Sammarinese", "Sao Tomean", "Saudi", "Senegalese", "Serbian",
-            "Seychellois", "Sierra Leonean", "Singaporean", "Slovak", "Slovenian", "Solomon Islander", "Somali", "South African", "South Sudanese", "Spanish",
-            "Sri Lankan", "Sudanese", "Surinamese", "Swedish", "Swiss", "Syrian", "Taiwanese", "Tajik", "Tanzanian", "Thai",
-            "Togolese", "Tongan", "Trinidadian or Tobagonian", "Tunisian", "Turkish", "Turkmen", "Tuvaluan", "Ugandan", "Ukrainian", "Emirati",
-            "Uruguayan", "Uzbek", "Ni-Vanuatu", "Vatican citizen", "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
-        ];
+                // WHY: Nationalities loaded from config via @json() — see config/nationalities.php.
+        // Reduces Blade page weight by ~6 KB and centralizes the list.
+        const worldNationalitiesList = @json(config('nationalities.list', []));
+
+        // WHY: 'accept="image/*"' is a UX hint only — users can bypass it via drag-drop
+        // or file dialog. Some older browsers execute JS from SVG loaded in <img>.
+        // Validate mime before processing.
+        const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+        function validateImageFile(file) {
+            if (!file) return false;
+            if (!ALLOWED_MIME.includes(file.type)) {
+                alert(`File "${file.name}" is not a supported image (allowed: JPG, PNG, WEBP, GIF).`);
+                return false;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                alert(`File "${file.name}" exceeds 10 MB.`);
+                return false;
+            }
+            return true;
+        }
+
+        // WHY: Prior code eagerly initialized 5 Select2 instances per card.
+        // With 20 cards, that's 100 instances, causing visible input lag.
+        // Now: initialize only the two required dropdowns eagerly, and defer
+        // the rest until focus (lazy init).
+        function initSelect2Lazy($element, options) {
+            $element.one('focus mousedown', function() {
+                if (!$element.data('select2')) {
+                    $element.select2(options);
+                    $element.select2('open');
+                }
+            });
+        }
 
         function calculateAgeFromDob(dobInput, ageInputId) {
             const ageInput = document.getElementById(ageInputId);
@@ -1301,10 +1370,10 @@
                 <!-- 1. MUGSHOT UPLOADS (FRONT 0°, LEFT 90°, RIGHT 90°) -->
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
-                        <label class="block text-slate-800 font-extrabold text-xs uppercase tracking-wider font-mono-code flex items-center gap-2">
+                        <div class="text-slate-800 font-extrabold text-xs uppercase tracking-wider font-mono-code flex items-center gap-2">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             <span>Associate Person Mugshots &amp; Facial Biometrics (Front 0&deg; / Left 90&deg; / Right 90&deg;)</span>
-                        </label>
+                        </div>
                         <span class="text-[10px] font-mono-code text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                             Click frame or drop image to upload
                         </span>
@@ -1616,7 +1685,7 @@
                     </div>
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] text-black uppercase mb-1">Allocated Holding Facility</label>
-                        <input type="text" name="associated_persons[${personCounter}][holding_facility]" value="NACOC Holding Cell A-02" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-extrabold text-emerald-700">
+                        <input type="text" name="associated_persons[${personCounter}][holding_facility]" value="" placeholder="e.g. NACOC Holding Cell A-01" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-extrabold text-emerald-700">
                     </div>
                 </div>
 
@@ -1666,11 +1735,11 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Raid Scene / Place of Arrest<span class="text-red-600"> *</span></label>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Raid Scene / Place of Arrest <span class="text-red-600">*</span></label>
                             <input type="text" name="associated_persons[${personCounter}][raid_location]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900" placeholder="e.g. Kotoka International Airport Cargo Bay">
                         </div>
                         <div>
-                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date of Arrest<span class="text-red-600"> *</span></label>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date of Arrest <span class="text-red-600">*</span></label>
                             <input type="date" name="associated_persons[${personCounter}][date_of_arrest]" required value="" placeholder="Select Date of Arrest" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900">
                         </div>
                         <div>
@@ -1679,18 +1748,18 @@
                         </div>
                         <div>
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Allocated Holding Facility</label>
-                            <input type="text" name="associated_persons[${personCounter}][holding_facility]" value="NACOC Holding Cell A-02" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-extrabold text-emerald-700">
+                            <input type="text" name="associated_persons[${personCounter}][holding_facility]" value="" placeholder="e.g. NACOC Holding Cell A-01" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-extrabold text-emerald-700">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Arresting Officer(s) <span class="text-red-600">*</span></label>
-                            <input type="text" name="associated_persons[${personCounter}][arresting_officer]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400" placeholder="e.g. Insp. Davel Addo, Sgt. Lorinda Mensah">
+                            <input type="text" name="associated_persons[${personCounter}][arresting_officer]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400" placeholder="e.g. Insp. Kwame Mensah, Sgt. Lorinda Mensah">
                         </div>
                         <div>
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Arresting Officer Service / Badge ID <span class="text-red-600">*</span></label>
-                            <input type="text" name="associated_persons[${personCounter}][arresting_officer_id]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-900 placeholder:text-slate-400" placeholder="e.g. SERVICE-43543, BADGE-88210">
+                            <input type="text" name="associated_persons[${personCounter}][arresting_officer_id]" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-900 placeholder:text-slate-400" placeholder="e.g. SERVICE-98210, BADGE-88210">
                         </div>
                         <div class="col-span-full">
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Alleged Offense / Charges Description</label>
@@ -1977,21 +2046,21 @@
             if (panel) panel.classList.remove('hidden');
         }
 
-        function openExhibitListPanel(el) { openSeizurePanel(el, '#exhibitListPanel'); }
-        function openDrugListPanel(el) { openSeizurePanel(el, '#drugListPanel'); }
-        function openWeaponListPanel(el) { openSeizurePanel(el, '#weaponListPanel'); }
-        function openCurrencyListPanel(el) { openSeizurePanel(el, '#currencyListPanel'); }
-        function openAmmoListPanel(el) { openSeizurePanel(el, '#ammoListPanel'); }
-        function openDeviceListPanel(el) { openSeizurePanel(el, '#deviceListPanel'); }
-        function openPkgListPanel(el) { openSeizurePanel(el, '#pkgListPanel'); }
-        function openUnitListPanel(el) { openSeizurePanel(el, '#unitListPanel'); }
+        function openExhibitListPanel(el) { openSeizurePanel(el, '.exhibit-list-panel'); }
+        function openDrugListPanel(el) { openSeizurePanel(el, '.drug-list-panel'); }
+        function openWeaponListPanel(el) { openSeizurePanel(el, '.weapon-list-panel'); }
+        function openCurrencyListPanel(el) { openSeizurePanel(el, '.currency-list-panel'); }
+        function openAmmoListPanel(el) { openSeizurePanel(el, '.ammo-list-panel'); }
+        function openDeviceListPanel(el) { openSeizurePanel(el, '.device-list-panel'); }
+        function openPkgListPanel(el) { openSeizurePanel(el, '.pkg-list-panel'); }
+        function openUnitListPanel(el) { openSeizurePanel(el, '.unit-list-panel'); }
 
         function selectExhibitCategory(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root = getSeizureBlockFromEvent(e);
-            const input   = root.querySelector('#newSeizureCategory');
-            const display = root.querySelector('#exhibitSearchInput');
-            const panel   = root.querySelector('#exhibitListPanel');
+            const input   = root.querySelector('.new-seizure-category');
+            const display = root.querySelector('.exhibit-search-input');
+            const panel   = root.querySelector('.exhibit-list-panel');
             if (input)   input.value = val;
             if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
@@ -2000,12 +2069,12 @@
             // Focus corresponding commodity input so user can immediately type new data
             setTimeout(() => {
                 let targetInput = null;
-                if (val === 'Drugs') targetInput = root.querySelector('#drugSearchInput');
-                else if (val === 'Weapons') targetInput = root.querySelector('#weaponSearchInput');
-                else if (val === 'Money') targetInput = root.querySelector('#currencySearchInput');
-                else if (val === 'Ammunition') targetInput = root.querySelector('#ammoSearchInput');
-                else if (val === 'Electronic Devices') targetInput = root.querySelector('#deviceSearchInput');
-                else targetInput = root.querySelector('#newSeizureName');
+                if (val === 'Drugs') targetInput = root.querySelector('.drug-search-input');
+                else if (val === 'Weapons') targetInput = root.querySelector('.weapon-search-input');
+                else if (val === 'Money') targetInput = root.querySelector('.currency-search-input');
+                else if (val === 'Ammunition') targetInput = root.querySelector('.ammo-search-input');
+                else if (val === 'Electronic Devices') targetInput = root.querySelector('.device-search-input');
+                else targetInput = root.querySelector('.new-seizure-name');
 
                 if (targetInput) {
                     targetInput.removeAttribute('readonly');
@@ -2018,32 +2087,31 @@
 
         function filterExhibitList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#exhibitSearchInput')?.value || '';
-            const categoryInput = root.querySelector('#newSeizureCategory');
+            const rawVal = root.querySelector('.exhibit-search-input')?.value || '';
+            const categoryInput = root.querySelector('.new-seizure-category');
             if (categoryInput) categoryInput.value = rawVal;
             filterExhibitListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterExhibitListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#exhibitSearchInner')?.value || '';
-            const categoryInput = root.querySelector('#newSeizureCategory');
+            const rawVal = root.querySelector('.exhibit-search-inner')?.value || '';
+            const categoryInput = root.querySelector('.new-seizure-category');
             if (categoryInput) categoryInput.value = rawVal;
             filterExhibitListByQuery(rawVal.toLowerCase(), root);
         }
 
         function filterExhibitListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#exhibitList');
+            const list = root.querySelector('.exhibit-list');
             if (!list) return;
 
-            let customLi = list.querySelector('#exhibitCustomItem');
+            let customLi = list.querySelector('.exhibit-custom-item');
             const trimmed = (q || '').trim();
             if (trimmed.length > 0) {
                 if (!customLi) {
                     customLi = document.createElement('li');
-                    customLi.id = 'exhibitCustomItem';
-                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    customLi.className = 'exhibit-custom-item px-1.5 py-1 mb-1 border-b border-emerald-100';
                     list.insertBefore(customLi, list.firstChild);
                 }
                 const safeVal = trimmed.replace(/'/g, "\\'");
@@ -2082,7 +2150,7 @@
 
         function toggleAmmoOtherCondition(el) {
             const root = el ? (el.closest('.seizure-block') || document) : document;
-            const wrapper = root.querySelector('#ammoOtherConditionWrapper');
+            const wrapper = root.querySelector('.ammo-other-condition-wrapper');
             if (wrapper) {
                 if (el && el.value === 'Other') {
                     wrapper.classList.remove('hidden');
@@ -2094,23 +2162,23 @@
 
         function updateCommodityField(category, rootEl) {
             const root = rootEl || document.querySelector('.seizure-block') || document;
-            const textWrapper     = root.querySelector('#commodityTextWrapper');
-            const drugWrapper     = root.querySelector('#drugSelectWrapper');
-            const weaponWrapper   = root.querySelector('#weaponSelectWrapper');
-            const currencyWrapper = root.querySelector('#currencySelectWrapper');
-            const ammoWrapper     = root.querySelector('#ammoSelectWrapper');
-            const deviceWrapper   = root.querySelector('#deviceSelectWrapper');
-            const deviceFieldsWrapper = root.querySelector('#deviceFieldsWrapper');
-            const weaponFieldsWrapper = root.querySelector('#weaponFieldsWrapper');
-            const ammoFieldsWrapper   = root.querySelector('#ammoFieldsWrapper');
-            const vehicleWrapper  = root.querySelector('#vehicleFieldsWrapper');
-            const textInput       = root.querySelector('#newSeizureName');
-            const drugSearch      = root.querySelector('#drugSearchInput');
-            const weaponSearch    = root.querySelector('#weaponSearchInput');
-            const currencySearch  = root.querySelector('#currencySearchInput');
-            const ammoSearch      = root.querySelector('#ammoSearchInput');
-            const deviceSearch    = root.querySelector('#deviceSearchInput');
-            const quantityLabel   = root.querySelector('#quantityLabel');
+            const textWrapper     = root.querySelector('.commodity-text-wrapper');
+            const drugWrapper     = root.querySelector('.drug-select-wrapper');
+            const weaponWrapper   = root.querySelector('.weapon-select-wrapper');
+            const currencyWrapper = root.querySelector('.currency-select-wrapper');
+            const ammoWrapper     = root.querySelector('.ammo-select-wrapper');
+            const deviceWrapper   = root.querySelector('.device-select-wrapper');
+            const deviceFieldsWrapper = root.querySelector('.device-fields-wrapper');
+            const weaponFieldsWrapper = root.querySelector('.weapon-fields-wrapper');
+            const ammoFieldsWrapper   = root.querySelector('.ammo-fields-wrapper');
+            const vehicleWrapper  = root.querySelector('.vehicle-fields-wrapper');
+            const textInput       = root.querySelector('.new-seizure-name');
+            const drugSearch      = root.querySelector('.drug-search-input');
+            const weaponSearch    = root.querySelector('.weapon-search-input');
+            const currencySearch  = root.querySelector('.currency-search-input');
+            const ammoSearch      = root.querySelector('.ammo-search-input');
+            const deviceSearch    = root.querySelector('.device-search-input');
+            const quantityLabel   = root.querySelector('.quantity-label');
 
             if (textWrapper)         textWrapper.classList.add('hidden');
             if (drugWrapper)         drugWrapper.classList.add('hidden');
@@ -2170,39 +2238,39 @@
         function selectDrugType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameDrug');
-            const display = root.querySelector('#drugSearchInput');
-            const panel   = root.querySelector('#drugListPanel');
+            const hidden  = root.querySelector('.new-seizure-name-drug');
+            const display = root.querySelector('.drug-search-input');
+            const panel   = root.querySelector('.drug-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
             syncSection3SeizuresToSection4();
         }
 
         function filterDrugList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#drugSearchInput')?.value || '';
+            const rawVal = root.querySelector('.drug-search-input')?.value || '';
             syncDrugCustomInput(rawVal, root);
             filterDrugListByQuery(rawVal.toLowerCase(), root);
         }
         function filterDrugListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#drugSearchInner')?.value || '';
+            const rawVal = root.querySelector('.drug-search-inner')?.value || '';
             syncDrugCustomInput(rawVal, root);
             filterDrugListByQuery(rawVal.toLowerCase(), root);
         }
         function syncDrugCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizureNameDrug');
+            const hidden = root.querySelector('.new-seizure-name-drug');
             if (hidden) hidden.value = val;
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
         }
         function filterDrugListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#drugList');
+            const list = root.querySelector('.drug-list');
             if (!list) return;
             const items = list.querySelectorAll('.drug-item');
             items.forEach(function(li) {
@@ -2214,39 +2282,39 @@
         function selectWeaponType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameWeapon');
-            const display = root.querySelector('#weaponSearchInput');
-            const panel   = root.querySelector('#weaponListPanel');
+            const hidden  = root.querySelector('.new-seizure-name-weapon');
+            const display = root.querySelector('.weapon-search-input');
+            const panel   = root.querySelector('.weapon-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
             syncSection3SeizuresToSection4();
         }
 
         function filterWeaponList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#weaponSearchInput')?.value || '';
+            const rawVal = root.querySelector('.weapon-search-input')?.value || '';
             syncWeaponCustomInput(rawVal, root);
             filterWeaponListByQuery(rawVal.toLowerCase(), root);
         }
         function filterWeaponListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#weaponSearchInner')?.value || '';
+            const rawVal = root.querySelector('.weapon-search-inner')?.value || '';
             syncWeaponCustomInput(rawVal, root);
             filterWeaponListByQuery(rawVal.toLowerCase(), root);
         }
         function syncWeaponCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizureNameWeapon');
+            const hidden = root.querySelector('.new-seizure-name-weapon');
             if (hidden) hidden.value = val;
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
         }
         function filterWeaponListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#weaponList');
+            const list = root.querySelector('.weapon-list');
             if (!list) return;
             const items = list.querySelectorAll('.weapon-item');
             items.forEach(function(li) {
@@ -2258,48 +2326,47 @@
         function selectCurrencyType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameCurrency');
-            const display = root.querySelector('#currencySearchInput');
-            const panel   = root.querySelector('#currencyListPanel');
+            const hidden  = root.querySelector('.new-seizure-name-currency');
+            const display = root.querySelector('.currency-search-input');
+            const panel   = root.querySelector('.currency-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) { display.value = val; display.removeAttribute('readonly'); }
             if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
             syncSection3SeizuresToSection4();
         }
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#currencySearchInput')?.value || '';
+            const rawVal = root.querySelector('.currency-search-input')?.value || '';
             syncCurrencyCustomInput(rawVal, root);
             filterCurrencyListByQuery(rawVal.toLowerCase(), root);
         }
         function filterCurrencyListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#currencySearchInner')?.value || '';
+            const rawVal = root.querySelector('.currency-search-inner')?.value || '';
             syncCurrencyCustomInput(rawVal, root);
             filterCurrencyListByQuery(rawVal.toLowerCase(), root);
         }
         function syncCurrencyCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizureNameCurrency');
+            const hidden = root.querySelector('.new-seizure-name-currency');
             if (hidden) hidden.value = val;
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
         }
         function filterCurrencyListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#currencyList');
+            const list = root.querySelector('.currency-list');
             if (!list) return;
 
-            let customLi = list.querySelector('#currencyCustomItem');
+            let customLi = list.querySelector('.currency-custom-item');
             const trimmed = (q || '').trim();
             if (trimmed.length > 0) {
                 if (!customLi) {
                     customLi = document.createElement('li');
-                    customLi.id = 'currencyCustomItem';
-                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    customLi.className = 'currency-custom-item px-1.5 py-1 mb-1 border-b border-emerald-100';
                     list.insertBefore(customLi, list.firstChild);
                 }
                 const safeVal = trimmed.replace(/'/g, "\\'");
@@ -2324,39 +2391,39 @@
         function selectAmmoType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameAmmo');
-            const display = root.querySelector('#ammoSearchInput');
-            const panel   = root.querySelector('#ammoListPanel');
+            const hidden  = root.querySelector('.new-seizure-name-ammo');
+            const display = root.querySelector('.ammo-search-input');
+            const panel   = root.querySelector('.ammo-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
             syncSection3SeizuresToSection4();
         }
 
         function filterAmmoList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#ammoSearchInput')?.value || '';
+            const rawVal = root.querySelector('.ammo-search-input')?.value || '';
             syncAmmoCustomInput(rawVal, root);
             filterAmmoListByQuery(rawVal.toLowerCase(), root);
         }
         function filterAmmoListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#ammoSearchInner')?.value || '';
+            const rawVal = root.querySelector('.ammo-search-inner')?.value || '';
             syncAmmoCustomInput(rawVal, root);
             filterAmmoListByQuery(rawVal.toLowerCase(), root);
         }
         function syncAmmoCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizureNameAmmo');
+            const hidden = root.querySelector('.new-seizure-name-ammo');
             if (hidden) hidden.value = val;
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
         }
         function filterAmmoListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#ammoList');
+            const list = root.querySelector('.ammo-list');
             if (!list) return;
             const items = list.querySelectorAll('.ammo-item');
             items.forEach(function(li) {
@@ -2368,38 +2435,38 @@
         function selectDeviceType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameDevice');
-            const display = root.querySelector('#deviceSearchInput');
-            const panel   = root.querySelector('#deviceListPanel');
+            const hidden  = root.querySelector('.new-seizure-name-device');
+            const display = root.querySelector('.device-search-input');
+            const panel   = root.querySelector('.device-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
             syncSection3SeizuresToSection4();
         }
 
         function filterDeviceList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#deviceSearchInput')?.value || '';
+            const rawVal = root.querySelector('.device-search-input')?.value || '';
             syncDeviceCustomInput(rawVal, root);
             filterDeviceListByQuery(rawVal.toLowerCase(), root);
         }
         function filterDeviceListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#deviceSearchInner')?.value || '';
+            const rawVal = root.querySelector('.device-search-inner')?.value || '';
             filterDeviceListByQuery(rawVal.toLowerCase(), root);
         }
         function syncDeviceCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizureNameDevice');
+            const hidden = root.querySelector('.new-seizure-name-device');
             if (hidden) hidden.value = val;
-            const textInput = root.querySelector('#newSeizureName');
+            const textInput = root.querySelector('.new-seizure-name');
             if (textInput) textInput.value = val;
         }
         function filterDeviceListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#deviceList');
+            const list = root.querySelector('.device-list');
             if (!list) return;
             const items = list.querySelectorAll('.device-item');
             items.forEach(function(li) {
@@ -2411,9 +2478,9 @@
         function selectPackagingType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizurePackaging');
-            const display = root.querySelector('#pkgSearchInput');
-            const panel   = root.querySelector('#pkgListPanel');
+            const hidden  = root.querySelector('.new-seizure-packaging');
+            const display = root.querySelector('.pkg-search-input');
+            const panel   = root.querySelector('.pkg-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
@@ -2421,24 +2488,24 @@
         }
         function filterPackagingList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#pkgSearchInput')?.value || '';
+            const rawVal = root.querySelector('.pkg-search-input')?.value || '';
             syncPackagingCustomInput(rawVal, root);
             filterPackagingListByQuery(rawVal.toLowerCase(), root);
         }
         function filterPackagingListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#pkgSearchInner')?.value || '';
+            const rawVal = root.querySelector('.pkg-search-inner')?.value || '';
             syncPackagingCustomInput(rawVal, root);
             filterPackagingListByQuery(rawVal.toLowerCase(), root);
         }
         function syncPackagingCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizurePackaging');
+            const hidden = root.querySelector('.new-seizure-packaging');
             if (hidden) hidden.value = val;
         }
         function filterPackagingListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#pkgList');
+            const list = root.querySelector('.pkg-list');
             if (!list) return;
             const items = list.querySelectorAll('.pkg-item');
             items.forEach(function(li) {
@@ -2450,9 +2517,9 @@
         function selectUnit(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root   = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureUnit');
-            const display = root.querySelector('#unitSearchInput');
-            const panel   = root.querySelector('#unitListPanel');
+            const hidden  = root.querySelector('.new-seizure-unit');
+            const display = root.querySelector('.unit-search-input');
+            const panel   = root.querySelector('.unit-list-panel');
             if (hidden)  hidden.value  = val;
             if (display) display.value = val;
             if (panel)   panel.classList.add('hidden');
@@ -2460,24 +2527,24 @@
         }
         function filterUnitList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#unitSearchInput')?.value || '';
+            const rawVal = root.querySelector('.unit-search-input')?.value || '';
             syncUnitCustomInput(rawVal, root);
             filterUnitListByQuery(rawVal.toLowerCase(), root);
         }
         function filterUnitListInner(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#unitSearchInner')?.value || '';
+            const rawVal = root.querySelector('.unit-search-inner')?.value || '';
             syncUnitCustomInput(rawVal, root);
             filterUnitListByQuery(rawVal.toLowerCase(), root);
         }
         function syncUnitCustomInput(val, rootEl) {
             const root = rootEl || document;
-            const hidden = root.querySelector('#newSeizureUnit');
+            const hidden = root.querySelector('.new-seizure-unit');
             if (hidden) hidden.value = val;
         }
         function filterUnitListByQuery(q, rootEl) {
             const root = rootEl || document;
-            const list = root.querySelector('#unitList');
+            const list = root.querySelector('.unit-list');
             if (!list) return;
             const items = list.querySelectorAll('.unit-item');
             items.forEach(function(li) {
@@ -2490,14 +2557,14 @@
         document.addEventListener('click', function(e) {
             document.querySelectorAll('.seizure-block').forEach(block => {
                 const items = [
-                    { wrapper: block.querySelector('#exhibitSelectWrapper'), panel: block.querySelector('#exhibitListPanel') },
-                    { wrapper: block.querySelector('#drugSelectWrapper'), panel: block.querySelector('#drugListPanel') },
-                    { wrapper: block.querySelector('#weaponSelectWrapper'), panel: block.querySelector('#weaponListPanel') },
-                    { wrapper: block.querySelector('#currencySelectWrapper'), panel: block.querySelector('#currencyListPanel') },
-                    { wrapper: block.querySelector('#ammoSelectWrapper'), panel: block.querySelector('#ammoListPanel') },
-                    { wrapper: block.querySelector('#deviceSelectWrapper'), panel: block.querySelector('#deviceListPanel') },
-                    { wrapper: block.querySelector('#packagingSelectWrapper'), panel: block.querySelector('#pkgListPanel') },
-                    { wrapper: block.querySelector('#unitSelectWrapper'), panel: block.querySelector('#unitListPanel') },
+                    { wrapper: block.querySelector('.exhibit-select-wrapper'), panel: block.querySelector('.exhibit-list-panel') },
+                    { wrapper: block.querySelector('.drug-select-wrapper'), panel: block.querySelector('.drug-list-panel') },
+                    { wrapper: block.querySelector('.weapon-select-wrapper'), panel: block.querySelector('.weapon-list-panel') },
+                    { wrapper: block.querySelector('.currency-select-wrapper'), panel: block.querySelector('.currency-list-panel') },
+                    { wrapper: block.querySelector('.ammo-select-wrapper'), panel: block.querySelector('.ammo-list-panel') },
+                    { wrapper: block.querySelector('.device-select-wrapper'), panel: block.querySelector('.device-list-panel') },
+                    { wrapper: block.querySelector('.packaging-select-wrapper'), panel: block.querySelector('.pkg-list-panel') },
+                    { wrapper: block.querySelector('.unit-select-wrapper'), panel: block.querySelector('.unit-list-panel') },
                 ];
                 items.forEach(item => {
                     if (item.wrapper && item.panel && !item.wrapper.contains(e.target)) {
@@ -2506,8 +2573,7 @@
                 });
             });
         }, true);
-
-        function addAssociateSeizureBlock() {
+function addAssociateSeizureBlock() {
             seizureCounter++;
             const container = document.getElementById('seizuresListContainer');
             if (!container) return;
@@ -2518,14 +2584,15 @@
             card.setAttribute('data-seizure-index', seizureCounter);
 
             card.innerHTML = `
-                <!-- CARD HEADER & REMOVE BUTTON -->
+                <!-- BLOCK HEADER & REMOVE BUTTON -->
                 <div class="flex items-center justify-between border-b border-slate-200 pb-3">
                     <div class="flex items-center space-x-2.5">
-                        <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-mono-code font-bold text-xs flex items-center justify-center shadow-xs seizure-number-badge">
+                        <span class="seizure-number-badge w-6 h-6 rounded-full bg-emerald-600 text-white font-mono-code font-bold text-xs flex items-center justify-center shadow-xs">
                             ${seizureCounter}
                         </span>
-                        <h4 class="font-extrabold text-slate-900 text-sm seizure-title">Seizure Item #${seizureCounter}</h4>
-                        <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200">ACTIVE EXHIBIT</span>
+                        <h4 class="seizure-title font-extrabold text-slate-900 text-sm">
+                            Seizure Item #${seizureCounter}
+                        </h4>
                     </div>
                     <button type="button" onclick="removeAssociateSeizureBlock(${seizureCounter})" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold rounded-xl transition-colors cursor-pointer border-none flex items-center space-x-1">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -2537,22 +2604,20 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 
                     <!-- 1. EXHIBIT (COMMODITY CATEGORY) DROPDOWN -->
-                    <div class="relative z-[9999]" id="exhibitSelectWrapper" style="z-index: 9999;">
-                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">
-                            Exhibit (Commodity Category) <span class="text-red-600 font-bold">*</span>
-                        </label>
+                    <div class="exhibit-select-wrapper relative z-[9999]" style="z-index: 9999;">
+                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Exhibit (Commodity Category) <span class="text-red-600 font-bold">*</span></label>
                         <div class="relative z-[9999]" style="z-index: 9999;">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
-                            <input type="text" id="exhibitSearchInput" placeholder="Select or type exhibit category..." autocomplete="off" onclick="openExhibitListPanel(this)" oninput="filterExhibitList(this)" onfocus="openExhibitListPanel(this)" class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text shadow-xs">
-                            <input type="hidden" id="newSeizureCategory" name="associated_exhibits[${seizureCounter}][category]" value="">
+                            <input type="text" class="exhibit-search-input w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text shadow-xs placeholder:text-slate-400" placeholder="Select or type exhibit category..." autocomplete="off" onclick="openExhibitListPanel(this)" oninput="filterExhibitList(this)" onfocus="openExhibitListPanel(this)">
+                            <input type="hidden" class="new-seizure-category" name="associated_exhibits[${seizureCounter}][category]" value="">
                         </div>
-                        <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-300 z-[9999] overflow-hidden" style="z-index: 9999; max-height: 280px; overflow-y: auto;">
+                        <div class="exhibit-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2 z-[999999]" style="max-height: 280px; overflow-y: auto;">
                             <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100 z-10">
-                                <input type="text" id="exhibitSearchInner" placeholder="Type to filter categories..." oninput="filterExhibitListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none">
+                                <input type="text" class="exhibit-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter categories..." oninput="filterExhibitListInner(this)">
                             </div>
-                            <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
+                            <ul class="exhibit-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
                                 <li class="exhibit-item" onclick="selectExhibitCategory('Drugs', event)">
                                     <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
                                         <div><div class="font-extrabold text-slate-900">Drugs</div><div class="text-[10px] text-slate-500 font-normal">Narcotics, Synthetics, Opioids</div></div>
@@ -2606,23 +2671,23 @@
                     </div>
 
                     <!-- 2. SPECIFIC COMMODITY / EXHIBIT NAME (SMART FIELD) -->
-                    <div id="commodityFieldWrapper">
+                    <div class="commodity-field-wrapper space-y-1.5">
                         <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Primary Commodity Name <span class="text-red-600 font-bold">*</span></label>
 
                         <!-- TEXT INPUT (for default/non-smart categories) -->
-                        <div id="commodityTextWrapper" class="relative flex items-center">
-                            <input type="text" id="newSeizureName" name="associated_exhibits[${seizureCounter}][seizure_name]" placeholder="e.g. Cocaine (High Purity Slabs)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                        <div class="commodity-text-wrapper space-y-1.5">
+                            <input type="text" class="new-seizure-name w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs" name="associated_exhibits[${seizureCounter}][seizure_name]" placeholder="e.g. Cocaine (High Purity Slabs)">
                         </div>
 
                         <!-- DRUG SELECT DROPDOWN -->
-                        <div id="drugSelectWrapper" class="hidden relative z-30">
-                            <input type="text" id="drugSearchInput" placeholder="Select or type custom drug name..." autocomplete="off" onclick="openDrugListPanel(this)" oninput="filterDrugList(this)" onchange="filterDrugList(this)" onblur="filterDrugList(this)" onkeydown="handleCommoditySearchKeydown(event, this, 'drug')" onfocus="openDrugListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
-                            <input type="hidden" id="newSeizureNameDrug" value="">
-                            <div id="drugListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                        <div class="drug-select-wrapper relative space-y-1.5 hidden z-30">
+                            <input type="text" class="drug-search-input w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-extrabold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select or type custom drug name..." autocomplete="off" onclick="openDrugListPanel(this)" oninput="filterDrugList(this)" onchange="filterDrugList(this)" onblur="filterDrugList(this)" onkeydown="handleCommoditySearchKeydown(event, this, 'drug')" onfocus="openDrugListPanel(this)">
+                            <input type="hidden" class="new-seizure-name-drug" value="">
+                            <div class="drug-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:220px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                    <input type="text" id="drugSearchInner" placeholder="Type to filter drugs..." oninput="filterDrugListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none">
+                                    <input type="text" class="drug-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter drugs..." oninput="filterDrugListInner(this)">
                                 </div>
-                                <ul id="drugList" class="py-1.5 space-y-0.5 px-1.5">
+                                <ul class="drug-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
                                     <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Opioids &amp; Analgesics</li>
                                     <li class="drug-item" onclick="selectDrugType('Heroin (Brown Sugar / Diacetylmorphine)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>Heroin (Brown Sugar / Diacetylmorphine)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span></button></li>
                                     <li class="drug-item" onclick="selectDrugType('Fentanyl (Synthetic Opioid Patches / Powder)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>Fentanyl (Synthetic Opioid Patches / Powder)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">OPI</span></button></li>
@@ -2646,14 +2711,14 @@
                         </div>
 
                         <!-- WEAPON SELECT DROPDOWN -->
-                        <div id="weaponSelectWrapper" class="hidden relative z-30">
-                            <input type="text" id="weaponSearchInput" placeholder="Select weapon type..." autocomplete="off" onclick="openWeaponListPanel(this)" oninput="filterWeaponList(this)" onfocus="openWeaponListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
-                            <input type="hidden" id="newSeizureNameWeapon" value="">
-                            <div id="weaponListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                        <div class="weapon-select-wrapper relative space-y-1.5 hidden z-30">
+                            <input type="text" class="weapon-search-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select weapon type..." autocomplete="off" onclick="openWeaponListPanel(this)" oninput="filterWeaponList(this)" onfocus="openWeaponListPanel(this)">
+                            <input type="hidden" class="new-seizure-name-weapon" value="">
+                            <div class="weapon-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:220px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                    <input type="text" id="weaponSearchInner" placeholder="Type to filter weapons..." oninput="filterWeaponListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none">
+                                    <input type="text" class="weapon-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter weapons..." oninput="filterWeaponListInner(this)">
                                 </div>
-                                <ul id="weaponList" class="py-1.5 space-y-0.5 px-1.5">
+                                <ul class="weapon-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
                                     <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Handguns &amp; Pistols</li>
                                     <li class="weapon-item" onclick="selectWeaponType('AK-47 / AKM Shorty Pistol (7.62x39mm)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>AK-47 / AKM Shorty Pistol (7.62x39mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
                                     <li class="weapon-item" onclick="selectWeaponType('Glock 17 Semi-Automatic Pistol (9mm)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>Glock 17 Semi-Automatic Pistol (9mm)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">PST</span></button></li>
@@ -2667,14 +2732,14 @@
                         </div>
 
                         <!-- CURRENCY SELECT DROPDOWN -->
-                        <div id="currencySelectWrapper" class="hidden relative z-30">
-                            <input type="text" id="currencySearchInput" placeholder="Select currency..." autocomplete="off" onclick="openCurrencyListPanel(this)" oninput="filterCurrencyList(this)" onfocus="openCurrencyListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
-                            <input type="hidden" id="newSeizureNameCurrency" value="">
-                            <div id="currencyListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                        <div class="currency-select-wrapper relative space-y-1.5 hidden z-30">
+                            <input type="text" class="currency-search-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select currency..." autocomplete="off" onclick="openCurrencyListPanel(this)" oninput="filterCurrencyList(this)" onfocus="openCurrencyListPanel(this)">
+                            <input type="hidden" class="new-seizure-name-currency" value="">
+                            <div class="currency-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:220px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                    <input type="text" id="currencySearchInner" placeholder="Type to filter currencies..." oninput="filterCurrencyListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none">
+                                    <input type="text" class="currency-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter currencies..." oninput="filterCurrencyListInner(this)">
                                 </div>
-                                <ul id="currencyList" class="py-1.5 space-y-0.5 px-1.5">
+                                <ul class="currency-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
                                     <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-emerald-600 uppercase tracking-widest">Currencies &amp; Money</li>
                                     <li class="currency-item" onclick="selectCurrencyType('Ghana Cedi (GHS ₵)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>Ghana Cedi</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GHS ₵</span></button></li>
                                     <li class="currency-item" onclick="selectCurrencyType('US Dollar (USD $)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>US Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">USD $</span></button></li>
@@ -2687,14 +2752,14 @@
                         </div>
 
                         <!-- AMMUNITION SELECT DROPDOWN -->
-                        <div id="ammoSelectWrapper" class="hidden relative z-30">
-                            <input type="text" id="ammoSearchInput" placeholder="Select ammunition type..." autocomplete="off" onclick="openAmmoListPanel(this)" oninput="filterAmmoList(this)" onfocus="openAmmoListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
-                            <input type="hidden" id="newSeizureNameAmmo" value="">
-                            <div id="ammoListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                        <div class="ammo-select-wrapper relative space-y-1.5 hidden z-30">
+                            <input type="text" class="ammo-search-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select ammunition type..." autocomplete="off" onclick="openAmmoListPanel(this)" oninput="filterAmmoList(this)" onfocus="openAmmoListPanel(this)">
+                            <input type="hidden" class="new-seizure-name-ammo" value="">
+                            <div class="ammo-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:220px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                    <input type="text" id="ammoSearchInner" placeholder="Type to filter ammunition..." oninput="filterAmmoListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none">
+                                    <input type="text" class="ammo-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter ammunition..." oninput="filterAmmoListInner(this)">
                                 </div>
-                                <ul id="ammoList" class="py-1.5 space-y-0.5 px-1.5">
+                                <ul class="ammo-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
                                     <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Ammunition &amp; Calibers</li>
                                     <li class="ammo-item" onclick="selectAmmoType('9x19mm Parabellum / NATO (9mm Luger)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>9x19mm Parabellum (9mm)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9MM</span></button></li>
                                     <li class="ammo-item" onclick="selectAmmoType('7.62x39mm Kalashnikov Ammunition (AK Round)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>7.62x39mm AK Round</span><span class="text-[10px] font-mono-code bg-red-50 text-red-800 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
@@ -2705,14 +2770,14 @@
                         </div>
 
                         <!-- DEVICE SELECT DROPDOWN -->
-                        <div id="deviceSelectWrapper" class="hidden relative z-30">
-                            <input type="text" id="deviceSearchInput" placeholder="Select electronic device type..." autocomplete="off" onclick="openDeviceListPanel(this)" oninput="filterDeviceList(this)" onfocus="openDeviceListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text">
-                            <input type="hidden" id="newSeizureNameDevice" value="">
-                            <div id="deviceListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:220px;overflow-y:auto">
+                        <div class="device-select-wrapper relative space-y-1.5 hidden z-30">
+                            <input type="text" class="device-search-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select electronic device type..." autocomplete="off" onclick="openDeviceListPanel(this)" oninput="filterDeviceList(this)" onfocus="openDeviceListPanel(this)">
+                            <input type="hidden" class="new-seizure-name-device" value="">
+                            <div class="device-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:220px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                    <input type="text" id="deviceSearchInner" placeholder="Type to filter devices..." oninput="filterDeviceListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none">
+                                    <input type="text" class="device-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter devices..." oninput="filterDeviceListInner(this)">
                                 </div>
-                                <ul id="deviceList" class="py-1.5 space-y-0.5 px-1.5">
+                                <ul class="device-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
                                     <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Electronic Devices</li>
                                     <li class="device-item" onclick="selectDeviceType('Apple iPhone (iOS Smartphone)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>Apple iPhone (iOS Smartphone)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">IPHONE</span></button></li>
                                     <li class="device-item" onclick="selectDeviceType('Android Smartphone (Samsung / Xiaomi)', event)"><button type="button" class="w-full text-left px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between"><span>Android Smartphone</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">ANDROID</span></button></li>
@@ -2735,13 +2800,13 @@
                     <!-- 4. SEIZING OFFICER(S) -->
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Seizing Officer(s) <span class="text-red-600 font-bold">*</span></label>
-                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer]" value="" placeholder="e.g. Davel Addo, Ben Attah" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer]" value="" placeholder="e.g. Kwame Mensah, Ben Attah" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                     </div>
 
                     <!-- 5. SEIZING OFFICER SERVICE / BADGE ID & ASSOCIATED SUSPECT -->
                     <div class="col-span-1 md:col-span-2">
                         <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Seizing Officer Service / Badge ID</label>
-                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer_id]" value="" placeholder="e.g. SERVICE-43543, BADGE-88210" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer_id]" value="" placeholder="e.g. SERVICE-98210, BADGE-88210" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                     </div>
                     <div class="col-span-1 md:col-span-2">
                         <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Associated Suspect / Owner</label>
@@ -2754,7 +2819,7 @@
                 </div>
 
                 <!-- WEAPON / FIREARM SPECIFICATIONS PANEL -->
-                <div id="weaponFieldsWrapper" class="hidden col-span-full bg-slate-50/80 p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div class="weapon-fields-wrapper hidden space-y-3 pt-3 border-t border-slate-200/80">
                     <div class="flex items-center space-x-2 text-slate-800">
                         <div class="w-5 h-5 rounded bg-emerald-500 text-white flex items-center justify-center font-bold text-xs">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -2834,7 +2899,7 @@
                 </div>
 
                 <!-- AMMUNITION SPECIFICATIONS PANEL -->
-                <div id="ammoFieldsWrapper" class="hidden col-span-full bg-slate-50/80 p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                <div class="ammo-fields-wrapper hidden space-y-3 pt-3 border-t border-slate-200/80">
                     <div class="flex items-center space-x-2 text-slate-800">
                         <div class="w-5 h-5 rounded bg-emerald-500 text-white flex items-center justify-center font-bold text-xs">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
@@ -2875,7 +2940,7 @@
                                     <option value="Other" class="font-semibold text-slate-900">Other</option>
                                 </select>
                             </div>
-                            <div id="ammoOtherConditionWrapper" class="hidden">
+                            <div class="ammo-other-condition-wrapper hidden sm:col-span-2">
                                 <label class="block text-slate-900 font-extrabold text-[10px] uppercase mb-1">DESCRIBE OTHER CONDITION</label>
                                 <input type="text" name="associated_exhibits[${seizureCounter}][ammunition_details][other_condition]" placeholder="Specify condition details..." class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                             </div>
@@ -2909,7 +2974,7 @@
                 </div>
 
                 <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL -->
-                <div id="deviceFieldsWrapper" class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200 shadow-xs space-y-3">
+                <div class="device-fields-wrapper hidden space-y-3 pt-3 border-t border-slate-200/80">
                     <div class="flex items-center space-x-2 text-slate-800">
                         <div class="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
@@ -2953,7 +3018,7 @@
                 </div>
 
                 <!-- VEHICLE SPECIFICATIONS PANEL -->
-                <div id="vehicleFieldsWrapper" class="hidden col-span-full bg-amber-50/70 p-4 rounded-2xl border border-amber-200 shadow-xs space-y-3">
+                <div class="vehicle-fields-wrapper hidden space-y-3 pt-3 border-t border-slate-200/80">
                     <div class="flex items-center space-x-2 text-slate-800">
                         <div class="w-5 h-5 rounded bg-amber-600 text-white flex items-center justify-center font-bold text-xs">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
@@ -2992,20 +3057,20 @@
 
                         <!-- QUANTITY -->
                         <div>
-                            <label id="quantityLabel" class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Quantity</label>
+                            <label class="quantity-label block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Quantity</label>
                             <input type="text" name="associated_exhibits[${seizureCounter}][seizure_quantity]" placeholder="e.g. 10" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs font-mono-code focus:border-emerald-600">
                         </div>
 
                         <!-- PACKAGING TYPE -->
-                        <div class="relative z-20" id="packagingSelectWrapper">
+                        <div class="packaging-select-wrapper relative z-20">
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Packaging Type</label>
-                            <input type="text" id="pkgSearchInput" placeholder="Select or type packaging..." autocomplete="off" onclick="openPkgListPanel(this)" oninput="filterPackagingList(this)" onfocus="openPkgListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 transition-all cursor-text">
-                            <input type="hidden" id="newSeizurePackaging" name="associated_exhibits[${seizureCounter}][seizure_packaging]" value="">
-                            <div id="pkgListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:200px;overflow-y:auto">
+                            <input type="text" class="pkg-search-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 transition-all cursor-text pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select or type packaging..." autocomplete="off" onclick="openPkgListPanel(this)" oninput="filterPackagingList(this)" onfocus="openPkgListPanel(this)">
+                            <input type="hidden" class="new-seizure-packaging" name="associated_exhibits[${seizureCounter}][seizure_packaging]" value="">
+                            <div class="pkg-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:200px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2 pb-1 border-b border-slate-100">
-                                    <input type="text" id="pkgSearchInner" placeholder="Type to filter..." oninput="filterPackagingListInner(this)" class="w-full px-2.5 py-1 bg-slate-100 rounded-lg text-xs">
+                                    <input type="text" class="pkg-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter..." oninput="filterPackagingListInner(this)">
                                 </div>
-                                <ul id="pkgList" class="py-1 space-y-0.5 px-1">
+                                <ul class="pkg-list max-h-48 overflow-y-auto space-y-1 text-xs py-1 px-1">
                                     <li class="pkg-item" onclick="selectPackagingType('Slabs', event)"><button type="button" class="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between"><span>Slabs</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1 py-0.5 rounded">SLB</span></button></li>
                                     <li class="pkg-item" onclick="selectPackagingType('Blocks', event)"><button type="button" class="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between"><span>Blocks</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1 py-0.5 rounded">BLK</span></button></li>
                                     <li class="pkg-item" onclick="selectPackagingType('Bundles', event)"><button type="button" class="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between"><span>Bundles</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-600 px-1 py-0.5 rounded">BDL</span></button></li>
@@ -3028,16 +3093,16 @@
                             <input type="text" name="associated_exhibits[${seizureCounter}][seizure_weight]" placeholder="e.g. 25.5" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs font-mono-code focus:border-emerald-600">
                         </div>
 
-                        <!-- WEIGHT UNIT -->
-                        <div class="relative z-20" id="unitSelectWrapper">
+                        <!-- MEASUREMENT UNIT -->
+                        <div class="unit-select-wrapper relative z-20">
                             <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Measurement Unit</label>
-                            <input type="text" id="unitSearchInput" placeholder="Select or type unit..." autocomplete="off" onclick="openUnitListPanel(this)" oninput="filterUnitList(this)" onfocus="openUnitListPanel(this)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 transition-all cursor-text">
-                            <input type="hidden" id="newSeizureUnit" name="associated_exhibits[${seizureCounter}][seizure_unit]" value="">
-                            <div id="unitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:200px;overflow-y:auto">
+                            <input type="text" class="unit-search-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 transition-all cursor-text pr-8 shadow-2xs placeholder:text-slate-400" placeholder="Select or type unit..." autocomplete="off" onclick="openUnitListPanel(this)" oninput="filterUnitList(this)" onfocus="openUnitListPanel(this)">
+                            <input type="hidden" class="new-seizure-unit" name="associated_exhibits[${seizureCounter}][seizure_unit]" value="">
+                            <div class="unit-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[999999] p-3 space-y-2" style="max-height:200px;overflow-y:auto">
                                 <div class="sticky top-0 bg-white px-3 pt-2 pb-1 border-b border-slate-100">
-                                    <input type="text" id="unitSearchInner" placeholder="Type to filter..." oninput="filterUnitListInner(this)" class="w-full px-2.5 py-1 bg-slate-100 rounded-lg text-xs">
+                                    <input type="text" class="unit-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter..." oninput="filterUnitListInner(this)">
                                 </div>
-                                <ul id="unitList" class="py-1 space-y-0.5 px-1">
+                                <ul class="unit-list max-h-48 overflow-y-auto space-y-1 text-xs py-1 px-1">
                                     <li class="unit-item" onclick="selectUnit('Kilograms (kg)', event)"><button type="button" class="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between"><span>Kilograms</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1 py-0.5 rounded">kg</span></button></li>
                                     <li class="unit-item" onclick="selectUnit('Grams (g)', event)"><button type="button" class="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between"><span>Grams</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1 py-0.5 rounded">g</span></button></li>
                                     <li class="unit-item" onclick="selectUnit('Metric Tons (MT)', event)"><button type="button" class="w-full text-left px-2.5 py-1.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-lg flex items-center justify-between"><span>Metric Tons</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1 py-0.5 rounded">MT</span></button></li>
@@ -3118,14 +3183,42 @@
             setTimeout(syncSuspectNamesToExhibits, 50);
         }
 
+                /**
+         * WHY: Prior code accepted raw base64 in evidence_photos hidden inputs,
+         * bloating docket_data JSON and risking post_max_size failures.
+         * All photos must first be uploaded via /upload-evidence-photos and
+         * referenced by URL only.
+         */
+        async function uploadExhibitPhotoFile(file, seizureIdx) {
+            if (!validateImageFile(file)) return;
+
+            const formData = new FormData();
+            formData.append('photos[]', file);
+            const tokenEl = document.querySelector('meta[name="csrf-token"]');
+            if (tokenEl) formData.append('_token', tokenEl.content);
+
+            try {
+                const res = await fetch('/upload-evidence-photos', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await res.json();
+                if (data.success && data.urls && data.urls.length) {
+                    data.urls.forEach(url => appendExhibitPhotoToGallery(seizureIdx, url));
+                } else {
+                    alert(data.message || 'Photo upload failed.');
+                }
+            } catch (err) {
+                console.error('Photo upload failed:', err);
+                alert('Photo upload failed — check your connection.');
+            }
+        }
+
         function handleExhibitMultipleFiles(fileInput, seizureIdx) {
             if (fileInput.files && fileInput.files.length > 0) {
                 Array.from(fileInput.files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        appendExhibitPhotoToGallery(seizureIdx, e.target.result);
-                    };
-                    reader.readAsDataURL(file);
+                    uploadExhibitPhotoFile(file, seizureIdx);
                 });
                 fileInput.value = '';
             }
@@ -3140,11 +3233,7 @@
             }
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 Array.from(e.dataTransfer.files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = function(ev) {
-                        appendExhibitPhotoToGallery(seizureIdx, ev.target.result);
-                    };
-                    reader.readAsDataURL(file);
+                    uploadExhibitPhotoFile(file, seizureIdx);
                 });
             }
         }
@@ -3154,13 +3243,32 @@
             if (input) {
                 const val = (input.value || '').trim();
                 if (val) {
+                    if (/^data:/i.test(val)) {
+                        alert('Base64 images are not supported. Please choose an image file to upload.');
+                        return;
+                    }
                     appendExhibitPhotoToGallery(seizureIdx, val);
                     input.value = '';
                 }
             }
         }
 
+        /**
+         * WHY: Prior code embedded base64 data URLs directly in hidden inputs,
+         * which bloated the form payload to 50+ MB for typical submissions.
+         * Now: photos are uploaded immediately via AJAX to /upload-evidence-photos,
+         * and only the returned URLs are stored in hidden inputs.
+         */
         function appendExhibitPhotoToGallery(seizureIdx, srcUrl) {
+            if (!srcUrl || /^data:/i.test(srcUrl)) {
+                console.error('[security] Base64 photo refused — must upload via /upload-evidence-photos first.', { seizureIdx });
+                return;
+            }
+            if (!/^(https?:\/\/|\/)/i.test(srcUrl)) {
+                console.warn('Invalid photo URL scheme:', srcUrl);
+                return;
+            }
+
             const gallery = document.getElementById(`photoGalleryExhibit_${seizureIdx}`);
             const emptyNotice = document.getElementById(`galleryEmptyNotice_${seizureIdx}`);
             if (!gallery) return;
@@ -3673,26 +3781,26 @@
             let primaryUnitAddon = '';
 
             seizureBlocks.forEach((block, idx) => {
-                const category = block.querySelector('#exhibitSearchInput')?.value?.trim() 
-                                 || block.querySelector('#newSeizureCategory')?.value?.trim() 
+                const category = block.querySelector('.exhibit-search-input')?.value?.trim() 
+                                 || block.querySelector('.new-seizure-category')?.value?.trim() 
                                  || '';
                 
-                let commodityName = block.querySelector('#newSeizureName')?.value?.trim() || '';
+                let commodityName = block.querySelector('.new-seizure-name')?.value?.trim() || '';
                 if (!commodityName) {
-                    commodityName = block.querySelector('#drugSearchInput')?.value?.trim()
-                                 || block.querySelector('#weaponSearchInput')?.value?.trim()
-                                 || block.querySelector('#currencySearchInput')?.value?.trim()
-                                 || block.querySelector('#ammoSearchInput')?.value?.trim()
-                                 || block.querySelector('#deviceSearchInput')?.value?.trim()
+                    commodityName = block.querySelector('.drug-search-input')?.value?.trim()
+                                 || block.querySelector('.weapon-search-input')?.value?.trim()
+                                 || block.querySelector('.currency-search-input')?.value?.trim()
+                                 || block.querySelector('.ammo-search-input')?.value?.trim()
+                                 || block.querySelector('.device-search-input')?.value?.trim()
                                  || '';
                 }
 
                 const quantity  = block.querySelector('input[name*="[seizure_quantity]"]')?.value?.trim() || '';
                 const weight    = block.querySelector('input[name*="[seizure_weight]"]')?.value?.trim() || '';
-                const unit      = block.querySelector('#unitSearchInput')?.value?.trim() 
+                const unit      = block.querySelector('.unit-search-input')?.value?.trim() 
                                || block.querySelector('input[name*="[seizure_unit]"]')?.value?.trim() 
                                || '';
-                const packaging = block.querySelector('#pkgSearchInput')?.value?.trim() 
+                const packaging = block.querySelector('.pkg-search-input')?.value?.trim() 
                                || block.querySelector('input[name*="[seizure_packaging]"]')?.value?.trim() 
                                || '';
                 const streetVal = block.querySelector('input[name*="[seizure_value]"]')?.value?.trim() || '';
@@ -3877,6 +3985,27 @@
             syncSection3SeizuresToSection4();
             setTimeout(syncSuspectNamesToExhibits, 100);
         });
+        /**
+         * WHY: Users type substantial suspect/exhibit data. Clicking "Back" without
+         * saving loses all of it. Add a warning when the form has unsaved changes.
+         */
+        (function() {
+            const form = document.getElementById('associateDocketForm');
+            if (!form) return;
+
+            let isDirty = false;
+            form.addEventListener('input',  () => { isDirty = true; });
+            form.addEventListener('change', () => { isDirty = true; });
+
+            window.addEventListener('beforeunload', (e) => {
+                if (isDirty) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+
+            form.addEventListener('submit', () => { isDirty = false; });
+        })();
     </script>
 
     <!-- MUGSHOT LIGHTBOX MODAL -->

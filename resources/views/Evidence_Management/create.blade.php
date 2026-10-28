@@ -14,9 +14,9 @@
         $isLabAnalysis = false;
 
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
+        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
         $officerName =
-            auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName));
+            auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
         $examRefAuto = 'NLR-FM-T35-F';
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
         $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
@@ -85,13 +85,13 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <!-- jQuery & Select2 CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+    <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
+    <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
 
     <style>
         body {
@@ -8001,7 +8001,6 @@
                         status: 'Under Multi-Unit Processing',
                         location: `${raidLocation} (${address})`,
                         description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
-                        commanding_officer: 'Cmdr. ' + @json($userUnit),
                         submitting_officer: primarySeizure.seizure_officer || null,
                         confirm_duplicate: confirmDuplicate ? 1 : 0
                     })

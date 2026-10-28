@@ -17,7 +17,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -313,17 +313,18 @@
 
 
                 @php
-                    $totalCasesCount = count($cases ?? []);
-                    $pendingApprovalsCount = isset($cases) ? $cases->filter(function($c) {
+                    $datasetCases = $allCases ?? \App\Models\ForensicCase::allCases();
+                    $totalCasesCount = count($datasetCases);
+                    $pendingApprovalsCount = $datasetCases->filter(function($c) {
                         return !in_array($c->status, ['Approved', 'Authorized', 'Certified', 'Completed', 'Court Ready']);
-                    })->count() : 0;
-                    $vaultItemsCount = isset($cases) ? $cases->sum(function($c) {
+                    })->count();
+                    $vaultItemsCount = $datasetCases->sum(function($c) {
                         preg_match('/\d+/', $c->exhibits_summary ?? '', $m);
                         return isset($m[0]) ? (int)$m[0] : ($c->exhibits_summary ? 1 : 0);
-                    }) : 0;
-                    $courtReadyCount = isset($cases) ? $cases->filter(function($c) {
+                    });
+                    $courtReadyCount = $datasetCases->filter(function($c) {
                         return in_array($c->status, ['Approved', 'Authorized', 'Certified', 'Completed', 'Court Ready']);
-                    })->count() : 0;
+                    })->count();
                 @endphp
 
                 <!-- KPI STAT METRICS CARDS -->
@@ -443,7 +444,7 @@
                     <!-- SEARCH COUNTER BANNER -->
                     <div class="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 font-mono-code">
                         <div>
-                            Displaying <span id="visibleCaseCount" class="font-extrabold text-slate-900">{{ count($cases) }}</span> of <span id="totalCaseCount" class="font-extrabold text-slate-900">{{ count($cases) }}</span> case register dockets
+                            Displaying <span id="visibleCaseCount" class="font-extrabold text-slate-900">{{ count($cases) }}</span> of <span id="totalCaseCount" class="font-extrabold text-slate-900">{{ count($datasetCases) }}</span> case register dockets
                         </div>
                         <div id="activeFilterBadge" class="hidden text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">
                             Filtered Active
@@ -469,7 +470,7 @@
                             <tbody class="divide-y divide-slate-200" id="casesTableBody">
                                 @forelse($cases as $case)
                                     @php
-                                        $priorityClass = match(strtoupper($case->priority)) {
+                                        $priorityClass = match(strtoupper($case->priority ?? 'HIGH')) {
                                             'CRITICAL' => 'bg-red-100 text-red-700 border-red-200',
                                             'HIGH' => 'bg-amber-100 text-amber-800 border-amber-200',
                                             default => 'bg-slate-100 text-slate-700 border-slate-300'
@@ -483,7 +484,7 @@
                                         };
 
                                         $dDataHead = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
-                                        $suspectDisplayName = $case->suspect_name ?? $case->commanding_officer ?? 'Unassigned Target';
+                                        $suspectDisplayName = $case->suspect_name ?? 'Unassigned Target';
                                         $frontPic = $case->mugshot_front ?? ($dDataHead['mugshot_front'] ?? null);
                                         if (!$frontPic && !empty($case->evidence_photos)) {
                                             $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
@@ -529,7 +530,7 @@
                                         <td class="py-4 px-5 whitespace-nowrap">
                                             <div class="font-extrabold font-mono-code text-blue-600 text-sm">{{ $case->case_number }}</div>
                                             <div class="flex items-center space-x-1.5 mt-1">
-                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold {{ $priorityClass }}">{{ strtoupper($case->priority) }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold {{ $priorityClass }}">{{ strtoupper($case->priority ?? 'HIGH') }}</span>
                                                 <span class="text-[10px] text-slate-500 font-mono-code">{{ $case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d') }}</span>
                                             </div>
                                         </td>
@@ -548,7 +549,7 @@
                                                              data-alias="{{ $sp['alias'] }}" 
                                                              data-pic="{{ $sp['pic'] ?? '' }}" 
                                                              data-ref="{{ $case->case_number }}" 
-                                                             data-priority="{{ strtoupper($case->priority) }}"
+                                                             data-priority="{{ strtoupper($case->priority ?? 'HIGH') }}"
                                                              title="{{ $sp['name'] }} {{ $sp['alias'] !== 'N/A' ? "({$sp['alias']})" : '' }}">
                                                             
                                                             @if($sp['is_associate'])
@@ -632,10 +633,10 @@
                                         </td>
                                         <td class="py-4 px-5">
                                             <div class="font-extrabold {{ $unitColor }} text-xs">{{ $case->unit_name ?? 'Forensic Directorate' }}</div>
-                                            <div class="text-[10px] text-slate-600 font-medium">{{ $case->commanding_officer ?? 'Unit Head' }}</div>
+                                            <div class="text-[10px] text-slate-600 font-medium">{{ $case->unit_name ? $case->unit_name . ' Unit' : 'Unit Lead' }}</div>
                                         </td>
                                         <td class="py-4 px-5">
-                                            <div class="font-bold text-slate-900 text-xs">{{ $case->submitting_officer ?? $case->commanding_officer }}</div>
+                                            <div class="font-bold text-slate-900 text-xs">{{ $case->submitting_officer ?? 'Handling Officer' }}</div>
                                             <div class="text-[10px] text-slate-500">Handling Officer</div>
                                         </td>
                                         @php
@@ -780,14 +781,24 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="py-8 text-center text-slate-500 font-mono-code text-xs">
-                                            No case register dockets found in database.
+                                        <td colspan="9" class="py-12 text-center text-slate-500 font-mono-code text-xs">
+                                            <div class="flex flex-col items-center justify-center space-y-2">
+                                                <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <p class="font-bold text-slate-700">No case register dockets found</p>
+                                                <p class="text-[11px] text-slate-400">There are no records matching your query or awaiting directorate review.</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
+
+                    @if(method_exists($cases, 'links') && $cases->hasPages())
+                        <div class="border-t border-slate-200">
+                            {{ $cases->links() }}
+                        </div>
+                    @endif
 
                     <!-- PAGINATION FOOTER PANEL -->
                     <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
@@ -867,11 +878,11 @@
                 </div>
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <div class="text-[10px] text-slate-500 font-bold font-mono-code uppercase">Unit Head Officer</div>
-                    <div class="font-bold text-slate-900 mt-0.5" id="modalUnitHead">Dr. Evelyn Osei</div>
+                    <div class="font-bold text-slate-900 mt-0.5" id="modalUnitHead">N/A</div>
                 </div>
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <div class="text-[10px] text-slate-500 font-bold font-mono-code uppercase">Lead Handling Officer</div>
-                    <div class="font-bold text-slate-900 mt-0.5" id="modalOfficer">Insp. Eric Ofori</div>
+                    <div class="font-bold text-slate-900 mt-0.5" id="modalOfficer">N/A</div>
                 </div>
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <div class="text-[10px] text-slate-500 font-bold font-mono-code uppercase">Timestamp</div>
@@ -1251,8 +1262,8 @@
 
                 const res = await fetch('/api/cases', { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) return;
-                const cases = await res.json();
-                if (!Array.isArray(cases)) return;
+                const rawCasesData = await res.json();
+                const cases = Array.isArray(rawCasesData) ? rawCasesData : (rawCasesData.data || []);
 
                 const tbody = document.getElementById('casesTableBody');
                 if (!tbody) return;
@@ -1264,7 +1275,7 @@
 
                 let html = '';
                 if (cases.length === 0) {
-                    html = `<tr><td colspan="9" class="py-8 text-center text-slate-500 font-mono-code text-xs">No case register dockets found in database.</td></tr>`;
+                    html = `<tr><td colspan="9" class="py-12 text-center text-slate-500 font-mono-code text-xs"><div class="flex flex-col items-center justify-center space-y-2"><svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><p class="font-bold text-slate-700">No case register dockets found</p></div></td></tr>`;
                 } else {
                     cases.forEach(c => {
                         const isPending = ['Awaiting Sign-off', 'Pending Approval', 'Pending'].includes(c.status);
@@ -1394,7 +1405,7 @@
                                      data-alias="${sAlias.replace(/"/g, '&quot;')}" 
                                      data-pic="${sPic ? sPic.replace(/"/g, '&quot;') : ''}" 
                                      data-ref="${c.case_number}" 
-                                     data-priority="${(c.priority || 'NORMAL').toUpperCase()}"
+                                     data-priority="${(c.priority || 'HIGH').toUpperCase()}"
                                      title="${sName.replace(/"/g, '&quot;')} ${sAlias !== 'N/A' ? '(' + sAlias.replace(/"/g, '&quot;') + ')' : ''}">
                                     ${assocBadge}
                                     <div class="w-10 h-10 rounded-full bg-slate-100 ring-2 ring-red-500 shadow-sm flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden group-hover:ring-2 group-hover:ring-blue-500 group-hover:z-40 transition-all duration-200">
@@ -1489,7 +1500,7 @@
                             <td class="py-4 px-5 whitespace-nowrap">
                                 <div class="font-extrabold font-mono-code text-blue-600 text-sm">${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-1">
-                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'NORMAL').toUpperCase()}</span>
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'HIGH').toUpperCase()}</span>
                                     <span class="text-[10px] text-slate-500 font-mono-code">${createdDate}</span>
                                 </div>
                             </td>
@@ -1513,10 +1524,10 @@
                             </td>
                             <td class="py-4 px-5">
                                 <div class="font-extrabold ${unitColor} text-xs">${c.unit_name || 'Forensic Directorate'}</div>
-                                <div class="text-[10px] text-slate-600 font-medium">${c.commanding_officer || 'Unit Head'}</div>
+                                <div class="text-[10px] text-slate-600 font-medium">${c.unit_name ? c.unit_name + ' Unit' : 'Unit Lead'}</div>
                             </td>
                             <td class="py-4 px-5">
-                                <div class="font-bold text-slate-900 text-xs">${c.submitting_officer || c.commanding_officer || 'Handling Officer'}</div>
+                                <div class="font-bold text-slate-900 text-xs">${c.submitting_officer || 'Handling Officer'}</div>
                                 <div class="text-[10px] text-slate-500">Handling Officer</div>
                             </td>
                             <td class="py-4 px-5 text-center whitespace-nowrap">

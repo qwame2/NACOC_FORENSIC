@@ -14,9 +14,9 @@
         $isLabAnalysis = true;
 
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
+        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
         $officerName =
-            auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName));
+            auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
         $examRefAuto = !empty($case->lab_exam_reference)
             ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $case->lab_exam_reference)
             : 'NLR-FM-T35-F';
@@ -87,13 +87,13 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <!-- jQuery & Select2 CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+    <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
+    <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
 
     <style>
         body {
@@ -4727,6 +4727,26 @@
                                             </div>
                                         </div>
 
+                                        <!-- REMARKS / EXHIBIT REMARK -->
+                                        <div class="col-span-full md:col-span-2">
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Remarks</label>
+                                            <div class="relative flex items-center group">
+                                                <span
+                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2"
+                                                            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                    </svg>
+                                                </span>
+                                                <input type="text" id="newSeizureExhibitRemark" name="exhibit_remark"
+                                                    placeholder="e.g. Broken seal, sample retrieved under chain-of-custody..."
+                                                    class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+
                                     </div>
 
                                     <!-- VEHICLE SPECIFIC FIELDS -->
@@ -5796,9 +5816,9 @@
                                                 Name</span>
                                         </label>
                                         <input type="text" id="labAnalystInput" name="lab_analyst"
-                                            value="{{ auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName)) }}"
+                                            value="{{ auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : ''))) }}"
                                             class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
-                                            placeholder="e.g. John Adu">
+                                            placeholder="Examiner / Analyst Name">
                                     </div>
                                 </div>
 
@@ -8487,6 +8507,7 @@
                     const seizureOfficer = getSeizureOfficersFormatted(block);
                     const seizureReason = block.querySelector('#newSeizureReason')?.value || '';
                     const seizureSourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                    const seizureExhibitRemark = block.querySelector('#newSeizureExhibitRemark')?.value || block.querySelector('input[name="exhibit_remark"]')?.value || '';
 
                     // Device fields
                     const devModel = block.querySelector('#newDevModel')?.value || '';
@@ -8595,6 +8616,7 @@
                         seizure_officer: seizureOfficer,
                         seizure_reason: seizureReason,
                         source_of_exhibits: seizureSourceOfExhibits,
+                        exhibit_remark: seizureExhibitRemark,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,
@@ -8893,6 +8915,7 @@
                         seizure_officer: primarySeizure.seizure_officer || null,
                         seizure_reason: primarySeizure.seizure_reason || null,
                         source_of_exhibits: primarySeizure.source_of_exhibits || null,
+                        exhibit_remark: primarySeizure.exhibit_remark || null,
                         exhibit_type: primarySeizure.exhibit_type || null,
                         drug_classification: primarySeizure.drug_classification || null,
                         valuation: valuationText,
@@ -8969,7 +8992,6 @@
                         status: 'Under Multi-Unit Processing',
                         location: `${raidLocation} (${address})`,
                         description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
-                        commanding_officer: 'Cmdr. ' + @json($userUnit),
                         submitting_officer: primarySeizure.seizure_officer || null,
                         confirm_duplicate: confirmDuplicate ? 1 : 0
                     })

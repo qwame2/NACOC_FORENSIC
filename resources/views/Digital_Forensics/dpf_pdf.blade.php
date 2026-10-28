@@ -9,17 +9,10 @@
                         $q->where('unit', 'LIKE', '%Digital%')
                           ->orWhere('unit', 'LIKE', '%Physical%');
                     })->where('is_head', true)->first()
-                    ?? \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->first()
                     ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
     }
-    $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'Ofori Graham';
+    $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'N/A';
     $dpfHeadSignature = $dbDpfHead ? $dbDpfHead->signature : null;
-    if (empty($dpfHeadSignature)) {
-        $oforiUser = \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->whereNotNull('signature')->first();
-        if ($oforiUser) {
-            $dpfHeadSignature = $oforiUser->signature;
-        }
-    }
     if (!empty($dpfHeadSignature)) {
         $dpfHeadSignature = trim((string)$dpfHeadSignature);
         if (!str_starts_with($dpfHeadSignature, 'data:image') && !str_starts_with($dpfHeadSignature, 'http://') && !str_starts_with($dpfHeadSignature, 'https://') && !str_starts_with($dpfHeadSignature, '/')) {
@@ -37,7 +30,7 @@
                    ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
                    ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
     }
-    $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : '';
+    $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : 'N/A';
     $deptHeadSignature = $dbDeptHead ? $dbDeptHead->signature : null;
     if (!empty($deptHeadSignature)) {
         $deptHeadSignature = trim((string)$deptHeadSignature);
@@ -47,8 +40,8 @@
     }
 
     $reportObj = $report ?? null;
-    $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'NCC-2026-6730');
-    $dpfCode = $reportObj->dpf_code ?? 'DPF-STATUS-2026-001';
+    $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'N/A');
+    $dpfCode = $reportObj->dpf_code ?? ($caseNo !== 'N/A' ? 'DPF-' . $caseNo : 'N/A');
 
     $rawDate = $reportObj->investigation_date ?? null;
     if ($rawDate instanceof \Carbon\Carbon || $rawDate instanceof \DateTimeInterface) {
@@ -466,7 +459,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NACOC Digital Forensic Investigation Report - {{ $caseNo }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <script src="{{ asset('vendor/pdfjs/pdf.min.js') }}"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
@@ -658,7 +651,7 @@
                                 NARCOTICS CONTROL COMMISSION
                             </h1>
                             <p class="mt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-700">
-                                DEPARTMENT OF FORENSIC
+                                FORENSIC DEPARTMENT
                             </p>
                             <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-600 font-mono-code">
                                 DIGITAL &amp; PHYSICAL FORENSICS UNIT (DPFU)

@@ -4,16 +4,16 @@
         ? $case->docket_data
         : (json_decode($case->docket_data ?? '[]', true) ?: []);
 
-    $rawLab = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'Lab No. 72/FS09/2026');
-    $labNo = str_starts_with($rawLab, 'Lab No.') ? $rawLab : 'Lab No. ' . $rawLab;
-    $caseNo = $case->case_number ?? 'NCC-2026-6730';
-    $raidLoc = $case->raid_location ?? ($docketData['raid_location'] ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)'));
+    $rawLab = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'N/A');
+    $labNo = ($rawLab === 'N/A' || str_starts_with($rawLab, 'Lab No.')) ? $rawLab : 'Lab No. ' . $rawLab;
+    $caseNo = $case->case_number ?? 'N/A';
+    $raidLoc = $case->raid_location ?? ($docketData['raid_location'] ?? ($case->location ?? 'N/A'));
 
-    $drugName = $case->seizure_name_drug ?? ($case->seizure_name ?? ($docketData['drug_name'] ?? 'Heroin (Brown Sugar / Diacetylmorphine)'));
-    $drugCategory = $case->exhibit_category ?? ($docketData['drug_category'] ?? 'Narcotic Controlled Substances');
-    $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? '90 Kilograms (kg)');
+    $drugName = $case->seizure_name_drug ?? ($case->seizure_name ?? ($docketData['drug_name'] ?? 'N/A'));
+    $drugCategory = $case->exhibit_category ?? ($docketData['drug_category'] ?? 'N/A');
+    $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? 'N/A');
 
-    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'Det. Insp. K. Mensah');
+    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'N/A');
 
     $rawAnalyst = $docketData['analyst'] 
         ?? ($docketData['lab_examination']['analyst'] 
@@ -26,11 +26,11 @@
     } elseif ($authUser && (str_contains(strtolower($authUser->unit ?? ''), 'lab') || !empty($authUser->fullname))) {
         $analystName = $authUser->fullname;
     } else {
-        $analystName = 'John Mensah';
+        $analystName = 'N/A';
     }
 
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-    $headName = $dbLabHead ? $dbLabHead->fullname : 'Dr. Samuel Atta (Head of Forensic Laboratory)';
+    $headName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
 
     // Gather suspect records
     $rawSuspects = [];
@@ -41,8 +41,8 @@
     }
     if (empty($rawSuspects)) {
         $rawSuspects[] = [
-            'suspect_name' => $case->suspect_name ?? 'KOJO ADU',
-            'suspect_alias' => $case->suspect_alias ?? 'Kofi Ghana',
+            'suspect_name' => $case->suspect_name ?? 'N/A',
+            'suspect_alias' => $case->suspect_alias ?? 'N/A',
             'role' => 'Primary Suspect',
         ];
     }
@@ -96,7 +96,7 @@
         $defExam = $case->resolveLabExamForSuspect();
         if ($defExam) {
             $suspectLabResults[] = array_merge($defExam, [
-                'suspect_name' => $case->suspect_name ?? 'KOJO ADU',
+                'suspect_name' => $case->suspect_name ?? 'N/A',
                 'orig_idx' => 0,
                 'has_saved_lab' => !empty($defExam['has_saved']),
                 'lab_exam' => $defExam,
@@ -112,7 +112,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NACOC Lab Result (NLR) Report - {{ $caseNo }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         .font-serif-header { font-family: 'Cinzel', serif; }

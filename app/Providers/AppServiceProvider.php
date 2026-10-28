@@ -19,6 +19,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Pagination\Paginator::useTailwind();
+
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Database\Events\MigrationsEnded::class, function () {
+            \App\Services\SchemaCache::flushAll();
+        });
+
         if (file_exists(app_path('Helpers/LabExaminationHelper.php'))) {
             require_once app_path('Helpers/LabExaminationHelper.php');
         }

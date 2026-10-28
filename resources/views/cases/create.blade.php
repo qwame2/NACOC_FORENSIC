@@ -11,8 +11,8 @@
         $isLabAnalysis = false;
         
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
-        $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName);
+        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
+        $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A'));
         $examRefAuto = 'NLR-FM-T35-F';
         $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
         $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
@@ -64,13 +64,13 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <!-- jQuery & Select2 CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+    <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
+    <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
 
     <style>
         body {
@@ -2914,9 +2914,9 @@
                                             type="text" 
                                             id="labAnalystInput" 
                                             name="lab_analyst"
-                                            value="{{ auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName) }}" 
+                                            value="{{ auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : '')) }}" 
                                             class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
-                                            placeholder="e.g. John Adu"
+                                            placeholder="Examiner / Analyst Name"
                                         >
                                     </div>
                                 </div>
@@ -5611,7 +5611,6 @@
                     status: 'Under Multi-Unit Processing',
                     location: `${raidLocation} (${address})`,
                     description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
-                    commanding_officer: 'Cmdr. ' + @json($userUnit),
                     submitting_officer: primarySeizure.seizure_officer || null,
                     confirm_duplicate: confirmDuplicate ? 1 : 0
                 })

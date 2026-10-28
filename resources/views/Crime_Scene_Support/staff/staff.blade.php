@@ -2,7 +2,7 @@
     $authUser = auth()->user();
     $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first()
                ?? \App\Models\User::where('is_head', true)->first();
-    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'John Adu';
+    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'N/A';
     $staffName = $authUser->fullname ?? session('user_name') ?? 'Field Staff Officer';
 
     $staffParts = preg_split('/\s+/', trim($staffName));
@@ -26,7 +26,15 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <!-- Tailwind CSS Local Asset Fallback (Warning Suppressed for clean console) -->
+        <script>
+          const _origWarn = console.warn;
+          console.warn = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('tailwindcss')) return;
+            _origWarn.apply(console, args);
+          };
+        </script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -231,7 +239,7 @@
                         <div class="mt-3">
                             <div class="text-2xl font-extrabold text-slate-900 font-mono-code tracking-tight">4 Active</div>
                             <div class="text-[11px] font-semibold text-emerald-600 mt-1">
-                                <span>Assigned to Insp. Mensah</span>
+                                <span>Assigned to {{ $staffName }}</span>
                             </div>
                         </div>
                     </div>

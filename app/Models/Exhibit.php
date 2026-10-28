@@ -35,6 +35,8 @@ class Exhibit extends Model
         'seizure_officer',
         'seizure_reason',
         'source_of_exhibits',
+        'exhibit_remark',
+        'lab_remark',
         'veh_make',
         'veh_model',
         'veh_type',
@@ -46,11 +48,25 @@ class Exhibit extends Model
         'veh_country_reg',
         'veh_owner',
         'veh_driver',
+        'veh_owner_contact',
+        'veh_docs_available',
+        'veh_doc_ref',
+        'veh_condition',
+        'veh_fuel',
+        'veh_keys_recv',
+        'veh_key_count',
+        'veh_damage',
+        'veh_mods',
+        'veh_features',
         'wpn_model',
         'wpn_serial_no',
         'wpn_calibre',
         'wpn_colour',
         'wpn_size',
+        'wpn_marks',
+        'wpn_location_found',
+        'wpn_loaded_status',
+        'wpn_condition',
         'dev_model',
         'dev_serial_no',
         'dev_imei1',
@@ -74,9 +90,19 @@ class Exhibit extends Model
         return $this->belongsTo(SingleSuspectCase::class, 'single_suspect_case_id');
     }
 
+    public function singleSuspectCase()
+    {
+        return $this->singleCase();
+    }
+
     public function multipleCase()
     {
         return $this->belongsTo(MultipleSuspectCase::class, 'multiple_suspect_case_id');
+    }
+
+    public function multipleSuspectCase()
+    {
+        return $this->multipleCase();
     }
 
     public function suspect()

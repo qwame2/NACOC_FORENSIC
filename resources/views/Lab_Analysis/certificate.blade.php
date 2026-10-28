@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Official Forensic Chemical Analysis Certificate - {{ $case->case_number ?? 'CERT' }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,15 +26,15 @@
     $authUser = auth()->user();
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     
-    $labNo = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'Lab No. 46/FS09/2026');
-    $caseNo = $case->case_number ?? 'NACOC/ACC/2026/089';
-    $raidLoc = $case->raid_location ?? ($docketData['raid_location'] ?? ($case->location ?? 'Kotoka International Airport (Cargo Wing)'));
+    $labNo = $case->laboratory_number ?? ($docketData['laboratory_number'] ?? 'N/A');
+    $caseNo = $case->case_number ?? 'N/A';
+    $raidLoc = $case->raid_location ?? ($docketData['raid_location'] ?? ($case->location ?? 'N/A'));
     
-    $drugName = $case->seizure_name_drug ?? ($case->seizure_name ?? ($docketData['drug_name'] ?? 'Cocaine Hydrochloride'));
-    $drugCategory = $case->exhibit_category ?? ($docketData['drug_category'] ?? 'Narcotic Controlled Substances');
-    $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? '12.5 Kilograms (kg)');
+    $drugName = $case->seizure_name_drug ?? ($case->seizure_name ?? ($docketData['drug_name'] ?? 'N/A'));
+    $drugCategory = $case->exhibit_category ?? ($docketData['drug_category'] ?? 'N/A');
+    $quantityStr = $case->exhibits_summary ?? ($docketData['quantity_str'] ?? 'N/A');
     
-    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'Det. Insp. K. Mensah');
+    $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? 'N/A');
 
     $rawAnalyst = $docketData['analyst'] 
         ?? ($docketData['lab_examination']['analyst'] 
@@ -47,15 +47,15 @@
     } elseif ($authUser && (str_contains(strtolower($authUser->unit ?? ''), 'lab') || !empty($authUser->fullname))) {
         $analystName = $authUser->fullname;
     } else {
-        $analystName = 'Senior Forensic Chemist Dr. E. Quaye';
+        $analystName = 'N/A';
     }
     
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-    $headName = $dbLabHead ? $dbLabHead->fullname : 'Dr. Samuel Atta (Head of Forensic Laboratory)';
+    $headName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
 
     // Unified Presumptive Result Parser Helper
     $parsePresumptiveResult = function ($raw) use ($drugName) {
-        $fallback = [['result' => 'YES', 'presence' => 'Positive Reaction (Cobalt Thiocyanate Protocol)', 'purity' => '—']];
+        $fallback = [['result' => '—', 'presence' => 'No test reaction recorded', 'purity' => '—']];
         if (empty($raw) || !is_string($raw)) {
             return $fallback;
         }
@@ -172,9 +172,9 @@
     }
     if (empty($rawSuspects)) {
         $rawSuspects[] = [
-            'suspect_name'   => $case->suspect_name ?? 'BEN ADU',
-            'suspect_alias'  => $case->suspect_alias ?? 'Kofi Ghana',
-            'ghana_card'     => $case->ghana_card ?? 'GHA-78920194-2',
+            'suspect_name'   => $case->suspect_name ?? 'N/A',
+            'suspect_alias'  => $case->suspect_alias ?? 'N/A',
+            'ghana_card'     => $case->ghana_card ?? 'N/A',
             'gender'         => $case->gender ?? 'Male',
             'age'            => $case->age ?? 34,
             'role'           => 'Primary Suspect',

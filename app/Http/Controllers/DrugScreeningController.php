@@ -14,7 +14,7 @@ class DrugScreeningController extends Controller
      */
     public function index(Request $request)
     {
-        $query = DrugScreening::with(['suspect.multipleCase', 'suspect.exhibits'])
+        $query = DrugScreening::with(['suspect.singleCase', 'suspect.multipleCase', 'suspect.exhibits'])
             ->orderBy('screening_date', 'desc')
             ->orderBy('id', 'desc');
 
@@ -38,12 +38,19 @@ class DrugScreeningController extends Controller
                         ->orWhereHas('multipleCase', function ($cq) use ($search) {
                             $cq->where('case_number', 'LIKE', "%{$search}%")
                                ->orWhere('title', 'LIKE', "%{$search}%");
+                        })
+                        ->orWhereHas('singleCase', function ($cq) use ($search) {
+                            $cq->where('case_number', 'LIKE', "%{$search}%")
+                               ->orWhere('title', 'LIKE', "%{$search}%");
                         });
                   });
             });
         }
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
 
-        $screenings = $query->get();
+        $screenings = $query->paginate($perPage)->withQueryString();
 
         // Statistical metrics
         $allScreenings = DrugScreening::all();
@@ -53,7 +60,7 @@ class DrugScreeningController extends Controller
         $pendingCount  = $allScreenings->filter(fn($s) => strtolower(trim($s->result)) === 'pending')->count();
 
         $dbHead = User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-        $headName = $dbHead ? $dbHead->fullname : 'Dr. Samuel Atta (Chief Lab Chemist)';
+        $headName = $dbHead ? $dbHead->fullname : 'N/A';
 
         return view('Lab_Analysis.drug_screening.index', compact(
             'screenings',
@@ -74,9 +81,9 @@ class DrugScreeningController extends Controller
         $eligibleSuspects = $suspects; // backward compatibility
 
         $dbHead = User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-        $headName = $dbHead ? $dbHead->fullname : 'Dr. Samuel Atta (Chief Lab Chemist)';
+        $headName = $dbHead ? $dbHead->fullname : 'N/A';
 
-        $screenedSuspects = DrugScreening::with(['suspect.multipleCase'])->get()->keyBy('suspect_id');
+        $screenedSuspects = DrugScreening::with(['suspect.singleCase', 'suspect.multipleCase'])->get()->keyBy('suspect_id');
         $screenedMap = [];
         foreach ($screenedSuspects as $sId => $ds) {
             $screenedMap[$sId] = [
@@ -84,12 +91,12 @@ class DrugScreeningController extends Controller
                 'suspect_id'               => $ds->suspect_id,
                 'suspect_name'             => $ds->suspect->suspect_name ?? 'Suspect',
                 'suspect_alias'            => $ds->suspect->suspect_alias ?? '',
-                'case_number'              => $ds->suspect->multipleCase->case_number ?? 'NCC-2026',
+                'case_number'              => $ds->suspect->case_number ?? ($ds->suspect->singleCase->case_number ?? ($ds->suspect->multipleCase->case_number ?? 'NCC-2026')),
                 'purpose'                  => $ds->purpose,
                 'screening_date'           => $ds->screening_date ? $ds->screening_date->format('Y-m-d') : '',
                 'screening_date_formatted' => $ds->screening_date ? $ds->screening_date->format('d M Y') : 'N/A',
                 'result'                   => $ds->result,
-                'substances_found'         => $ds->substances_found ?? ($ds->result === 'Negative' ? 'No substance(s) found' : ''),
+                'substances_found'         => $ds->substances_found ?? ($ds->result === 'Negative' ? 'No drug(s) detected' : ''),
                 'notes'                    => $ds->notes ?? $ds->note ?? '',
                 'note'                     => $ds->notes ?? $ds->note ?? '',
                 'created_at'               => $ds->created_at ? $ds->created_at->format('d M Y, H:i') : 'N/A',
@@ -109,7 +116,7 @@ class DrugScreeningController extends Controller
             'suspect_id'       => ['required', 'integer', 'exists:case_suspects,id'],
             'purpose'          => ['required', 'string', 'max:255'],
             'screening_date'   => ['required', 'date'],
-            'result'           => ['required', 'string', 'in:Positive,Negative,Pending'],
+            'result'           => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Enums\ScreeningResult::values())],
             'substances_found' => ['nullable', 'string', 'max:255'],
             'notes'            => ['nullable', 'string', 'max:2000'],
             'note'             => ['nullable', 'string', 'max:2000'],
@@ -127,7 +134,7 @@ class DrugScreeningController extends Controller
         unset($validated['note']);
 
         if (strtolower(trim($validated['result'])) === 'negative') {
-            $validated['substances_found'] = 'No substance(s) found';
+            $validated['substances_found'] = 'No drug(s) detected';
         }
 
         if ($request->filled('screening_id')) {
@@ -162,7 +169,7 @@ class DrugScreeningController extends Controller
             'suspect_id'       => ['required', 'integer', 'exists:case_suspects,id'],
             'purpose'          => ['required', 'string', 'max:255'],
             'screening_date'   => ['required', 'date'],
-            'result'           => ['required', 'string', 'in:Positive,Negative,Pending'],
+            'result'           => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Enums\ScreeningResult::values())],
             'substances_found' => ['nullable', 'string', 'max:255'],
             'notes'            => ['nullable', 'string', 'max:2000'],
             'note'             => ['nullable', 'string', 'max:2000'],
@@ -173,7 +180,7 @@ class DrugScreeningController extends Controller
         unset($validated['note']);
 
         if (strtolower(trim($validated['result'])) === 'negative') {
-            $validated['substances_found'] = 'No substance(s) found';
+            $validated['substances_found'] = 'No drug(s) detected';
         }
 
         $screening->update($validated);
@@ -206,20 +213,10 @@ class DrugScreeningController extends Controller
             ->get();
 
         foreach ($singleCases as $sc) {
-            $multiCase = \App\Models\MultipleSuspectCase::firstOrCreate(
-                ['case_number' => $sc->case_number],
-                [
-                    'title'              => $sc->title ?? ('Forensic Case ' . $sc->case_number),
-                    'unit_name'          => $sc->unit_name ?? 'Forensic Laboratory',
-                    'suspect_name'       => $sc->suspect_name,
-                    'controller_user_id' => auth()->id() ?? ($sc->user_id ?? 1),
-                ]
-            );
-
             $caseSuspect = \App\Models\CaseSuspect::firstOrCreate(
                 [
-                    'multiple_suspect_case_id' => $multiCase->id,
-                    'suspect_name'             => $sc->suspect_name,
+                    'single_suspect_case_id' => $sc->id,
+                    'suspect_name'           => $sc->suspect_name,
                 ],
                 [
                     'suspect_number'   => 1,
@@ -239,8 +236,8 @@ class DrugScreeningController extends Controller
             }
         }
 
-        // 2. Fetch all individual suspects from case_suspects (multiple suspects are each treated as individual single suspects)
-        return CaseSuspect::with('multipleCase')
+        // 2. Fetch all individual suspects from case_suspects (both single and multiple suspect cases)
+        return CaseSuspect::with(['singleCase', 'multipleCase'])
             ->whereNotNull('suspect_name')
             ->where('suspect_name', '!=', '')
             ->orderBy('suspect_name', 'asc')
@@ -284,7 +281,7 @@ class DrugScreeningController extends Controller
                 'suspect_alias'            => $screening->suspect->suspect_alias ?? '',
                 'ghana_card'               => $screening->suspect->ghana_card ?? 'N/A',
                 'case_number'              => $screening->suspect->multipleCase->case_number ?? 'NCC-2026',
-                'holding_facility'         => $screening->suspect->holding_facility ?? 'NACOC Holding Center',
+                'holding_facility'         => $screening->suspect->holding_facility ?? config('forensics.facilities.default', 'NACOC Central Custody Facility'),
                 'purpose'                  => $screening->purpose,
                 'screening_date'           => $screening->screening_date ? $screening->screening_date->format('Y-m-d') : null,
                 'screening_date_formatted' => $screening->screening_date ? $screening->screening_date->format('d M Y') : 'N/A',
@@ -315,7 +312,7 @@ class DrugScreeningController extends Controller
                     'suspect_alias'            => $screening->suspect->suspect_alias ?? '',
                     'ghana_card'               => $screening->suspect->ghana_card ?? 'N/A',
                     'case_number'              => $screening->suspect->multipleCase->case_number ?? 'NCC-2026',
-                    'holding_facility'         => $screening->suspect->holding_facility ?? 'NACOC Holding Center',
+                    'holding_facility'         => $screening->suspect->holding_facility ?? config('forensics.facilities.default', 'NACOC Central Custody Facility'),
                     'purpose'                  => $screening->purpose,
                     'screening_date'           => $screening->screening_date ? $screening->screening_date->format('Y-m-d') : null,
                     'screening_date_formatted' => $screening->screening_date ? $screening->screening_date->format('d M Y') : 'N/A',

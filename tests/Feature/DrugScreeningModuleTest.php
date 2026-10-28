@@ -325,7 +325,7 @@ class DrugScreeningModuleTest extends TestCase
         $this->assertStringContainsString('id="substancesFoundInput"', $formHtml);
         $this->assertStringContainsString('Name of Substance(s) Found After Screening', $formHtml);
         $this->assertStringContainsString('id="negativeSubstanceLabel"', $formHtml);
-        $this->assertStringContainsString('No substance(s) found', $formHtml);
+        $this->assertStringContainsString('No drug(s) detected', $formHtml);
 
         // 2. Submit Positive record with entered substances
         $posResponse = $this->actingAs($user)->post('/Lab_Analysis/drug-screening', [
@@ -344,7 +344,7 @@ class DrugScreeningModuleTest extends TestCase
             'substances_found' => 'Cocaine, Methamphetamine',
         ]);
 
-        // 3. Submit Negative record - automatically sets No substance(s) found
+        // 3. Submit Negative record - automatically sets No drug(s) detected
         $negResponse = $this->actingAs($user)->post('/Lab_Analysis/drug-screening', [
             'suspect_id'       => $suspect2->id,
             'purpose'          => 'Follow-up Clearance Screening',
@@ -356,7 +356,7 @@ class DrugScreeningModuleTest extends TestCase
         $this->assertDatabaseHas('drug_screening', [
             'suspect_id'       => $suspect2->id,
             'result'           => 'Negative',
-            'substances_found' => 'No substance(s) found',
+            'substances_found' => 'No drug(s) detected',
         ]);
 
         // 4. Verify Dossiers table view shows both the positive substances and negative label
@@ -365,7 +365,7 @@ class DrugScreeningModuleTest extends TestCase
         $listHtml = $listResponse->getContent();
 
         $this->assertStringContainsString('Cocaine, Methamphetamine', $listHtml);
-        $this->assertStringContainsString('No substance(s) found', $listHtml);
+        $this->assertStringContainsString('No drug(s) detected', $listHtml);
     }
 
     #[Test]
@@ -459,7 +459,7 @@ class DrugScreeningModuleTest extends TestCase
 
         $finalRecord = DrugScreening::find($initialRecord->id);
         $this->assertEquals('Negative', $finalRecord->result);
-        $this->assertEquals('No substance(s) found', $finalRecord->substances_found);
+        $this->assertEquals('No drug(s) detected', $finalRecord->substances_found);
         $this->assertEquals('Re-screened Negative on Detox', $finalRecord->purpose);
     }
 

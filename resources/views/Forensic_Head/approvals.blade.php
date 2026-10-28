@@ -16,7 +16,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -544,6 +544,12 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if(method_exists($users, 'links'))
+                        <div class="border-t border-slate-200">
+                            {{ $users->links() }}
+                        </div>
+                    @endif
                 </div>
 
             </main>
@@ -560,7 +566,7 @@
                         <span class="text-xs text-slate-400">&bull;</span>
                         <span class="text-xs font-mono-code font-bold text-slate-600" id="modalSvcId">NAC-8842-EM</span>
                     </div>
-                    <h3 class="text-lg font-black text-slate-900" id="modalOfficerName">Dr. Evelyn Osei</h3>
+                    <h3 class="text-lg font-black text-slate-900" id="modalOfficerName">N/A</h3>
                 </div>
                 <button onclick="closeUserModal()" class="text-slate-400 hover:text-slate-700 text-lg font-bold p-1 cursor-pointer">&times;</button>
             </div>
@@ -594,7 +600,7 @@
                 </div>
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <div class="text-[10px] text-slate-500 font-bold font-mono-code uppercase">Username &amp; Reg Time</div>
-                    <div class="font-bold text-slate-900 mt-0.5 font-mono-code" id="modalUsername">@evelyn_osei</div>
+                    <div class="font-bold text-slate-900 mt-0.5 font-mono-code" id="modalUsername">@username</div>
                 </div>
             </div>
 

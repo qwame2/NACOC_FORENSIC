@@ -1157,6 +1157,76 @@ class DigitalForensicStatusMultiFileUploadTest extends TestCase
         $this->assertStringContainsString('CURRY SEIDA', $reportContent);
         $this->assertStringContainsString('COMFORT KINGS', $reportContent);
     }
+
+    public function test_forensic_status_javascript_syntax_is_valid(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number' => 'CSS-2026-TEST03',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user)->get('/Digital_Forensics/forensic-status');
+        $response->assertStatus(200);
+
+        $content = $response->getContent();
+        $this->assertStringNotContainsString("function applyDirectoryFilters() {\n            const searchInput", $content);
+        $this->assertStringContainsString("function applyDirectoryFilters(resetPage = true) {", $content);
+        $this->assertStringContainsString("function onDigitalCaseRefChanged(caseNo) {", $content);
+        $this->assertStringContainsString("function handleStatusSubmit(e) {", $content);
+    }
+
+    public function test_current_new_cases_fetches_location_devices_qty_and_date_from_suspect_case_details(): void
+    {
+        $user = User::factory()->create([
+            'is_approved' => true,
+            'unit' => 'Digital Forensics',
+        ]);
+
+        $singleCase = SingleSuspectCase::create([
+            'case_number' => 'CSS-2026-FETCH01',
+            'suspect_name' => 'Kwadwo Mensah',
+            'suspect_alias' => 'Spider',
+            'raid_location' => 'Tema Harbour Cargo Gate',
+            'arrest_date' => '2026-10-20',
+            'status' => 'active',
+            'created_at' => now(),
+        ]);
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $singleCase->id,
+            'exhibit_category' => 'Electronic Devices',
+            'dev_model' => 'Apple iPhone 15 Pro Max',
+            'seizure_quantity' => '2',
+            'seizure_location' => 'Tema Harbour Cargo Gate',
+            'seizure_date' => '2026-10-20',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Digital_Forensics/forensic-status');
+        $response->assertStatus(200);
+
+        $content = $response->getContent();
+
+        // 1. Dropdown options must display the suspect name and alias
+        $this->assertStringContainsString('CSS-2026-FETCH01 — Kwadwo Mensah (Spider)', $content);
+
+        // 2. Default inputs for the first case or caseMapData JSON must contain the exact suspect case details
+        $this->assertStringContainsString('Tema Harbour Cargo Gate', $content);
+        $this->assertStringContainsString('2 Apple iPhone 15 Pro Max', $content);
+        $this->assertStringContainsString('2026-10-20', $content);
+
+        // 3. Inputs must be readonly to preserve integrity of case details
+        $this->assertStringContainsString('id="statusLocation" name="location_post" value="Tema Harbour Cargo Gate" readonly', $content);
+        $this->assertStringContainsString('id="statusDate" name="investigation_date" value="2026-10-20" readonly', $content);
+        $this->assertStringContainsString('id="statusDevicesRetrieved" name="devices_retrieved" value="2 Apple iPhone 15 Pro Max" readonly', $content);
+        $this->assertStringContainsString('id="statusQty" name="quantity" value="2" readonly', $content);
+    }
 }
 
 

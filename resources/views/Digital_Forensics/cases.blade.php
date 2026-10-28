@@ -3,8 +3,11 @@
     $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Digital%')->orWhere('unit', 'LIKE', '%Physical%')->where('is_head', true)->first()
                ?? \App\Models\User::where('is_head', true)->first();
     $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
-    $allCases = \App\Models\ForensicCase::allCases();
-    $cases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+    $allCases = $allCases ?? \App\Models\ForensicCase::allCases();
+    $digitalCases = $digitalCases ?? $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+    if (!isset($cases) || !($cases instanceof \Illuminate\Pagination\LengthAwarePaginator)) {
+        $cases = \App\Models\ForensicCase::paginateCases($digitalCases, (int) request()->input('per_page', 15));
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -18,7 +21,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #F8FAFC; color: #0F172A; }
         .font-mono-code { font-family: 'JetBrains Mono', monospace; }
@@ -255,7 +258,13 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="6" class="py-6 text-center text-slate-400 font-semibold">No digital forensics cases registered yet.</td>
+                                    <td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs">
+                                        <div class="flex flex-col items-center justify-center space-y-2">
+                                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                            <p class="font-bold text-slate-700">No digital forensics cases registered yet</p>
+                                            <p class="text-[11px] text-slate-400">When digital forensic dockets are logged or assigned, they will appear here.</p>
+                                        </div>
+                                    </td>
                                 </tr>
                                 @endforelse
                                 <tr id="regNoRecordsRow" class="hidden">
@@ -271,6 +280,12 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if(method_exists($cases, 'links') && $cases->hasPages())
+                        <div class="border-t border-slate-200">
+                            {{ $cases->links() }}
+                        </div>
+                    @endif
                 </div>
 
             </main>

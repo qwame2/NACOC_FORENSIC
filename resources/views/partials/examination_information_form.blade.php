@@ -33,7 +33,8 @@
         </div>
     </div>
 
-    <form id="section5LabForm" onsubmit="submitCombinedLabAndSeizureForm(event)"
+    <form id="section5LabForm" onsubmit="event.preventDefault(); return false;"
+        onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); return false; }"
         class="space-y-5">
         <input type="hidden" id="labFormExhibitId" name="exhibit_id"
             value="{{ !empty($drugExhibits) ? $drugExhibits[0]['id'] ?? $drugExhibits[0]['index'] : '' }}">
@@ -243,7 +244,7 @@
                 </label>
                 <input type="text" id="formLabAnalyst" value=""
                     class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
-                    placeholder="e.g. John Adu">
+                    placeholder="Examiner / Analyst Name">
             </div>
         </div>
 
@@ -736,7 +737,7 @@
 
         <!-- SUBMIT BUTTON -->
         <div class="flex items-center justify-end space-x-3 pt-2">
-            <button type="submit" id="saveSection5LabBtn"
+            <button type="button" id="saveSection5LabBtn"
                 onclick="submitCombinedLabAndSeizureForm(event)"
                 class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center cursor-pointer border-none">
                 <span id="saveSection5LabBtnText">Save Seizure Item &amp; Examination

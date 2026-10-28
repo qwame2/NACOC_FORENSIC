@@ -8,7 +8,7 @@
             $q->where('unit', 'LIKE', '%Crime Scene Support%')
               ->orWhere('unit', 'LIKE', '%Forensic%');
         })->first() ?? \App\Models\User::where('is_head', true)->first();
-    $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Commander Samuel Atta');
+    $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'N/A');
     $officerRole = ($authUser && $authUser->is_head) ? 'Crime Scene Support Unit Head' : 'Commanding Officer';
 
     $totalSingleCases = \App\Models\SingleSuspectCase::count();
@@ -29,15 +29,15 @@
   @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
       @vite(['resources/css/app.css', 'resources/js/app.js'])
   @else
-      <!-- Tailwind CSS CDN Fallback (Warning Suppressed for clean console) -->
+      <!-- Tailwind CSS Local Asset Fallback (Warning Suppressed for clean console) -->
       <script>
         const _origWarn = console.warn;
         console.warn = function(...args) {
-          if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+          if (args[0] && typeof args[0] === 'string' && args[0].includes('tailwindcss')) return;
           _origWarn.apply(console, args);
         };
       </script>
-      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
       <script>
         tailwind.config = {
           theme: {
@@ -1231,7 +1231,7 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono-code bg-black/20 p-2.5 rounded-xl border border-white/5 min-w-0">
                 <div class="min-w-0">
                   <span class="text-[9px] text-slate-400 block">Lead Officer:</span>
-                  <span id="cardOfficerName" class="font-bold text-slate-200 truncate block">Insp. K. Mensah</span>
+                  <span id="cardOfficerName" class="font-bold text-slate-200 truncate block">N/A</span>
                 </div>
                 <div class="min-w-0">
                   <span class="text-[9px] text-slate-400 block">Seizure:</span>
@@ -2548,7 +2548,7 @@
       if (elComp) elComp.textContent = c.unit_name || 'Crime Scene Support Unit';
 
       const elOfficer = document.getElementById('cardOfficerName');
-      if (elOfficer) elOfficer.textContent = c.submitting_officer || 'Insp. K. Mensah';
+      if (elOfficer) elOfficer.textContent = c.submitting_officer || 'N/A';
 
       const elLoc = document.getElementById('cardLocationName');
       if (elLoc) elLoc.textContent = (c.raid_location ? c.raid_location.substring(0, 26) : 'Kotoka Airport');

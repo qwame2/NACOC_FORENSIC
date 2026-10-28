@@ -218,7 +218,7 @@
                                     </option>
                                     @foreach(($suspects ?? $eligibleSuspects) as $suspect)
                                     @php
-                                        $caseNo = $suspect->multipleCase->case_number ?? 'N/A';
+                                        $caseNo = $suspect->case_number ?? ($suspect->singleCase->case_number ?? ($suspect->multipleCase->case_number ?? 'N/A'));
                                     @endphp
                                     <option value="{{ $suspect->id }}"
                                         {{ old('suspect_id') == $suspect->id ? 'selected' : '' }}
@@ -348,7 +348,7 @@
                                         </div>
                                         <div>
                                             <div class="font-extrabold text-xs text-emerald-900 font-mono-code">NEGATIVE</div>
-                                            <div class="text-[10px] text-emerald-600 font-medium">No substances found</div>
+                                            <div class="text-[10px] text-emerald-600 font-medium">No drug(s) detected</div>
                                         </div>
                                     </div>
                                 </label>
@@ -435,7 +435,7 @@
                                         <div>
                                             <div class="flex items-center gap-2">
                                                 <span class="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold font-mono-code bg-emerald-600 text-white shadow-2xs">
-                                                    No substance(s) found
+                                                    No drug(s) detected
                                                 </span>
                                                 <span class="text-xs font-extrabold text-emerald-950 font-mono-code">
                                                     (Negative Screening Outcome)
@@ -592,7 +592,7 @@
             const input = document.getElementById('substancesFoundInput');
             if (!input) return;
             const current = input.value.trim();
-            if (!current || current === 'No substance(s) found') {
+            if (!current || current === 'No drug(s) detected' || current === 'No substance(s) found') {
                 input.value = tag;
             } else {
                 const parts = current.split(',').map(s => s.trim().toLowerCase());
@@ -637,7 +637,7 @@
                 if (pendBanner) pendBanner.classList.add('hidden');
                 if (subInput) {
                     subInput.required = true;
-                    if (subInput.value === 'No substance(s) found') {
+                    if (subInput.value === 'No drug(s) detected' || subInput.value === 'No substance(s) found') {
                         subInput.value = '';
                     }
                     setTimeout(() => subInput.focus(), 60);
@@ -648,7 +648,7 @@
                 if (pendBanner) pendBanner.classList.add('hidden');
                 if (subInput) {
                     subInput.required = false;
-                    subInput.value = 'No substance(s) found';
+                    subInput.value = 'No drug(s) detected';
                 }
             } else {
                 if (posBox) posBox.classList.add('hidden');
@@ -656,7 +656,7 @@
                 if (pendBanner) pendBanner.classList.remove('hidden');
                 if (subInput) {
                     subInput.required = false;
-                    if (subInput.value === 'No substance(s) found') {
+                    if (subInput.value === 'No drug(s) detected' || subInput.value === 'No substance(s) found') {
                         subInput.value = '';
                     }
                 }
@@ -769,7 +769,7 @@
 
             const subEl = document.getElementById('modalScreenedSubstances');
             if (subEl) {
-                subEl.textContent = record.substances_found || (record.result === 'Negative' ? 'No substance(s) found' : 'None specified');
+                subEl.textContent = record.substances_found || (record.result === 'Negative' ? 'No drug(s) detected' : 'None specified');
             }
 
             const purpEl = document.getElementById('modalScreenedPurpose');
@@ -841,7 +841,7 @@
                 if (resultVal === 'Positive') {
                     subInput.value = currentScreenedRecord.substances_found || '';
                 } else if (resultVal === 'Negative') {
-                    subInput.value = 'No substance(s) found';
+                    subInput.value = 'No drug(s) detected';
                 } else {
                     subInput.value = currentScreenedRecord.substances_found || '';
                 }

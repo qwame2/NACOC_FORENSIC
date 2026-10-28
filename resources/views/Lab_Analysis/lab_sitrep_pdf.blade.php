@@ -1,11 +1,23 @@
 @php
     $authUser = auth()->user();
 
-    // Total dossier page calculation
-    $totalDossierPages = 2; // Cover (1) + Dossier (1+)
-    if (count($filteredSeizures ?? []) > 5) {
-        $totalDossierPages = 3;
-    }
+    // WHY: Server-side pagination chunks the data into fixed-size pages so
+    // the browser never has to paginate. This removes the O(n^2) JS paginator
+    // and lifts the ~60-page ceiling entirely.
+    $rowsPerPage = 25; // Tune this to fit one A4 page. Increase until it just fits.
+
+    $seizureChunks   = collect($filteredSeizures ?? [])->chunk($rowsPerPage);
+    $screeningChunks = collect($drugScreeningRecords ?? [])->chunk($rowsPerPage);
+    $gsaChunks       = collect($gsaSubmissions ?? [])->chunk($rowsPerPage);
+
+    // Total dossier pages = 1 cover + the max chunk count across all three sections.
+    $maxChunks = max(
+        $seizureChunks->count(),
+        $screeningChunks->count(),
+        $gsaChunks->count(),
+        1
+    );
+    $totalDossierPages = 1 + $maxChunks;
 
     $johnSig = $labHeadSignature ?? null;
     if (!empty($johnSig)) {
@@ -31,7 +43,7 @@
     <title>NACOC Laboratory Analysis Unit &bull; Situational Report (SITREP)</title>
     
     <!-- Scripts & Styles -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -48,7 +60,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0f172a;
+            background-color: #ffffff;
             color: #1e293b;
             margin: 0;
             padding: 24px 0;
@@ -75,7 +87,8 @@
             padding: 10mm 12mm 10mm 12mm;
             margin: 0 auto 24px auto;
             background: #ffffff;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
             box-sizing: border-box;
             position: relative;
             display: flex;
@@ -103,15 +116,18 @@
         /* Dynamic Dossier Pages */
         .dynamic-dossier-page {
             width: 210mm;
-            min-height: 297mm;
-            height: auto;
+            height: 297mm;
+            max-height: 297mm;
             padding: 10mm 12mm 10mm 12mm;
             box-sizing: border-box;
             position: relative;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            overflow: hidden;
             background: #ffffff;
+            page-break-after: always;
+            break-after: page;
         }
 
         .page-break {
@@ -133,6 +149,23 @@
             display: none;
         }
 
+        .table-responsive-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            table-layout: fixed;
+            word-wrap: break-word;
+        }
+
+        th, td {
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
         @media print {
             @page {
                 size: A4 portrait;
@@ -150,19 +183,11 @@
                 display: none !important;
             }
 
+            /* WHY: Hide the single fixed watermark in print; each page now carries its
+               own per-page .dossier-watermark element, which scales to many pages without
+               the fixed-element repetition cost that caused print rasterization lag. */
             .print-fixed-watermark {
-                position: fixed !important;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                width: 550px !important;
-                height: 550px !important;
-                pointer-events: none !important;
-                z-index: 0 !important;
-                opacity: 0.025 !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                display: none !important;
             }
 
             .cover-page {
@@ -189,7 +214,8 @@
                 margin: 0 !important;
                 padding: 10mm 12mm 10mm 12mm !important;
                 width: 210mm !important;
-                min-height: 297mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
                 overflow: hidden !important;
                 background: #ffffff !important;
                 display: flex !important;
@@ -199,12 +225,35 @@
                 break-after: page !important;
             }
 
+            /* WHY: Keep the per-page watermark visible in print on every page.
+               Each .dynamic-dossier-page (including generated continuation pages)
+               already contains its own .dossier-watermark element, so print cost is
+               O(1) per page instead of O(n) fixed-element rasterization. */
             .dynamic-dossier-page > .dossier-watermark {
-                display: none !important;
+                display: flex !important;
+                position: absolute !important;
+                inset: 0 !important;
+                align-items: center !important;
+                justify-content: center !important;
+                pointer-events: none !important;
+                z-index: 0 !important;
+                opacity: 0.025 !important;
+                overflow: hidden !important;
+            }
+
+            .table-responsive-wrapper {
+                overflow: visible !important;
             }
 
             table {
                 width: 100% !important;
+                max-width: 100% !important;
+                table-layout: fixed !important;
+            }
+
+            th, td {
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
             }
 
             tr {
@@ -218,7 +267,7 @@
         }
     </style>
 </head>
-<body class="antialiased">
+<body class="antialiased bg-white">
 
     <!-- PRINT-SPECIFIC FIXED WATERMARK -->
     <div class="print-fixed-watermark select-none pointer-events-none" aria-hidden="true">
@@ -258,45 +307,31 @@
             </div>
         </div>
 
-        <!-- SECOND ROW: INTERACTIVE FILTERS & SEARCH -->
-        <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 px-4 shadow-xl">
-            <div class="flex flex-wrap items-center justify-between gap-3">
+        <!-- SECOND ROW: INTERACTIVE FILTERS & SEARCH (INLINE) -->
+        <div class="bg-white border border-slate-200/90 rounded-2xl p-2.5 px-3 sm:px-4 shadow-sm">
+            <div class="flex items-center justify-between gap-2.5 sm:gap-4 overflow-x-auto min-w-0 flex-nowrap">
                 <!-- PERIOD PRESETS -->
-                <div class="flex items-center gap-1.5 bg-slate-950/70 p-1 rounded-xl border border-slate-800">
-                    <button type="button" onclick="setPeriodFilter('weekly')" class="preset-btn px-3 py-1 rounded-lg text-xs font-bold transition-all {{ ($rawPeriod ?? 'weekly') === 'weekly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white' }}" data-preset="weekly">
+                <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
+                    <button type="button" onclick="setPeriodFilter('weekly')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ ($rawPeriod ?? 'weekly') === 'weekly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="weekly">
                         Weekly (SITREP)
                     </button>
-                    <button type="button" onclick="setPeriodFilter('monthly')" class="preset-btn px-3 py-1 rounded-lg text-xs font-bold transition-all {{ ($rawPeriod ?? '') === 'monthly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white' }}" data-preset="monthly">
+                    <button type="button" onclick="setPeriodFilter('monthly')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ ($rawPeriod ?? '') === 'monthly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="monthly">
                         Monthly
                     </button>
-                    <button type="button" onclick="setPeriodFilter('annual')" class="preset-btn px-3 py-1 rounded-lg text-xs font-bold transition-all {{ in_array($rawPeriod ?? '', ['annual', 'annually']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white' }}" data-preset="annual">
+                    <button type="button" onclick="setPeriodFilter('annual')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ in_array($rawPeriod ?? '', ['annual', 'annually']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="annual">
                         Annual
                     </button>
-                    <button type="button" onclick="setPeriodFilter('all')" class="preset-btn px-3 py-1 rounded-lg text-xs font-bold transition-all {{ ($rawPeriod ?? '') === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white' }}" data-preset="all">
+                    <button type="button" onclick="setPeriodFilter('all')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ ($rawPeriod ?? '') === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="all">
                         All Records
                     </button>
                 </div>
 
-                <!-- LIVE SEARCH INPUT -->
-                <div class="relative flex-1 min-w-[220px]">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    </span>
-                    <input type="text" id="liveSearchInput" value="{{ $searchQuery ?? '' }}" placeholder="Filter suspect, exhibit, source, remarks..." class="w-full pl-9 pr-8 py-1.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs font-mono-code text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all" oninput="applyClientFilter()">
-                    <button type="button" onclick="clearLiveSearch()" id="clearSearchBtn" class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-white {{ empty($searchQuery) ? 'hidden' : '' }}">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-
                 <!-- DATE RANGE PICKERS -->
-                <div class="flex items-center gap-2 text-xs">
-                    <span class="text-slate-400 font-mono-code text-[11px]">From:</span>
-                    <input type="date" id="filterFromDate" value="{{ $fromDate ?? '' }}" class="bg-slate-950/80 border border-slate-700/80 text-slate-200 text-xs rounded-xl px-2.5 py-1 focus:outline-none focus:border-emerald-500 font-mono-code" onchange="applyDateRange()">
-                    <span class="text-slate-400 font-mono-code text-[11px]">To:</span>
-                    <input type="date" id="filterToDate" value="{{ $toDate ?? '' }}" class="bg-slate-950/80 border border-slate-700/80 text-slate-200 text-xs rounded-xl px-2.5 py-1 focus:outline-none focus:border-emerald-500 font-mono-code" onchange="applyDateRange()">
-                    <button type="button" onclick="resetAllFilters()" title="Reset All Filters" class="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors border border-slate-700">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                    </button>
+                <div class="flex items-center gap-1.5 sm:gap-2 text-xs shrink-0">
+                    <span class="text-slate-600 font-mono-code text-[11px] whitespace-nowrap font-medium">From:</span>
+                    <input type="date" id="filterFromDate" value="{{ $fromDate ?? '' }}" class="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-2.5 py-1 w-[122px] sm:w-[128px] focus:outline-none focus:bg-white focus:border-emerald-500 font-mono-code shadow-2xs" onchange="applyDateRange()">
+                    <span class="text-slate-600 font-mono-code text-[11px] whitespace-nowrap font-medium">To:</span>
+                    <input type="date" id="filterToDate" value="{{ $toDate ?? '' }}" class="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-2.5 py-1 w-[122px] sm:w-[128px] focus:outline-none focus:bg-white focus:border-emerald-500 font-mono-code shadow-2xs" onchange="applyDateRange()">
                 </div>
             </div>
         </div>
@@ -340,7 +375,7 @@
                             NARCOTICS CONTROL COMMISSION
                         </h1>
                         <p class="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
-                            DEPARTMENT OF FORENSIC
+                            FORENSIC DEPARTMENT
                         </p>
                         <p class="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 font-mono-code">
                             LABORATORY ANALYSIS UNIT (LAU)
@@ -349,7 +384,7 @@
 
                     <!-- INCREASED SIZE EMBLEM LOGO IN THE MIDDLE -->
                     <div class="my-6 flex items-center justify-center">
-                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="w-160 h-160 max-w-[180px] max-h-[180px] object-contain drop-shadow-md" />
+                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="w-680 h-680 max-w-[780px] max-h-[780px] object-contain drop-shadow-md" />
                     </div>
 
                     <!-- CASE FILE & REPORT TITLE -->
@@ -361,7 +396,7 @@
                             LABORATORY ANALYSIS UNIT
                         </h2>
                         <p class="mt-1 text-sm font-semibold uppercase tracking-[0.14em] text-slate-700">
-                            Preliminary Forensic Examination &amp; Drug Testing Log
+                              Preliminary Forensic Examination &amp; Drug Testing Log
                         </p>
                         <div class="mx-auto mt-4 h-[2px] w-20 bg-emerald-700"></div>
                         <p class="mt-5 text-base font-extrabold uppercase tracking-wider text-emerald-800" id="coverReportTypeTitle">
@@ -386,7 +421,7 @@
 
                     <!-- CONFIDENTIAL & PROPRIETARY LAW ENFORCEMENT RECORD BOX -->
                     <div class="mt-8 w-full">
-                        <div class="p-4 text-center font-mono-code text-[10px] text-slate-700 space-y-1.5 border border-slate-300 rounded-xl bg-slate-50/70 shadow-2xs">
+                        <div class="p-4 text-center font-mono-code text-[10px] text-slate-700 space-y-1.5">
                             <p class="font-bold uppercase tracking-wider text-slate-900">
                                 CONFIDENTIAL &amp; PROPRIETARY LAW ENFORCEMENT RECORD
                             </p>
@@ -433,7 +468,17 @@
         <!-- ============================================================
              PAGE 2+: EXECUTIVE FORENSIC DOSSIER & SITUATIONAL LOG
              ============================================================ -->
-        <div class="a4-page dynamic-dossier-page relative text-slate-900">
+        @for ($pageIdx = 0; $pageIdx < $maxChunks; $pageIdx++)
+            @php
+                $pageNumber = $pageIdx + 2;
+                $isFirstDossierPage = ($pageIdx === 0);
+                $isLastDossierPage = ($pageIdx === $maxChunks - 1);
+
+                $seizureChunk   = $seizureChunks->get($pageIdx, collect());
+                $screeningChunk = $screeningChunks->get($pageIdx, collect());
+                $gsaChunk       = $gsaChunks->get($pageIdx, collect());
+            @endphp
+        <div class="a4-page dynamic-dossier-page page-break relative text-slate-900">
 
             <!-- SUBTLE NACOC WATERMARK (FOR SCREEN PREVIEW) -->
             <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
@@ -443,7 +488,7 @@
             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
 
                 <!-- DOSSIER HEADER -->
-                <div class="shrink-0">
+                <div class="page-header-block shrink-0">
                     <div class="pt-1 pb-2 border-b border-slate-300 flex items-center justify-between">
                         <div>
                             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
@@ -454,73 +499,53 @@
                             </span>
                         </div>
                         <div class="text-right">
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
+                            <p class="text-[8px] font-bold uppercase tracking-wider text-slate-900">CONFIDENTIAL</p>
                             <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800">
-                                Page 2 of <span class="doc-total-pages">{{ $totalDossierPages }}</span>
+                                PAGE {{ $pageNumber }} OF {{ $totalDossierPages }}
                             </p>
                         </div>
                     </div>
 
+                    @if ($isFirstDossierPage)
                     <!-- REPORT TITLE BLOCK -->
-                    <div class="mt-2.5 pb-2 text-center border-b border-slate-200">
+                    <div class="page-title-block mt-2 pb-1.5 text-center border-b border-slate-200">
                         <p class="text-[8.5px] font-bold uppercase tracking-[0.2em] text-emerald-800">
-                            FORENSICS DEPARTMENT &bull; LABORATORY ANALYSIS UNIT
+                            FORENSIC DEPARTMENT &bull; LABORATORY ANALYSIS UNIT
                         </p>
-                        <h2 class="mt-0.5 text-base font-extrabold uppercase tracking-wide text-slate-950 font-serif-header" id="dossierHeadingText">
+                        <h2 class="mt-0.5 text-base font-bold uppercase tracking-wide text-slate-950 font-serif-header" id="dossierHeadingText">
                             {{ $reportTypeLabel ?? 'WEEKLY SITUATIONAL REPORT' }}
                         </h2>
-                        <p class="mt-0.5 text-xs font-extrabold uppercase tracking-wider text-emerald-900 font-times" id="dossierPeriodText">
+                        <p class="mt-0.5 text-xs font-bold uppercase tracking-wider text-emerald-900 font-times" id="dossierPeriodText">
                             {{ $periodLabel ?? 'Period: 20 September – 27 September 2026' }}
                         </p>
                     </div>
 
-                    <!-- OPERATIONAL INTRODUCTORY PARAGRAPH (FROM UPLOADED FILE) -->
-                    <div class="mt-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[9.5px] text-slate-800 leading-relaxed font-sans">
+                    <!-- OPERATIONAL INTRODUCTORY PARAGRAPH -->
+                    <div class="page-intro-block mt-2 text-[11px] text-slate-800 leading-relaxed font-sans">
                         <p class="font-medium">
-                            <span class="font-bold text-slate-900">Operational Briefing:</span> During the reporting period, the Laboratory Analysis Unit continued to provide essential preliminary forensic examination and drug testing for the underlisted cases;
+                            During the reporting period, the Laboratory Analysis Unit continued to provide essential preliminary forensic examination and drug testing for the underlisted cases;
                         </p>
                     </div>
-
-                    <!-- EXECUTIVE KPI SUMMARY METRIC TILES -->
-                    <div class="mt-2.5 grid grid-cols-4 gap-2 avoid-break">
-                        <div class="p-2 bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-col">
-                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-500 font-mono-code">Total Seizure Cases</span>
-                            <span class="text-base font-black text-slate-900 font-mono-code mt-0.5" id="kpiCasesVal">{{ count($filteredSeizures) }}</span>
-                            <span class="text-[7px] text-emerald-600 font-semibold mt-auto">Active Chemical Analysis</span>
-                        </div>
-                        <div class="p-2 bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-col">
-                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-500 font-mono-code">Suspects Involved</span>
-                            <span class="text-base font-black text-slate-900 font-mono-code mt-0.5" id="kpiSuspectsVal">{{ $totalSuspectsCount }}</span>
-                            <span class="text-[7px] text-slate-600 font-semibold mt-auto">Primary &amp; Co-Suspects</span>
-                        </div>
-                        <div class="p-2 bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-col">
-                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-500 font-mono-code">Drug Screenings</span>
-                            <span class="text-base font-black text-teal-700 font-mono-code mt-0.5">{{ count($drugScreeningRecords) }}</span>
-                            <span class="text-[7px] text-teal-600 font-semibold mt-auto">Urine Toxicology Conducted</span>
-                        </div>
-                        <div class="p-2 bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-col">
-                            <span class="text-[7.5px] font-bold uppercase tracking-wider text-slate-500 font-mono-code">GSA Submissions</span>
-                            <span class="text-base font-black text-indigo-700 font-mono-code mt-0.5">{{ count($gsaSubmissions) }}</span>
-                            <span class="text-[7px] text-indigo-600 font-semibold mt-auto">Ghana Standards Authority</span>
-                        </div>
-                    </div>
+                    @endif
                 </div>
 
                 <!-- MAIN DOSSIER FLOW CONTENT -->
-                <div class="flex-1 mt-3 space-y-4">
+                <div class="report-flow-body flex-1 mt-3 min-h-0 flex flex-col justify-between">
+                    <div class="flow-sections-container space-y-4">
 
+                    @if ($seizureChunk->isNotEmpty() || ($isFirstDossierPage && count($filteredSeizures ?? []) === 0))
                     <!-- ========================================================
                          SECTION 01: PRELIMINARY FORENSIC EXAMINATION & TESTING
                          (ALL DRUG CASES & SUSPECTS WITH MODERN EXECUTIVE DESIGN)
                          ======================================================== -->
                     <div class="section-01 avoid-break">
-                        <div class="flex items-center justify-between pb-1 mb-2 border-b-2 border-emerald-700">
-                            <div class="flex items-center gap-2">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-600 text-white text-[9px] font-bold font-mono-code">
+                        <div class="flex items-center justify-between pb-1 mt-4 mb-2 border-b-2 border-emerald-700">
+                            <div class="flex items-center gap-1.5">
+                                <span class="flex h-5 w-5 items-center justify-center rounded bg-emerald-600 text-white text-[8.5px] font-bold font-mono-code">
                                     01
                                 </span>
                                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-950 font-serif-header">
-                                    Preliminary Forensic Examination &amp; Drug Testing Log
+                                    Preliminary Forensic Examination &amp; Drug Testing Log @if (!$isFirstDossierPage) (Continued) @endif
                                 </h3>
                             </div>
                             <span class="text-[8px] font-mono-code text-slate-600 font-bold uppercase">
@@ -529,34 +554,58 @@
                         </div>
 
                         <!-- BEAUTIFULLY ARRANGED EXECUTIVE DATA TABLE (NOT THE UGLY WIREFRAME DESIGN) -->
-                        <div class="overflow-hidden border border-slate-300 rounded-xl shadow-xs bg-white">
-                            <table class="w-full text-left border-collapse text-[9px]" id="sitrepSeizureTable">
+                        <div class="table-responsive-wrapper overflow-x-auto border border-slate-300 rounded-xl shadow-xs bg-white">
+                            <table class="w-full table-fixed text-left border-collapse text-[10px]" id="sitrepSeizureTable">
                                 <thead>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[8px]">
-                                        <th class="py-2 px-2.5 w-[85px] border-r border-slate-200">Date Of Seizure</th>
-                                        <th class="py-2 px-2.5 w-[95px] border-r border-slate-200">Source of Exhibits</th>
-                                        <th class="py-2 px-3 border-r border-slate-200">Drug Seizures &amp; Suspect(s)</th>
-                                        <th class="py-2 px-2.5 w-[115px] border-r border-slate-200">Exhibit Type</th>
-                                        <th class="py-2 px-2 text-center w-[65px] border-r border-slate-200">Quantity</th>
-                                        <th class="py-2 px-2 text-center w-[60px] border-r border-slate-200">Weight</th>
-                                        <th class="py-2 px-3">Status / Analytical Remarks</th>
+                                    <tr class="bg-slate-100/90 border-b border-slate-300 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[9px]">
+                                        <th class="py-2 px-2 w-[11%] border-r border-slate-200">Date Of Seizure</th>
+                                        <th class="py-2 px-2 w-[15%] border-r border-slate-200">Source of Exhibits</th>
+                                        <th class="py-2 px-2.5 w-[18%] border-r border-slate-200">Suspect(s)</th>
+                                        <th class="py-2 px-2 w-[16%] border-r border-slate-200">Exhibit Type</th>
+                                        <th class="py-2 px-1.5 text-center w-[9%] border-r border-slate-200">Quantity</th>
+                                        <th class="py-2 px-1.5 text-center w-[9%] border-r border-slate-200">Weight</th>
+                                        <th class="py-2 px-2.5 w-[22%]">Remarks</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200 text-slate-800">
-                                    @forelse($filteredSeizures as $index => $item)
+                                    @forelse($seizureChunk as $index => $item)
                                         @php
                                             $isEven = $index % 2 === 0;
-                                            $statusText = $item['status_remarks'] ?? '';
-                                            $statusLower = strtolower($statusText);
-                                            
-                                            $statusBadgeBg = 'bg-slate-100 text-slate-800 border-slate-300';
-                                            if (str_contains($statusLower, 'thc') || str_contains($statusLower, 'codeine') || str_contains($statusLower, 'positive')) {
-                                                $statusBadgeBg = 'bg-emerald-50 text-emerald-900 border-emerald-300';
-                                            } elseif (str_contains($statusLower, 'inconclusive')) {
-                                                $statusBadgeBg = 'bg-amber-50 text-amber-900 border-amber-300';
-                                            } elseif (str_contains($statusLower, 'prohibited')) {
-                                                $statusBadgeBg = 'bg-rose-50 text-rose-900 border-rose-300';
+
+                                            // Fetch exhibit_remark directly from the exhibit table in database
+                                            $exRemark = null;
+                                            $dbExhibit = null;
+                                            if (!empty($item['exhibit_id'])) {
+                                                $dbExhibit = \App\Models\Exhibit::find($item['exhibit_id']);
                                             }
+                                            if (!$dbExhibit && !empty($item['case_reference'])) {
+                                                $cRef = $item['case_reference'];
+                                                $isMulti = !empty($item['is_multiple']) || (isset($item['case_type']) && strtoupper($item['case_type']) === 'MULTIPLE');
+                                                $cleanId = !empty($item['id']) ? preg_replace('/[^0-9]/', '', (string)$item['id']) : null;
+
+                                                $dbExhibit = \App\Models\Exhibit::where(function($q) use ($isMulti, $cRef, $cleanId) {
+                                                    if ($isMulti) {
+                                                        $q->whereHas('multipleCase', fn($mq) => $mq->where('case_number', $cRef));
+                                                        if ($cleanId) {
+                                                            $q->orWhere('multiple_suspect_case_id', $cleanId);
+                                                        }
+                                                    } else {
+                                                        $q->whereHas('singleCase', fn($sq) => $sq->where('case_number', $cRef));
+                                                        if ($cleanId) {
+                                                            $q->orWhere('single_suspect_case_id', $cleanId);
+                                                        }
+                                                    }
+                                                })->whereNotNull('exhibit_remark')->where('exhibit_remark', '!=', '')->latest()->first();
+                                            }
+
+                                            if ($dbExhibit && !empty(trim((string)$dbExhibit->exhibit_remark))) {
+                                                $exRemark = trim((string)$dbExhibit->exhibit_remark);
+                                            } elseif (!empty($item['exhibit_remark'])) {
+                                                $exRemark = trim((string)$item['exhibit_remark']);
+                                            }
+
+                                            $statusText = $exRemark ?: ($item['status_remarks'] ?? 'Preliminary examination conducted; sample secured for confirmatory assay.');
+
                                             $isMultipleCasePdf = !empty($item['is_multiple']) || count($item['suspects']) > 1;
                                         @endphp
                                         <tr class="seizure-row hover:bg-slate-50/80 transition-colors {{ $isEven ? 'bg-white' : 'bg-slate-50/40' }}"
@@ -564,24 +613,21 @@
                                             data-source="{{ strtolower($item['source']) }}"
                                             data-suspect="{{ strtolower($item['suspects_display']) }}"
                                             data-exhibit="{{ strtolower($item['exhibit_type']) }}"
-                                            data-remarks="{{ strtolower($item['status_remarks']) }}"
+                                            data-remarks="{{ strtolower($statusText) }}"
                                             data-suspects-count="{{ count($item['suspects']) }}">
                                             
                                             <!-- DATE -->
-                                            <td class="py-2 px-2.5 border-r border-slate-200 font-mono-code text-slate-700 font-semibold align-top whitespace-nowrap">
+                                            <td class="py-2 px-2 border-r border-slate-200 font-mono-code text-slate-700 font-semibold align-top text-[9.5px] break-words">
                                                 {{ $item['date_display'] }}
                                             </td>
 
                                             <!-- SOURCE OF EXHIBITS -->
-                                            <td class="py-2 px-2.5 border-r border-slate-200 align-top">
-                                                <div class="font-bold text-slate-900 leading-snug">{{ $item['source'] }}</div>
-                                                <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[7px] font-bold font-mono-code uppercase bg-slate-200/80 text-slate-700">
-                                                    {{ $item['source_badge'] ?? 'UNIT POST' }}
-                                                </span>
+                                            <td class="py-2 px-2 border-r border-slate-200 align-top break-words">
+                                                <div class="font-bold text-slate-900 leading-snug text-[10px] break-words">{{ $item['source_of_exhibits'] ?? ($item['source'] ?? 'N/A') }}</div>
                                             </td>
 
-                                            <!-- DRUG SEIZURES & SUSPECTS (SINGLE & MULTIPLE CASE SUSPECTS: OVERLAPPING IMAGES & NAMES) -->
-                                            <td class="py-2 px-3 border-r border-slate-200 align-top">
+                                            <!-- SUSPECTS -->
+                                            <td class="py-2 px-2.5 border-r border-slate-200 align-top break-words">
                                                 @php
                                                     $suspectsListPdf = $item['suspects'] ?? [];
                                                     $namesListPdf = array_map(function($s) {
@@ -589,82 +635,53 @@
                                                     }, $suspectsListPdf);
                                                     $namesDisplayPdf = implode(', ', array_filter($namesListPdf));
                                                 @endphp
-                                                <div class="flex items-center gap-2">
-                                                    <!-- OVERLAPPING AVATAR IMAGES -->
-                                                    <div class="flex items-center {{ count($suspectsListPdf) > 1 ? '-space-x-1.5' : '' }} shrink-0">
-                                                        @foreach($suspectsListPdf as $sIdx => $s)
-                                                            @php
-                                                                $rawMug = $s['mugshot_front'] ?? ($s['mugshot'] ?? null);
-                                                                $sMug = null;
-                                                                if (!empty($rawMug)) {
-                                                                    $rawMug = trim((string)$rawMug);
-                                                                    $sMug = (!str_starts_with($rawMug, 'data:image') && !str_starts_with($rawMug, 'http://') && !str_starts_with($rawMug, 'https://') && !str_starts_with($rawMug, '/'))
-                                                                        ? asset($rawMug)
-                                                                        : $rawMug;
-                                                                }
-                                                                $sFullName = $s['name'] ?? ($s['suspect_name'] ?? 'Suspect');
-                                                                $sInit = strtoupper(substr($sFullName, 0, 2));
-                                                            @endphp
-                                                            <div class="relative w-6 h-6 rounded-full border border-white bg-slate-100 overflow-hidden shadow-2xs flex items-center justify-center shrink-0"
-                                                                 style="z-index: {{ 20 - $sIdx }};"
-                                                                 title="{{ $sFullName }}">
-                                                                @if(!empty($sMug))
-                                                                    <img src="{{ $sMug }}" alt="{{ $sFullName }}" class="w-full h-full object-cover">
-                                                                @else
-                                                                    <span class="text-emerald-800 font-bold text-[8px] font-mono-code">{{ $sInit }}</span>
-                                                                @endif
-                                                            </div>
-                                                        @endforeach
-                                                    </div>
-
-                                                    <!-- NAMES NEXT (e.g. "a, b") -->
-                                                    <div class="min-w-0">
-                                                        <span class="font-extrabold text-slate-950 text-[9px] font-mono-code leading-tight">
-                                                            {{ $namesDisplayPdf ?: 'Suspect' }}
-                                                        </span>
-                                                        @foreach($suspectsListPdf as $s)
-                                                            <span class="hidden" data-status="{{ $s['status'] ?? '' }}">{{ $s['status'] ?? '' }}</span>
-                                                        @endforeach
-                                                    </div>
+                                                <div class="min-w-0">
+                                                    <span class="font-extrabold text-slate-950 text-[10px] font-mono-code leading-tight break-words block">
+                                                        {{ $namesDisplayPdf ?: 'Suspect' }}
+                                                    </span>
+                                                    @foreach($suspectsListPdf as $s)
+                                                        <span class="hidden" data-status="{{ $s['status'] ?? '' }}">{{ $s['status'] ?? '' }}</span>
+                                                    @endforeach
                                                 </div>
                                             </td>
 
                                             <!-- EXHIBIT TYPE -->
-                                            <td class="py-2 px-2.5 border-r border-slate-200 align-top">
-                                                <span class="font-extrabold text-slate-900 block leading-tight">
+                                            <td class="py-2 px-2 border-r border-slate-200 align-top break-words">
+                                                <span class="font-extrabold text-slate-900 block leading-tight text-[10px] break-words">
                                                     {{ $item['exhibit_type'] }}
                                                 </span>
                                                 @if(!empty($item['substance_name']) && $item['substance_name'] !== $item['exhibit_type'])
-                                                    <span class="text-[7.5px] text-slate-500 block leading-tight mt-0.5">
+                                                    <span class="text-[8.5px] text-slate-500 block leading-tight mt-0.5 break-words">
                                                         {{ $item['substance_name'] }}
                                                     </span>
                                                 @endif
                                             </td>
 
                                             <!-- QUANTITY -->
-                                            <td class="py-2 px-2 border-r border-slate-200 text-center font-mono-code font-bold text-slate-900 align-top whitespace-nowrap">
-                                                {{ $item['quantity'] ?? '-' }}
+                                            <td class="py-2 px-1.5 border-r border-slate-200 text-center font-mono-code font-bold text-slate-900 align-top text-[10px] break-words">
+                                                @php
+                                                    $displayQty = $item['quantity'] ?? '-';
+                                                    $pkg = $item['package_type'] ?? ($item['packaging'] ?? null);
+                                                    if ($displayQty !== '-' && !empty($pkg) && !str_contains(strtolower($displayQty), strtolower($pkg))) {
+                                                        $displayQty = trim($displayQty . ' ' . $pkg);
+                                                    }
+                                                @endphp
+                                                {{ $displayQty }}
                                             </td>
 
                                             <!-- WEIGHT -->
-                                            <td class="py-2 px-2 border-r border-slate-200 text-center font-mono-code font-bold text-slate-800 align-top whitespace-nowrap">
+                                            <td class="py-2 px-1.5 border-r border-slate-200 text-center font-mono-code font-bold text-slate-800 align-top text-[10px] break-words">
                                                 {{ $item['weight'] ?? '-' }}
                                             </td>
 
                                             <!-- STATUS / REMARKS -->
-                                            <td class="py-2 px-3 align-top">
-                                                <div class="p-1.5 rounded-lg border text-[8.5px] font-medium leading-relaxed {{ $statusBadgeBg }}">
-                                                    {{ $item['status_remarks'] }}
-                                                </div>
-                                                <div class="mt-1 flex items-center justify-between text-[7px] text-slate-500 font-mono-code">
-                                                    <span>Lab Code: {{ $item['lab_number'] }}</span>
-                                                    <span class="font-bold text-slate-700">Verified</span>
-                                                </div>
+                                            <td class="py-2 px-2.5 align-top text-[9.5px] font-medium text-slate-800 leading-relaxed break-words">
+                                                {{ $statusText }}
                                             </td>
                                         </tr>
                                     @empty
                                         <tr id="emptySeizureRow">
-                                            <td colspan="7" class="py-6 text-center text-slate-500 font-mono-code text-xs">
+                                            <td colspan="7" class="py-6 text-center text-slate-500 font-mono-code text-sm">
                                                 No drug cases or exhibits found matching the selected filter criteria.
                                             </td>
                                         </tr>
@@ -673,68 +690,82 @@
                             </table>
                         </div>
                     </div>
+                    @endif
 
 
+                    @if ($screeningChunk->isNotEmpty())
                     <!-- ========================================================
-                         SECTION 02: DRUG SCREENING OF SUSPECTS (URINE TOXICOLOGY)
+                         SECTION 02: DRUG SCREENING OF SUSPECTS
                          ======================================================== -->
                     <div class="section-02 avoid-break pt-1">
-                        <div class="flex items-center justify-between pb-1 mb-2 border-b-2 border-teal-600">
+                        <div class="flex items-center justify-between pb-1 mt-5 mb-3 border-b-2 border-teal-600">
                             <div class="flex items-center gap-2">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-md bg-teal-600 text-white text-[9px] font-bold font-mono-code">
+                                <span class="flex h-6 w-6 items-center justify-center rounded-md bg-teal-600 text-white text-[10.5px] font-bold font-mono-code">
                                     02
                                 </span>
-                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-950 font-serif-header">
-                                    Drug Screening of Suspects (Urine Toxicology)
+                                <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-950 font-serif-header">
+                                    Drug Screening of Suspect(s) @if (!$isFirstDossierPage) (Continued) @endif
                                 </h3>
                             </div>
-                            <span class="text-[8px] font-mono-code text-slate-600 font-bold uppercase">
+                            <span class="text-[9.5px] font-mono-code text-slate-600 font-bold uppercase">
                                 Toxicological Urinalysis Register
                             </span>
                         </div>
 
-                        <p class="text-[8.5px] text-slate-700 mb-2 italic">
+                        <p class="text-[10.5px] text-slate-700 mb-2.5 italic">
                             One (1) or more suspects were subjected to rapid urine multi-panel drug testing during the period under review:
                         </p>
 
-                        <div class="overflow-hidden border border-slate-300 rounded-xl shadow-xs bg-white">
-                            <table class="w-full text-left border-collapse text-[9px]">
+                        <div class="table-responsive-wrapper overflow-x-auto border border-slate-300 rounded-xl shadow-xs bg-white">
+                            <table class="w-full table-fixed text-left border-collapse text-[10px]">
                                 <thead>
-                                    <tr class="bg-teal-900/10 border-b border-slate-300 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[8px]">
-                                        <th class="py-1.5 px-2.5 w-[35px] text-center border-r border-slate-200">SN</th>
-                                        <th class="py-1.5 px-3 w-[100px] border-r border-slate-200">Screening Date</th>
-                                        <th class="py-1.5 px-3 border-r border-slate-200">Suspect Name &amp; Ref</th>
-                                        <th class="py-1.5 px-3 w-[140px] border-r border-slate-200">Purpose</th>
-                                        <th class="py-1.5 px-3 w-[120px] text-center border-r border-slate-200">Results</th>
-                                        <th class="py-1.5 px-3">Clinical / Analytical Notes</th>
+                                    <tr class="bg-teal-900/10 border-b border-slate-300 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[9px]">
+                                        <th class="py-2 px-1.5 w-[7%] text-center border-r border-slate-200">SN</th>
+                                        <th class="py-2 px-2 w-[18%] border-r border-slate-200">Screening Date</th>
+                                        <th class="py-2 px-2.5 w-[30%] border-r border-slate-200">Suspect Name &amp; Ref</th>
+                                        <th class="py-2 px-2 w-[20%] border-r border-slate-200">Purpose</th>
+                                        <th class="py-2 px-2 w-[25%] text-center">Results</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200 text-slate-800">
-                                    @foreach($drugScreeningRecords as $ds)
+                                    @foreach($screeningChunk as $ds)
                                         @php
                                             $isPos = strtolower($ds['result']) === 'positive';
+                                            $isNeg = strtolower($ds['result']) === 'negative';
+                                            $subFound = trim($ds['substances_found'] ?? '');
+                                            if ($isPos) {
+                                                $detectedLabel = (!empty($subFound) && !in_array(strtolower($subFound), ['no substance(s) found', 'no substances found', 'no drug(s) detected', 'no drugs detected']))
+                                                    ? $subFound
+                                                    : 'Substances detected';
+                                                $resDisplay = $detectedLabel . ' (POSITIVE)';
+                                            } elseif ($isNeg) {
+                                                $resDisplay = 'No drug(s) detected (NEGATIVE)';
+                                            } else {
+                                                $resDisplay = $ds['result'];
+                                            }
                                         @endphp
                                         <tr class="hover:bg-slate-50 transition-colors">
-                                            <td class="py-2 px-2.5 text-center font-mono-code font-bold text-slate-600 border-r border-slate-200 align-top">
+                                            <td class="py-2 px-1.5 text-center font-mono-code font-bold text-slate-600 border-r border-slate-200 align-top text-[9.5px]">
                                                 {{ $ds['sn'] }}
                                             </td>
-                                            <td class="py-2 px-3 font-mono-code text-slate-700 border-r border-slate-200 align-top whitespace-nowrap">
+                                            <td class="py-2 px-2 font-mono-code text-slate-700 border-r border-slate-200 align-top text-[9.5px] break-words">
                                                 {{ $ds['date_display'] }}
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 align-top">
-                                                <div class="font-extrabold text-slate-900 text-[9.5px]">{{ $ds['suspect_name'] }}</div>
-                                                <div class="text-[7.5px] font-mono-code text-slate-500">Ref: {{ $ds['case_reference'] }}</div>
+                                            <td class="py-2 px-2.5 border-r border-slate-200 align-top break-words">
+                                                <div class="font-extrabold text-slate-900 text-[10px] break-words">{{ $ds['suspect_name'] }}</div>
+                                                <div class="text-[8.5px] font-mono-code text-slate-500 break-words">Ref: {{ $ds['case_reference'] }}</div>
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 text-slate-700 align-top font-medium">
+                                            <td class="py-2 px-2 border-r border-slate-200 text-slate-700 align-top font-medium text-[9.5px] break-words">
                                                 {{ $ds['purpose'] }}
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 text-center align-top whitespace-nowrap">
-                                                <span class="inline-block px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider {{ $isPos ? 'bg-rose-100 text-rose-900 border border-rose-300' : 'bg-emerald-100 text-emerald-900 border border-emerald-300' }}">
-                                                    {{ $ds['result'] }}
-                                                </span>
-                                            </td>
-                                            <td class="py-2 px-3 text-slate-600 text-[8px] leading-relaxed align-top">
-                                                {{ $ds['notes'] }}
+                                            <td class="py-2 px-2 text-center align-top font-bold text-[9.5px] leading-snug break-words">
+                                                @if($isPos)
+                                                    <span class="text-rose-700 font-extrabold break-words">{{ $resDisplay }}</span>
+                                                @elseif($isNeg)
+                                                    <span class="text-emerald-700 font-bold break-words">{{ $resDisplay }}</span>
+                                                @else
+                                                    <span class="text-amber-700 font-semibold break-words">{{ $resDisplay }}</span>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach
@@ -742,146 +773,123 @@
                             </table>
                         </div>
                     </div>
+                    @endif
 
 
+                    @if ($gsaChunk->isNotEmpty() || ($isFirstDossierPage && count($gsaSubmissions ?? []) === 0))
                     <!-- ========================================================
                          SECTION 03: GHANA STANDARDS AUTHORITY (GSA) SUBMISSIONS
                          ======================================================== -->
                     <div class="section-03 avoid-break pt-1">
-                        <div class="flex items-center justify-between pb-1 mb-2 border-b-2 border-indigo-700">
+                        <div class="flex items-center justify-between pb-1 mt-5 mb-3 border-b-2 border-indigo-700">
                             <div class="flex items-center gap-2">
-                                <span class="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-700 text-white text-[9px] font-bold font-mono-code">
+                                <span class="flex h-6 w-6 items-center justify-center rounded-md bg-teal-600 text-white text-[10.5px] font-bold font-mono-code">
                                     03
                                 </span>
-                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-950 font-serif-header">
-                                    Ghana Standards Authority (GSA) Submissions
+                                <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-950 font-serif-header">
+                                    Ghana Standards Authority (GSA) Submissions @if (!$isFirstDossierPage) (Continued) @endif
                                 </h3>
                             </div>
-                            <span class="text-[8px] font-mono-code text-slate-600 font-bold uppercase">
+                            <span class="text-[9.5px] font-mono-code text-slate-600 font-bold uppercase">
                                 External Confirmatory Testing
                             </span>
                         </div>
 
-                        <p class="text-[8.5px] text-slate-700 mb-2 italic">
-                            The details of exhibits and seized case samples submitted to Ghana Standards Authority (GSA) on 20 August 2026 for laboratory examination and reporting:
+                        <p class="text-[10.5px] text-slate-700 mb-2.5 italic">
+                            The details of exhibits and seized case samples submitted to Ghana Standards Authority (GSA) for laboratory examination and reporting:
                         </p>
 
-                        <div class="overflow-hidden border border-slate-300 rounded-xl shadow-xs bg-white">
-                            <table class="w-full text-left border-collapse text-[9px]">
+                        <div class="table-responsive-wrapper overflow-x-auto border border-slate-300 rounded-xl shadow-xs bg-white">
+                            <table class="w-full table-fixed text-left border-collapse text-[10px]">
                                 <thead>
-                                    <tr class="bg-indigo-900/10 border-b border-slate-300 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[8px]">
-                                        <th class="py-1.5 px-2.5 w-[35px] text-center border-r border-slate-200">S/N</th>
-                                        <th class="py-1.5 px-3 w-[180px] border-r border-slate-200">Case Reference / Docket</th>
-                                        <th class="py-1.5 px-3 border-r border-slate-200">Exhibit Type</th>
-                                        <th class="py-1.5 px-3 w-[110px] text-center border-r border-slate-200">GSA Lab No.</th>
-                                        <th class="py-1.5 px-3 w-[100px] border-r border-slate-200">Submission Date</th>
-                                        <th class="py-1.5 px-3 w-[150px]">Status</th>
+                                    <tr class="bg-indigo-900/10 border-b border-slate-300 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[9px]">
+                                        <th class="py-2 px-1.5 w-[6%] text-center border-r border-slate-200">S/N</th>
+                                        <th class="py-2 px-2.5 w-[24%] border-r border-slate-200">Case Reference</th>
+                                        <th class="py-2 px-2.5 w-[28%] border-r border-slate-200">Exhibit Type</th>
+                                        <th class="py-2 px-2 w-[20%] text-center border-r border-slate-200">GSA Lab No.</th>
+                                        <th class="py-2 px-2.5 w-[22%] text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200 text-slate-800">
-                                    @foreach($gsaSubmissions as $gsa)
+                                    @forelse($gsaChunk as $gsa)
                                         <tr class="hover:bg-slate-50 transition-colors">
-                                            <td class="py-2 px-2.5 text-center font-mono-code font-bold text-slate-600 border-r border-slate-200 align-top">
+                                            <td class="py-2 px-1.5 text-center font-mono-code font-bold text-slate-600 border-r border-slate-200 align-top text-[9.5px]">
                                                 {{ $gsa['sn'] }}
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 font-bold text-slate-900 align-top">
-                                                {{ $gsa['case_reference'] }}
+                                            <td class="py-2 px-2.5 border-r border-slate-200 font-bold text-slate-900 align-top text-[10px] break-words">
+                                                {{ $gsa['gsa_case_reference'] ?? ($gsa['case_reference'] ?? 'N/A') }}
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 text-slate-800 font-semibold align-top">
+                                            <td class="py-2 px-2.5 border-r border-slate-200 text-slate-800 font-semibold align-top text-[10px] break-words">
                                                 {{ $gsa['exhibit_type'] }}
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 text-center font-mono-code font-bold text-indigo-900 align-top whitespace-nowrap">
-                                                {{ $gsa['gsa_lab_no'] }}
+                                            <td class="py-2 px-2 border-r border-slate-200 text-center font-mono-code font-bold text-indigo-900 align-top text-[9.5px] break-words">
+                                                {{ $gsa['gsa_lab_number'] ?? ($gsa['gsa_lab_no'] ?? 'N/A') }}
                                             </td>
-                                            <td class="py-2 px-3 border-r border-slate-200 font-mono-code text-slate-700 align-top whitespace-nowrap">
-                                                {{ $gsa['submission_date'] }}
-                                            </td>
-                                            <td class="py-2 px-3 align-top">
-                                                <span class="inline-block px-2 py-0.5 rounded text-[7.5px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                                                    {{ $gsa['status'] }}
+                                            <td class="py-2 px-2.5 align-top text-center break-words">
+                                                <span class="inline-block px-2 py-0.5 rounded text-[8.5px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300 break-words max-w-full">
+                                                    {{ $gsa['gsa_status'] ?? 'N/A' }}
                                                 </span>
                                             </td>
                                         </tr>
-                                    @endforeach
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="py-3 px-3 text-center text-slate-500 italic text-[10px]">
+                                                No Ghana Standards Authority (GSA) submissions recorded for this reporting period.
+                                            </td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                    @endif
 
-
-                    <!-- ========================================================
-                         SECTION 04: CONDITIONS & ACCREDITATION NOTE
-                         ======================================================== -->
-                    <div class="section-conditions avoid-break pt-2 border-t border-slate-200 text-[8px] text-slate-700 space-y-1">
-                        <p class="font-bold text-slate-900 uppercase tracking-wide">
-                            Conditions &amp; Regulatory Declarations:
-                        </p>
-                        <ol class="list-decimal list-inside space-y-0.5 text-slate-600 pl-1 leading-tight">
-                            <li>Analysis results relate strictly to the tested drug exhibits, samples, and specimens cataloged under chain-of-custody protocols.</li>
-                            <li>Preliminary tests are presumptive; confirmatory testing (GC-MS / FTIR / HPLC) is performed in accordance with ISO/IEC 17025 accredited standards.</li>
-                            <li>This document constitutes an official situational law enforcement record and shall not be published without prior written consent from the Director-General of NACOC.</li>
-                        </ol>
                     </div>
 
-
+                    @if ($isLastDossierPage)
                     <!-- ========================================================
                          SECTION 05: DUAL OFFICIAL SIGN-OFF & CERTIFICATION
-                         (MATCHING HEIGHT & DUAL AUTHENTICATION OF MULTI_DPF_PDF)
+                         (IN-PERSON PHYSICAL SIGN-OFF)
                          ======================================================== -->
-                    <div class="section-signatures avoid-break mt-4 pt-3 border-t-2 border-slate-300">
+                    <div class="section-signatures avoid-break mt-7 pt-3 border-t-2 border-slate-300">
                         <div class="grid grid-cols-2 gap-8">
                             <!-- LEFT: HEAD OF LABORATORY ANALYSIS -->
                             <div class="flex flex-col">
-                                <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-700">Head of Laboratory Analysis Unit</p>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-700 font-mono-code">Head of Laboratory Analysis Unit</p>
                                 
-                                <div class="relative h-20 flex items-end pb-0.5">
-                                    @if(!empty($johnSig))
-                                        <img src="{{ $johnSig }}" alt="Official Signature - {{ $labHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[280px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
-                                    @else
-                                        <div class="h-12 flex items-center text-slate-400 italic text-[10px] font-times">
-                                            [ Electronic Signature on Master Record ]
-                                        </div>
-                                    @endif
-                                </div>
+                                <!-- Space for in-person physical signature -->
+                                <div class="h-14"></div>
 
-                                <div class="border-b border-dashed border-slate-400 pb-0.5">
-                                    <span class="text-[7px] italic text-slate-700">Electronically Signed &amp; Validated</span>
-                                </div>
-                                <div class="mt-0.5">
-                                    <p class="text-[8.5px] font-bold text-slate-900 leading-tight">{{ $labHeadName }}</p>
-                                    <p class="text-[7px] text-slate-800 leading-tight">Head of Laboratory Analysis Unit, NACOC</p>
+                                <div class="border-b border-slate-700 pb-0.5"></div>
+                                <div class="mt-1">
+                                    <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight">{{ $labHeadName }}</p>
+                                    <p class="text-[9.5px] text-slate-700 leading-tight">Head of Laboratory Analysis Unit, NACOC</p>
+                                    <p class="text-[9.5px] text-slate-500 font-mono-code pt-0.5">Signature &amp; Date: ________________________</p>
                                 </div>
                             </div>
 
                             <!-- RIGHT: HEAD OF FORENSIC DEPARTMENT -->
                             <div class="flex flex-col">
-                                <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-700 font-mono-code">Head of Forensic Department</p>
                                 
-                                <div class="relative h-20 flex items-end pb-0.5">
-                                    @if(!empty($anitaSig))
-                                        <img src="{{ $anitaSig }}" alt="Official Signature - {{ $deptHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[280px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
-                                    @else
-                                        <div class="h-12 flex items-center text-slate-400 italic text-[10px] font-times">
-                                            [ Counter-Signature on Master Record ]
-                                        </div>
-                                    @endif
-                                </div>
+                                <!-- Space for in-person physical signature -->
+                                <div class="h-14"></div>
 
-                                <div class="border-b border-dashed border-slate-400 pb-0.5">
-                                    <span class="text-[7px] italic text-slate-700">Authorized &amp; Counter-signed</span>
-                                </div>
-                                <div class="mt-0.5">
-                                    <p class="text-[8.5px] font-bold text-slate-900 leading-tight">{{ $deptHeadName }}</p>
-                                    <p class="text-[7px] text-slate-800 leading-tight">Head of Forensic Directorate / Department, NACOC</p>
+                                <div class="border-b border-slate-700 pb-0.5"></div>
+                                <div class="mt-1">
+                                    <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight">{{ $deptHeadName }}</p>
+                                    <p class="text-[9.5px] text-slate-700 leading-tight">Head of Forensic Department, NACOC</p>
+                                    <p class="text-[9.5px] text-slate-500 font-mono-code pt-0.5">Signature &amp; Date: ________________________</p>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    @endif
 
                 </div>
 
                 <!-- DOSSIER FOOTER -->
-                <div class="mt-auto pt-2 border-t border-slate-200 flex items-center justify-between text-[7.5px] text-slate-500 font-mono-code select-none footer">
+                <div class="page-footer-block mt-auto pt-2 border-t border-slate-200 flex items-center justify-between text-[9.5px] text-slate-500 font-mono-code select-none footer">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-slate-700 tracking-wider">NACOC / LABORATORY ANALYSIS UNIT</span>
                         <span>&bull;</span>
@@ -890,19 +898,33 @@
                     <div class="flex items-center gap-2">
                         <span>STRICTLY CONFIDENTIAL</span>
                         <span>&bull;</span>
-                        <span class="font-bold text-slate-800">Page 2 of <span class="doc-total-pages">{{ $totalDossierPages }}</span></span>
+                        <span class="font-bold text-slate-800">Page {{ $pageNumber }} of {{ $totalDossierPages }}</span>
                     </div>
                 </div>
 
             </div>
         </div>
+        @endfor
 
     </div>
 
     <!-- CLIENT-SIDE SCRIPT FOR DYNAMIC FILTERING & PRINT -->
     <script>
+        /**
+         * WHY: Pages are now pre-rendered server-side by Blade. No pagination,
+         * no snapshot/restore, no reflow. Just open the print dialog.
+         */
         function handlePrintReport() {
             window.print();
+        }
+
+        async function initSitrepReport() {
+            applyClientFilter();
+
+            if (document.fonts && document.fonts.ready) {
+                try { await document.fonts.ready; } catch (e) {}
+            }
+            // No pagination call — Blade already rendered all pages.
         }
 
         function setPeriodFilter(preset) {
@@ -943,49 +965,20 @@
             window.location.href = url.toString();
         }
 
-        function clearLiveSearch() {
-            const input = document.getElementById('liveSearchInput');
-            if (input) {
-                input.value = '';
-                applyClientFilter();
-            }
-        }
-
         function resetAllFilters() {
             window.location.href = '{{ url("/Lab_Analysis/report") }}';
         }
 
         function applyClientFilter() {
-            const input = document.getElementById('liveSearchInput');
-            const clearBtn = document.getElementById('clearSearchBtn');
-            const q = (input ? input.value : '').toLowerCase().trim();
-
-            if (clearBtn) {
-                if (q.length > 0) clearBtn.classList.remove('hidden');
-                else clearBtn.classList.add('hidden');
-            }
-
             const rows = document.querySelectorAll('.seizure-row');
             let visibleCount = 0;
             let visibleSuspects = 0;
 
             rows.forEach(r => {
-                const date = (r.getAttribute('data-date') || '').toLowerCase();
-                const source = (r.getAttribute('data-source') || '').toLowerCase();
-                const suspect = (r.getAttribute('data-suspect') || '').toLowerCase();
-                const exhibit = (r.getAttribute('data-exhibit') || '').toLowerCase();
-                const remarks = (r.getAttribute('data-remarks') || '').toLowerCase();
-
-                const matches = !q || date.includes(q) || source.includes(q) || suspect.includes(q) || exhibit.includes(q) || remarks.includes(q);
-
-                if (matches) {
-                    r.style.display = '';
-                    visibleCount++;
-                    const sCount = parseInt(r.getAttribute('data-suspects-count') || '1', 10);
-                    visibleSuspects += sCount;
-                } else {
-                    r.style.display = 'none';
-                }
+                r.style.display = '';
+                visibleCount++;
+                const sCount = parseInt(r.getAttribute('data-suspects-count') || '1', 10);
+                visibleSuspects += sCount;
             });
 
             // Update stats
@@ -1009,9 +1002,11 @@
         }
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            applyClientFilter();
-        });
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSitrepReport);
+        } else {
+            initSitrepReport();
+        }
     </script>
 </body>
 </html>

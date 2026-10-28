@@ -451,7 +451,7 @@
                         </h1>
 
                         <p class="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700">
-                            DEPARTMENT OF FORENSIC
+                            FORENSIC DEPARTMENT
                         </p>
 
                         <p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-600">
@@ -725,7 +725,7 @@
 
                     <div class="text-right">
                         <p class="text-[8px] uppercase tracking-wider text-slate-700">
-                            NACOC • Department of Forensic
+                            NACOC • Forensic Department
                         </p>
 
                         <p class="mt-0.5 text-[8px] text-slate-700">

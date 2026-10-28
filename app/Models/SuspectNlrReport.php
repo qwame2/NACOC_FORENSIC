@@ -41,10 +41,25 @@ class SuspectNlrReport extends Model
         return $this->belongsTo(CaseSuspect::class, 'case_suspect_id');
     }
 
-    /** The parent case dossier */
-    public function case(): BelongsTo
+    /** The parent multiple suspect case dossier */
+    public function multipleCase(): BelongsTo
     {
         return $this->belongsTo(MultipleSuspectCase::class, 'multiple_suspect_case_id');
+    }
+
+    /** The parent single suspect case dossier */
+    public function singleCase(): BelongsTo
+    {
+        return $this->belongsTo(SingleSuspectCase::class, 'single_suspect_case_id');
+    }
+
+    /** The parent case dossier */
+    public function case()
+    {
+        if ($this->single_suspect_case_id) {
+            return $this->singleCase();
+        }
+        return $this->multipleCase();
     }
 
     /** The lab officer who generated/uploaded the file */

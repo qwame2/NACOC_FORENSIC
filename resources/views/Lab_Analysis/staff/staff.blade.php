@@ -2,7 +2,7 @@
     $authUser = auth()->user();
     $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first()
                ?? \App\Models\User::where('is_head', true)->first();
-    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'Supt. Eric Mensah';
+    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'N/A';
     $staffName = $authUser->fullname ?? session('user_name') ?? 'Senior Forensic Chemist';
 @endphp
 <!DOCTYPE html>
@@ -17,7 +17,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #F8FAFC; color: #0F172A; }

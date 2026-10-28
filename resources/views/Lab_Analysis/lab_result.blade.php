@@ -2,7 +2,7 @@
     $authUser = auth()->user();
     $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first()
                ?? \App\Models\User::where('is_head', true)->first();
-    $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Supt. Eric Mensah');
+    $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'N/A');
     $isLabAnalysis = true;
 
     // Collect all unique drug commodities linked to all suspects in the system
@@ -27,7 +27,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #F8FAFC; color: #0F172A; }
@@ -424,6 +424,12 @@
                     @endforelse
                 </div>
 
+                @if(method_exists($drugRecords, 'links') && $drugRecords->hasPages())
+                    <div class="mt-6 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                        {{ $drugRecords->links() }}
+                    </div>
+                @endif
+
             </main>
         </div>
     </div>
@@ -624,7 +630,7 @@
             document.getElementById('modalDrugName').textContent = record.drug_name || 'Suspected Narcotic';
             document.getElementById('modalDrugCategory').textContent = record.drug_category || 'Controlled Substances';
             document.getElementById('modalQuantity').textContent = record.quantity_str || '1 Batch';
-            document.getElementById('modalOfficer').textContent = record.submitting_officer || 'Det. Insp. K. Mensah';
+            document.getElementById('modalOfficer').textContent = record.submitting_officer || 'N/A';
             document.getElementById('modalPresumptive').textContent = record.presumptive || 'Positive (Color Test)';
             document.getElementById('modalDetected').textContent = record.detected || record.drug_name;
             document.getElementById('modalAnalyst').textContent = record.analyst || 'Senior Forensic Chemist';

@@ -32,12 +32,14 @@
 
     $isHead = ($authUser && $authUser->is_head && str_contains(strtolower($authUser->unit ?? ''), 'forensic')) || request()->is('Forensic_Head*');
 
-    $cases = $cases ?? \App\Models\ForensicCase::allCases();
+    $datasetCases = $allCases ?? \App\Models\ForensicCase::allCases();
 
-    $totalCasesCount = count($cases);
-    $approvedCount = $cases->filter(fn($c) => in_array($c->status, ['Approved', 'Authorized']))->count();
-    $inProgressCount = $cases->filter(fn($c) => in_array($c->status, ['Under Multi-Unit Processing', 'In Progress', 'Draft']))->count();
-    $awaitingSignOffCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
+    $totalCasesCount = count($datasetCases);
+    $approvedCount = $datasetCases->filter(fn($c) => in_array($c->status, ['Approved', 'Authorized']))->count();
+    $inProgressCount = $datasetCases->filter(fn($c) => in_array($c->status, ['Under Multi-Unit Processing', 'In Progress', 'Draft']))->count();
+    $awaitingSignOffCount = $datasetCases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
+
+    $cases = $cases ?? \App\Models\ForensicCase::paginateCases($datasetCases);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -55,7 +57,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -316,7 +318,7 @@
 
                                         <!-- OFFICER -->
                                         <td class="py-3.5 px-4">
-                                            <div class="font-bold text-slate-900 text-xs">{{ $c->submitting_officer ?: ($c->commanding_officer ?: 'Handling Officer') }}</div>
+                                            <div class="font-bold text-slate-900 text-xs">{{ $c->submitting_officer ?: 'Handling Officer' }}</div>
                                             <div class="text-[10px] text-slate-400 font-mono-code">Registered Officer</div>
                                         </td>
 
@@ -339,14 +341,24 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="py-8 text-center text-slate-400 text-xs font-mono-code">
-                                            No case history log entries found for this unit.
+                                        <td colspan="7" class="py-12 text-center text-slate-500 text-xs font-mono-code">
+                                            <div class="flex flex-col items-center justify-center space-y-2">
+                                                <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <p class="font-bold text-slate-700">No case history log entries found</p>
+                                                <p class="text-[11px] text-slate-400">No records matching the selected unit or filter criteria.</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
+
+                    @if(method_exists($cases, 'links') && $cases->hasPages())
+                        <div class="border-t border-slate-200">
+                            {{ $cases->links() }}
+                        </div>
+                    @endif
                 </div>
 
             </main>

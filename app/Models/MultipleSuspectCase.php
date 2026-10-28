@@ -19,7 +19,6 @@ class MultipleSuspectCase extends Model
         'unit_name',
         'unit_id',
         'user_id',
-        'commanding_officer',
         'submitting_officer',
         'operation_code',
         'operation_code_name',

@@ -127,7 +127,7 @@
                       ->orWhere('unit', 'LIKE', '%Forensic Head%')
                       ->orWhere('unit', 'LIKE', '%Directorate Head%');
                 })->first() ?? \App\Models\User::where('is_head', true)->first();
-            $userName = session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'Anita Johnson');
+            $userName = session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'N/A');
             $userAvatar = $dbForensicHead?->avatar ?? null;
         }
 

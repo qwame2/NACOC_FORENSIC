@@ -9,17 +9,10 @@
                         $q->where('unit', 'LIKE', '%Digital%')
                           ->orWhere('unit', 'LIKE', '%Physical%');
                     })->where('is_head', true)->first()
-                    ?? \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->first()
                     ?? \App\Models\User::where('unit', 'LIKE', '%Digital%')->first();
     }
-    $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'Ofori Graham';
+    $dpfHeadName = $dbDpfHead ? $dbDpfHead->fullname : 'N/A';
     $dpfHeadSignature = $dbDpfHead ? $dbDpfHead->signature : null;
-    if (empty($dpfHeadSignature)) {
-        $oforiUser = \App\Models\User::where('fullname', 'LIKE', '%Ofori Graham%')->whereNotNull('signature')->first();
-        if ($oforiUser) {
-            $dpfHeadSignature = $oforiUser->signature;
-        }
-    }
     if (!empty($dpfHeadSignature)) {
         $dpfHeadSignature = trim((string)$dpfHeadSignature);
         if (!str_starts_with($dpfHeadSignature, 'data:image') && !str_starts_with($dpfHeadSignature, 'http://') && !str_starts_with($dpfHeadSignature, 'https://') && !str_starts_with($dpfHeadSignature, '/')) {
@@ -37,7 +30,7 @@
                    ?? \App\Models\User::where('unit', 'LIKE', '%Forensic Head%')->first()
                    ?? \App\Models\User::where('unit', 'LIKE', '%Forensic%')->where('is_head', true)->first();
     }
-    $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : 'Anita Addo';
+    $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : 'N/A';
     $deptHeadSignature = $dbDeptHead ? $dbDeptHead->signature : null;
     if (!empty($deptHeadSignature)) {
         $deptHeadSignature = trim((string)$deptHeadSignature);
@@ -49,8 +42,8 @@
     // If $suspectReports was not passed (e.g., opened for a single case), build from single case/report
     if (!isset($suspectReports) || empty($suspectReports)) {
         $reportObj = $report ?? null;
-        $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'NCC-2026');
-        $dpfCode = $reportObj->dpf_code ?? ('DPF-' . $caseNo);
+        $caseNo = $reportObj->case_number ?? ($case->case_number ?? 'N/A');
+        $dpfCode = $reportObj->dpf_code ?? ($caseNo !== 'N/A' ? 'DPF-' . $caseNo : 'N/A');
         $sName = $case->suspect_name ?? ($case->suspects_list[0]['suspect_name'] ?? 'PRIMARY SUSPECT');
 
         $suspectReports = [
@@ -185,7 +178,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NACOC Digital Forensic Investigation Directory Dossier</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <script src="{{ asset('vendor/pdfjs/pdf.min.js') }}"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
@@ -320,19 +313,11 @@
                 display: none !important;
             }
 
+            /* WHY: Hide the single fixed watermark in print; each page now carries its
+               own per-page .dossier-watermark element, which scales to many pages without
+               the fixed-element repetition cost that caused print rasterization lag. */
             .print-fixed-watermark {
-                position: fixed !important;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) !important;
-                width: 550px !important;
-                height: 550px !important;
-                pointer-events: none !important;
-                z-index: 0 !important;
-                opacity: 0.025 !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                display: none !important;
             }
 
             /* Static Cover Page: Locked to Page 1 with zero shift & equal 14mm side margins */
@@ -373,8 +358,20 @@
                 break-after: page !important;
             }
 
+            /* WHY: Keep the per-page watermark visible in print on every page.
+               Each .dynamic-dossier-page (including generated continuation pages)
+               already contains its own .dossier-watermark element, so print cost is
+               O(1) per page instead of O(n) fixed-element rasterization. */
             .dynamic-dossier-page > .dossier-watermark {
-                display: none !important;
+                display: flex !important;
+                position: absolute !important;
+                inset: 0 !important;
+                align-items: center !important;
+                justify-content: center !important;
+                pointer-events: none !important;
+                z-index: 0 !important;
+                opacity: 0.025 !important;
+                overflow: hidden !important;
             }
 
             /* Attachment Pages: Fit within single A4 page */
@@ -505,7 +502,7 @@
                             NARCOTICS CONTROL COMMISSION
                         </h1>
                         <p class="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
-                            DEPARTMENT OF FORENSIC
+                            FORENSIC DEPARTMENT
                         </p>
                         <p class="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600 font-mono-code">
                             DIGITAL &amp; PHYSICAL FORENSICS UNIT (DPFU)
@@ -1052,7 +1049,19 @@
 
     <!-- SCRIPT FOR PDF.JS RENDERING & AUTO-PRINT -->
     <script>
+        /**
+         * Pristine snapshot cache keyed by the original .auto-paginated-root element.
+         * Guarantees paginateReportPage() is idempotent — re-running it on an
+         * already-paginated suspect page restores the pristine DOM first, so
+         * continuation pages and remarks splits are never duplicated.
+         */
+        const dpfPristineSnapshots = new WeakMap();
+
+        let dpfPaginationDone = false;
         function autoPaginateAllReports() {
+            if (dpfPaginationDone) return;
+            dpfPaginationDone = true;
+
             const reportRoots = document.querySelectorAll('#dpfReportSheet .auto-paginated-root');
             reportRoots.forEach(page => paginateReportPage(page));
         }
@@ -1064,8 +1073,51 @@
             const flowBody = pageEl.querySelector('.report-flow-body');
             if (!inner || !headerBlock || !footerBlock || !flowBody) return;
 
-            const sectionsContainer = flowBody.querySelector('.flow-sections-container');
-            const signaturesBlock = flowBody.querySelector('.section-signatures');
+            // WHY: On first call, capture the pristine server-rendered state. On every
+            // subsequent call, remove any previously generated continuation pages and
+            // restore the pristine sections/signatures HTML before measuring or mutating.
+            if (!dpfPristineSnapshots.has(pageEl)) {
+                const liveSectionsContainer = flowBody.querySelector('.flow-sections-container');
+                const liveSignaturesBlock = flowBody.querySelector('.section-signatures');
+                dpfPristineSnapshots.set(pageEl, {
+                    sectionsHtml: liveSectionsContainer ? liveSectionsContainer.innerHTML : '',
+                    signaturesHtml: liveSignaturesBlock ? liveSignaturesBlock.outerHTML : '',
+                    flowBodyClasses: flowBody.className,
+                });
+            } else {
+                // Remove previously generated continuation pages for THIS suspect only
+                const parentReportSheet = pageEl.closest('#dpfReportSheet') || document.getElementById('dpfReportSheet');
+                if (parentReportSheet) {
+                    let sib = pageEl.nextElementSibling;
+                    while (sib && sib.classList.contains('generated-flow-page')) {
+                        const next = sib.nextElementSibling;
+                        sib.remove();
+                        sib = next;
+                    }
+                }
+
+                const snap = dpfPristineSnapshots.get(pageEl);
+
+                // Restore flowBody classes and sections HTML
+                flowBody.className = snap.flowBodyClasses;
+                const restoredSections = flowBody.querySelector('.flow-sections-container');
+                if (restoredSections) {
+                    restoredSections.innerHTML = snap.sectionsHtml;
+                }
+
+                // Remove any leftover .section-signatures and reinsert pristine
+                flowBody.querySelectorAll('.section-signatures').forEach(el => el.remove());
+                if (snap.signaturesHtml) {
+                    flowBody.insertAdjacentHTML('beforeend', snap.signaturesHtml);
+                }
+
+                // Re-query all references after innerHTML restoration
+                // (existing locals `sectionsContainer` and `signaturesBlock` are now stale)
+                // Note: `sectionsContainer` and `signaturesBlock` below must be re-assigned
+            }
+
+            let sectionsContainer = flowBody.querySelector('.flow-sections-container');
+            let signaturesBlock = flowBody.querySelector('.section-signatures');
             if (!sectionsContainer) return;
 
             function getUsableHeight(page) {
@@ -1320,11 +1372,21 @@
             });
         }
 
-        window.handlePrintDocument = function() {
+        /**
+         * WHY: Wait for (a) any in-flight PDF rendering to finish, then (b) a full
+         * layout+paint cycle, then (c) fire window.print(). This guarantees the
+         * print snapshot captures every PDF slice and every generated continuation
+         * page, instead of printing a half-rendered document.
+         */
+        window.handlePrintDocument = async function() {
             if (window.isPdfRendering) {
                 alert('Document pages are currently being prepared for print. Please try again in a few seconds.');
                 return;
             }
+            // Two rAFs + a macrotask so the browser finishes layout of any recently
+            // inserted PDF slices / continuation pages before capture.
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            await new Promise(resolve => setTimeout(resolve, 0));
             window.print();
         };
 
@@ -1475,10 +1537,19 @@
 
     @if(request()->has('print') || request()->has('auto_print'))
     <script>
+        /**
+         * WHY: Wait until initMultiDpfReport() has finished its async PDF rendering
+         * (window.isPdfRendering flips back to false), then invoke the shared
+         * print handler. No arbitrary setTimeout guess.
+         */
         window.addEventListener('load', function() {
-            setTimeout(function() {
-                window.print();
-            }, 800);
+            const waitForRender = () => {
+                if (window.isPdfRendering) {
+                    return setTimeout(waitForRender, 150);
+                }
+                window.handlePrintDocument();
+            };
+            waitForRender();
         });
     </script>
     @endif

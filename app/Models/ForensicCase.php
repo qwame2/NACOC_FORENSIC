@@ -29,6 +29,11 @@ class ForensicCase extends Model
         'phones' => 'array',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     /**
      * Helper to construct a unified ForensicCase object from SingleSuspectCase or MultipleSuspectCase
      */
@@ -70,14 +75,31 @@ class ForensicCase extends Model
         $instance->unit_name = $record->unit_name;
         $instance->unit_id = $record->unit_id;
         $instance->user_id = $record->user_id;
-        $instance->commanding_officer = $record->commanding_officer ?? null;
         $instance->submitting_officer = $record->submitting_officer ?? null;
         $instance->operation_code = $record->operation_code ?? null;
         $instance->operation_code_name = $record->operation_code_name ?? null;
         $instance->raid_location = $record->raid_location ?? null;
         $instance->offense_description = $record->offense_description ?? null;
-        $instance->incident_date = $record->incident_date ?? null;
-        $instance->priority = $record->priority ?? 'NORMAL';
+        $casePriority = $record->priority;
+        if (empty($casePriority) || $casePriority === 'NORMAL') {
+            if ($record instanceof MultipleSuspectCase) {
+                $origSingle = SingleSuspectCase::where('case_number', $record->case_number)->first();
+                if ($origSingle && !empty($origSingle->priority) && $origSingle->priority !== 'NORMAL') {
+                    $casePriority = $origSingle->priority;
+                    try {
+                        $record->priority = $origSingle->priority;
+                        $record->save();
+                    } catch (\Throwable $e) {}
+                }
+            }
+        }
+        if (empty($casePriority) && !empty($record->docket_data)) {
+            $dData = is_array($record->docket_data) ? $record->docket_data : (json_decode($record->docket_data, true) ?: []);
+            if (!empty($dData['priority'])) {
+                $casePriority = $dData['priority'];
+            }
+        }
+        $instance->priority = $casePriority ?: 'HIGH';
         $instance->status = $record->status ?? 'Approved';
         $instance->case_status = $record->case_status ?? 'Under Investigation';
         $instance->controller_user_id = $record->controller_user_id ?? ($record->user_id ?? null);
@@ -95,15 +117,43 @@ class ForensicCase extends Model
                 ? Exhibit::where('multiple_suspect_case_id', $record->id)->get()
                 : Exhibit::where('single_suspect_case_id', $record->id)->get()
         );
+        if ($isMulti && $exhibits->isEmpty()) {
+            $origSingle = SingleSuspectCase::where('case_number', $record->case_number)->first();
+            if ($origSingle) {
+                $exhibits = Exhibit::where('single_suspect_case_id', $origSingle->id)->get();
+            }
+            if ($exhibits->isEmpty()) {
+                $suspectIds = CaseSuspect::where('multiple_suspect_case_id', $record->id)->pluck('id');
+                if ($suspectIds->isNotEmpty()) {
+                    $exhibits = Exhibit::whereIn('suspect_id', $suspectIds)->get();
+                }
+            }
+        }
         $instance->setRelation('exhibits', $exhibits);
         $firstExhibit = $exhibits->first();
+
+        // Fallback for raid_location if multi case record has it null
+        if (empty($instance->raid_location) && $isMulti) {
+            $origSingle = isset($origSingle) ? $origSingle : SingleSuspectCase::where('case_number', $record->case_number)->first();
+            if ($origSingle && !empty($origSingle->raid_location)) {
+                $instance->raid_location = $origSingle->raid_location;
+            } elseif ($firstExhibit && !empty($firstExhibit->seizure_location)) {
+                $instance->raid_location = $firstExhibit->seizure_location;
+            } else {
+                $csLoc = CaseSuspect::where('multiple_suspect_case_id', $record->id)->whereNotNull('raid_location')->value('raid_location');
+                if ($csLoc) $instance->raid_location = $csLoc;
+            }
+        }
 
         $recDocket = is_array($record->docket_data) ? $record->docket_data : (json_decode($record->docket_data ?? '[]', true) ?: []);
         $instance->docket_data = $recDocket;
 
         $exCatLower = strtolower($firstExhibit->exhibit_category ?? ($record->exhibit_category ?? ''));
         $isDrugCat = false;
-        $drugKws = ['drug', 'narcotic', 'substance', 'cannabis', 'cocaine', 'heroin', 'meth', 'tramadol', 'weed', 'hemp', 'hashish', 'ephedrine', 'precursor', 'opioid', 'fentanyl'];
+        $drugKws = config('forensics.substance_keywords', [
+            'drug', 'narcotic', 'substance', 'cannabis', 'cocaine', 'heroin', 'meth', 
+            'tramadol', 'weed', 'hemp', 'hashish', 'ephedrine', 'precursor', 'opioid', 'fentanyl'
+        ]);
         foreach ($drugKws as $dkw) {
             if (str_contains($exCatLower, $dkw)) { $isDrugCat = true; break; }
         }
@@ -169,8 +219,15 @@ class ForensicCase extends Model
             $instance->partner_phone = $primarySuspect->partner_phone ?? null;
             $instance->partner_info = $primarySuspect->partner_info ?? null;
             $instance->dependents = $primarySuspect->dependents ?? null;
-            $instance->holding_facility = $primarySuspect->holding_facility ?? null;
             $instance->arrest_date = $primarySuspect->arrest_date ?? null;
+            if (empty($instance->arrest_date) && $isMulti) {
+                $origSingle = isset($origSingle) ? $origSingle : SingleSuspectCase::where('case_number', $record->case_number)->first();
+                if ($origSingle && !empty($origSingle->arrest_date)) {
+                    $instance->arrest_date = $origSingle->arrest_date;
+                } elseif ($firstExhibit && !empty($firstExhibit->seizure_date)) {
+                    $instance->arrest_date = $firstExhibit->seizure_date;
+                }
+            }
             $instance->arrest_time = $primarySuspect->arrest_time ?? null;
             $instance->mugshot_front = $primarySuspect->mugshot_front ?? null;
             $instance->mugshot_left = $primarySuspect->mugshot_left ?? null;
@@ -256,6 +313,42 @@ class ForensicCase extends Model
         // Build a comma-joined string of all suspect names for joint exhibit labels
         $allSuspectNames = $suspectsArray ? implode(', ', array_filter(array_column($suspectsArray, 'suspect_name'))) : ($instance->suspect_name ?? '');
 
+        $assocLabsMap = [];
+        $assocLabs = AssociateLabExamination::where('case_id', $record->id)->get();
+        foreach ($assocLabs as $al) {
+            $assocLabsMap[$al->suspect_name] = [
+                'suspect_name'              => $al->suspect_name,
+                'laboratory_number'         => $al->laboratory_number,
+                'exam_reference'            => (!empty($al->exam_reference)) ? (str_starts_with(trim($al->exam_reference), 'GSA-') ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $al->exam_reference) : $al->exam_reference) : 'NLR-FM-T35-F',
+                'exhibit_number'            => $al->exhibit_number,
+                'analyst'                   => $al->analyst,
+                'date_received'             => $al->date_received,
+                'date_started'              => $al->date_started,
+                'date_completed'            => $al->date_completed,
+                'presumptive_result'        => $al->presumptive_result,
+                'confirmatory_result'       => $al->confirmatory_result,
+                'sample_weight'             => [
+                    'description'      => $al->sample_weight_description,
+                    'units_packaging'  => $al->sample_weight_units,
+                    'gross_weight'     => $al->sample_weight_gross,
+                    'sample_taken'     => $al->sample_weight_taken,
+                    'reserved_samples' => $al->sample_weight_reserved,
+                ],
+                'sample_weight_description' => $al->sample_weight_description,
+                'sample_weight_units'       => $al->sample_weight_units,
+                'sample_weight_gross'       => $al->sample_weight_gross,
+                'sample_weight_taken'       => $al->sample_weight_taken,
+                'sample_weight_reserved'    => $al->sample_weight_reserved,
+                'substance_identification'  => $al->substance_identification,
+                'detected_substances'       => $al->detected_substances,
+                'test_methods'              => $al->test_methods,
+                'specifications'            => $al->specifications,
+                'remark'                    => $al->remark,
+                'findings'                  => $al->findings,
+                'has_saved'                 => $al->has_saved,
+            ];
+        }
+
         $seizuresArray = [];
         foreach ($exhibits as $exIdx => $ex) {
             // Determine if this exhibit's suspect is an associate-role suspect
@@ -263,13 +356,60 @@ class ForensicCase extends Model
             $exSuspectRole = strtolower(trim($exSuspect->role ?? ''));
             $isAssoc = $exSuspect ? ($exSuspect->suspect_number > 1 || ($exSuspectRole !== 'primary suspect' && $exSuspectRole !== 'primary')) : false;
 
-            // For multi-suspect cases, null suspect_id means jointly owned by all suspects
             $associatedPerson = $exSuspect
                 ? $exSuspect->suspect_name
                 : ($isMulti ? $allSuspectNames : ($instance->suspect_name ?? 'Primary Suspect'));
 
+            $assocExamForEx = null;
+            if (!$ex->labResult) {
+                $assocKey = strtolower(trim($associatedPerson));
+                // 1. Check assocLabsMap
+                foreach ($assocLabsMap as $kAssoc => $vAssoc) {
+                    $kLower = strtolower(trim($kAssoc));
+                    if ($kLower === $assocKey || (!empty($vAssoc['exhibit_number']) && $vAssoc['exhibit_number'] === ($ex->exhibit_number ?? ''))) {
+                        $assocExamForEx = $vAssoc;
+                        break;
+                    }
+                }
+                // 2. Check recDocket associate_lab_examinations
+                if (!$assocExamForEx && !empty($recDocket['associate_lab_examinations'])) {
+                    foreach ($recDocket['associate_lab_examinations'] as $kAssoc => $vAssoc) {
+                        $kLower = strtolower(trim($kAssoc));
+                        if ($kLower === $assocKey || (!empty($vAssoc['exhibit_number']) && $vAssoc['exhibit_number'] === ($ex->exhibit_number ?? ''))) {
+                            $assocExamForEx = $vAssoc;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            $hasSavedLab = $ex->labResult 
+                ? $ex->labResult->has_saved 
+                : (!empty($recDocket['seizures'][$exIdx]['has_saved_lab']) || !empty($assocExamForEx['has_saved']));
+
+            $presumptiveResult = $ex->labResult 
+                ? $ex->labResult->presumptive_result 
+                : ($recDocket['seizures'][$exIdx]['presumptive_result'] ?? ($assocExamForEx['presumptive_result'] ?? null));
+
+            $confirmatoryResult = $ex->labResult 
+                ? $ex->labResult->confirmatory_result 
+                : ($recDocket['seizures'][$exIdx]['confirmatory_result'] ?? ($assocExamForEx['confirmatory_result'] ?? null));
+
+            $substanceIdent = $ex->labResult 
+                ? $ex->labResult->substance_identification 
+                : ($recDocket['seizures'][$exIdx]['substance_identification'] ?? ($assocExamForEx['substance_identification'] ?? null));
+
+            $sampleWeightTaken = $ex->labResult 
+                ? $ex->labResult->sample_weight_taken 
+                : ($recDocket['seizures'][$exIdx]['sample_weight_taken'] ?? ($recDocket['seizures'][$exIdx]['sample_taken'] ?? ($assocExamForEx['sample_weight']['sample_taken'] ?? null)));
+
+            $sampleWeightReserved = $ex->labResult 
+                ? $ex->labResult->sample_weight_reserved 
+                : ($recDocket['seizures'][$exIdx]['sample_weight_reserved'] ?? ($recDocket['seizures'][$exIdx]['sample_reserved'] ?? ($assocExamForEx['sample_weight']['reserved_samples'] ?? null)));
+
             $seizuresArray[] = [
                 'id'                 => $ex->id ?? ($recDocket['seizures'][$exIdx]['id'] ?? null),
+                'suspect_id'         => $ex->suspect_id ?? ($recDocket['seizures'][$exIdx]['suspect_id'] ?? null),
                 'category'           => $ex->exhibit_category,
                 'exhibit_type'       => $ex->exhibit_type ?? ($recDocket['seizures'][$exIdx]['exhibit_type'] ?? null),
                 'drug_classification'=> $ex->drug_classification ?? ($recDocket['seizures'][$exIdx]['drug_classification'] ?? null),
@@ -293,14 +433,14 @@ class ForensicCase extends Model
                 'associate_id'       => $ex->suspect ? $ex->suspect->associate_id : null,
                 'is_associate'       => $isAssoc,
                 'ammunition_details' => is_array($ex->ammunition_details) ? $ex->ammunition_details : (json_decode($ex->ammunition_details ?? '[]', true) ?: ($recDocket['seizures'][$exIdx]['ammunition_details'] ?? null)),
-                'has_saved_lab'      => $ex->labResult ? $ex->labResult->has_saved : false,
-                'presumptive_result' => $ex->labResult ? $ex->labResult->presumptive_result : null,
-                'confirmatory_result' => $ex->labResult ? $ex->labResult->confirmatory_result : null,
-                'substance_identification' => $ex->labResult ? $ex->labResult->substance_identification : null,
-                'sample_taken'        => $ex->labResult ? $ex->labResult->sample_weight_taken : null,
-                'sample_weight_taken' => $ex->labResult ? $ex->labResult->sample_weight_taken : null,
-                'sample_reserved'     => $ex->labResult ? $ex->labResult->sample_weight_reserved : null,
-                'sample_weight_reserved' => $ex->labResult ? $ex->labResult->sample_weight_reserved : null,
+                'has_saved_lab'      => $hasSavedLab,
+                'presumptive_result' => $presumptiveResult,
+                'confirmatory_result' => $confirmatoryResult,
+                'substance_identification' => $substanceIdent,
+                'sample_taken'        => $sampleWeightTaken,
+                'sample_weight_taken' => $sampleWeightTaken,
+                'sample_reserved'     => $sampleWeightReserved,
+                'sample_weight_reserved' => $sampleWeightReserved,
                 'evidence_photos'    => (is_array($ex->evidence_photos) && !empty($ex->evidence_photos)) 
                     ? $ex->evidence_photos 
                     : ((!empty($ex->evidence_photos) && is_string($ex->evidence_photos) && json_decode($ex->evidence_photos, true))
@@ -339,42 +479,6 @@ class ForensicCase extends Model
             ];
         }
 
-        $assocLabsMap = [];
-        $assocLabs = AssociateLabExamination::where('case_id', $record->id)->get();
-        foreach ($assocLabs as $al) {
-            $assocLabsMap[$al->suspect_name] = [
-                'suspect_name'              => $al->suspect_name,
-                'laboratory_number'         => $al->laboratory_number,
-                'exam_reference'            => (!empty($al->exam_reference)) ? (str_starts_with(trim($al->exam_reference), 'GSA-') ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $al->exam_reference) : $al->exam_reference) : 'NLR-FM-T35-F',
-                'exhibit_number'            => $al->exhibit_number,
-                'analyst'                   => $al->analyst,
-                'date_received'             => $al->date_received,
-                'date_started'              => $al->date_started,
-                'date_completed'            => $al->date_completed,
-                'presumptive_result'        => $al->presumptive_result,
-                'confirmatory_result'       => $al->confirmatory_result,
-                'sample_weight'             => [
-                    'description'      => $al->sample_weight_description,
-                    'units_packaging'  => $al->sample_weight_units,
-                    'gross_weight'     => $al->sample_weight_gross,
-                    'sample_taken'     => $al->sample_weight_taken,
-                    'reserved_samples' => $al->sample_weight_reserved,
-                ],
-                'sample_weight_description' => $al->sample_weight_description,
-                'sample_weight_units'       => $al->sample_weight_units,
-                'sample_weight_gross'       => $al->sample_weight_gross,
-                'sample_weight_taken'       => $al->sample_weight_taken,
-                'sample_weight_reserved'    => $al->sample_weight_reserved,
-                'substance_identification'  => $al->substance_identification,
-                'detected_substances'       => $al->detected_substances,
-                'test_methods'              => $al->test_methods,
-                'specifications'            => $al->specifications,
-                'remark'                    => $al->remark,
-                'findings'                  => $al->findings,
-                'has_saved'                 => $al->has_saved,
-            ];
-        }
-
         // Determine primary suspect name for lab examination header
         $primarySuspectLabel = $primarySuspect ? $primarySuspect->suspect_name : ($instance->suspect_name ?? null);
 
@@ -396,7 +500,7 @@ class ForensicCase extends Model
             } elseif ($rU === 'Crime Scene Support') {
                 $unitProgressWrap[$rU] = [
                     'status'     => 'COMPLETED',
-                    'officer'    => $instance->commanding_officer ?? ($instance->submitting_officer ?? 'Crime Scene Officer'),
+                    'officer'    => $instance->user?->fullname ?? ($instance->user_id ? \App\Models\User::find($instance->user_id)?->fullname : ($instance->submitting_officer ?? 'Crime Scene Officer')),
                     'updated_at' => is_object($instance->created_at) ? $instance->created_at->toDateTimeString() : (string)$instance->created_at,
                     'notes'      => 'Submitted via Crime Scene Support & Field Operations Workspace',
                 ];
@@ -793,7 +897,6 @@ class ForensicCase extends Model
                 'unit_name'            => $attributes['unit_name'] ?? 'Crime Scene Support',
                 'unit_id'              => $attributes['unit_id'] ?? null,
                 'user_id'              => $attributes['user_id'] ?? null,
-                'commanding_officer'   => $attributes['commanding_officer'] ?? null,
                 'submitting_officer'   => $attributes['submitting_officer'] ?? null,
                 'operation_code'       => $attributes['operation_code'] ?? null,
                 'operation_code_name'  => $attributes['operation_code_name'] ?? null,
@@ -877,6 +980,8 @@ class ForensicCase extends Model
                         'seizure_officer'         => $attributes['seizure_officer'] ?? null,
                         'seizure_reason'          => $attributes['seizure_reason'] ?? null,
                         'source_of_exhibits'      => $attributes['source_of_exhibits'] ?? null,
+                        'exhibit_remark'          => $attributes['exhibit_remark'] ?? null,
+                        'lab_remark'              => $attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null)),
                         'veh_make'                => $attributes['veh_make'] ?? ($attributes['vehicle_make'] ?? ($attributes['vehicle_make_model'] ?? null)),
                         'veh_model'               => $attributes['veh_model'] ?? ($attributes['vehicle_model'] ?? ($attributes['vehicle_make_model'] ?? null)),
                         'veh_type'                => $attributes['veh_type'] ?? ($attributes['vehicle_type'] ?? null),
@@ -887,12 +992,26 @@ class ForensicCase extends Model
                         'veh_engine_no'           => $attributes['veh_engine_no'] ?? ($attributes['engine_number'] ?? null),
                         'veh_country_reg'         => $attributes['veh_country_reg'] ?? ($attributes['country_of_registration'] ?? null),
                         'veh_owner'               => $attributes['veh_owner'] ?? ($attributes['vehicle_owner'] ?? null),
+                        'veh_owner_contact'       => $attributes['veh_owner_contact'] ?? ($attributes['vehicle_owner_contact'] ?? null),
                         'veh_driver'              => $attributes['veh_driver'] ?? ($attributes['vehicle_driver'] ?? null),
+                        'veh_docs_available'      => $attributes['veh_docs_available'] ?? ($attributes['vehicle_docs_available'] ?? null),
+                        'veh_doc_ref'             => $attributes['veh_doc_ref'] ?? ($attributes['vehicle_doc_ref'] ?? null),
+                        'veh_condition'           => $attributes['veh_condition'] ?? ($attributes['vehicle_condition'] ?? null),
+                        'veh_fuel'                => $attributes['veh_fuel'] ?? ($attributes['vehicle_fuel'] ?? null),
+                        'veh_keys_recv'           => $attributes['veh_keys_recv'] ?? ($attributes['vehicle_keys_recv'] ?? null),
+                        'veh_key_count'           => $attributes['veh_key_count'] ?? ($attributes['vehicle_key_count'] ?? null),
+                        'veh_damage'              => $attributes['veh_damage'] ?? ($attributes['vehicle_damage'] ?? null),
+                        'veh_mods'                => $attributes['veh_mods'] ?? ($attributes['vehicle_mods'] ?? null),
+                        'veh_features'            => $attributes['veh_features'] ?? ($attributes['vehicle_features'] ?? null),
                         'wpn_model'               => $attributes['wpn_model'] ?? ($attributes['weapon_model'] ?? ($attributes['weapon_type'] ?? null)),
                         'wpn_serial_no'           => $attributes['wpn_serial_no'] ?? ($attributes['weapon_serial'] ?? null),
                         'wpn_calibre'             => $attributes['wpn_calibre'] ?? ($attributes['weapon_calibre'] ?? null),
                         'wpn_colour'              => $attributes['wpn_colour'] ?? ($attributes['weapon_colour'] ?? null),
                         'wpn_size'                => $attributes['wpn_size'] ?? ($attributes['weapon_size'] ?? null),
+                        'wpn_marks'               => $attributes['wpn_marks'] ?? ($attributes['weapon_marks'] ?? null),
+                        'wpn_location_found'      => $attributes['wpn_location_found'] ?? ($attributes['weapon_location_found'] ?? null),
+                        'wpn_loaded_status'       => $attributes['wpn_loaded_status'] ?? ($attributes['weapon_loaded_status'] ?? null),
+                        'wpn_condition'           => $attributes['wpn_condition'] ?? ($attributes['weapon_condition'] ?? null),
                         'dev_model'               => $attributes['dev_model'] ?? ($attributes['device_model'] ?? null),
                         'dev_serial_no'           => $attributes['dev_serial_no'] ?? ($attributes['device_serial'] ?? null),
                         'dev_imei1'               => $attributes['dev_imei1'] ?? ($attributes['imei_1'] ?? null),
@@ -965,6 +1084,8 @@ class ForensicCase extends Model
                         'seizure_officer'         => $sz['seizure_officer'] ?? ($attributes['seizure_officer'] ?? null),
                         'seizure_reason'          => $sz['seizure_reason'] ?? ($attributes['seizure_reason'] ?? null),
                         'source_of_exhibits'      => $sz['source_of_exhibits'] ?? ($attributes['source_of_exhibits'] ?? null),
+                        'exhibit_remark'          => $sz['exhibit_remark'] ?? ($attributes['exhibit_remark'] ?? null),
+                        'lab_remark'              => $sz['lab_remark'] ?? ($sz['confirmatory_remark'] ?? (!empty($sz['has_saved_lab']) ? ($sz['remark'] ?? null) : ($sIdx === 0 ? ($attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null))) : null))),
                         'veh_make'                => $sz['veh_make'] ?? ($sz['veh']['make'] ?? ($sz['vehicle_make'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_make'] ?? null)))),
                         'veh_model'               => $sz['veh_model'] ?? ($sz['veh']['model'] ?? ($sz['vehicle_model'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_model'] ?? null)))),
                         'veh_type'                => $sz['veh_type'] ?? ($sz['veh']['type'] ?? ($sz['vehicle_type'] ?? ($attributes['veh_type'] ?? null))),
@@ -975,12 +1096,26 @@ class ForensicCase extends Model
                         'veh_engine_no'           => $sz['veh_engine_no'] ?? ($sz['veh']['engine_no'] ?? ($sz['engine_number'] ?? ($attributes['veh_engine_no'] ?? null))),
                         'veh_country_reg'         => $sz['veh_country_reg'] ?? ($sz['veh']['country_reg'] ?? ($sz['country_of_registration'] ?? ($attributes['veh_country_reg'] ?? null))),
                         'veh_owner'               => $sz['veh_owner'] ?? ($sz['veh']['owner'] ?? ($sz['vehicle_owner'] ?? ($attributes['veh_owner'] ?? null))),
+                        'veh_owner_contact'       => $sz['veh_owner_contact'] ?? ($sz['veh']['owner_contact'] ?? ($sz['vehicle_owner_contact'] ?? ($attributes['veh_owner_contact'] ?? null))),
                         'veh_driver'              => $sz['veh_driver'] ?? ($sz['veh']['driver'] ?? ($sz['vehicle_driver'] ?? ($attributes['veh_driver'] ?? null))),
+                        'veh_docs_available'      => $sz['veh_docs_available'] ?? ($sz['veh']['docs_available'] ?? ($sz['vehicle_docs_available'] ?? ($attributes['veh_docs_available'] ?? null))),
+                        'veh_doc_ref'             => $sz['veh_doc_ref'] ?? ($sz['veh']['doc_ref'] ?? ($sz['vehicle_doc_ref'] ?? ($attributes['veh_doc_ref'] ?? null))),
+                        'veh_condition'           => $sz['veh_condition'] ?? ($sz['veh']['condition'] ?? ($sz['vehicle_condition'] ?? ($attributes['veh_condition'] ?? null))),
+                        'veh_fuel'                => $sz['veh_fuel'] ?? ($sz['veh']['fuel'] ?? ($sz['vehicle_fuel'] ?? ($attributes['veh_fuel'] ?? null))),
+                        'veh_keys_recv'           => $sz['veh_keys_recv'] ?? ($sz['veh']['keys_recv'] ?? ($sz['vehicle_keys_recv'] ?? ($attributes['veh_keys_recv'] ?? null))),
+                        'veh_key_count'           => $sz['veh_key_count'] ?? ($sz['veh']['key_count'] ?? ($sz['vehicle_key_count'] ?? ($attributes['veh_key_count'] ?? null))),
+                        'veh_damage'              => $sz['veh_damage'] ?? ($sz['veh']['damage'] ?? ($sz['vehicle_damage'] ?? ($attributes['veh_damage'] ?? null))),
+                        'veh_mods'                => $sz['veh_mods'] ?? ($sz['veh']['mods'] ?? ($sz['vehicle_mods'] ?? ($attributes['veh_mods'] ?? null))),
+                        'veh_features'            => $sz['veh_features'] ?? ($sz['veh']['features'] ?? ($sz['vehicle_features'] ?? ($attributes['veh_features'] ?? null))),
                         'wpn_model'               => $sz['wpn_model'] ?? ($sz['wpn']['model'] ?? ($sz['weapon_model'] ?? ($sz['weapon_type'] ?? ($sz['seizure_name_weapon'] ?? ($attributes['wpn_model'] ?? null))))),
                         'wpn_serial_no'           => $sz['wpn_serial_no'] ?? ($sz['wpn']['serial_no'] ?? ($sz['weapon_serial'] ?? ($attributes['wpn_serial_no'] ?? null))),
                         'wpn_calibre'             => $sz['wpn_calibre'] ?? ($sz['wpn']['calibre'] ?? ($sz['weapon_calibre'] ?? ($attributes['wpn_calibre'] ?? null))),
                         'wpn_colour'              => $sz['wpn_colour'] ?? ($sz['wpn']['colour'] ?? ($sz['weapon_colour'] ?? ($attributes['wpn_colour'] ?? null))),
                         'wpn_size'                => $sz['wpn_size'] ?? ($sz['wpn']['size'] ?? ($sz['weapon_size'] ?? ($attributes['wpn_size'] ?? null))),
+                        'wpn_marks'               => $sz['wpn_marks'] ?? ($sz['wpn']['marks'] ?? ($sz['weapon_marks'] ?? ($attributes['wpn_marks'] ?? null))),
+                        'wpn_location_found'      => $sz['wpn_location_found'] ?? ($sz['wpn']['location_found'] ?? ($sz['weapon_location_found'] ?? ($attributes['wpn_location_found'] ?? null))),
+                        'wpn_loaded_status'       => $sz['wpn_loaded_status'] ?? ($sz['wpn']['loaded_status'] ?? ($sz['weapon_loaded_status'] ?? ($attributes['wpn_loaded_status'] ?? null))),
+                        'wpn_condition'           => $sz['wpn_condition'] ?? ($sz['wpn']['condition'] ?? ($sz['weapon_condition'] ?? ($attributes['wpn_condition'] ?? null))),
                         'dev_model'               => $sz['dev_model'] ?? ($sz['device_model'] ?? ($attributes['dev_model'] ?? null)),
                         'dev_serial_no'           => $sz['dev_serial_no'] ?? ($sz['device_serial'] ?? ($attributes['dev_serial_no'] ?? null)),
                         'dev_imei1'               => $sz['dev_imei1'] ?? ($sz['imei_1'] ?? ($attributes['dev_imei1'] ?? null)),
@@ -1101,7 +1236,6 @@ class ForensicCase extends Model
             'unit_name'            => $attributes['unit_name'] ?? 'Crime Scene Support',
             'unit_id'              => $attributes['unit_id'] ?? null,
             'user_id'              => $attributes['user_id'] ?? null,
-            'commanding_officer'   => $attributes['commanding_officer'] ?? null,
             'submitting_officer'   => $attributes['submitting_officer'] ?? null,
             'suspect_name'         => $attributes['suspect_name'] ?? ($suspects[0]['suspect_name'] ?? 'Unnamed Suspect'),
             'suspect_alias'        => $attributes['suspect_alias'] ?? ($suspects[0]['suspect_alias'] ?? null),
@@ -1168,6 +1302,8 @@ class ForensicCase extends Model
                     'seizure_officer'       => $attributes['seizure_officer'] ?? null,
                     'seizure_reason'        => $attributes['seizure_reason'] ?? null,
                     'source_of_exhibits'    => $attributes['source_of_exhibits'] ?? null,
+                    'exhibit_remark'        => $attributes['exhibit_remark'] ?? null,
+                    'lab_remark'            => $attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null)),
                     'veh_make'              => $attributes['veh_make'] ?? ($attributes['vehicle_make'] ?? ($attributes['vehicle_make_model'] ?? null)),
                     'veh_model'             => $attributes['veh_model'] ?? ($attributes['vehicle_model'] ?? ($attributes['vehicle_make_model'] ?? null)),
                     'veh_type'              => $attributes['veh_type'] ?? ($attributes['vehicle_type'] ?? null),
@@ -1178,12 +1314,26 @@ class ForensicCase extends Model
                     'veh_engine_no'         => $attributes['veh_engine_no'] ?? ($attributes['engine_number'] ?? null),
                     'veh_country_reg'       => $attributes['veh_country_reg'] ?? ($attributes['country_of_registration'] ?? null),
                     'veh_owner'             => $attributes['veh_owner'] ?? ($attributes['vehicle_owner'] ?? null),
+                    'veh_owner_contact'     => $attributes['veh_owner_contact'] ?? ($attributes['vehicle_owner_contact'] ?? null),
                     'veh_driver'            => $attributes['veh_driver'] ?? ($attributes['vehicle_driver'] ?? null),
+                    'veh_docs_available'    => $attributes['veh_docs_available'] ?? ($attributes['vehicle_docs_available'] ?? null),
+                    'veh_doc_ref'           => $attributes['veh_doc_ref'] ?? ($attributes['vehicle_doc_ref'] ?? null),
+                    'veh_condition'         => $attributes['veh_condition'] ?? ($attributes['vehicle_condition'] ?? null),
+                    'veh_fuel'              => $attributes['veh_fuel'] ?? ($attributes['vehicle_fuel'] ?? null),
+                    'veh_keys_recv'         => $attributes['veh_keys_recv'] ?? ($attributes['vehicle_keys_recv'] ?? null),
+                    'veh_key_count'         => $attributes['veh_key_count'] ?? ($attributes['vehicle_key_count'] ?? null),
+                    'veh_damage'            => $attributes['veh_damage'] ?? ($attributes['vehicle_damage'] ?? null),
+                    'veh_mods'              => $attributes['veh_mods'] ?? ($attributes['vehicle_mods'] ?? null),
+                    'veh_features'          => $attributes['veh_features'] ?? ($attributes['vehicle_features'] ?? null),
                     'wpn_model'             => $attributes['wpn_model'] ?? ($attributes['weapon_model'] ?? ($attributes['weapon_type'] ?? null)),
                     'wpn_serial_no'         => $attributes['wpn_serial_no'] ?? ($attributes['weapon_serial'] ?? null),
                     'wpn_calibre'           => $attributes['wpn_calibre'] ?? ($attributes['weapon_calibre'] ?? null),
                     'wpn_colour'            => $attributes['wpn_colour'] ?? ($attributes['weapon_colour'] ?? null),
                     'wpn_size'              => $attributes['wpn_size'] ?? ($attributes['weapon_size'] ?? null),
+                    'wpn_marks'             => $attributes['wpn_marks'] ?? ($attributes['weapon_marks'] ?? null),
+                    'wpn_location_found'    => $attributes['wpn_location_found'] ?? ($attributes['weapon_location_found'] ?? null),
+                    'wpn_loaded_status'     => $attributes['wpn_loaded_status'] ?? ($attributes['weapon_loaded_status'] ?? null),
+                    'wpn_condition'         => $attributes['wpn_condition'] ?? ($attributes['weapon_condition'] ?? null),
                     'dev_model'             => $attributes['dev_model'] ?? ($attributes['device_model'] ?? null),
                     'dev_serial_no'         => $attributes['dev_serial_no'] ?? ($attributes['device_serial'] ?? null),
                     'dev_imei1'             => $attributes['dev_imei1'] ?? ($attributes['imei_1'] ?? null),
@@ -1223,6 +1373,8 @@ class ForensicCase extends Model
                     'seizure_officer'       => $sz['seizure_officer'] ?? ($attributes['seizure_officer'] ?? null),
                     'seizure_reason'        => $sz['seizure_reason'] ?? ($attributes['seizure_reason'] ?? null),
                     'source_of_exhibits'    => $sz['source_of_exhibits'] ?? ($attributes['source_of_exhibits'] ?? null),
+                    'exhibit_remark'        => $sz['exhibit_remark'] ?? ($attributes['exhibit_remark'] ?? null),
+                    'lab_remark'            => $sz['lab_remark'] ?? ($sz['confirmatory_remark'] ?? (!empty($sz['has_saved_lab']) ? ($sz['remark'] ?? null) : ($sIdx === 0 ? ($attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null))) : null))),
                     'veh_make'              => $sz['veh_make'] ?? ($sz['veh']['make'] ?? ($sz['vehicle_make'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_make'] ?? null)))),
                     'veh_model'             => $sz['veh_model'] ?? ($sz['veh']['model'] ?? ($sz['vehicle_model'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_model'] ?? null)))),
                     'veh_type'              => $sz['veh_type'] ?? ($sz['veh']['type'] ?? ($sz['vehicle_type'] ?? ($attributes['veh_type'] ?? null))),
@@ -1233,12 +1385,26 @@ class ForensicCase extends Model
                     'veh_engine_no'         => $sz['veh_engine_no'] ?? ($sz['veh']['engine_no'] ?? ($sz['engine_number'] ?? ($attributes['veh_engine_no'] ?? null))),
                     'veh_country_reg'       => $sz['veh_country_reg'] ?? ($sz['veh']['country_reg'] ?? ($sz['country_of_registration'] ?? ($attributes['veh_country_reg'] ?? null))),
                     'veh_owner'             => $sz['veh_owner'] ?? ($sz['veh']['owner'] ?? ($sz['vehicle_owner'] ?? ($attributes['veh_owner'] ?? null))),
+                    'veh_owner_contact'     => $sz['veh_owner_contact'] ?? ($sz['veh']['owner_contact'] ?? ($sz['vehicle_owner_contact'] ?? ($attributes['veh_owner_contact'] ?? null))),
                     'veh_driver'            => $sz['veh_driver'] ?? ($sz['veh']['driver'] ?? ($sz['vehicle_driver'] ?? ($attributes['veh_driver'] ?? null))),
+                    'veh_docs_available'    => $sz['veh_docs_available'] ?? ($sz['veh']['docs_available'] ?? ($sz['vehicle_docs_available'] ?? ($attributes['veh_docs_available'] ?? null))),
+                    'veh_doc_ref'           => $sz['veh_doc_ref'] ?? ($sz['veh']['doc_ref'] ?? ($sz['vehicle_doc_ref'] ?? ($attributes['veh_doc_ref'] ?? null))),
+                    'veh_condition'         => $sz['veh_condition'] ?? ($sz['veh']['condition'] ?? ($sz['vehicle_condition'] ?? ($attributes['veh_condition'] ?? null))),
+                    'veh_fuel'              => $sz['veh_fuel'] ?? ($sz['veh']['fuel'] ?? ($sz['vehicle_fuel'] ?? ($attributes['veh_fuel'] ?? null))),
+                    'veh_keys_recv'         => $sz['veh_keys_recv'] ?? ($sz['veh']['keys_recv'] ?? ($sz['vehicle_keys_recv'] ?? ($attributes['veh_keys_recv'] ?? null))),
+                    'veh_key_count'         => $sz['veh_key_count'] ?? ($sz['veh']['key_count'] ?? ($sz['vehicle_key_count'] ?? ($attributes['veh_key_count'] ?? null))),
+                    'veh_damage'            => $sz['veh_damage'] ?? ($sz['veh']['damage'] ?? ($sz['vehicle_damage'] ?? ($attributes['veh_damage'] ?? null))),
+                    'veh_mods'              => $sz['veh_mods'] ?? ($sz['veh']['mods'] ?? ($sz['vehicle_mods'] ?? ($attributes['veh_mods'] ?? null))),
+                    'veh_features'          => $sz['veh_features'] ?? ($sz['veh']['features'] ?? ($sz['vehicle_features'] ?? ($attributes['veh_features'] ?? null))),
                     'wpn_model'             => $sz['wpn_model'] ?? ($sz['wpn']['model'] ?? ($sz['weapon_model'] ?? ($sz['weapon_type'] ?? ($sz['seizure_name_weapon'] ?? ($attributes['wpn_model'] ?? null))))),
                     'wpn_serial_no'         => $sz['wpn_serial_no'] ?? ($sz['wpn']['serial_no'] ?? ($sz['weapon_serial'] ?? ($attributes['wpn_serial_no'] ?? null))),
                     'wpn_calibre'           => $sz['wpn_calibre'] ?? ($sz['wpn']['calibre'] ?? ($sz['weapon_calibre'] ?? ($attributes['wpn_calibre'] ?? null))),
                     'wpn_colour'            => $sz['wpn_colour'] ?? ($sz['wpn']['colour'] ?? ($sz['weapon_colour'] ?? ($attributes['wpn_colour'] ?? null))),
                     'wpn_size'              => $sz['wpn_size'] ?? ($sz['wpn']['size'] ?? ($sz['weapon_size'] ?? ($attributes['wpn_size'] ?? null))),
+                    'wpn_marks'             => $sz['wpn_marks'] ?? ($sz['wpn']['marks'] ?? ($sz['weapon_marks'] ?? ($attributes['wpn_marks'] ?? null))),
+                    'wpn_location_found'    => $sz['wpn_location_found'] ?? ($sz['wpn']['location_found'] ?? ($sz['weapon_location_found'] ?? ($attributes['wpn_location_found'] ?? null))),
+                    'wpn_loaded_status'     => $sz['wpn_loaded_status'] ?? ($sz['wpn']['loaded_status'] ?? ($sz['weapon_loaded_status'] ?? ($attributes['wpn_loaded_status'] ?? null))),
+                    'wpn_condition'         => $sz['wpn_condition'] ?? ($sz['wpn']['condition'] ?? ($sz['weapon_condition'] ?? ($attributes['wpn_condition'] ?? null))),
                     'dev_model'             => $sz['dev_model'] ?? ($sz['device_model'] ?? ($attributes['dev_model'] ?? null)),
                     'dev_serial_no'         => $sz['dev_serial_no'] ?? ($sz['device_serial'] ?? ($attributes['dev_serial_no'] ?? null)),
                     'dev_imei1'             => $sz['dev_imei1'] ?? ($sz['imei_1'] ?? ($attributes['dev_imei1'] ?? null)),
@@ -1484,6 +1650,10 @@ class ForensicCase extends Model
             public function count() { return $this->items->count(); }
             public function exists() { return $this->items->isNotEmpty(); }
 
+            public function paginate($perPage = 15) {
+                return ForensicCase::paginateCases($this->items, $perPage);
+            }
+
             public function update(array $updateValues) {
                 $c1 = SingleSuspectCase::whereIn($this->col, $this->vals)->update($updateValues);
                 $c2 = MultipleSuspectCase::whereIn($this->col, $this->vals)->update($updateValues);
@@ -1501,6 +1671,45 @@ class ForensicCase extends Model
     }
 
     /**
+     * Paginate any collection of ForensicCase or wrap items into a LengthAwarePaginator.
+     */
+    public static function paginateCases(Collection $collection, int $perPage = 15, ?int $page = null, array $options = []): \Illuminate\Pagination\LengthAwarePaginator
+    {
+        $request = request();
+        $reqPerPage = $request ? $request->input('per_page') : null;
+        if (!empty($reqPerPage) && is_numeric($reqPerPage)) {
+            $perPage = (int) $reqPerPage;
+        }
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+
+        $page = $page ?: \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+        $total = $collection->count();
+        $items = $collection->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $items,
+            $total,
+            $perPage,
+            $page,
+            array_merge([
+                'path' => \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPath(),
+                'pageName' => 'page',
+            ], $options)
+        );
+
+        return $paginator->withQueryString();
+    }
+
+    /**
+     * Direct pagination helper on ForensicCase.
+     */
+    public static function paginate($perPage = 15, $columns = ['*'], $pageName = 'page', $page = null)
+    {
+        return self::paginateCases(self::allCases(), $perPage, $page, ['pageName' => $pageName]);
+    }
+
+    /**
      * Helper to wrap with relations.
      */
     public static function with($relations)
@@ -1511,6 +1720,9 @@ class ForensicCase extends Model
             }
             public function get() {
                 return ForensicCase::allCases();
+            }
+            public function paginate($perPage = 15) {
+                return ForensicCase::paginateCases(ForensicCase::allCases(), $perPage);
             }
         };
     }
@@ -2391,6 +2603,23 @@ class ForensicCase extends Model
                         $arr['veh_country_reg'] = $ex->veh_country_reg;
                         $arr['veh_owner']       = $ex->veh_owner;
                         $arr['veh_driver']      = $ex->veh_driver;
+                        $arr['veh_owner_contact']  = $ex->veh_owner_contact;
+                        $arr['veh_docs_available'] = $ex->veh_docs_available;
+                        $arr['veh_doc_ref']        = $ex->veh_doc_ref;
+                        $arr['veh_condition']      = $ex->veh_condition;
+                        $arr['veh_fuel']           = $ex->veh_fuel;
+                        $arr['veh_keys_recv']      = $ex->veh_keys_recv;
+                        $arr['veh_key_count']      = $ex->veh_key_count;
+                        $arr['veh_damage']         = $ex->veh_damage;
+                        $arr['veh_mods']           = $ex->veh_mods;
+                        $arr['veh_features']       = $ex->veh_features;
+
+                        $arr['weapon_marks']                 = $ex->wpn_marks;
+                        $arr['weapon_distinguishing_marks']  = $ex->wpn_marks;
+                        $arr['weapon_location_found']        = $ex->wpn_location_found;
+                        $arr['weapon_loaded_status']         = $ex->wpn_loaded_status;
+                        $arr['weapon_condition_at_recovery'] = $ex->wpn_condition;
+                        $arr['weapon_condition']             = $ex->wpn_condition;
 
                         // Map device attributes
                         $arr['dev_model']       = $ex->dev_model;

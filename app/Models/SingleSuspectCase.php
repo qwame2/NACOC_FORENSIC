@@ -18,7 +18,6 @@ class SingleSuspectCase extends Model
         'unit_name',
         'unit_id',
         'user_id',
-        'commanding_officer',
         'submitting_officer',
         'suspect_name',
         'suspect_alias',
@@ -102,5 +101,25 @@ class SingleSuspectCase extends Model
     public function primaryLabResult()
     {
         return $this->hasOne(LaboratoryExaminationResult::class, 'single_suspect_case_id')->latestOfMany();
+    }
+
+    public function suspect()
+    {
+        return $this->hasOne(CaseSuspect::class, 'single_suspect_case_id');
+    }
+
+    public function suspects()
+    {
+        return $this->hasMany(CaseSuspect::class, 'single_suspect_case_id');
+    }
+
+    public function gsaReports()
+    {
+        return $this->hasMany(SuspectGsaReport::class, 'single_suspect_case_id');
+    }
+
+    public function nlrReports()
+    {
+        return $this->hasMany(SuspectNlrReport::class, 'single_suspect_case_id');
     }
 }

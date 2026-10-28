@@ -11,6 +11,7 @@ class SuspectGsaReport extends Model
 
     protected $fillable = [
         'case_suspect_id',
+        'single_suspect_case_id',
         'multiple_suspect_case_id',
         'uploaded_by',
         'original_filename',
@@ -40,10 +41,22 @@ class SuspectGsaReport extends Model
         return $this->belongsTo(CaseSuspect::class, 'case_suspect_id');
     }
 
-    /** The parent case dossier */
-    public function case(): BelongsTo
+    /** The parent single case dossier (if single suspect case) */
+    public function singleCase(): BelongsTo
+    {
+        return $this->belongsTo(SingleSuspectCase::class, 'single_suspect_case_id');
+    }
+
+    /** The parent multiple case dossier (if multiple suspect case) */
+    public function multipleCase(): BelongsTo
     {
         return $this->belongsTo(MultipleSuspectCase::class, 'multiple_suspect_case_id');
+    }
+
+    /** The parent case dossier */
+    public function case()
+    {
+        return $this->single_suspect_case_id ? $this->singleCase() : $this->multipleCase();
     }
 
     /** The lab officer who uploaded the file */

@@ -21,15 +21,15 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
 
-    <!-- Tailwind CSS CDN Fallback & Config -->
+    <!-- Tailwind CSS Local Asset Fallback & Config -->
     <script>
         const _origWarn = console.warn;
         console.warn = function(...args) {
-            if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('tailwindcss')) return;
             _origWarn.apply(console, args);
         };
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -381,22 +381,12 @@
                                         <th class="py-3 px-3">Date &amp; Source</th>
                                         <th class="py-3 px-3">Exhibit Information</th>
                                         <th class="py-3 px-3">Quantity &amp; Weight</th>
-                                        <th class="py-3 px-4">Preliminary Chemical Remarks</th>
                                         <th class="py-3 px-3 text-right">Generate Report</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800" id="seizuresTableBody">
                                     @forelse($filteredSeizures as $item)
                                         @php
-                                            $itemRemarks = strtolower($item['status_remarks'] ?? '');
-                                            $badgeClass = 'bg-slate-100 text-slate-800 border-slate-200';
-                                            if (str_contains($itemRemarks, 'thc') || str_contains($itemRemarks, 'codeine') || str_contains($itemRemarks, 'positive')) {
-                                                $badgeClass = 'bg-emerald-50 text-emerald-900 border-emerald-300';
-                                            } elseif (str_contains($itemRemarks, 'inconclusive')) {
-                                                $badgeClass = 'bg-amber-50 text-amber-900 border-amber-300';
-                                            } elseif (str_contains($itemRemarks, 'prohibited')) {
-                                                $badgeClass = 'bg-rose-50 text-rose-900 border-rose-300';
-                                            }
                                             $firstSuspect = $item['primary_suspect'] ?? ($item['suspects'][0]['name'] ?? 'Suspect');
                                             $allSuspectNamesLower = strtolower(implode(' ', array_filter(array_column($item['suspects'], 'name'))));
                                             $isMultipleCase = !empty($item['is_multiple']) || count($item['suspects']) > 1;
@@ -467,7 +457,7 @@
                                                     {{ $item['date_display'] }}
                                                 </div>
                                                 <div class="font-bold text-slate-700 text-xs mt-0.5">
-                                                    {{ $item['source'] }}
+                                                    {{ $item['source_of_exhibits'] ?? ($item['source'] ?? 'N/A') }}
                                                 </div>
                                                 <span class="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[8px] font-bold font-mono-code bg-slate-100 text-slate-600 border border-slate-200">
                                                     {{ $item['source_badge'] ?? 'PORT POST' }}
@@ -491,18 +481,18 @@
 
                                             <!-- QUANTITY & WEIGHT -->
                                             <td class="py-3 px-3 align-top whitespace-nowrap">
+                                                @php
+                                                    $displayQty = $item['quantity'] ?? '-';
+                                                    $pkg = $item['package_type'] ?? ($item['packaging'] ?? null);
+                                                    if ($displayQty !== '-' && !empty($pkg) && !str_contains(strtolower($displayQty), strtolower($pkg))) {
+                                                        $displayQty = trim($displayQty . ' ' . $pkg);
+                                                    }
+                                                @endphp
                                                 <div class="font-mono-code font-bold text-slate-900 text-xs">
-                                                    {{ $item['quantity'] ?? '-' }}
+                                                    {{ $displayQty }}
                                                 </div>
                                                 <div class="font-mono-code text-[11px] text-slate-600">
                                                     {{ $item['weight'] ?? '-' }}
-                                                </div>
-                                            </td>
-
-                                            <!-- PRELIMINARY CHEMICAL REMARKS -->
-                                            <td class="py-3 px-4 align-top">
-                                                <div class="p-2 rounded-xl border text-[11px] font-medium leading-relaxed {{ $badgeClass }}">
-                                                    {{ $item['status_remarks'] }}
                                                 </div>
                                             </td>
 
@@ -528,14 +518,24 @@
                                         </tr>
                                     @empty
                                         <tr id="emptyDirectoryRow">
-                                            <td colspan="7" class="py-8 text-center text-slate-500 font-mono-code text-xs">
-                                                No drug cases or exhibits found matching the selected filter criteria.
+                                            <td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs">
+                                                <div class="flex flex-col items-center justify-center space-y-2">
+                                                    <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L5.6 15.12a2 2 0 00-1.18.125l-.26.104a2 2 0 00-1.16 1.861v1.895a2 2 0 002 2h14a2 2 0 002-2v-1.895a2 2 0 00-1.16-1.861l-.412-.165z"/></svg>
+                                                    <p class="font-bold text-slate-700">No drug cases or exhibits found</p>
+                                                    <p class="text-[11px] text-slate-400">No records matching the selected filter criteria or reporting timeframe.</p>
+                                                </div>
                                             </td>
                                         </tr>
                                     @endforelse
                                 </tbody>
                             </table>
                         </div>
+
+                        @if(method_exists($filteredSeizures, 'links') && $filteredSeizures->hasPages())
+                            <div class="border-t border-slate-200">
+                                {{ $filteredSeizures->links() }}
+                            </div>
+                        @endif
                     </div>
 
                     <!-- TAB PANE 2: SUSPECT URINE DRUG SCREENINGS -->
@@ -568,6 +568,18 @@
                                     @foreach($drugScreeningRecords as $ds)
                                         @php
                                             $isPositive = strtolower($ds['result']) === 'positive';
+                                            $isNegative = strtolower($ds['result']) === 'negative';
+                                            $subFound = trim($ds['substances_found'] ?? '');
+                                            if ($isPositive) {
+                                                $detectedLabel = (!empty($subFound) && !in_array(strtolower($subFound), ['no substance(s) found', 'no substances found', 'no drug(s) detected', 'no drugs detected']))
+                                                    ? $subFound
+                                                    : 'Substances detected';
+                                                $resDisplay = $detectedLabel . ' (POSITIVE)';
+                                            } elseif ($isNegative) {
+                                                $resDisplay = 'No drug(s) detected (NEGATIVE)';
+                                            } else {
+                                                $resDisplay = $ds['result'];
+                                            }
                                         @endphp
                                         <tr class="hover:bg-slate-50 transition-colors">
                                             <td class="py-3 px-3 text-center font-mono-code font-bold text-slate-500">
@@ -583,13 +595,17 @@
                                             <td class="py-3 px-4 text-slate-700 font-medium">
                                                 {{ $ds['purpose'] }}
                                             </td>
-                                            <td class="py-3 px-4 text-center whitespace-nowrap">
-                                                <span class="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider {{ $isPositive ? 'bg-rose-100 text-rose-900 border border-rose-300' : 'bg-emerald-100 text-emerald-900 border border-emerald-300' }}">
-                                                    {{ $ds['result'] }}
-                                                </span>
+                                            <td class="py-3 px-4 text-center align-middle font-bold text-xs leading-snug">
+                                                @if($isPositive)
+                                                    <span class="text-rose-700 font-extrabold">{{ $resDisplay }}</span>
+                                                @elseif($isNegative)
+                                                    <span class="text-emerald-700 font-bold">{{ $resDisplay }}</span>
+                                                @else
+                                                    <span class="text-amber-700 font-semibold">{{ $resDisplay }}</span>
+                                                @endif
                                             </td>
                                             <td class="py-3 px-4 text-slate-600 text-[11px] leading-relaxed">
-                                                {{ $ds['notes'] }}
+                                                {{ str_ireplace(['No substance(s) found', 'No substances found'], 'No drug(s) detected', $ds['notes']) }}
                                             </td>
                                             <td class="py-3 px-3 text-right whitespace-nowrap">
                                                 <button type="button" onclick="generateSingleSuspectPdf('{{ addslashes($ds['suspect_name']) }}')" class="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded-xl text-[10px] font-bold font-mono-code transition-all cursor-pointer">
@@ -621,38 +637,40 @@
                                 <thead>
                                     <tr class="bg-indigo-900/10 border-b border-slate-200 text-slate-900 font-bold uppercase tracking-wider font-mono-code text-[10px]">
                                         <th class="py-2.5 px-3 w-10 text-center">S/N</th>
-                                        <th class="py-2.5 px-4">Case Reference / Docket</th>
+                                        <th class="py-2.5 px-4">Case Reference</th>
                                         <th class="py-2.5 px-4">Exhibit Type</th>
                                         <th class="py-2.5 px-4 text-center">GSA Lab No.</th>
-                                        <th class="py-2.5 px-4">Submission Date</th>
                                         <th class="py-2.5 px-4">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800">
-                                    @foreach($gsaSubmissions as $gsa)
+                                    @forelse($gsaSubmissions as $gsa)
                                         <tr class="hover:bg-slate-50 transition-colors">
                                             <td class="py-3 px-3 text-center font-mono-code font-bold text-slate-500">
                                                 {{ $gsa['sn'] }}
                                             </td>
                                             <td class="py-3 px-4 font-bold text-slate-900">
-                                                {{ $gsa['case_reference'] }}
+                                                {{ $gsa['gsa_case_reference'] ?? ($gsa['case_reference'] ?? 'N/A') }}
                                             </td>
                                             <td class="py-3 px-4 text-slate-800 font-semibold">
                                                 {{ $gsa['exhibit_type'] }}
                                             </td>
                                             <td class="py-3 px-4 text-center font-mono-code font-bold text-indigo-900">
-                                                {{ $gsa['gsa_lab_no'] }}
-                                            </td>
-                                            <td class="py-3 px-4 font-mono-code text-slate-700">
-                                                {{ $gsa['submission_date'] }}
+                                                {{ $gsa['gsa_lab_number'] ?? ($gsa['gsa_lab_no'] ?? 'N/A') }}
                                             </td>
                                             <td class="py-3 px-4">
                                                 <span class="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                                                    {{ $gsa['status'] }}
+                                                    {{ $gsa['gsa_status'] ?? ($gsa['status'] ?? 'Pending') }}
                                                 </span>
                                             </td>
                                         </tr>
-                                    @endforeach
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="py-4 px-4 text-center text-slate-500 italic text-xs">
+                                                No Ghana Standards Authority (GSA) submissions recorded for this reporting period.
+                                            </td>
+                                        </tr>
+                                    @endforelse
                                 </tbody>
                             </table>
                         </div>

@@ -35,7 +35,18 @@ class VehicleExhibitPersistenceTest extends TestCase
                 'veh_engine_no' => 'ENG-99887766',
                 'veh_country_reg' => 'Ghana',
                 'veh_owner' => 'John Doe',
+                'veh_owner_contact' => '+233 24 555 6789',
                 'veh_driver' => 'John Doe',
+                'veh_docs_available' => 'Yes',
+                'veh_doc_ref' => 'DVLA-LOG-2023-8899',
+                'veh_condition' => 'Good Condition / Running',
+                'veh_fuel' => 'Full Tank',
+                'veh_keys_recv' => 'Yes',
+                'veh_key_count' => '2 Keys with Remote',
+                'veh_damage' => 'Minor dent on rear left fender',
+                'veh_mods' => 'Concealed storage box beneath trunk floorboard',
+                'veh_features' => 'Tinted windows, GPS tracking unit under dash',
+                'evidence_photos' => ['/storage/evidence/photos/veh_sample1.jpg', '/storage/evidence/photos/veh_sample2.jpg'],
             ],
             [
                 'exhibit_number' => '2',
@@ -46,6 +57,11 @@ class VehicleExhibitPersistenceTest extends TestCase
                 'wpn_calibre' => '9mm',
                 'wpn_colour' => 'Black',
                 'wpn_size' => 'Medium',
+                'wpn_marks' => 'Engraved initials JD on frame',
+                'wpn_location_found' => 'Under driver front seat',
+                'wpn_loaded_status' => 'Loaded (15 rounds in magazine)',
+                'wpn_condition' => 'Operational / Clean',
+                'evidence_photos' => ['/storage/evidence/photos/wpn_sample1.jpg'],
             ]
         ];
 
@@ -80,7 +96,18 @@ class VehicleExhibitPersistenceTest extends TestCase
         $this->assertEquals('ENG-99887766', $vehExhibit->veh_engine_no);
         $this->assertEquals('Ghana', $vehExhibit->veh_country_reg);
         $this->assertEquals('John Doe', $vehExhibit->veh_owner);
+        $this->assertEquals('+233 24 555 6789', $vehExhibit->veh_owner_contact);
         $this->assertEquals('John Doe', $vehExhibit->veh_driver);
+        $this->assertEquals('Yes', $vehExhibit->veh_docs_available);
+        $this->assertEquals('DVLA-LOG-2023-8899', $vehExhibit->veh_doc_ref);
+        $this->assertEquals('Good Condition / Running', $vehExhibit->veh_condition);
+        $this->assertEquals('Full Tank', $vehExhibit->veh_fuel);
+        $this->assertEquals('Yes', $vehExhibit->veh_keys_recv);
+        $this->assertEquals('2 Keys with Remote', $vehExhibit->veh_key_count);
+        $this->assertEquals('Minor dent on rear left fender', $vehExhibit->veh_damage);
+        $this->assertEquals('Concealed storage box beneath trunk floorboard', $vehExhibit->veh_mods);
+        $this->assertEquals('Tinted windows, GPS tracking unit under dash', $vehExhibit->veh_features);
+        $this->assertContains('/storage/evidence/photos/veh_sample1.jpg', $vehExhibit->evidence_photos);
 
         $wpnExhibit = Exhibit::where('exhibit_category', 'Weapon / Firearm')->first();
 
@@ -88,6 +115,23 @@ class VehicleExhibitPersistenceTest extends TestCase
         $this->assertEquals('Glock 19', $wpnExhibit->wpn_model);
         $this->assertEquals('WP-778899', $wpnExhibit->wpn_serial_no);
         $this->assertEquals('9mm', $wpnExhibit->wpn_calibre);
+        $this->assertEquals('Engraved initials JD on frame', $wpnExhibit->wpn_marks);
+        $this->assertEquals('Under driver front seat', $wpnExhibit->wpn_location_found);
+        $this->assertEquals('Loaded (15 rounds in magazine)', $wpnExhibit->wpn_loaded_status);
+        $this->assertEquals('Operational / Clean', $wpnExhibit->wpn_condition);
+        $this->assertContains('/storage/evidence/photos/wpn_sample1.jpg', $wpnExhibit->evidence_photos);
+
+        // Also verify review view contains these rendered fields
+        $user->is_approved = true;
+        $user->save();
+        $response = $this->actingAs($user)->get("/cases/{$case->case_number}/review");
+        $response->assertStatus(200);
+        $response->assertSee('DVLA-LOG-2023-8899');
+        $response->assertSee('+233 24 555 6789');
+        $response->assertSee('Concealed storage box beneath trunk floorboard');
+        $response->assertSee('Engraved initials JD on frame');
+        $response->assertSee('Under driver front seat');
+        $response->assertSee('/storage/evidence/photos/veh_sample1.jpg');
     }
 
     #[Test]

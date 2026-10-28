@@ -5,10 +5,22 @@
             $q->where('unit', 'LIKE', '%Forensic%')
               ->orWhere('unit', 'LIKE', '%Directorate%');
         })->first() ?? \App\Models\User::where('is_head', true)->first();
-    $forensicHeadName = $authUser->fullname ?? session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'Anita Johnson');
+    $forensicHeadName = $authUser->fullname ?? session('user_name') ?? ($dbForensicHead ? $dbForensicHead->fullname : 'N/A');
 
     $dbCrimeHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first();
-    $crimeHeadName = $dbCrimeHead ? $dbCrimeHead->fullname : 'John Adu';
+    $crimeHeadName = $dbCrimeHead ? $dbCrimeHead->fullname : 'N/A';
+
+    $dbEvidenceHead = \App\Models\User::where('unit', 'LIKE', '%Evidence%')->where('is_head', true)->first();
+    $evidenceHeadName = $dbEvidenceHead ? $dbEvidenceHead->fullname : 'N/A';
+
+    $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
+    $labHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
+
+    $dbDigitalHead = \App\Models\User::where(function($q) {
+        $q->where('unit', 'LIKE', '%Digital%')
+          ->orWhere('unit', 'LIKE', '%Physical%');
+    })->where('is_head', true)->first();
+    $digitalHeadName = $dbDigitalHead ? $dbDigitalHead->fullname : 'N/A';
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -26,7 +38,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -231,7 +243,7 @@
                             </div>
                             <div>
                                 <h4 class="font-extrabold text-slate-900 text-sm">Evidence Management</h4>
-                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">Dr. E. Osei</strong></p>
+                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">{{ $evidenceHeadName }}</strong></p>
                             </div>
                             <div class="pt-2 border-t border-slate-100 flex justify-between text-xs font-mono-code">
                                 <span class="text-slate-500">Logged Evidence:</span>
@@ -247,7 +259,7 @@
                             </div>
                             <div>
                                 <h4 class="font-extrabold text-slate-900 text-sm">LAB Analysis</h4>
-                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">Dr. K. Appiah</strong></p>
+                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">{{ $labHeadName }}</strong></p>
                             </div>
                             <div class="pt-2 border-t border-slate-100 flex justify-between text-xs font-mono-code">
                                 <span class="text-slate-500">Lab Analysis:</span>
@@ -263,7 +275,7 @@
                             </div>
                             <div>
                                 <h4 class="font-extrabold text-slate-900 text-sm">Digital &amp; Physical Forensics</h4>
-                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">Eng. M. Mensah</strong></p>
+                                <p class="text-[11px] text-slate-500">Unit Head: <strong class="text-slate-800">{{ $digitalHeadName }}</strong></p>
                             </div>
                             <div class="pt-2 border-t border-slate-100 flex justify-between text-xs font-mono-code">
                                 <span class="text-slate-500">Exhibits:</span>
@@ -321,10 +333,10 @@
                                     </td>
                                     <td class="py-4 px-5">
                                         <div class="font-bold text-indigo-700">Evidence Management</div>
-                                        <div class="text-[10px] text-slate-400">Unit Head: Dr. Evelyn Osei</div>
+                                        <div class="text-[10px] text-slate-400">Unit Head: {{ $evidenceHeadName }}</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <div class="text-slate-800">Insp. Eric Ofori</div>
+                                        <div class="text-slate-800">{{ $evidenceHeadName }}</div>
                                         <div class="text-[10px] text-slate-400">Evidence Officer</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -350,10 +362,10 @@
                                     </td>
                                     <td class="py-4 px-5">
                                         <div class="font-bold text-emerald-700">Digital &amp; Physical Forensics</div>
-                                        <div class="text-[10px] text-slate-400">Unit Head: Eng. Michael Mensah</div>
+                                        <div class="text-[10px] text-slate-400">Unit Head: {{ $digitalHeadName }}</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <div class="text-slate-800">Eng. Michael Mensah</div>
+                                        <div class="text-slate-800">{{ $digitalHeadName }}</div>
                                         <div class="text-[10px] text-slate-400">Digital Head</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -408,10 +420,10 @@
                                     </td>
                                     <td class="py-4 px-5">
                                         <div class="font-bold text-amber-700">LAB Analysis</div>
-                                        <div class="text-[10px] text-slate-400">Unit Head: Dr. K. Appiah</div>
+                                        <div class="text-[10px] text-slate-400">Unit Head: {{ $labHeadName }}</div>
                                     </td>
                                     <td class="py-4 px-5">
-                                        <div class="text-slate-800">Dr. K. Appiah</div>
+                                        <div class="text-slate-800">{{ $labHeadName }}</div>
                                         <div class="text-[10px] text-slate-400">Lab Head Analyst</div>
                                     </td>
                                     <td class="py-4 px-5">
@@ -448,7 +460,7 @@
                                         <span class="font-bold text-slate-900 font-mono-code">FSD-2026-8842</span>
                                         <span class="text-[10px] text-slate-400 font-mono-code">10 mins ago</span>
                                     </div>
-                                    <div class="text-slate-600 mt-0.5">Submitted by <strong class="text-slate-800">Dr. Evelyn Osei (Chemical Lab Head)</strong> for Director Approval.</div>
+                                    <div class="text-slate-600 mt-0.5">Submitted by <strong class="text-slate-800">{{ $labHeadName }} (Chemical Lab Head)</strong> for Director Approval.</div>
                                 </div>
                             </div>
                             <div class="flex items-start space-x-3 text-xs p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -457,7 +469,7 @@
                                         <span class="font-bold text-slate-900 font-mono-code">FSD-2026-8839</span>
                                         <span class="text-[10px] text-slate-400 font-mono-code">35 mins ago</span>
                                     </div>
-                                    <div class="text-slate-600 mt-0.5">Hardware write-blocker image checksum validated by <strong class="text-slate-800">Eng. Michael Mensah (Digital Head)</strong>.</div>
+                                    <div class="text-slate-600 mt-0.5">Hardware write-blocker image checksum validated by <strong class="text-slate-800">{{ $digitalHeadName }} (Digital Head)</strong>.</div>
                                 </div>
                             </div>
                         </div>
@@ -555,7 +567,7 @@
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 font-mono-code text-xs space-y-2.5">
                 <div class="flex justify-between"><span class="text-slate-500">CHAIN INTEGRITY:</span> <span class="font-bold text-emerald-600">100% VERIFIED &amp; TAMPER-FREE</span></div>
                 <div class="flex justify-between"><span class="text-slate-500">DIVISION:</span> <span class="text-slate-800">CHEMICAL &amp; EVIDENCE LAB</span></div>
-                <div class="flex justify-between"><span class="text-slate-500">UNIT HEAD:</span> <span class="text-slate-800">DR. EVELYN OSEI</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">UNIT HEAD:</span> <span class="text-slate-800">{{ strtoupper($labHeadName) }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-500">DIRECTORATE HASH:</span> <span class="text-blue-700">SHA256:8f4b2c19904a...</span></div>
             </div>
 

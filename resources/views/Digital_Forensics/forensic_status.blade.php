@@ -76,60 +76,65 @@
         $cNo = $cItem->case_number ?? ($cItem['case_number'] ?? '');
         if (empty($cNo)) continue;
 
+        $savedForCase = $savedReports->firstWhere('case_number', $cNo);
         $dData = is_array($cItem->docket_data) ? $cItem->docket_data : (json_decode($cItem->docket_data ?? '[]', true) ?: []);
 
-        // Fetch saved Raid Scene / Offence Location
-        $loc = $cItem->raid_location 
-            ?? ($cItem->seizure_location 
-            ?? ($dData['raid_location'] 
-            ?? ($dData['seizure_location'] 
-            ?? ($dData['seizures'][0]['seizure_location'] 
-            ?? ($cItem->location ?? null)))));
+        $singleC = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
+        $multiC = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
 
-        if (empty($loc)) {
-            $loc = 'Kotoka International Airport (Cargo Wing)';
-        }
-
-        // Fetch Seizure / Commodity Name (Devices / Exhibits)
-        $exList = [];
+        // 1. Resolve all exhibits belonging to this case
+        $caseExhibits = collect();
         if (isset($cItem->underlyingRecord) && isset($cItem->underlyingRecord->exhibits) && count($cItem->underlyingRecord->exhibits) > 0) {
-            foreach ($cItem->underlyingRecord->exhibits as $ex) {
-                $itemStr = '';
-                $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_category ?: ''));
-                $qty = !empty($ex->seizure_quantity) ? trim((string)$ex->seizure_quantity) : '';
-                if (!empty($qty) && !empty($devName)) {
-                    if (preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName)) {
-                        $itemStr = $devName;
-                    } else {
-                        $itemStr = $qty . ' ' . $devName;
-                    }
-                } else {
-                    $itemStr = $devName ?: $qty;
+            $caseExhibits = $cItem->underlyingRecord->exhibits;
+        }
+        if ($caseExhibits->isEmpty() && method_exists($cItem, 'getRelation') && $cItem->relationLoaded('exhibits')) {
+            $caseExhibits = $cItem->getRelation('exhibits') ?: collect();
+        }
+        if ($caseExhibits->isEmpty()) {
+            if ($singleC) {
+                $caseExhibits = \App\Models\Exhibit::where('single_suspect_case_id', $singleC->id)->get();
+            }
+            if ($multiC) {
+                if ($caseExhibits->isEmpty()) {
+                    $caseExhibits = \App\Models\Exhibit::where('multiple_suspect_case_id', $multiC->id)->get();
                 }
-                $itemStr = trim($itemStr);
-                if (!empty($itemStr)) {
-                    $exList[] = $itemStr;
+                if ($caseExhibits->isEmpty()) {
+                    $sIds = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiC->id)->pluck('id');
+                    if ($sIds->isNotEmpty()) {
+                        $caseExhibits = \App\Models\Exhibit::whereIn('suspect_id', $sIds)->get();
+                    }
                 }
             }
+        }
+
+        // 2. Fetch Seizure / Commodity Name (Devices / Exhibits) & Qty
+        $exList = [];
+        $qtyList = [];
+        foreach ($caseExhibits as $ex) {
+            $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_type ?: ($ex->exhibit_category ?: '')));
+            $qty = !empty($ex->seizure_quantity) ? trim((string)$ex->seizure_quantity) : '';
+            if (!empty($qty)) $qtyList[] = $qty;
+            if (!empty($qty) && !empty($devName)) {
+                $itemStr = preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName) ? $devName : ($qty . ' ' . $devName);
+            } else {
+                $itemStr = $devName ?: $qty;
+            }
+            $itemStr = trim($itemStr);
+            if (!empty($itemStr)) $exList[] = $itemStr;
         }
 
         if (empty($exList) && !empty($dData['seizures']) && is_array($dData['seizures'])) {
             foreach ($dData['seizures'] as $sz) {
                 $devName = !empty($sz['dev_model']) ? $sz['dev_model'] : ($sz['commodity_name'] ?? ($sz['seizure_name'] ?? ($sz['name'] ?? '')));
                 $qty = !empty($sz['seizure_quantity']) ? trim((string)$sz['seizure_quantity']) : '';
+                if (!empty($qty)) $qtyList[] = $qty;
                 if (!empty($qty) && !empty($devName)) {
-                    if (preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName)) {
-                        $itemStr = $devName;
-                    } else {
-                        $itemStr = $qty . ' ' . $devName;
-                    }
+                    $itemStr = preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName) ? $devName : ($qty . ' ' . $devName);
                 } else {
                     $itemStr = $devName ?: $qty;
                 }
                 $itemStr = trim($itemStr);
-                if (!empty($itemStr)) {
-                    $exList[] = $itemStr;
-                }
+                if (!empty($itemStr)) $exList[] = $itemStr;
             }
         }
 
@@ -137,32 +142,60 @@
             $mainName = $cItem->dev_model ?? ($cItem->seizure_name ?? ($cItem->seizure_name_drug ?? ($cItem->exhibit_category ?? null)));
             if (!empty($mainName)) {
                 $qty = !empty($cItem->seizure_quantity) ? trim((string)$cItem->seizure_quantity) : '';
+                if (!empty($qty)) $qtyList[] = $qty;
                 $exList[] = !empty($qty) && !preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $mainName) ? $qty . ' ' . $mainName : $mainName;
             }
         }
 
         $devicesStr = !empty($exList) ? implode(', ', array_unique($exList)) : 'Electronic Devices / Mobile Exhibits';
+        if ($savedForCase && !empty(trim((string)$savedForCase->devices_retrieved))) {
+            $devicesStr = $savedForCase->devices_retrieved;
+        }
 
-        $qtyList = [];
-        if (isset($cItem->underlyingRecord) && isset($cItem->underlyingRecord->exhibits) && count($cItem->underlyingRecord->exhibits) > 0) {
-            foreach ($cItem->underlyingRecord->exhibits as $ex) {
-                if (!empty($ex->seizure_quantity)) {
-                    $qtyList[] = $ex->seizure_quantity;
-                }
-            }
-        }
-        if (empty($qtyList) && !empty($dData['seizures']) && is_array($dData['seizures'])) {
-            foreach ($dData['seizures'] as $sz) {
-                if (!empty($sz['seizure_quantity'])) {
-                    $qtyList[] = $sz['seizure_quantity'];
-                }
-            }
-        }
-        if (empty($qtyList) && !empty($cItem->seizure_quantity)) {
-            $qtyList[] = $cItem->seizure_quantity;
-        }
         $qtyStr = !empty($qtyList) ? implode(', ', array_unique($qtyList)) : '1';
+        if ($savedForCase && !empty(trim((string)$savedForCase->quantity))) {
+            $qtyStr = $savedForCase->quantity;
+        }
 
+        // 3. Fetch saved Raid Scene / Offence Location
+        $loc = null;
+        if ($savedForCase && !empty(trim((string)$savedForCase->location_post))) {
+            $loc = $savedForCase->location_post;
+        } else {
+            $loc = $cItem->raid_location 
+                ?? ($cItem->seizure_location 
+                ?? ($dData['raid_location'] 
+                ?? ($dData['seizure_location'] 
+                ?? ($dData['seizures'][0]['seizure_location'] 
+                ?? ($cItem->location ?? null)))));
+
+            if (empty($loc) && $singleC && !empty($singleC->raid_location)) {
+                $loc = $singleC->raid_location;
+            }
+            if (empty($loc) && $multiC && !empty($multiC->raid_location)) {
+                $loc = $multiC->raid_location;
+            }
+            if (empty($loc) && $caseExhibits->isNotEmpty()) {
+                foreach ($caseExhibits as $ex) {
+                    if (!empty($ex->seizure_location)) {
+                        $loc = $ex->seizure_location;
+                        break;
+                    }
+                }
+            }
+            if (empty($loc)) {
+                $csLoc = \App\Models\CaseSuspect::where(function($sq) use ($cNo) {
+                    $sq->whereHas('multipleCase', fn($q) => $q->where('case_number', $cNo))
+                       ->orWhereHas('singleCase', fn($q) => $q->where('case_number', $cNo));
+                })->whereNotNull('raid_location')->value('raid_location');
+                if ($csLoc) $loc = $csLoc;
+            }
+            if (empty($loc)) {
+                $loc = 'Kotoka International Airport (Cargo Wing)';
+            }
+        }
+
+        // 4. Fetch Brief Case Description Narrative
         $generatedNarrative = method_exists($cItem, 'generateBriefCaseDescription') 
             ? $cItem->generateBriefCaseDescription() 
             : null;
@@ -180,37 +213,60 @@
             $cHasElectronic = !empty($cFlags['has_electronic']) || (method_exists($cItem, 'isDigitalCase') && $cItem->isDigitalCase()) || !empty($cItem->phones);
 
             $sName = $cItem->suspect_name ?? ($dData['suspects'][0]['suspect_name'] ?? 'Victor Kofi');
+            $opLoc = (!empty($loc) && $loc !== 'Kotoka International Airport (Cargo Wing)') ? $loc : 'Agbogbloshie';
 
             if ($cHasElectronic && !$cHasDrug) {
-                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at Agbogbloshie in the Greater Accra Region to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$sName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to NACOC Headquarters for digital forensic examination and further investigation.";
+                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$sName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to NACOC Headquarters for digital forensic examination and further investigation.";
             } elseif ($cHasElectronic && $cHasDrug) {
-                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at Agbogbloshie in the Greater Accra Region to curb the trafficking of narcotic drugs and seize electronic devices used in illicit activities within the area. During the operation, {$sName} was arrested in possession of narcotic substances and electronic exhibits, and subsequently conveyed to NACOC Headquarters for chemical laboratory analysis and digital forensic investigation.";
+                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to curb the trafficking of narcotic drugs and seize electronic devices used in illicit activities within the area. During the operation, {$sName} was arrested in possession of narcotic substances and electronic exhibits, and subsequently conveyed to NACOC Headquarters for chemical laboratory analysis and digital forensic investigation.";
             } else {
-                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at Agbogbloshie in the Greater Accra Region to curb the use and sale of narcotic drugs within the area. During the operation, {$sName} was arrested and subsequently conveyed to NACOC Headquarters for further investigation.";
+                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to curb the use and sale of narcotic drugs within the area. During the operation, {$sName} was arrested and subsequently conveyed to NACOC Headquarters for further investigation.";
             }
         }
 
-        $descStr = $generatedNarrative;
+        $descStr = ($savedForCase && !empty(trim((string)$savedForCase->brief_case_description)))
+            ? $savedForCase->brief_case_description
+            : $generatedNarrative;
 
-        // Fetch Arrest Date & Time
-        $rawArrestDate = $cItem->arrest_date 
-            ?? ($cItem->date_of_arrest 
-            ?? ($cItem->incident_date 
-            ?? ($dData['arrest_date'] 
-            ?? ($dData['date_of_arrest'] 
-            ?? ($dData['incident_date'] 
-            ?? ($dData['suspects'][0]['arrest_date'] 
-            ?? ($dData['suspects'][0]['date_of_arrest'] 
-            ?? null)))))));
-
-        if (!empty($rawArrestDate)) {
-            $parsedDate = date('Y-m-d', strtotime((string)$rawArrestDate));
-            $arrestDateVal = ($parsedDate && $parsedDate !== '1970-01-01') ? $parsedDate : ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d'));
+        // 5. Fetch Arrest Date & Time
+        if ($savedForCase && !empty($savedForCase->investigation_date)) {
+            $arrestDateVal = is_object($savedForCase->investigation_date) ? $savedForCase->investigation_date->format('Y-m-d') : date('Y-m-d', strtotime((string)$savedForCase->investigation_date));
         } else {
-            $arrestDateVal = $cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d');
+            $rawArrestDate = $cItem->arrest_date 
+                ?? ($cItem->date_of_arrest 
+                ?? ($cItem->incident_date 
+                ?? ($dData['arrest_date'] 
+                ?? ($dData['date_of_arrest'] 
+                ?? ($dData['incident_date'] 
+                ?? ($dData['suspects'][0]['arrest_date'] 
+                ?? ($dData['suspects'][0]['date_of_arrest'] 
+                ?? null)))))));
+
+            if (empty($rawArrestDate) && $singleC && !empty($singleC->arrest_date)) {
+                $rawArrestDate = $singleC->arrest_date;
+            }
+            if (empty($rawArrestDate) && $singleC && !empty($singleC->incident_date)) {
+                $rawArrestDate = $singleC->incident_date;
+            }
+            if (empty($rawArrestDate) && $multiC && !empty($multiC->incident_date)) {
+                $rawArrestDate = $multiC->incident_date;
+            }
+            if (empty($rawArrestDate) && $caseExhibits->isNotEmpty()) {
+                foreach ($caseExhibits as $ex) {
+                    if (!empty($ex->seizure_date)) {
+                        $rawArrestDate = $ex->seizure_date;
+                        break;
+                    }
+                }
+            }
+            if (!empty($rawArrestDate)) {
+                $parsedDate = date('Y-m-d', strtotime((string)$rawArrestDate));
+                $arrestDateVal = ($parsedDate && $parsedDate !== '1970-01-01') ? $parsedDate : ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d'));
+            } else {
+                $arrestDateVal = $cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d');
+            }
         }
 
-        $savedForCase = $savedReports->firstWhere('case_number', $cNo);
         $rawExtMsg = $savedForCase ? ($savedForCase->report_data['extraction_analysis_notes'] ?? ($savedForCase->extraction_analysis_message ?? '')) : '';
         $rawExtStatus = $savedForCase ? ($savedForCase->report_data['extraction_analysis_status'] ?? '') : '';
         $cleanExtMsg = trim((string)$rawExtMsg);
@@ -320,13 +376,18 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #F8FAFC; color: #0F172A; }
         .font-mono-code { font-family: 'JetBrains Mono', monospace; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        input[type="date"][readonly]::-webkit-calendar-picker-indicator {
+            opacity: 0.3;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="min-h-screen flex antialiased selection:bg-emerald-600 selection:text-white">
@@ -424,10 +485,14 @@
                                         @foreach($cases as $idx => $c)
                                             @php
                                                 $cNo = $c->case_number ?? ($c['case_number'] ?? '');
-                                                $cTitle = $c->title ?? ($c['title'] ?? 'Digital Forensic Case');
+                                                $sInfo = $resolveSuspectInfo($c);
+                                                $suspectLabel = $sInfo['name'];
+                                                if (!empty($sInfo['alias'])) {
+                                                    $suspectLabel .= ' (' . $sInfo['alias'] . ')';
+                                                }
                                             @endphp
                                             @if(!empty($cNo))
-                                                <option value="{{ $cNo }}" {{ $idx === 0 ? 'selected' : '' }}>{{ $cNo }} — {{ $cTitle }}</option>
+                                                <option value="{{ $cNo }}" {{ $idx === 0 ? 'selected' : '' }}>{{ $cNo }} — {{ $suspectLabel }}</option>
                                             @endif
                                         @endforeach
                                     </select>
@@ -446,7 +511,7 @@
                                     <label for="statusDate" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Date <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="date" id="statusDate" name="investigation_date" value="{{ $defaultDate }}" readonly required class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
+                                    <input type="date" id="statusDate" name="investigation_date" value="{{ $defaultDate }}" readonly required tabindex="-1" onkeydown="return false;" onclick="if(this.readOnly){this.blur(); return false;}" class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
                                 </div>
 
                                 <!-- Devices / Exhibits Retrieved -->
@@ -1050,6 +1115,39 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- PAGINATION FOOTER PANEL -->
+                    <div id="directoryPaginationPanel" class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
+                        <div class="flex items-center space-x-3 text-slate-600">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-slate-500 font-bold uppercase text-[10px]">Rows:</span>
+                                <select id="dirPerPageSelect" onchange="changeDirectoryPerPage(this.value)" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-extrabold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs cursor-pointer">
+                                    <option value="10">10</option>
+                                    <option value="15" selected>15</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                            <span class="text-slate-300">|</span>
+                            <div>
+                                Showing <span id="dirPaginationRange" class="font-extrabold text-slate-900">0 - 0</span> of <span id="dirPaginationTotal" class="font-extrabold text-slate-900">0</span> records
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-1.5" id="dirPaginationControls">
+                            <button id="dirPrevPageBtn" onclick="goToDirectoryPage(currentDirPage - 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                <span>Prev</span>
+                            </button>
+                            
+                            <div id="dirPageNumbersContainer" class="flex items-center space-x-1"></div>
+
+                            <button id="dirNextPageBtn" onclick="goToDirectoryPage(currentDirPage + 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
+                                <span>Next</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
             </main>
@@ -1248,20 +1346,24 @@
             const qtyInput = document.getElementById('statusQty');
             const descInput = document.getElementById('briefCaseDescription');
 
-            if (locInput && data.location) {
-                locInput.value = data.location;
+            if (locInput) {
+                locInput.value = data.location || '';
+                locInput.readOnly = true;
             }
-            if (devInput && data.devices) {
-                devInput.value = data.devices;
+            if (devInput) {
+                devInput.value = data.devices || '';
+                devInput.readOnly = true;
             }
-            if (qtyInput && data.qty) {
-                qtyInput.value = data.qty;
+            if (qtyInput) {
+                qtyInput.value = data.qty || '1';
+                qtyInput.readOnly = true;
             }
-            if (dateInput && data.date) {
-                dateInput.value = data.date;
+            if (dateInput) {
+                dateInput.value = data.date || '';
+                dateInput.readOnly = true;
             }
-            if (descInput && data.description) {
-                descInput.value = data.description;
+            if (descInput) {
+                descInput.value = data.description || '';
             }
 
             const reqVal = data.court_order_requested || 'NO';
@@ -2006,7 +2108,22 @@
             setDateFilterPreset('all');
         }
 
-        function applyDirectoryFilters() {
+        let currentDirPage = 1;
+        let dirItemsPerPage = 15;
+
+        function goToDirectoryPage(page) {
+            currentDirPage = page;
+            applyDirectoryFilters(false);
+        }
+
+        function changeDirectoryPerPage(val) {
+            dirItemsPerPage = parseInt(val, 10) || 15;
+            currentDirPage = 1;
+            applyDirectoryFilters(false);
+        }
+
+        function applyDirectoryFilters(resetPage = true) {
+            if (resetPage) currentDirPage = 1;
             const searchInput = document.getElementById('directorySearchInput');
             const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
 
@@ -2016,8 +2133,8 @@
             const extVal = (document.getElementById('directoryExtractionFilter')?.value || '').toUpperCase().trim();
 
             const rows = document.querySelectorAll('#forensicDirectoryTable tbody tr.directory-row');
-            let visibleCount = 0;
             const totalCount = rows.length;
+            const matchingRows = [];
 
             rows.forEach(r => {
                 const rowDate = (r.getAttribute('data-date') || '').trim().slice(0, 10);
@@ -2070,15 +2187,60 @@
                     }
                 }
 
-                const isVisible = matchesText && matchesDate && matchesCourt && matchesExt;
-                r.style.display = isVisible ? '' : 'none';
-                if (isVisible) visibleCount++;
+                if (matchesText && matchesDate && matchesCourt && matchesExt) {
+                    matchingRows.push(r);
+                } else {
+                    r.style.display = 'none';
+                }
             });
+
+            const totalMatching = matchingRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalMatching / dirItemsPerPage));
+            if (currentDirPage > totalPages) currentDirPage = totalPages;
+            if (currentDirPage < 1) currentDirPage = 1;
+
+            const startIndex = (currentDirPage - 1) * dirItemsPerPage;
+            const endIndex = Math.min(startIndex + dirItemsPerPage, totalMatching);
+
+            matchingRows.forEach((r, idx) => {
+                if (idx >= startIndex && idx < endIndex) {
+                    r.style.display = '';
+                } else {
+                    r.style.display = 'none';
+                }
+            });
+
+            // Update pagination UI
+            const rangeEl = document.getElementById('dirPaginationRange');
+            if (rangeEl) rangeEl.textContent = totalMatching > 0 ? `${startIndex + 1} - ${endIndex}` : '0 - 0';
+            const totalEl = document.getElementById('dirPaginationTotal');
+            if (totalEl) totalEl.textContent = totalMatching;
+
+            const prevBtn = document.getElementById('dirPrevPageBtn');
+            if (prevBtn) prevBtn.disabled = (currentDirPage <= 1);
+            const nextBtn = document.getElementById('dirNextPageBtn');
+            if (nextBtn) nextBtn.disabled = (currentDirPage >= totalPages || totalMatching === 0);
+
+            const pageContainer = document.getElementById('dirPageNumbersContainer');
+            if (pageContainer) {
+                let pagesHtml = '';
+                const maxButtons = 5;
+                let startPage = Math.max(1, currentDirPage - 2);
+                let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+                if (endPage - startPage < maxButtons - 1) {
+                    startPage = Math.max(1, endPage - maxButtons + 1);
+                }
+                for (let i = startPage; i <= endPage; i++) {
+                    const isActive = (i === currentDirPage);
+                    pagesHtml += `<button onclick="goToDirectoryPage(${i})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}">${i}</button>`;
+                }
+                pageContainer.innerHTML = pagesHtml;
+            }
 
             const noRecordsRow = document.getElementById('directoryNoRecordsRow');
             if (noRecordsRow) {
-                noRecordsRow.classList.toggle('hidden', visibleCount > 0);
-                if (visibleCount === 0) {
+                noRecordsRow.classList.toggle('hidden', totalMatching > 0);
+                if (totalMatching === 0) {
                     const filtersApplied = [];
                     if (query) filtersApplied.push(`Search "${query}"`);
                     if (fromVal || toVal) filtersApplied.push(`Date ${fromVal || 'start'} to ${toVal || 'present'}`);
@@ -2102,7 +2264,7 @@
 
             const badge = document.getElementById('directoryRowCountBadge');
             if (badge) {
-                badge.textContent = `Showing: ${visibleCount} of ${totalCount}`;
+                badge.textContent = `Showing: ${totalMatching} of ${totalCount}`;
             }
         }
 

@@ -159,6 +159,36 @@
                 @endif
 
                 @php
+                    $pExPhotos = $extractAllPhotosHelper($pEx);
+                @endphp
+                @if (!empty($pExPhotos) && count($pExPhotos) > 0)
+                    <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-full space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-mono-code font-bold text-slate-700 uppercase">Exhibit Visual Evidence Photo(s)</span>
+                            <span class="text-[9px] font-mono-code bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-extrabold border border-slate-300">{{ count($pExPhotos) }} Attached</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($pExPhotos as $peIdx => $peUrl)
+                                @php $peFormatted = $formatPhotoUrlHelper($peUrl); @endphp
+                                <div class="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs cursor-pointer group relative bg-slate-100"
+                                    onclick="openMugshotModal('{{ $peFormatted }}', 'Exhibit Photo #{{ $peIdx + 1 }}')">
+                                    <img src="{{ $peFormatted }}"
+                                        class="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                        alt="Exhibit Photo"
+                                        onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                    <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                @php
                     $catLower = strtolower($pEx['category'] ?? ($pEx['exhibit_category'] ?? ''));
                     $nameLower = strtolower($pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? ($pEx['name'] ?? '')));
                     $hasWeaponData =
@@ -276,124 +306,346 @@
                             $pEx['veh_owner'] ??
                             ($pEx['vehicle_owner'] ??
                                 ($headingName ?? ($case->suspect_name ?? 'Primary Suspect')));
+                        $vOwnerContact = $pEx['veh_owner_contact'] ?? ($pEx['vehicle_owner_contact'] ?? null);
                         $vDriver = $pEx['veh_driver'] ?? ($pEx['vehicle_driver'] ?? 'N/A');
+                        $vDocsAvailable = $pEx['veh_docs_available'] ?? ($pEx['vehicle_docs_available'] ?? null);
+                        $vDocRef = $pEx['veh_doc_ref'] ?? ($pEx['vehicle_doc_ref'] ?? null);
+                        $vCondition = $pEx['veh_condition'] ?? ($pEx['vehicle_condition'] ?? null);
+                        $vFuel = $pEx['veh_fuel'] ?? ($pEx['vehicle_fuel'] ?? null);
+                        $vKeysRecv = $pEx['veh_keys_recv'] ?? ($pEx['vehicle_keys_recv'] ?? null);
+                        $vKeyCount = $pEx['veh_key_count'] ?? ($pEx['vehicle_key_count'] ?? null);
+                        $vDamage = $pEx['veh_damage'] ?? ($pEx['vehicle_damage'] ?? null);
+                        $vMods = $pEx['veh_mods'] ?? ($pEx['vehicle_mods'] ?? null);
+                        $vFeatures = $pEx['veh_features'] ?? ($pEx['vehicle_features'] ?? null);
                         $vLoc = $pEx['seizure_location'] ?? ($pEx['location'] ?? 'N/A');
                         $vOfficer = $pEx['seizure_officer'] ?? ($pEx['officer'] ?? 'N/A');
                         $vDate = !empty($pEx['seizure_date']) ? $pEx['seizure_date'] : null;
                         $vTime = !empty($pEx['seizure_time']) ? "@ {$pEx['seizure_time']}" : '';
                         $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
                         $vReason = $pEx['seizure_reason'] ?? 'N/A';
+                        $vPhotos = $extractAllPhotosHelper($pEx);
                     @endphp
                     <div
-                        class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div class="flex items-center space-x-2">
+                        class="col-span-full bg-white text-slate-800 p-5 rounded-2xl border border-slate-200/90 space-y-5 mt-2 shadow-xs">
+                        {{-- Header bar --}}
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div class="flex items-center flex-wrap gap-2">
                                 <span
-                                    class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">VEHICLE
-                                    / VESSEL SPECIFIC DETAILS</span>
+                                    class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 font-mono-code font-extrabold text-[10px] rounded-md uppercase tracking-wider">
+                                    VEHICLE / VESSEL SPECIFIC DETAILS
+                                </span>
                                 <span
-                                    class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($vMakeModelFull) }}</span>
+                                    class="text-sm font-black text-slate-900 font-mono-code tracking-tight">
+                                    {{ strtoupper($vMakeModelFull) }}
+                                </span>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center flex-wrap gap-2">
+                                @if (!empty($vCondition))
+                                    <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md font-extrabold">
+                                        {{ $vCondition }}
+                                    </span>
+                                @endif
+                                @if (!empty($vKeysRecv))
+                                    <span class="text-[10px] font-mono-code bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-md font-extrabold">
+                                        Keys: {{ $vKeysRecv }} {{ !empty($vKeyCount) ? "({$vKeyCount})" : '' }}
+                                    </span>
+                                @endif
                                 @if (!empty($vRegNo) && $vRegNo !== 'N/A')
                                     <span
-                                        class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">REG
-                                        #: {{ strtoupper($vRegNo) }}</span>
+                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-md font-extrabold">
+                                        REG #: {{ strtoupper($vRegNo) }}
+                                    </span>
                                 @endif
                                 @if (!empty($vVin) && $vVin !== 'N/A')
                                     <span
-                                        class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-blue-300 font-extrabold border border-blue-500/30">VIN:
-                                        {{ strtoupper($vVin) }}</span>
+                                        class="text-[10px] font-mono-code bg-slate-100 text-slate-800 border border-slate-300 px-2.5 py-1 rounded-md font-extrabold">
+                                        VIN: {{ strtoupper($vVin) }}
+                                    </span>
                                 @endif
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    MAKE / MODEL / TRIM</div>
-                                <div class="font-black text-white text-xs mt-0.5">
-                                    {{ $vMakeModelFull }}</div>
+                        {{-- Section 1: Vehicle Specs & Identification --}}
+                        <div class="space-y-2.5">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                                <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                    Vehicle Identification &amp; Technical Specs
+                                </span>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    REGISTRATION NUMBER</div>
-                                <div class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                    {{ $vRegNo }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    VIN / CHASSIS NUMBER</div>
-                                <div class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
-                                    {{ $vVin }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    COLOUR / FINISH</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vColor }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    VEHICLE TYPE / BODY</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vType }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    MANUFACTURE YEAR</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vYear }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    ENGINE NUMBER</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vEngine }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    REGISTERED COUNTRY</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vCountry }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    DOCUMENTED OWNER</div>
-                                <div class="font-extrabold text-amber-300 text-xs mt-0.5">
-                                    {{ $vOwner }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    DRIVER AT ARREST</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vDriver }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    CONFISCATION TIMESTAMP</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vDateTime }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    SEIZING OFFICER</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vOfficer }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-2">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    SEIZURE LOCATION</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vLoc }}</div>
-                            </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-2">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                    CONFISCATION BASIS / REASON</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                    {{ $vReason }}</div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        MAKE / MODEL / TRIM
+                                    </div>
+                                    <div class="font-extrabold text-slate-900 text-xs mt-1">
+                                        {{ $vMakeModelFull }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        REGISTRATION NUMBER
+                                    </div>
+                                    <div class="font-extrabold text-amber-700 font-mono-code text-xs mt-1">
+                                        {{ $vRegNo }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        VIN / CHASSIS NUMBER
+                                    </div>
+                                    <div class="font-extrabold text-blue-700 font-mono-code text-xs mt-1">
+                                        {{ $vVin }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        COLOUR / FINISH
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vColor }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        VEHICLE TYPE / BODY
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vType }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        MANUFACTURE YEAR
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vYear }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        ENGINE NUMBER
+                                    </div>
+                                    <div class="font-bold text-slate-900 font-mono-code text-xs mt-1">
+                                        {{ $vEngine }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        REGISTERED COUNTRY
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vCountry }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        {{-- Section 2: Ownership & Custody --}}
+                        <div class="space-y-2.5 pt-3 border-t border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-3.5 bg-indigo-600 rounded-full"></span>
+                                <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                    Ownership &amp; Custody Details
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        DOCUMENTED OWNER
+                                    </div>
+                                    <div class="font-extrabold text-slate-900 text-xs mt-1">
+                                        {{ $vOwner }}
+                                    </div>
+                                </div>
+                                @if (!empty($vOwnerContact))
+                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                            OWNER CONTACT PHONE
+                                        </div>
+                                        <div class="font-bold text-slate-900 text-xs mt-1 font-mono-code">
+                                            {{ $vOwnerContact }}
+                                        </div>
+                                    </div>
+                                @endif
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        DRIVER AT ARREST
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vDriver }}
+                                    </div>
+                                </div>
+                                @if (!empty($vDocsAvailable) || !empty($vDocRef))
+                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                            VEHICLE DOCS &amp; LOG BOOK
+                                        </div>
+                                        <div class="font-bold text-blue-800 text-xs mt-1 font-mono-code">
+                                            {{ $vDocsAvailable ?: 'Available' }} {{ !empty($vDocRef) ? "(Ref: {$vDocRef})" : '' }}
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        {{-- Section 3: Impound & Seizure Record --}}
+                        <div class="space-y-2.5 pt-3 border-t border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-3.5 bg-emerald-600 rounded-full"></span>
+                                <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                    Impound, Custody &amp; Physical Condition
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                @if (!empty($vCondition))
+                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                            OVERALL CONDITION
+                                        </div>
+                                        <div class="font-bold text-slate-900 text-xs mt-1">
+                                            {{ $vCondition }}
+                                        </div>
+                                    </div>
+                                @endif
+                                @if (!empty($vFuel))
+                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                            FUEL LEVEL AT IMPOUND
+                                        </div>
+                                        <div class="font-bold text-amber-800 text-xs mt-1">
+                                            {{ $vFuel }}
+                                        </div>
+                                    </div>
+                                @endif
+                                @if (!empty($vKeysRecv))
+                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                            KEYS RECEIVED
+                                        </div>
+                                        <div class="font-bold text-slate-900 text-xs mt-1">
+                                            {{ $vKeysRecv }} {{ !empty($vKeyCount) ? "— {$vKeyCount}" : '' }}
+                                        </div>
+                                    </div>
+                                @endif
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        CONFISCATION TIMESTAMP
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1 font-mono-code">
+                                        {{ $vDateTime }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        SEIZING OFFICER
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vOfficer }}
+                                    </div>
+                                </div>
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors {{ empty($vCondition) || empty($vFuel) || empty($vKeysRecv) ? '' : 'col-span-2' }}">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                        SEIZURE LOCATION
+                                    </div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $vLoc }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Section 4: Physical Inspection & Special Disclosures --}}
+                        @if (!empty($vDamage) || !empty($vMods) || !empty($vFeatures) || (!empty($vReason) && $vReason !== 'N/A'))
+                            <div class="space-y-2.5 pt-3 border-t border-slate-100">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-1.5 h-3.5 bg-slate-600 rounded-full"></span>
+                                    <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                        Forensic Inspection &amp; Special Disclosures
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-1 gap-2.5">
+                                    @if (!empty($vDamage))
+                                        <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                            <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                RECORDED VEHICLE DAMAGE / DEFECTS
+                                            </div>
+                                            <div class="font-bold text-slate-900 text-xs mt-1 leading-relaxed">
+                                                {{ $vDamage }}
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if (!empty($vMods))
+                                        <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                            <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                MODIFICATIONS / CUSTOM TRAP COMPARTMENTS
+                                            </div>
+                                            <div class="font-bold text-slate-900 text-xs mt-1 leading-relaxed">
+                                                {{ $vMods }}
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if (!empty($vFeatures))
+                                        <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                            <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                NOTABLE IDENTIFYING FEATURES
+                                            </div>
+                                            <div class="font-bold text-slate-900 text-xs mt-1 leading-relaxed">
+                                                {{ $vFeatures }}
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if (!empty($vReason) && $vReason !== 'N/A')
+                                        <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                            <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                CONFISCATION BASIS / REASON
+                                            </div>
+                                            <div class="font-bold text-slate-900 text-xs mt-1">
+                                                {{ $vReason }}
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Section 5: Evidence Photos --}}
+                        @if (!empty($vPhotos) && count($vPhotos) > 0)
+                            <div class="pt-3 border-t border-slate-200 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-1.5 h-3.5 bg-blue-500 rounded-full"></span>
+                                        <span class="text-[11px] font-mono-code font-extrabold text-slate-800 uppercase tracking-wider">
+                                            Vehicle Evidence Photos
+                                        </span>
+                                    </div>
+                                    <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded font-extrabold">
+                                        {{ count($vPhotos) }} Photo(s) Attached
+                                    </span>
+                                </div>
+                                <div class="flex flex-wrap gap-2.5">
+                                    @foreach ($vPhotos as $vpIdx => $vpUrl)
+                                        @php $vpFormatted = $formatPhotoUrlHelper($vpUrl); @endphp
+                                        <div class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group relative shadow-2xs hover:shadow-md hover:border-blue-400 transition-all"
+                                            onclick="openMugshotModal('{{ $vpFormatted }}', 'Vehicle Photo #{{ $vpIdx + 1 }}')">
+                                            <img src="{{ $vpFormatted }}"
+                                                class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                alt="Vehicle Photo"
+                                                onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                            <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 @endif
 
@@ -409,68 +661,68 @@
                         $dMarks = $pEx['dev_marks'] ?? ($pEx['dev_other_marks'] ?? ($pEx['marks'] ?? ($pEx['other_marks'] ?? ($pEx['distinguishing_marks'] ?? ($case->dev_marks ?? 'N/A')))));
                     @endphp
                     <div
-                        class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-emerald-500/40 space-y-3 mt-2 shadow-md">
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div class="flex items-center space-x-2">
+                        class="col-span-full bg-white text-slate-800 p-5 rounded-2xl border border-slate-200/90 space-y-4 mt-2 shadow-xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div class="flex items-center flex-wrap gap-2">
                                 <span
-                                    class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">ELECTRONIC DEVICE FORENSIC SPECIFICATIONS</span>
+                                    class="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono-code font-extrabold text-[10px] rounded-md uppercase tracking-wider">ELECTRONIC DEVICE FORENSIC SPECIFICATIONS</span>
                                 <span
-                                    class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($dModel) }}</span>
+                                    class="text-sm font-black text-slate-900 font-mono-code tracking-tight">{{ strtoupper($dModel) }}</span>
                             </div>
                             @if (!empty($dSerial) && $dSerial !== 'N/A')
                                 <span
-                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-emerald-400 font-extrabold border border-emerald-500/30">SERIAL:
+                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-800 px-2.5 py-1 rounded-md font-extrabold border border-slate-300">SERIAL:
                                     {{ strtoupper($dSerial) }}</span>
                             @endif
                         </div>
 
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     DEVICE MODEL</div>
-                                <div class="font-black text-white text-xs mt-0.5">
+                                <div class="font-extrabold text-slate-900 text-xs mt-1">
                                     {{ $dModel }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     SERIAL NUMBER</div>
-                                <div class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
+                                <div class="font-extrabold text-amber-700 font-mono-code text-xs mt-1">
                                     {{ $dSerial }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     IMEI 1</div>
-                                <div class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
+                                <div class="font-extrabold text-blue-700 font-mono-code text-xs mt-1">
                                     {{ $dImei1 }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     IMEI 2</div>
-                                <div class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
+                                <div class="font-extrabold text-blue-700 font-mono-code text-xs mt-1">
                                     {{ $dImei2 }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     MAC ADDRESS</div>
-                                <div class="font-mono-code font-bold text-slate-200 text-xs mt-0.5">
+                                <div class="font-mono-code font-bold text-slate-900 text-xs mt-1">
                                     {{ $dMac }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     STORAGE CAPACITY</div>
-                                <div class="font-bold text-emerald-400 text-xs mt-0.5">
+                                <div class="font-bold text-emerald-800 text-xs mt-1">
                                     {{ $dStorage }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     COLOUR / FINISH</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
+                                <div class="font-bold text-slate-900 text-xs mt-1">
                                     {{ $dColor }}</div>
                             </div>
-                            <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                     OTHER MARKS / CONDITION</div>
-                                <div class="font-bold text-slate-200 text-xs mt-0.5">
+                                <div class="font-bold text-slate-900 text-xs mt-1">
                                     {{ $dMarks }}</div>
                             </div>
                         </div>
@@ -478,86 +730,132 @@
                 @endif
 
                 @if ($isWeaponEx)
+                    @php
+                        $wModel = $pEx['weapon_model'] ?? ($pEx['wpn_model'] ?? ($pEx['weapon_type'] ?? ($pEx['seizure_name_weapon'] ?? ($pEx['seizure_name'] ?? 'Firearm / Weapon Exhibit'))));
+                        $wSerial = $pEx['weapon_serial_number'] ?? ($pEx['weapon_serial'] ?? ($pEx['wpn_serial_no'] ?? null));
+                        $wCalibre = $pEx['weapon_calibre'] ?? ($pEx['wpn_calibre'] ?? null);
+                        $wColour = $pEx['weapon_color'] ?? ($pEx['weapon_colour'] ?? ($pEx['wpn_colour'] ?? null));
+                        $wSize = $pEx['weapon_size_length'] ?? ($pEx['weapon_size'] ?? ($pEx['wpn_size'] ?? null));
+                        $wLoaded = $pEx['weapon_loaded_status'] ?? ($pEx['wpn_loaded_status'] ?? null);
+                        $wCondition = $pEx['weapon_condition_at_recovery'] ?? ($pEx['weapon_condition'] ?? ($pEx['wpn_condition'] ?? null));
+                        $wLoc = $pEx['weapon_location_found'] ?? ($pEx['wpn_location_found'] ?? null);
+                        $wMarks = $pEx['weapon_distinguishing_marks'] ?? ($pEx['wpn_marks'] ?? null);
+                        $wPhotos = $extractAllPhotosHelper($pEx);
+                    @endphp
                     <div
-                        class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-red-500/40 space-y-3 mt-2 shadow-md">
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
-                            <div class="flex items-center space-x-2">
+                        class="col-span-full bg-white text-slate-800 p-5 rounded-2xl border border-slate-200/90 space-y-4 mt-2 shadow-xs">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                            <div class="flex items-center flex-wrap gap-2">
                                 <span
-                                    class="px-2 py-0.5 bg-red-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">FIREARM
+                                    class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 font-mono-code font-extrabold text-[10px] rounded-md uppercase tracking-wider">FIREARM
                                     / WEAPON SPECIFIC DETAILS</span>
                                 <span
-                                    class="text-xs font-black text-slate-200">{{ $pEx['weapon_model'] ?? ($pEx['seizure_name'] ?? 'Firearm / Weapon Exhibit') }}</span>
+                                    class="text-sm font-black text-slate-900 font-mono-code tracking-tight">{{ $wModel }}</span>
                             </div>
-                            @if (!empty($pEx['weapon_serial_number']))
-                                <span
-                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">SERIAL
-                                    #: {{ $pEx['weapon_serial_number'] }}</span>
-                            @endif
+                            <div class="flex items-center flex-wrap gap-2">
+                                @if (!empty($wCondition))
+                                    <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md font-extrabold">{{ $wCondition }}</span>
+                                @endif
+                                @if (!empty($wLoaded))
+                                    <span class="text-[10px] font-mono-code bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-md font-extrabold">{{ $wLoaded }}</span>
+                                @endif
+                                @if (!empty($wSerial))
+                                    <span
+                                        class="text-[10px] font-mono-code bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-md font-extrabold">SERIAL
+                                        #: {{ $wSerial }}</span>
+                                @endif
+                            </div>
                         </div>
 
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                            @if (!empty($pEx['weapon_model']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                            @if (!empty($wModel))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         MODEL / TYPE</div>
-                                    <div class="font-bold text-white text-xs mt-0.5">
-                                        {{ $pEx['weapon_model'] }}</div>
+                                    <div class="font-extrabold text-slate-900 text-xs mt-1">
+                                        {{ $wModel }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_calibre']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wCalibre))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         CALIBRE / GAUGE</div>
-                                    <div class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                        {{ $pEx['weapon_calibre'] }}</div>
+                                    <div class="font-extrabold text-amber-700 font-mono-code text-xs mt-1">
+                                        {{ $wCalibre }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_color']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wColour))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         COLOUR / FINISH</div>
-                                    <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                        {{ $pEx['weapon_color'] }}</div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $wColour }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_size_length']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wSize))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         SIZE / LENGTH</div>
-                                    <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                        {{ $pEx['weapon_size_length'] }}</div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $wSize }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_loaded_status']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wLoaded))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         LOADED STATUS</div>
-                                    <div class="font-extrabold text-red-400 text-xs mt-0.5">
-                                        {{ $pEx['weapon_loaded_status'] }}</div>
+                                    <div class="font-extrabold text-rose-700 text-xs mt-1">
+                                        {{ $wLoaded }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_condition_at_recovery']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wCondition))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         CONDITION AT RECOVERY</div>
-                                    <div class="font-extrabold text-emerald-400 text-xs mt-0.5">
-                                        {{ $pEx['weapon_condition_at_recovery'] }}</div>
+                                    <div class="font-extrabold text-emerald-800 text-xs mt-1">
+                                        {{ $wCondition }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_location_found']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-2">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wLoc))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors col-span-2">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         EXACT LOCATION FOUND</div>
-                                    <div class="font-bold text-slate-100 text-xs mt-0.5">
-                                        {{ $pEx['weapon_location_found'] }}</div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $wLoc }}</div>
                                 </div>
                             @endif
-                            @if (!empty($pEx['weapon_distinguishing_marks']))
-                                <div class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-full">
-                                    <div class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
+                            @if (!empty($wMarks))
+                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors col-span-full">
+                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
                                         DISTINGUISHING MARKS / ENGRAVINGS</div>
-                                    <div class="font-bold text-slate-100 text-xs mt-0.5">
-                                        {{ $pEx['weapon_distinguishing_marks'] }}</div>
+                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                        {{ $wMarks }}</div>
+                                </div>
+                            @endif
+                            @if (!empty($wPhotos) && count($wPhotos) > 0)
+                                <div class="col-span-full pt-3 border-t border-slate-200 space-y-2 mt-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[10px] font-mono-code font-extrabold text-slate-700 uppercase tracking-wider">WEAPON EVIDENCE PHOTOS</span>
+                                        <span class="text-[10px] font-mono-code bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded font-extrabold">{{ count($wPhotos) }} Photo(s) Attached</span>
+                                    </div>
+                                    <div class="flex flex-wrap gap-2.5">
+                                        @foreach ($wPhotos as $wpIdx => $wpUrl)
+                                            @php $wpFormatted = $formatPhotoUrlHelper($wpUrl); @endphp
+                                            <div class="w-20 h-20 rounded-xl border border-slate-200 bg-slate-100 cursor-pointer group relative overflow-hidden shadow-2xs hover:shadow-md hover:border-rose-400 transition-all"
+                                                onclick="openMugshotModal('{{ $wpFormatted }}', 'Weapon Photo #{{ $wpIdx + 1 }}')">
+                                                <img src="{{ $wpFormatted }}"
+                                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                    alt="Weapon Photo"
+                                                    onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                                <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
                                 </div>
                             @endif
                         </div>
@@ -567,30 +865,41 @@
         </div>
 
         @if (!empty($galleryPhotos) && count($galleryPhotos) > 0)
-            <div class="pt-3 border-t border-slate-200 space-y-2 mt-3">
+            <div class="pt-4 border-t border-slate-200 space-y-3 mt-4">
                 <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($headingName) }})</span>
-                    <span class="text-[10px] font-mono-code font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                    <div class="flex items-center gap-2">
+                        <span class="w-1.5 h-3.5 bg-emerald-600 rounded-full"></span>
+                        <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($headingName) }})</span>
+                    </div>
+                    <span class="text-[10px] font-mono-code font-bold text-emerald-900 bg-emerald-100 px-2.5 py-0.5 rounded-md border border-emerald-300">
                         {{ count($galleryPhotos) }} Attached Photo(s)
                     </span>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                     @foreach ($galleryPhotos as $pIdx => $pUrl)
                         @php
                             $pUrlFormatted = $formatPhotoUrlHelper($pUrl);
                         @endphp
-                        <div class="p-1 bg-white border border-slate-200 rounded-xl space-y-1 text-center shadow-2xs group hover:border-emerald-500 transition-colors">
-                            <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative"
+                        <div class="p-1.5 bg-white border border-slate-200/90 rounded-xl space-y-1.5 text-center shadow-xs group hover:border-emerald-500 hover:shadow-md transition-all">
+                            <div class="w-full h-44 sm:h-48 bg-slate-50/90 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative flex items-center justify-center p-1.5"
                                 data-img-src="{{ $pUrlFormatted }}"
                                 data-img-title="Exhibit Photo #{{ $pIdx + 1 }} — {{ $headingName }}"
                                 onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
                                 <img src="{{ $pUrlFormatted }}"
-                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                    class="max-w-full max-h-full object-contain rounded-md group-hover:scale-[1.02] transition-transform duration-200"
                                     alt="Exhibit Photo"
                                     onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none rounded-lg">
+                                    <span class="px-2.5 py-1 bg-slate-900/85 text-white text-[10px] font-mono-code font-bold rounded-md shadow-sm flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        Enlarge
+                                    </span>
+                                </div>
                             </div>
-                            <div class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">
-                                Exhibit Photo #{{ $pIdx + 1 }}</div>
+                            <div class="flex items-center justify-between px-1 text-[9.5px] font-mono-code">
+                                <span class="font-extrabold text-slate-800 uppercase">Photo #{{ $pIdx + 1 }}</span>
+                                <span class="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold">Full View</span>
+                            </div>
                         </div>
                     @endforeach
                 </div>

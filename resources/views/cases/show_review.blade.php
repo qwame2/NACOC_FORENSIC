@@ -89,8 +89,8 @@
         request()->is('Forensic_Head*') ||
         session('user_role') === 'HOF';
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
-    $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'Samuel Atta';
-    $officerName = auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? $defaultLabHeadName));
+    $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
+    $officerName = auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
     $officerRole = $isHof ? 'Forensic Head' : 'Commanding Officer';
 
     $reqFrom = request()->query('from') ?? (request()->query('unit') ?? request()->query('source'));
@@ -201,7 +201,7 @@
         str_contains(strtolower($reqFrom ?? ''), 'forensic');
 
     $status = $case->status ?? 'Awaiting Sign-off';
-    $priority = strtoupper($case->priority ?? 'NORMAL');
+    $priority = strtoupper($case->priority ?? 'HIGH');
 
     $docketData = is_array($case->docket_data)
         ? $case->docket_data
@@ -759,15 +759,18 @@
                     (!$suspectHasDrug && !empty($docketData['seizures'])) ||
                     $isEvidenceManagement;
 
-                $labOfficerResolved = !empty($docketData['lab_examination']['analyst'])
-                    ? $docketData['lab_examination']['analyst']
-                    : (!empty($docketData['unit_progress']['Lab Analysis']['officer'])
-                        ? $docketData['unit_progress']['Lab Analysis']['officer']
-                        : ($isEvidenceManagement
-                            ? $case->submitting_officer ?? ($authUser->fullname ?? 'Madam Diana')
-                            : (!empty($labAnalyst)
-                                ? $labAnalyst
-                                : $case->submitting_officer ?? ($defaultLabHeadName ?? 'John Mensah'))));
+                $labOfficerResolved = null;
+                if (!empty($docketData['lab_examination']['analyst'])) {
+                    $labOfficerResolved = $docketData['lab_examination']['analyst'];
+                } elseif (!empty($docketData['unit_progress']['Lab Analysis']['officer'])) {
+                    $labOfficerResolved = $docketData['unit_progress']['Lab Analysis']['officer'];
+                } elseif ($isEvidenceManagement) {
+                    $labOfficerResolved = $case->submitting_officer ?? ($authUser->fullname ?? 'N/A');
+                } elseif (!empty($labAnalyst)) {
+                    $labOfficerResolved = $labAnalyst;
+                } else {
+                    $labOfficerResolved = $case->submitting_officer ?? ($defaultLabHeadName ?? 'N/A');
+                }
 
                 $unitProgress[$uKey] = [
                     'status' => $isLabDone ? 'COMPLETED' : 'PENDING',
@@ -789,8 +792,8 @@
                     ($docketData['unit_progress']['Digital & Physical Forensics']['officer'] ??
                         (str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
                         str_contains(strtolower($case->unit_name ?? ''), 'physical')
-                            ? $case->submitting_officer ?? 'Ofori Graham'
-                            : 'Ofori Graham'));
+                            ? $case->submitting_officer ?? 'N/A'
+                            : 'N/A'));
 
                 $isDigDone =
                     ($suspectHasElectronic && $suspectDigitalSaved) ||
@@ -813,9 +816,12 @@
                 $cssCompleted =
                     !empty($docketData['unit_progress']['Crime Scene Support']['status']) &&
                     strtoupper($docketData['unit_progress']['Crime Scene Support']['status']) === 'COMPLETED';
+                $caseSavedOfficer = $case->user?->fullname
+                    ?? ($case->user_id ? \App\Models\User::find($case->user_id)?->fullname : null)
+                    ?? $case->submitting_officer;
                 $unitProgress[$uKey] = [
-                    'status' => $cssCompleted || !empty($case->commanding_officer) ? 'COMPLETED' : 'PENDING',
-                    'officer' => $case->commanding_officer ?? ($case->submitting_officer ?? null),
+                    'status' => $cssCompleted || !empty($caseSavedOfficer) ? 'COMPLETED' : 'PENDING',
+                    'officer' => $caseSavedOfficer ?? null,
                     'updated_at' => optional($case->created_at)->toDateTimeString(),
                     'notes' => 'Submitted via Crime Scene Support & Field Operations Workspace',
                 ];
@@ -1495,17 +1501,20 @@
                 : 'PENDING';
         $unitProgress['Lab Analysis']['status'] = $activeSuspectLabStatus;
 
-        $resolvedLabOfficer = !empty($unitProgress['Lab Analysis']['officer'])
-            ? $unitProgress['Lab Analysis']['officer']
-            : (!empty($docketData['lab_examination']['analyst'])
-                ? $docketData['lab_examination']['analyst']
-                : (!empty($docketData['unit_progress']['Lab Analysis']['officer'])
-                    ? $docketData['unit_progress']['Lab Analysis']['officer']
-                    : ($isEvidenceManagement
-                        ? $case->submitting_officer ?? ($authUser->fullname ?? 'Madam Diana')
-                        : (!empty($labAnalyst)
-                            ? $labAnalyst
-                            : $case->submitting_officer ?? ($defaultLabHeadName ?? 'John Mensah')))));
+        $resolvedLabOfficer = $unitProgress['Lab Analysis']['officer'] ?? null;
+        if (empty($resolvedLabOfficer)) {
+            if (!empty($docketData['lab_examination']['analyst'])) {
+                $resolvedLabOfficer = $docketData['lab_examination']['analyst'];
+            } elseif (!empty($docketData['unit_progress']['Lab Analysis']['officer'])) {
+                $resolvedLabOfficer = $docketData['unit_progress']['Lab Analysis']['officer'];
+            } elseif ($isEvidenceManagement) {
+                $resolvedLabOfficer = $case->submitting_officer ?? ($authUser->fullname ?? 'N/A');
+            } elseif (!empty($labAnalyst)) {
+                $resolvedLabOfficer = $labAnalyst;
+            } else {
+                $resolvedLabOfficer = $case->submitting_officer ?? ($defaultLabHeadName ?? 'N/A');
+            }
+        }
 
         $unitProgress['Lab Analysis']['officer'] = $resolvedLabOfficer;
 
@@ -1533,8 +1542,8 @@
                 ($docketData['unit_progress']['Digital & Physical Forensics']['officer'] ??
                     (str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
                     str_contains(strtolower($case->unit_name ?? ''), 'physical')
-                        ? $case->submitting_officer ?? 'Ofori Graham'
-                        : 'Ofori Graham'));
+                        ? $case->submitting_officer ?? 'N/A'
+                        : 'N/A'));
         }
     }
 
@@ -1615,7 +1624,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
 
@@ -2222,33 +2231,8 @@
                                                     class="{{ $titleColor }} font-extrabold text-[12px] leading-snug">
                                                     {{ $unitNameKey }}</div>
 
-                                                {{-- Officer --}}
-                                                <div id="unitOfficerBox-{{ $uSlug }}">
-                                                    @if (!empty($uData['officer']))
-                                                        <div class="flex items-center gap-1.5 mt-1">
-                                                            <svg class="w-3 h-3 text-slate-400 shrink-0"
-                                                                fill="none" stroke="currentColor" stroke-width="2"
-                                                                viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    d="M5.121 17.804A8 8 0 1118.88 6.196M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            </svg>
-                                                            <span class="text-[11px] text-slate-600">Officer: <span
-                                                                    class="font-bold text-slate-800">{{ $uData['officer'] }}</span></span>
-                                                        </div>
-                                                    @else
-                                                        <div class="flex items-center gap-1.5 mt-1">
-                                                            <svg class="w-3 h-3 text-slate-400 shrink-0"
-                                                                fill="none" stroke="currentColor" stroke-width="2"
-                                                                viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    d="M5.121 17.804A8 8 0 1118.88 6.196M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            </svg>
-                                                            <span
-                                                                class="text-[11px] text-slate-600 font-medium italic">No
-                                                                officer assigned</span>
-                                                        </div>
-                                                    @endif
-                                                </div>
+                                                {{-- Officer display removed from card views --}}
+                                                <div id="unitOfficerBox-{{ $uSlug }}" class="hidden"></div>
 
                                                 {{-- Notes snippet --}}
                                                 <div id="unitNotesBox-{{ $uSlug }}">
@@ -2940,6 +2924,134 @@
                     $capturedJointExhibits = [];
                     $savedJointLabExam = null;
                     $savedJointLabHeadingName = null;
+
+                    $allCaseExhibits = [];
+                    $seenExhibitKeys = [];
+                    $allCaseExhibitPhotos = [];
+
+                    $addCaseExhibit = function ($item) use (
+                        &$allCaseExhibits,
+                        &$seenExhibitKeys,
+                        &$allCaseExhibitPhotos,
+                        $extractAllPhotosHelper,
+                        $case,
+                    ) {
+                        if (empty($item)) {
+                            return;
+                        }
+                        if (is_object($item)) {
+                            $item = (array) $item;
+                        }
+
+                        $exNo = $item['exhibit_number'] ?? null;
+                        $dbId = $item['id'] ?? null;
+                        $cat = $item['category'] ?? ($item['exhibit_category'] ?? 'General Exhibit');
+                        $name =
+                            $item['seizure_name'] ??
+                            ($item['commodity_name'] ??
+                                ($item['name'] ?? ($item['weapon_model'] ?? 'Confiscated Exhibit')));
+
+                        $key = !empty($dbId)
+                            ? 'db_' . $dbId
+                            : (!empty($exNo)
+                                ? 'ex_' . strtolower(trim($exNo))
+                                : 'cn_' . strtolower(trim($cat)) . '_' . strtolower(trim($name)));
+
+                        if (!isset($seenExhibitKeys[$key])) {
+                            $seenExhibitKeys[$key] = true;
+
+                            $owner =
+                                $item['owner_name'] ??
+                                ($item['suspect_name'] ??
+                                    ($item['associated_person'] ??
+                                        ($item['veh_owner'] ??
+                                            ($item['wpn_owner'] ??
+                                                ($item['dev_owner'] ?? null)))));
+                            if (
+                                empty($owner) ||
+                                strtolower(trim($owner)) === 'primary suspect' ||
+                                strtolower(trim($owner)) === 'primary'
+                            ) {
+                                $owner = $case->suspect_name ?? 'Primary Suspect';
+                            }
+                            $item['resolved_owner'] = $owner;
+                            $allCaseExhibits[] = $item;
+
+                            $photos = $extractAllPhotosHelper($item);
+                            foreach ($photos as $p) {
+                                if ($p && !in_array($p, $allCaseExhibitPhotos)) {
+                                    $allCaseExhibitPhotos[] = $p;
+                                }
+                            }
+                        }
+                    };
+
+                    // 1. Relational DB exhibits
+                    if (isset($case->id)) {
+                        try {
+                            $dbExsList = \App\Models\Exhibit::where(function ($q) use ($case, $isMultiCase) {
+                                if ($isMultiCase) {
+                                    $q->where('multiple_suspect_case_id', $case->id);
+                                } else {
+                                    $q->where('single_suspect_case_id', $case->id);
+                                }
+                            })->get();
+                            foreach ($dbExsList as $dbE) {
+                                $arr = $dbE->toArray();
+                                $arr['category'] = $dbE->exhibit_category ?? 'General Exhibit';
+                                $arr['seizure_name'] =
+                                    $dbE->commodity_name ?? ($dbE->wpn_model ?? 'Confiscated Exhibit');
+                                $arr['owner_name'] = $dbE->suspect
+                                    ? $dbE->suspect->suspect_name
+                                    : ($dbE->associated_person ?? ($dbE->veh_owner ?? ($dbE->wpn_owner ?? ($dbE->dev_owner ?? null))));
+                                $arr['weapon_model'] = $dbE->wpn_model;
+                                $arr['weapon_serial_number'] = $dbE->wpn_serial_no;
+                                $arr['weapon_calibre'] = $dbE->wpn_calibre;
+                                $arr['weapon_color'] = $dbE->wpn_colour;
+                                $arr['weapon_size_length'] = $dbE->wpn_size;
+                                $addCaseExhibit($arr);
+                            }
+                        } catch (\Throwable $e) {
+                        }
+                    }
+
+                    // 2. Docket JSON seizures and associate exhibits
+                    $jsonSeizures = array_merge(
+                        $docketData['seizures'] ?? [],
+                        $docketData['associated_seizures'] ?? [],
+                        $docketData['associate_exhibits'] ?? [],
+                    );
+                    foreach ($jsonSeizures as $sz) {
+                        $addCaseExhibit($sz);
+                    }
+
+                    // 3. Also add case-level evidence photos to gallery
+                    $caseRawPhotos = is_array($case->evidence_photos)
+                        ? $case->evidence_photos
+                        : (json_decode($case->evidence_photos ?? '[]', true) ?:
+                        $docketData['evidence_photos'] ?? []);
+                    if (is_array($caseRawPhotos)) {
+                        foreach ($caseRawPhotos as $p) {
+                            if ($p && is_string($p) && !in_array($p, $allCaseExhibitPhotos)) {
+                                $allCaseExhibitPhotos[] = $p;
+                            }
+                        }
+                    }
+                    $allCaseExhibitPhotos = array_values(array_unique($allCaseExhibitPhotos));
+
+                    $jointCaseExhibits = [];
+                    $seenJointKeys = [];
+                    foreach ($allCaseExhibits as $cEx) {
+                        if ($isJointExhibitCheck($cEx)) {
+                            $jKey = ($cEx['id'] ?? '') . '_' . ($cEx['seizure_name'] ?? ($cEx['commodity_name'] ?? ''));
+                            if (!isset($seenJointKeys[$jKey])) {
+                                $seenJointKeys[$jKey] = true;
+                                $jointCaseExhibits[] = $cEx;
+                            }
+                        }
+                    }
+                    $isJointExhibitCase = !empty($jointCaseExhibits);
+                    $jointDossierHeadingName = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : 'Primary & Co-Suspect';
                 @endphp
 
                 @foreach ($suspectsList as $sIdx => $sItem)
@@ -3823,6 +3935,47 @@
                                             @endif
 
                                             @php
+                                                $exPhotos = $extractAllPhotosHelper($aEx);
+                                            @endphp
+                                            @if (!empty($exPhotos) && count($exPhotos) > 0)
+                                                <div
+                                                    class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-full space-y-2">
+                                                    <div class="flex items-center justify-between">
+                                                        <span
+                                                            class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">Exhibit
+                                                            Visual Evidence Photo(s)</span>
+                                                        <span
+                                                            class="text-[9px] font-mono-code bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-extrabold border border-amber-300">{{ count($exPhotos) }}
+                                                            Attached</span>
+                                                    </div>
+                                                    <div class="flex flex-wrap gap-2">
+                                                        @foreach ($exPhotos as $epIdx => $epUrl)
+                                                            @php $epFormatted = $formatPhotoUrlHelper($epUrl); @endphp
+                                                            <div class="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs cursor-pointer group relative bg-slate-100"
+                                                                onclick="openMugshotModal('{{ $epFormatted }}', 'Exhibit Photo #{{ $epIdx + 1 }}')">
+                                                                <img src="{{ $epFormatted }}"
+                                                                    class="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                                                    alt="Exhibit Photo"
+                                                                    onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                                                <div
+                                                                    class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                    <svg class="w-4 h-4 text-white" fill="none"
+                                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round"
+                                                                            stroke-linejoin="round" stroke-width="2"
+                                                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                        <path stroke-linecap="round"
+                                                                            stroke-linejoin="round" stroke-width="2"
+                                                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+
+                                            @php
                                                 $catLower = strtolower(
                                                     $aEx['category'] ?? ($aEx['exhibit_category'] ?? ''),
                                                 );
@@ -3915,6 +4068,17 @@
                                                     $vOwner = $aEx['veh_owner'] ?? ($aEx['vehicle_owner'] ?? 'N/A');
                                                     $vDriver = $aEx['veh_driver'] ?? ($aEx['vehicle_driver'] ?? 'N/A');
 
+                                                    $vOwnerContact = $aEx['veh_owner_contact'] ?? ($aEx['veh']['owner_contact'] ?? ($aEx['owner_contact'] ?? null));
+                                                    $vDocsAvailable = $aEx['veh_docs_available'] ?? ($aEx['veh']['docs_available'] ?? ($aEx['docs_available'] ?? null));
+                                                    $vDocRef = $aEx['veh_doc_ref'] ?? ($aEx['veh']['doc_ref'] ?? ($aEx['doc_ref'] ?? null));
+                                                    $vCondition = $aEx['veh_condition'] ?? ($aEx['veh']['condition'] ?? ($aEx['overall_condition'] ?? null));
+                                                    $vFuel = $aEx['veh_fuel'] ?? ($aEx['veh']['fuel'] ?? ($aEx['fuel_level'] ?? null));
+                                                    $vKeysRecv = $aEx['veh_keys_recv'] ?? ($aEx['veh']['keys_recv'] ?? ($aEx['keys_received'] ?? null));
+                                                    $vKeyCount = $aEx['veh_key_count'] ?? ($aEx['veh']['key_count'] ?? ($aEx['key_count'] ?? null));
+                                                    $vDamage = $aEx['veh_damage'] ?? ($aEx['veh']['damage'] ?? ($aEx['existing_damage'] ?? null));
+                                                    $vMods = $aEx['veh_mods'] ?? ($aEx['veh']['mods'] ?? ($aEx['modifications'] ?? null));
+                                                    $vFeatures = $aEx['veh_features'] ?? ($aEx['veh']['features'] ?? ($aEx['notable_features'] ?? null));
+
                                                     $vLoc = $aEx['seizure_location'] ?? ($aEx['location'] ?? 'N/A');
                                                     $vOfficer = $aEx['seizure_officer'] ?? ($aEx['officer'] ?? 'N/A');
                                                     $vDate = !empty($aEx['seizure_date']) ? $aEx['seizure_date'] : null;
@@ -3923,191 +4087,382 @@
                                                         : '';
                                                     $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
                                                     $vReason = $aEx['seizure_reason'] ?? 'N/A';
+                                                    $vPhotos = $extractAllPhotosHelper($aEx);
                                                 @endphp
                                                 <div
-                                                    class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-blue-500/40 space-y-3 mt-2 shadow-md">
-                                                    <div
-                                                        class="flex items-center justify-between border-b border-slate-800 pb-2">
-                                                        <div class="flex items-center space-x-2">
+                                                    class="col-span-full bg-white text-slate-800 p-5 rounded-2xl border border-slate-200/90 space-y-5 mt-2 shadow-xs">
+                                                    {{-- Header bar --}}
+                                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                                                        <div class="flex items-center flex-wrap gap-2">
                                                             <span
-                                                                class="px-2 py-0.5 bg-blue-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">VEHICLE
-                                                                / VESSEL SPECIFIC DETAILS</span>
+                                                                class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 font-mono-code font-extrabold text-[10px] rounded-md uppercase tracking-wider">
+                                                                VEHICLE / VESSEL SPECIFIC DETAILS
+                                                            </span>
                                                             <span
-                                                                class="text-xs font-black text-slate-100 font-mono-code">{{ strtoupper($vMakeModelFull) }}</span>
+                                                                class="text-sm font-black text-slate-900 font-mono-code tracking-tight">
+                                                                {{ strtoupper($vMakeModelFull) }}
+                                                            </span>
                                                         </div>
-                                                        <div class="flex items-center gap-2">
+                                                        <div class="flex items-center flex-wrap gap-2">
+                                                            @if (!empty($vCondition))
+                                                                <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-md font-extrabold">
+                                                                    {{ $vCondition }}
+                                                                </span>
+                                                            @endif
+                                                            @if (!empty($vKeysRecv))
+                                                                <span class="text-[10px] font-mono-code bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-md font-extrabold">
+                                                                    Keys: {{ $vKeysRecv }} {{ !empty($vKeyCount) ? "({$vKeyCount})" : '' }}
+                                                                </span>
+                                                            @endif
                                                             @if (!empty($vRegNo) && $vRegNo !== 'N/A')
                                                                 <span
-                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">REG
-                                                                    #: {{ strtoupper($vRegNo) }}</span>
+                                                                    class="text-[10px] font-mono-code bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-md font-extrabold">
+                                                                    REG #: {{ strtoupper($vRegNo) }}
+                                                                </span>
                                                             @endif
                                                             @if (!empty($vVin) && $vVin !== 'N/A')
                                                                 <span
-                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-blue-300 font-extrabold border border-blue-500/30">VIN:
-                                                                    {{ strtoupper($vVin) }}</span>
+                                                                    class="text-[10px] font-mono-code bg-slate-100 text-slate-800 border border-slate-300 px-2.5 py-1 rounded-md font-extrabold">
+                                                                    VIN: {{ strtoupper($vVin) }}
+                                                                </span>
                                                             @endif
                                                         </div>
                                                     </div>
 
-                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                MAKE / MODEL</div>
-                                                            <div class="font-black text-white text-xs mt-0.5">
-                                                                {{ $vMakeModelFull }}</div>
+                                                    {{-- Section 1: Vehicle Specs & Identification --}}
+                                                    <div class="space-y-2.5">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                                                            <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                                                Vehicle Identification &amp; Technical Specs
+                                                            </span>
                                                         </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                REGISTRATION NUMBER</div>
-                                                            <div
-                                                                class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                                                {{ $vRegNo }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                VIN / CHASSIS NUMBER</div>
-                                                            <div
-                                                                class="font-extrabold text-blue-300 font-mono-code text-xs mt-0.5">
-                                                                {{ $vVin }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                COLOUR / FINISH</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vColor }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                VEHICLE TYPE / BODY</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vType }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                MANUFACTURE YEAR</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vYear }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                ENGINE NUMBER</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vEngine }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                REGISTERED OWNER</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vOwner }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                DRIVER AT RECOVERY</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vDriver }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                RECOVERY LOCATION</div>
-                                                            <div
-                                                                class="font-extrabold text-emerald-400 text-xs mt-0.5">
-                                                                {{ $vLoc }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                SEIZING OFFICER</div>
-                                                            <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                {{ $vOfficer }}</div>
-                                                        </div>
-
-                                                        <div
-                                                            class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
-                                                            <div
-                                                                class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                RECOVERY DATE & TIME</div>
-                                                            <div
-                                                                class="font-bold text-slate-200 text-xs mt-0.5 font-mono-code">
-                                                                {{ $vDateTime }}</div>
-                                                        </div>
-
-                                                        @if (!empty($vReason) && $vReason !== 'N/A')
-                                                            <div
-                                                                class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-full">
-                                                                <div
-                                                                    class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
-                                                                    SEIZURE REASON / INVESTIGATIVE REMARKS</div>
-                                                                <div
-                                                                    class="font-bold text-slate-200 text-xs mt-0.5 leading-relaxed">
-                                                                    {{ $vReason }}</div>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    MAKE / MODEL / TRIM
+                                                                </div>
+                                                                <div class="font-extrabold text-slate-900 text-xs mt-1">
+                                                                    {{ $vMakeModelFull }}
+                                                                </div>
                                                             </div>
-                                                        @endif
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    REGISTRATION NUMBER
+                                                                </div>
+                                                                <div class="font-extrabold text-amber-700 font-mono-code text-xs mt-1">
+                                                                    {{ $vRegNo }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    VIN / CHASSIS NUMBER
+                                                                </div>
+                                                                <div class="font-extrabold text-blue-700 font-mono-code text-xs mt-1">
+                                                                    {{ $vVin }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    COLOUR / FINISH
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vColor }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    VEHICLE TYPE / BODY
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vType }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    MANUFACTURE YEAR
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vYear }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    ENGINE NUMBER
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 font-mono-code text-xs mt-1">
+                                                                    {{ $vEngine }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    REGISTERED COUNTRY
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vCountry }}
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
+
+                                                    {{-- Section 2: Ownership & Custody --}}
+                                                    <div class="space-y-2.5 pt-3 border-t border-slate-100">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="w-1.5 h-3.5 bg-indigo-600 rounded-full"></span>
+                                                            <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                                                Ownership &amp; Custody Details
+                                                            </span>
+                                                        </div>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    DOCUMENTED OWNER
+                                                                </div>
+                                                                <div class="font-extrabold text-slate-900 text-xs mt-1">
+                                                                    {{ $vOwner }}
+                                                                </div>
+                                                            </div>
+                                                            @if (!empty($vOwnerContact))
+                                                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                        OWNER CONTACT PHONE
+                                                                    </div>
+                                                                    <div class="font-bold text-slate-900 text-xs mt-1 font-mono-code">
+                                                                        {{ $vOwnerContact }}
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    DRIVER AT ARREST
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vDriver }}
+                                                                </div>
+                                                            </div>
+                                                            @if (!empty($vDocsAvailable) || !empty($vDocRef))
+                                                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                        VEHICLE DOCS &amp; LOG BOOK
+                                                                    </div>
+                                                                    <div class="font-bold text-blue-800 text-xs mt-1 font-mono-code">
+                                                                        {{ $vDocsAvailable ?: 'Available' }} {{ !empty($vDocRef) ? "(Ref: {$vDocRef})" : '' }}
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- Section 3: Impound & Seizure Record --}}
+                                                    <div class="space-y-2.5 pt-3 border-t border-slate-100">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="w-1.5 h-3.5 bg-emerald-600 rounded-full"></span>
+                                                            <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                                                Impound, Custody &amp; Physical Condition
+                                                            </span>
+                                                        </div>
+                                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                                            @if (!empty($vCondition))
+                                                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                        OVERALL CONDITION
+                                                                    </div>
+                                                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                        {{ $vCondition }}
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                            @if (!empty($vFuel))
+                                                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                        FUEL LEVEL AT IMPOUND
+                                                                    </div>
+                                                                    <div class="font-bold text-amber-800 text-xs mt-1">
+                                                                        {{ $vFuel }}
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                            @if (!empty($vKeysRecv))
+                                                                <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                    <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                        KEYS RECEIVED
+                                                                    </div>
+                                                                    <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                        {{ $vKeysRecv }} {{ !empty($vKeyCount) ? "— {$vKeyCount}" : '' }}
+                                                                    </div>
+                                                                </div>
+                                                            @endif
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    CONFISCATION TIMESTAMP
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1 font-mono-code">
+                                                                    {{ $vDateTime }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    SEIZING OFFICER
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vOfficer }}
+                                                                </div>
+                                                            </div>
+                                                            <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors {{ empty($vCondition) || empty($vFuel) || empty($vKeysRecv) ? '' : 'col-span-2' }}">
+                                                                <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                    SEIZURE LOCATION
+                                                                </div>
+                                                                <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                    {{ $vLoc }}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- Section 4: Physical Inspection & Special Disclosures --}}
+                                                    @if (!empty($vDamage) || !empty($vMods) || !empty($vFeatures) || (!empty($vReason) && $vReason !== 'N/A'))
+                                                        <div class="space-y-2.5 pt-3 border-t border-slate-100">
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="w-1.5 h-3.5 bg-slate-600 rounded-full"></span>
+                                                                <span class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-slate-800">
+                                                                    Forensic Inspection &amp; Special Disclosures
+                                                                </span>
+                                                            </div>
+                                                            <div class="grid grid-cols-1 gap-2.5">
+                                                                @if (!empty($vDamage))
+                                                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                            RECORDED VEHICLE DAMAGE / DEFECTS
+                                                                        </div>
+                                                                        <div class="font-bold text-slate-900 text-xs mt-1 leading-relaxed">
+                                                                            {{ $vDamage }}
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
+
+                                                                @if (!empty($vMods))
+                                                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                            MODIFICATIONS / CUSTOM TRAP COMPARTMENTS
+                                                                        </div>
+                                                                        <div class="font-bold text-slate-900 text-xs mt-1 leading-relaxed">
+                                                                            {{ $vMods }}
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
+
+                                                                @if (!empty($vFeatures))
+                                                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                            NOTABLE IDENTIFYING FEATURES
+                                                                        </div>
+                                                                        <div class="font-bold text-slate-900 text-xs mt-1 leading-relaxed">
+                                                                            {{ $vFeatures }}
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
+
+                                                                @if (!empty($vReason) && $vReason !== 'N/A')
+                                                                    <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/90 hover:bg-slate-50 transition-colors">
+                                                                        <div class="text-[10px] font-mono-code font-bold text-slate-600 uppercase tracking-wider">
+                                                                            CONFISCATION BASIS / REASON
+                                                                        </div>
+                                                                        <div class="font-bold text-slate-900 text-xs mt-1">
+                                                                            {{ $vReason }}
+                                                                        </div>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    @endif
+
+                                                    {{-- Section 5: Evidence Photos --}}
+                                                    @if (!empty($vPhotos) && count($vPhotos) > 0)
+                                                        <div class="pt-3 border-t border-slate-200 space-y-2.5">
+                                                            <div class="flex items-center justify-between">
+                                                                <div class="flex items-center gap-2">
+                                                                    <span class="w-1.5 h-3.5 bg-blue-500 rounded-full"></span>
+                                                                    <span class="text-[11px] font-mono-code font-extrabold text-slate-800 uppercase tracking-wider">
+                                                                        Vehicle Evidence Photos
+                                                                    </span>
+                                                                </div>
+                                                                <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded font-extrabold">
+                                                                    {{ count($vPhotos) }} Photo(s) Attached
+                                                                </span>
+                                                            </div>
+                                                            <div class="flex flex-wrap gap-2.5">
+                                                                @foreach ($vPhotos as $vpIdx => $vpUrl)
+                                                                    @php $vpFormatted = $formatPhotoUrlHelper($vpUrl); @endphp
+                                                                    <div class="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer group relative shadow-2xs hover:shadow-md hover:border-blue-400 transition-all"
+                                                                        onclick="openMugshotModal('{{ $vpFormatted }}', 'Vehicle Photo #{{ $vpIdx + 1 }} — {{ $vMakeModelFull }}')">
+                                                                        <img src="{{ $vpFormatted }}"
+                                                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                                            alt="Vehicle Photo"
+                                                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                                                        <div class="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
+                                                        </div>
+                                                    @endif
                                                 </div>
                                             @endif
 
                                             @if ($isWeaponEx)
+                                                @php
+                                                    $wModel = $aEx['weapon_model'] ?? ($aEx['wpn_model'] ?? ($aEx['seizure_name'] ?? 'Firearm / Weapon Exhibit'));
+                                                    $wSerial = $aEx['weapon_serial_number'] ?? ($aEx['wpn_serial_no'] ?? ($aEx['weapon_serial'] ?? null));
+                                                    $wCalibre = $aEx['weapon_calibre'] ?? ($aEx['wpn_calibre'] ?? null);
+                                                    $wColour = $aEx['weapon_color'] ?? ($aEx['wpn_colour'] ?? null);
+                                                    $wSize = $aEx['weapon_size_length'] ?? ($aEx['wpn_size'] ?? null);
+                                                    $wLoaded = $aEx['weapon_loaded_status'] ?? ($aEx['wpn_loaded_status'] ?? null);
+                                                    $wCondition = $aEx['weapon_condition_at_recovery'] ?? ($aEx['wpn_condition'] ?? null);
+                                                    $wLocation = $aEx['weapon_location_found'] ?? ($aEx['wpn_location_found'] ?? null);
+                                                    $wMarks = $aEx['weapon_distinguishing_marks'] ?? ($aEx['wpn_marks'] ?? null);
+                                                    $wPhotos = $extractAllPhotosHelper($aEx);
+                                                @endphp
                                                 <div
                                                     class="col-span-full bg-slate-900 text-white p-4 rounded-xl border border-red-500/40 space-y-3 mt-2 shadow-md">
                                                     <div
-                                                        class="flex items-center justify-between border-b border-slate-800 pb-2">
+                                                        class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
                                                         <div class="flex items-center space-x-2">
                                                             <span
                                                                 class="px-2 py-0.5 bg-red-600 text-white font-mono-code font-extrabold text-[10px] rounded uppercase tracking-wider">FIREARM
                                                                 / WEAPON SPECIFIC DETAILS</span>
                                                             <span
-                                                                class="text-xs font-black text-slate-200">{{ $aEx['weapon_model'] ?? ($aEx['seizure_name'] ?? 'Firearm / Weapon Exhibit') }}</span>
+                                                                class="text-xs font-black text-slate-200">{{ $wModel }}</span>
                                                         </div>
-                                                        @if (!empty($aEx['weapon_serial_number']))
-                                                            <span
-                                                                class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">SERIAL
-                                                                #: {{ $aEx['weapon_serial_number'] }}</span>
-                                                        @endif
+                                                        <div class="flex flex-wrap items-center gap-2">
+                                                            @if (!empty($wSerial))
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-amber-400 font-extrabold border border-amber-500/30">SERIAL
+                                                                    #: {{ $wSerial }}</span>
+                                                            @endif
+                                                            @if (!empty($wLoaded))
+                                                                <span
+                                                                    class="text-[10px] font-mono-code bg-slate-800 px-2.5 py-1 rounded text-red-400 font-extrabold border border-red-500/30">STATUS:
+                                                                    {{ strtoupper($wLoaded) }}</span>
+                                                            @endif
+                                                        </div>
                                                     </div>
 
                                                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                                        @if (!empty($aEx['weapon_model']))
+                                                        @if (!empty($wModel))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
                                                                 <div
                                                                     class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
                                                                     MODEL / TYPE</div>
                                                                 <div class="font-bold text-white text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_model'] }}</div>
+                                                                    {{ $wModel }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_calibre']))
+                                                        @if (!empty($wCalibre))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
                                                                 <div
@@ -4115,30 +4470,30 @@
                                                                     CALIBRE / GAUGE</div>
                                                                 <div
                                                                     class="font-extrabold text-amber-400 font-mono-code text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_calibre'] }}</div>
+                                                                    {{ $wCalibre }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_color']))
+                                                        @if (!empty($wColour))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
                                                                 <div
                                                                     class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
                                                                     COLOUR / FINISH</div>
                                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_color'] }}</div>
+                                                                    {{ $wColour }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_size_length']))
+                                                        @if (!empty($wSize))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
                                                                 <div
                                                                     class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
                                                                     SIZE / LENGTH</div>
                                                                 <div class="font-bold text-slate-200 text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_size_length'] }}</div>
+                                                                    {{ $wSize }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_loaded_status']))
+                                                        @if (!empty($wLoaded))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
                                                                 <div
@@ -4146,10 +4501,10 @@
                                                                     LOADED STATUS</div>
                                                                 <div
                                                                     class="font-extrabold text-red-400 text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_loaded_status'] }}</div>
+                                                                    {{ $wLoaded }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_condition_at_recovery']))
+                                                        @if (!empty($wCondition))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700">
                                                                 <div
@@ -4157,27 +4512,47 @@
                                                                     CONDITION AT RECOVERY</div>
                                                                 <div
                                                                     class="font-extrabold text-emerald-400 text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_condition_at_recovery'] }}</div>
+                                                                    {{ $wCondition }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_location_found']))
+                                                        @if (!empty($wLocation))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-2">
                                                                 <div
                                                                     class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
                                                                     EXACT LOCATION FOUND</div>
                                                                 <div class="font-bold text-slate-100 text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_location_found'] }}</div>
+                                                                    {{ $wLocation }}</div>
                                                             </div>
                                                         @endif
-                                                        @if (!empty($aEx['weapon_distinguishing_marks']))
+                                                        @if (!empty($wMarks))
                                                             <div
                                                                 class="bg-slate-800/90 p-2.5 rounded-lg border border-slate-700 col-span-full">
                                                                 <div
                                                                     class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">
                                                                     DISTINGUISHING MARKS / ENGRAVINGS</div>
                                                                 <div class="font-bold text-slate-100 text-xs mt-0.5">
-                                                                    {{ $aEx['weapon_distinguishing_marks'] }}</div>
+                                                                    {{ $wMarks }}</div>
+                                                            </div>
+                                                        @endif
+                                                        @if (!empty($wPhotos) && count($wPhotos) > 0)
+                                                            <div class="col-span-full pt-2 border-t border-slate-800 space-y-2">
+                                                                <div class="flex items-center justify-between">
+                                                                    <span class="text-[9px] font-mono-code font-extrabold text-slate-400 uppercase">WEAPON EVIDENCE PHOTOS</span>
+                                                                    <span class="text-[9px] font-mono-code bg-red-900/60 text-red-300 border border-red-500/30 px-2 py-0.5 rounded font-extrabold">{{ count($wPhotos) }} Photo(s) Attached</span>
+                                                                </div>
+                                                                <div class="flex flex-wrap gap-2">
+                                                                    @foreach ($wPhotos as $wpIdx => $wpUrl)
+                                                                        @php $wpFormatted = $formatPhotoUrlHelper($wpUrl); @endphp
+                                                                        <div class="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 shadow-2xs cursor-pointer group relative bg-slate-800"
+                                                                            onclick="openMugshotModal('{{ $wpFormatted }}', 'Weapon Photo #{{ $wpIdx + 1 }} — {{ $wModel }}')">
+                                                                            <img src="{{ $wpFormatted }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform" alt="Weapon Photo">
+                                                                            <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
                                                             </div>
                                                         @endif
                                                     </div>
@@ -4479,34 +4854,41 @@
 
                                     @endphp
                                     @if (!empty($assocPhotos) && count($assocPhotos) > 0)
-                                        <div class="pt-3 border-t border-amber-200 space-y-2">
+                                        <div class="pt-4 border-t border-slate-200 space-y-3 mt-4">
                                             <div class="flex items-center justify-between">
-                                                <span
-                                                    class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE
-                                                    &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($sName) }})</span>
-                                                <span
-                                                    class="text-[10px] font-mono-code font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">{{ count($assocPhotos) }}
-                                                    Attached Photo(s)</span>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-1.5 h-3.5 bg-amber-600 rounded-full"></span>
+                                                    <span class="text-[11px] font-black text-slate-900 uppercase font-mono-code">SEIZURE &amp; EXHIBIT EVIDENCE GALLERY ({{ strtoupper($sName) }})</span>
+                                                </div>
+                                                <span class="text-[10px] font-mono-code font-bold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-md border border-amber-300">
+                                                    {{ count($assocPhotos) }} Attached Photo(s)
+                                                </span>
                                             </div>
-                                            <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                                                 @foreach ($assocPhotos as $apIdx => $apUrl)
                                                     @php
                                                         $apUrlFormatted = $formatPhotoUrlHelper($apUrl);
                                                     @endphp
-                                                    <div
-                                                        class="p-1 bg-white border border-amber-200 rounded-xl space-y-1 text-center shadow-2xs group hover:border-amber-500 transition-colors">
-                                                        <div class="w-full h-24 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative"
+                                                    <div class="p-1.5 bg-white border border-slate-200/90 rounded-xl space-y-1.5 text-center shadow-xs group hover:border-amber-500 hover:shadow-md transition-all">
+                                                        <div class="w-full h-44 sm:h-48 bg-slate-50/90 rounded-lg overflow-hidden border border-slate-200 cursor-pointer relative flex items-center justify-center p-1.5"
                                                             data-img-src="{{ $apUrlFormatted }}"
                                                             data-img-title="Exhibit Photo #{{ $apIdx + 1 }} — {{ $sName }}"
                                                             onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
                                                             <img src="{{ $apUrlFormatted }}"
-                                                                class="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                                                class="max-w-full max-h-full object-contain rounded-md group-hover:scale-[1.02] transition-transform duration-200"
                                                                 alt="Exhibit Photo"
                                                                 onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}">
+                                                            <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none rounded-lg">
+                                                                <span class="px-2.5 py-1 bg-slate-900/85 text-white text-[10px] font-mono-code font-bold rounded-md shadow-sm flex items-center gap-1">
+                                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                                    Enlarge
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div
-                                                            class="text-[9px] font-mono-code font-bold text-slate-600 uppercase">
-                                                            Exhibit Photo #{{ $apIdx + 1 }}</div>
+                                                        <div class="flex items-center justify-between px-1 text-[9.5px] font-mono-code">
+                                                            <span class="font-extrabold text-slate-800 uppercase">Photo #{{ $apIdx + 1 }}</span>
+                                                            <span class="text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-bold">Full View</span>
+                                                        </div>
                                                     </div>
                                                 @endforeach
                                             </div>
@@ -4614,31 +4996,33 @@
                                 ])
                             @endif
                         @endif
-                        {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT --}}
-                        @php
-                            $allGsaForReview = \App\Models\SuspectGsaReport::forCase(
-                                $case->case_number ?? $case->id ?? null,
-                                $case->id ?? null,
-                            );
-                            $allNlrForReview = \App\Models\SuspectNlrReport::forCase(
-                                $case->case_number ?? $case->id ?? null,
-                                $case->id ?? null,
-                            );
-                            $sGsaFiles = \App\Models\SuspectGsaReport::filterForSuspect(
-                                $allGsaForReview,
-                                $sItem['id'] ?? null,
-                                $sName,
-                            )->merge(
-                                \App\Models\SuspectNlrReport::filterForSuspect(
-                                    $allNlrForReview,
+                        {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT (ONLY WHEN NOT JOINT / CO-SUSPECT EXHIBIT CASE) --}}
+                        @if (!$isJointExhibitCase)
+                            @php
+                                $allGsaForReview = \App\Models\SuspectGsaReport::forCase(
+                                    $case->case_number ?? $case->id ?? null,
+                                    $case->id ?? null,
+                                );
+                                $allNlrForReview = \App\Models\SuspectNlrReport::forCase(
+                                    $case->case_number ?? $case->id ?? null,
+                                    $case->id ?? null,
+                                );
+                                $sGsaFiles = \App\Models\SuspectGsaReport::filterForSuspect(
+                                    $allGsaForReview,
                                     $sItem['id'] ?? null,
                                     $sName,
-                                )
-                            )->unique(function ($item) {
-                                return get_class($item) . '_' . $item->id;
-                            })->values();
-                        @endphp
-                        @include('partials.gsa_report_files', ['gsaFiles' => $sGsaFiles, 'gsaForName' => $sName])
+                                )->merge(
+                                    \App\Models\SuspectNlrReport::filterForSuspect(
+                                        $allNlrForReview,
+                                        $sItem['id'] ?? null,
+                                        $sName,
+                                    )
+                                )->unique(function ($item) {
+                                    return get_class($item) . '_' . $item->id;
+                                })->values();
+                            @endphp
+                            @include('partials.gsa_report_files', ['gsaFiles' => $sGsaFiles, 'gsaForName' => $sName])
+                        @endif
 
                         {{-- ATTACHED DRUG SCREENING RESULT FOR THIS SPECIFIC SUSPECT --}}
                         @php
@@ -4888,6 +5272,27 @@
                         'docketData' => $docketData,
                     ])
 
+                    {{-- ATTACHED GSA & NLR REPORT FILES CONTAINER UNDER PRIMARY & CO-SUSPECT SEIZURES & EXHIBITS --}}
+                    @php
+                        $allGsaForReview = \App\Models\SuspectGsaReport::forCase(
+                            $case->case_number ?? $case->id ?? null,
+                            $case->id ?? null,
+                        );
+                        $allNlrForReview = \App\Models\SuspectNlrReport::forCase(
+                            $case->case_number ?? $case->id ?? null,
+                            $case->id ?? null,
+                        );
+                        $jointCaseReportFiles = $allGsaForReview->merge($allNlrForReview)->unique(function ($item) {
+                            return get_class($item) . '_' . $item->id;
+                        })->values();
+                    @endphp
+                    @if (!empty($jointCaseReportFiles) && count($jointCaseReportFiles) > 0)
+                        @include('partials.gsa_report_files', [
+                            'gsaFiles' => $jointCaseReportFiles,
+                            'gsaForName' => $jointDossierHeadingName,
+                        ])
+                    @endif
+
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
                     @if (!empty($savedJointLabExam) && $activeSuspectHasDrugExhibit)
                         @include('partials.lab_examination_result_card', [
@@ -5023,7 +5428,35 @@
                                             <td class="py-2.5 px-4 font-bold font-mono-code text-amber-700">
                                                 {{ $szCat }}</td>
                                             <td class="py-2.5 px-4 font-extrabold text-slate-900">
-                                                {{ $szNameVal }}</td>
+                                                <div>{{ $szNameVal }}</div>
+                                                @if(!empty($szItem['veh_reg_no']) || !empty($szItem['veh_vin']) || !empty($szItem['veh_condition']) || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage']) || !empty($szItem['veh_doc_ref']))
+                                                    <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
+                                                        @if(!empty($szItem['veh_reg_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">Reg: {{ $szItem['veh_reg_no'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_vin'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">VIN: {{ $szItem['veh_vin'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['veh_condition'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_doc_ref'])) <span class="bg-purple-100 text-purple-900 px-1.5 py-0.5 rounded">Doc: {{ $szItem['veh_doc_ref'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_fuel'])) <span class="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded">Fuel: {{ $szItem['veh_fuel'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_damage'])) <span class="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded">Dmg: {{ \Illuminate\Support\Str::limit($szItem['veh_damage'], 35) }}</span> @endif
+                                                    </div>
+                                                @elseif(!empty($szItem['wpn_serial_no']) || !empty($szItem['wpn_calibre']) || !empty($szItem['wpn_loaded_status']) || !empty($szItem['wpn_condition']))
+                                                    <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
+                                                        @if(!empty($szItem['wpn_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['wpn_serial_no'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_calibre'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">Cal: {{ $szItem['wpn_calibre'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_loaded_status'])) <span class="bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">{{ $szItem['wpn_loaded_status'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">{{ $szItem['wpn_condition'] }}</span> @endif
+                                                    </div>
+                                                @elseif(!empty($szItem['dev_serial_no']) || !empty($szItem['dev_imei1']) || !empty($szItem['dev_storage']))
+                                                    <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
+                                                        @if(!empty($szItem['dev_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['dev_serial_no'] }}</span> @endif
+                                                        @if(!empty($szItem['dev_imei1'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">IMEI: {{ $szItem['dev_imei1'] }}</span> @endif
+                                                        @if(!empty($szItem['dev_storage'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['dev_storage'] }}</span> @endif
+                                                    </div>
+                                                @elseif(!empty($szItem['other_exhibit_description']) || !empty($szItem['other_description']))
+                                                    <div class="mt-1 text-[11px] text-slate-600 font-normal italic">
+                                                        {{ \Illuminate\Support\Str::limit($szItem['other_exhibit_description'] ?? $szItem['other_description'], 60) }}
+                                                    </div>
+                                                @endif
+                                            </td>
                                             <td class="py-2.5 px-4 font-mono-code text-slate-700">
                                                 {{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</td>
                                             <td class="py-2.5 px-4 font-mono-code">{{ $szQtyVal }}</td>
@@ -5480,6 +5913,14 @@
 
                             $checkIsDrugExhibitReview = $checkIsDrugExhibit;
 
+                            $dbExhibitsList = \App\Models\Exhibit::where(function($q) use ($case) {
+                                $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
+                                $q->where('single_suspect_case_id', $case->id)
+                                  ->orWhere('multiple_suspect_case_id', $case->id)
+                                  ->orWhere('single_suspect_case_id', $uId)
+                                  ->orWhere('multiple_suspect_case_id', $uId);
+                            })->get();
+
                             $allDrugExhibitsList = [];
                             if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
                                 foreach ($docketData['seizures'] as $idx => $sz) {
@@ -5500,7 +5941,14 @@
                                             : $case->suspect_name ?? 'Primary Suspect');
 
                                     if ($checkIsDrugExhibitReview($sz)) {
+                                        $matchedDbEx = $dbExhibitsList->first(function($dbEx) use ($idx, $sName) {
+                                            return ($dbEx->exhibit_number == ($idx + 1)) || ($dbEx->commodity_name === $sName);
+                                        }) ?? ($dbExhibitsList[$idx] ?? null);
+                                        $dbExId = $matchedDbEx ? $matchedDbEx->id : ($sz['id'] ?? null);
+                                        $dbLabRemark = ($matchedDbEx && !empty(trim((string)$matchedDbEx->lab_remark))) ? trim((string)$matchedDbEx->lab_remark) : null;
+
                                         $allDrugExhibitsList[] = [
+                                            'id' => $dbExId,
                                             'index' => $idx + 1,
                                             'name' => $sName ?: 'Drug Exhibit',
                                             'cat' => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
@@ -5527,8 +5975,11 @@
                                                 ($labDataFromDocket['specifications'] ??
                                                     ($case->confirmatory_specifications ?? '')),
                                             'remark' =>
-                                                $sz['remark'] ??
-                                                ($labDataFromDocket['remark'] ?? ($case->confirmatory_remark ?? '')),
+                                                $dbLabRemark ?:
+                                                ($sz['lab_remark'] ??
+                                                    ($sz['confirmatory_remark'] ??
+                                                        ($sz['remark'] ??
+                                                            ($labDataFromDocket['remark'] ?? ($case->confirmatory_remark ?? ''))))),
                                             'sample_taken' =>
                                                 $sz['sample_taken'] ??
                                                 ($labDataFromDocket['sample_weight']['sample_taken'] ??
@@ -5546,7 +5997,11 @@
                                 }
                             }
                             if (empty($allDrugExhibitsList) && $isDrugCase) {
+                                $firstDbEx = $dbExhibitsList->first();
+                                $firstDbLabRemark = ($firstDbEx && !empty(trim((string)$firstDbEx->lab_remark))) ? trim((string)$firstDbEx->lab_remark) : null;
+
                                 $allDrugExhibitsList[] = [
+                                    'id' => $firstDbEx ? $firstDbEx->id : 1,
                                     'index' => 1,
                                     'name' =>
                                         $case->seizure_name_drug ?:
@@ -5568,7 +6023,7 @@
                                         $savedLabTestMethods ?: ($case->confirmatory_test_methods ?: null),
                                     'specifications' =>
                                         $savedLabSpecifications ?: ($case->confirmatory_specifications ?: null),
-                                    'remark' => $savedLabRemark ?: ($case->confirmatory_remark ?: null),
+                                    'remark' => $firstDbLabRemark ?: ($savedLabRemark ?: ($case->confirmatory_remark ?: null)),
                                     'sample_taken' => $savedLabSampleTaken ?: ($case->sample_weight_taken ?: null),
                                     'sample_reserved' =>
                                         $savedLabSampleReserved ?: ($case->sample_weight_reserved ?: null),
@@ -5596,8 +6051,14 @@
                                     $szIsAssoc = !empty($activeSuspectItem['is_associate']);
                                     $exOwner = !empty($szOwner) ? $szOwner : $activeSuspectName;
 
+                                    $matchedDbExSuspect = $dbExhibitsList->first(function($dbEx) use ($sIdx, $sName) {
+                                        return ($dbEx->exhibit_number == ($sIdx + 1)) || ($dbEx->commodity_name === $sName);
+                                    }) ?? ($dbExhibitsList[$sIdx] ?? null);
+                                    $dbExIdSuspect = $matchedDbExSuspect ? $matchedDbExSuspect->id : ($sz['id'] ?? ($sz['exhibit_id'] ?? null));
+                                    $dbLabRemarkSuspect = ($matchedDbExSuspect && !empty(trim((string)$matchedDbExSuspect->lab_remark))) ? trim((string)$matchedDbExSuspect->lab_remark) : null;
+
                                     $suspectDrugExhibitsList[] = [
-                                        'id' => $sz['id'] ?? ($sz['exhibit_id'] ?? null),
+                                        'id' => $dbExIdSuspect,
                                         'index' => count($suspectDrugExhibitsList) + 1,
                                         'name' => $sName ?: 'Drug Exhibit',
                                         'cat' => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
@@ -5626,8 +6087,11 @@
                                             ($labDataFromDocket['specifications'] ??
                                                 ($case->confirmatory_specifications ?? '')),
                                         'remark' =>
-                                            $sz['remark'] ??
-                                            ($labDataFromDocket['remark'] ?? ($case->confirmatory_remark ?? '')),
+                                            $dbLabRemarkSuspect ?:
+                                            ($sz['lab_remark'] ??
+                                                ($sz['confirmatory_remark'] ??
+                                                    ($sz['remark'] ??
+                                                        ($labDataFromDocket['remark'] ?? ($case->confirmatory_remark ?? ''))))),
                                         'sample_taken' =>
                                             $sz['sample_taken'] ??
                                             ($labDataFromDocket['sample_weight']['sample_taken'] ??
@@ -6261,7 +6725,8 @@
                 <div id="section4Seizures"
                     class="mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm">
                     <form id="section4SeizuresForm"
-                        onsubmit="{{ $isLabAnalysis ? 'submitCombinedLabAndSeizureForm(event)' : 'submitSection4SeizureForm(event)' }}">
+                        onsubmit="event.preventDefault(); return false;"
+                        onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); return false; }">
                         <div id="seizuresListContainer" class="space-y-6">
                             <!-- SEIZURE BLOCK #1 -->
                             <div class="seizure-block bg-white p-5 rounded-2xl border border-slate-300/80 shadow-2xs space-y-5 relative"
@@ -6914,6 +7379,85 @@
                                                 </ul>
                                             </div>
                                         </div>
+
+                                        <!-- AMMUNITION SELECT DROPDOWN (shown when Ammunition is selected) -->
+                                        <div id="ammoSelectWrapper" class="hidden relative z-40">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="ammoSearchInput"
+                                                    placeholder="Select or type custom ammunition type..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                    onclick="openAmmoListPanel(this)"
+                                                    oninput="filterAmmoList(this)"
+                                                    onfocus="openAmmoListPanel(this)"
+                                                >
+                                                <input type="hidden" id="newSeizureNameAmmo" name="newSeizureNameAmmo" value="">
+                                            </div>
+                                            <div id="ammoListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="ammoSearchInner" placeholder="Type to filter ammunitions..." oninput="filterAmmoListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                </div>
+                                                <ul id="ammoList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- Pistol & Handgun Ammunition -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Pistol &amp; Handgun Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('9x19mm Parabellum / NATO (9mm Luger)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x19mm Parabellum / NATO (9mm Luger)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9MM</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.45 ACP (Automatic Colt Pistol / 11.43x23mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.45 ACP (Automatic Colt Pistol / 11.43x23mm)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.45</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.40 S&amp;W (Smith &amp; Wesson / 10x22mm)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.40 S&amp;W (Smith &amp; Wesson / 10x22mm)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.40</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.380 ACP (9mm Short / Browning)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.380 ACP (9mm Short / Browning)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.380</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.38 Special (9x29mmR Revolver Ammunition)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.38 Special (9x29mmR Revolver Ammunition)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.38</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.357 Magnum (9x33mmR High Velocity)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.357 Magnum (9x33mmR High Velocity)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.357</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.44 Remington Magnum (10.9x33mmR)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.44 Remington Magnum (10.9x33mmR)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.44</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x25mm Tokarev (TT Pistol Cartridge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x25mm Tokarev (TT Pistol Cartridge)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('9x18mm Makarov (PM Round)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>9x18mm Makarov (PM Round)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">9x18</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('5.7x28mm (FN P90 / Five-seveN High-Velocity)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.7x28mm (FN P90 / Five-seveN High-Velocity)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">5.7</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('10mm Auto (10x25mm Tactical)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>10mm Auto (10x25mm Tactical)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">10MM</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.50 Action Express (.50 AE Desert Eagle)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50 Action Express (.50 AE Desert Eagle)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">.50AE</span></button></li>
+
+                                                    <!-- Rifle & Intermediate Ammunition -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Rifle &amp; Intermediate Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x39mm Soviet (AK-47 / SKS / Type 56)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x39mm Soviet (AK-47 / SKS / Type 56)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('5.56x45mm NATO / .223 Remington (M16 / M4 / AR-15)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.56x45mm NATO / .223 Remington (M16 / M4 / AR-15)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.56</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x51mm NATO / .308 Winchester (FN FAL / G3)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x51mm NATO / .308 Winchester (FN FAL / G3)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('5.45x39mm Soviet (AK-74 Assault Rifle)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>5.45x39mm Soviet (AK-74 Assault Rifle)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">5.45</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.62x54mmR Russian (Dragunov SVD / PKM Belt)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.62x54mmR Russian (Dragunov SVD / PKM Belt)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">7.62R</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.300 AAC Blackout (7.62x35mm Subsonic / Supersonic)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300 AAC Blackout (7.62x35mm Subsonic / Supersonic)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.300</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('6.5mm Creedmoor (Precision Long Range Match)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>6.5mm Creedmoor (Precision Long Range Match)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">6.5</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.30-06 Springfield (7.62x63mm Military Rifle)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.30-06 Springfield (7.62x63mm Military Rifle)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.30-06</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.303 British (7.7x56mmR Lee-Enfield)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.303 British (7.7x56mmR Lee-Enfield)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">.303</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('7.92x57mm Mauser (8mm Mauser Infantry)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>7.92x57mm Mauser (8mm Mauser Infantry)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">8MM</span></button></li>
+
+                                                    <!-- Shotgun Shells & Shotshell Cartridges -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Shotgun Shells &amp; Shotshell Cartridges</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Buckshot (00 Buck / 9 Pellets Tactical)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Buckshot (00 Buck / 9 Pellets Tactical)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Rifled Slug (Heavy Solid Lead Penetrator)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Rifled Slug (Heavy Solid Lead Penetrator)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Birdshot / Game Load Cartridges', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Birdshot / Game Load Cartridges</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12 Gauge Less-Lethal Rubber Baton / Beanbag Round', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12 Gauge Less-Lethal Rubber Baton / Beanbag Round</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">12GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('20 Gauge Shotgun Cartridge (Buck &amp; Slug)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>20 Gauge Shotgun Cartridge (Buck &amp; Slug)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">20GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('16 Gauge Shotgun Cartridge', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>16 Gauge Shotgun Cartridge</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">16GA</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.410 Bore Shotgun Shell (Buckshot / Slug)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.410 Bore Shotgun Shell (Buckshot / Slug)</span><span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-bold">.410</span></button></li>
+
+                                                    <!-- Heavy & Anti-Materiel Ammunition -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Heavy &amp; Anti-Materiel Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.50 BMG (12.7x99mm NATO Armor-Piercing Incendiary)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.50 BMG (12.7x99mm NATO Armor-Piercing Incendiary)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.50</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('12.7x108mm Russian Heavy Machine Gun Cartridge', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>12.7x108mm Russian Heavy Machine Gun Cartridge</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">12.7</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.338 Lapua Magnum (8.6x70mm Long-Range Sniper)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.338 Lapua Magnum (8.6x70mm Long-Range Sniper)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.338</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.300 Winchester Magnum (.300 Win Mag Match)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.300 Winchester Magnum (.300 Win Mag Match)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">.300</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('14.5x114mm Heavy Armor-Piercing Cartridge', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>14.5x114mm Heavy Armor-Piercing Cartridge</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">14.5</span></button></li>
+
+                                                    <!-- Rimfire & Specialty Ammunition -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Rimfire &amp; Specialty Ammunition</li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.22 Long Rifle (.22 LR Rimfire Round)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22 Long Rifle (.22 LR Rimfire Round)</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22LR</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('.22 WMR (.22 Magnum Rimfire Cartridge)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>.22 WMR (.22 Magnum Rimfire Cartridge)</span><span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">.22WMR</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('40x46mm High-Explosive Grenade Round (M203 / M320)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>40x46mm High-Explosive Grenade Round (M203 / M320)</span><span class="text-[10px] font-mono-code bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">40MM</span></button></li>
+                                                    <li class="ammo-item" onclick="selectAmmoType('37mm / 40mm Tear Gas / CS Smoke / Flare Round', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>37mm / 40mm Tear Gas / CS Smoke / Flare Round</span><span class="text-[10px] font-mono-code bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">37MM</span></button></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- ESTIMATED STREET VALUE -->
@@ -7217,10 +7761,377 @@
                                         </div>
                                     </div>
 
+                                    <!-- VEHICLE SPECIFIC FIELDS -->
+                                    <div id="vehicleFieldsWrapper"
+                                        class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                                </svg>
+                                            </div>
+                                            <h4
+                                                class="text-xs font-extrabold text-slate-800 uppercase tracking-widest">
+                                                Vehicle Specific Details</h4>
+                                        </div>
+
+                                        <!-- 1. Basic Identification -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                1. Basic Identification</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Make
+                                                        <span class="text-red-600 font-bold">*</span></label>
+                                                    <input type="text" id="vehMake" placeholder="e.g. Toyota"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model
+                                                        <span class="text-red-600 font-bold">*</span></label>
+                                                    <input type="text" id="vehModel" placeholder="e.g. Hilux"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="relative z-20" id="vehTypeSelectWrapper">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Vehicle
+                                                        Type</label>
+                                                    <div class="relative">
+                                                        <span
+                                                            class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                            <svg class="w-3.5 h-3.5" fill="none"
+                                                                stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                                    stroke-width="2"
+                                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                            </svg>
+                                                        </span>
+                                                        <input type="text" id="vehTypeSearchInput"
+                                                            placeholder="Select or type vehicle type..." autocomplete="off"
+                                                            class="w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 placeholder:font-normal cursor-text"
+                                                            onclick="openVehTypeListPanel(this)"
+                                                            oninput="filterVehTypeList(this)"
+                                                            onfocus="openVehTypeListPanel(this)">
+                                                        <input type="hidden" id="vehType" value="">
+                                                    </div>
+                                                    <div id="vehTypeListPanel"
+                                                        class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden"
+                                                        style="max-height:220px;overflow-y:auto">
+                                                        <div
+                                                            class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                            <input type="text" id="vehTypeSearchInner"
+                                                                placeholder="Type to filter..."
+                                                                oninput="filterVehTypeListInner(this)"
+                                                                class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                        </div>
+                                                        <ul id="vehTypeList" class="py-1.5 space-y-0.5 px-1.5">
+                                                            <li
+                                                                class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                Passenger Vehicles</li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Sedan / Saloon', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Sedan
+                                                                    / Saloon</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Hatchback', event)"><button
+                                                                    type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Hatchback</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('SUV / Crossover', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">SUV
+                                                                    / Crossover</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Coupe / Sports Car', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Coupe
+                                                                    / Sports Car</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Convertible', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Convertible</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Station Wagon / Estate', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Station
+                                                                    Wagon / Estate</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Minivan / MPV', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Minivan
+                                                                    / MPV</button>
+                                                            </li>
+
+                                                            <li
+                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                Commercial &amp; Utility</li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Pickup Truck', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Pickup
+                                                                    Truck</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Panel Van / Cargo Van', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Panel
+                                                                    Van / Cargo Van</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Minibus / Trotro', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Minibus
+                                                                    / Trotro</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Large Bus / Coach', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Large
+                                                                    Bus / Coach</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Box Truck / Rigid Truck', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Box
+                                                                    Truck / Rigid Truck</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Heavy Duty / Articulated Truck', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Heavy
+                                                                    Duty / Articulated Truck</button>
+                                                            </li>
+
+                                                            <li
+                                                                class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">
+                                                                Other Types</li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Motorcycle / Motorbike', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Motorcycle
+                                                                    / Motorbike</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Tricycle (Aboboyaa / Pragya)', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Tricycle
+                                                                    (Aboboyaa / Pragya)</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Trailer / Caravan', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Trailer
+                                                                    / Caravan</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Agricultural / Tractor', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Agricultural
+                                                                    / Tractor</button>
+                                                            </li>
+                                                            <li class="veh-type-item"
+                                                                onclick="selectVehType('Construction Equipment', event)">
+                                                                <button type="button"
+                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl transition-colors">Construction
+                                                                    Equipment</button>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Year
+                                                        of Manufacture</label>
+                                                    <input type="text" id="vehYear" placeholder="e.g. 2019"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                    <input type="text" id="vehColour" placeholder="e.g. White"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registration
+                                                        Number <span class="text-red-600 font-bold">*</span></label>
+                                                    <input type="text" id="vehRegNo"
+                                                        placeholder="e.g. GT 1234-21"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">VIN
+                                                        / Chassis Number</label>
+                                                    <input type="text" id="vehVIN"
+                                                        placeholder="e.g. JT11234567890ABC"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Engine
+                                                        Number</label>
+                                                    <input type="text" id="vehEngineNo"
+                                                        placeholder="e.g. 1TR1234567"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Country
+                                                        of Registration</label>
+                                                    <input type="text" id="vehCountryReg" placeholder="e.g. Ghana"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 2. Ownership & Possession -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                2. Ownership &amp; Possession</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Registered
+                                                        Owner</label>
+                                                    <input type="text" id="vehOwner" placeholder="e.g. John Doe"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Driver
+                                                        / Person in Possession</label>
+                                                    <input type="text" id="vehDriver"
+                                                        placeholder="e.g. Kwame Mensah"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Owner's
+                                                        Contact</label>
+                                                    <input type="text" id="vehOwnerContact"
+                                                        placeholder="e.g. 0244123456"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Docs
+                                                        Available?</label>
+                                                    <select id="vehDocsAvailable"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Yes">Yes</option>
+                                                        <option value="No">No</option>
+                                                    </select>
+                                                </div>
+                                                <div class="md:col-span-2">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reg/Title
+                                                        Doc Reference</label>
+                                                    <input type="text" id="vehDocRef"
+                                                        placeholder="e.g. DVLA Title #998877"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- 3. Vehicle Condition -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                3. Vehicle Condition</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Overall
+                                                        Condition</label>
+                                                    <select id="vehCondition"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Excellent">Excellent / Driveable</option>
+                                                        <option value="Good">Good</option>
+                                                        <option value="Fair">Fair</option>
+                                                        <option value="Poor">Poor / Damaged</option>
+                                                        <option value="Non-Driveable">Non-Driveable / Towed</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Fuel
+                                                        Level</label>
+                                                    <select id="vehFuel"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                        <option value="">Select...</option>
+                                                        <option value="Full">Full</option>
+                                                        <option value="3/4">3/4</option>
+                                                        <option value="Half">Half (1/2)</option>
+                                                        <option value="1/4">1/4</option>
+                                                        <option value="Empty">Empty (Light on)</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Keys
+                                                        Received?</label>
+                                                    <div class="flex items-center gap-2 mt-1">
+                                                        <select id="vehKeysRecv"
+                                                            class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                                            <option value="">Select...</option>
+                                                            <option value="Yes">Yes</option>
+                                                            <option value="No">No</option>
+                                                        </select>
+                                                        <input type="number" id="vehKeyCount" placeholder="Qty"
+                                                            min="0"
+                                                            class="w-1/2 px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                    </div>
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Existing
+                                                        Damage</label>
+                                                    <input type="text" id="vehDamage"
+                                                        placeholder="e.g. Scratches on front right bumper, cracked left taillight"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Visible
+                                                        Modifications / Compartments</label>
+                                                    <input type="text" id="vehMods"
+                                                        placeholder="e.g. False floor welded in trunk, tinted windows"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Notable
+                                                        Identifying Features</label>
+                                                    <input type="text" id="vehFeatures"
+                                                        placeholder="e.g. Custom alloy wheels, stickers on rear window"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- WEAPON SPECIFIC FIELDS -->
                                     <div id="weaponFieldsWrapper"
-                                        class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-2 space-y-4">
-                                        <div class="flex items-center gap-2 mb-1">
+                                        class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div class="flex items-center gap-2 mb-2">
                                             <div
                                                 class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
@@ -7233,62 +8144,114 @@
                                                 class="text-xs font-extrabold text-slate-800 uppercase tracking-widest">
                                                 Weapon / Firearm Specific Details</h4>
                                         </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
-                                                <input type="text" id="wpnModel" placeholder="e.g. Glock 17"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+
+                                        <!-- 1. Weapon Identification & Physical Specs -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                1. Identification &amp; Specifications</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
+                                                    <input type="text" id="wpnModel"
+                                                        placeholder="e.g. 19 Gen 5, M&amp;P 9, Type 56, Glock 17"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
+                                                        Number</label>
+                                                    <input type="text" id="wpnSerialNo"
+                                                        placeholder="e.g. G17-984210X / Defaced"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Calibre
+                                                        / Gauge</label>
+                                                    <input type="text" id="wpnCalibre"
+                                                        placeholder="e.g. 9mm, 7.62x39mm, 12-Gauge, .45 ACP"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                    <input type="text" id="wpnColour"
+                                                        placeholder="e.g. Matte Black, Silver, Camouflage"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Approx.
+                                                        Size / Length</label>
+                                                    <input type="text" id="wpnSize"
+                                                        placeholder="e.g. 18.5 cm (Overall), Short Barrel, 87 cm"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
-                                                    Number</label>
-                                                <input type="text" id="wpnSerialNo"
-                                                    placeholder="e.g. G17-984210X"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code">
-                                            </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Calibre
-                                                    / Gauge</label>
-                                                <input type="text" id="wpnCalibre" placeholder="e.g. 9mm"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                            </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
-                                                <input type="text" id="wpnColour"
-                                                    placeholder="e.g. Matte Black"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                            </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Loaded
-                                                    Status</label>
-                                                <select id="wpnLoadedStatus"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                    <option value="">Select...</option>
-                                                    <option value="Loaded">Loaded</option>
-                                                    <option value="Unloaded">Unloaded</option>
-                                                    <option value="Round in Chamber">Round in Chamber</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Exact
-                                                    Location Found</label>
-                                                <input type="text" id="wpnLocationFound"
-                                                    placeholder="e.g. Glove compartment"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+
+                                        <!-- 2. Recovery Condition & Status -->
+                                        <div class="space-y-3 pt-2">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                2. Recovery Condition &amp; Location</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Loaded
+                                                        Status</label>
+                                                    <select id="wpnLoadedStatus"
+                                                        class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                        <option value="" class="text-slate-400 font-normal">Select...</option>
+                                                        <option value="Loaded" class="font-semibold text-slate-900">Loaded</option>
+                                                        <option value="Unloaded" class="font-semibold text-slate-900">Unloaded</option>
+                                                        <option value="Round in Chamber" class="font-semibold text-slate-900">Round in Chamber</option>
+                                                        <option value="Magazine Attached (Loaded)" class="font-semibold text-slate-900">Magazine Attached (Loaded)</option>
+                                                        <option value="Magazine Attached (Empty)" class="font-semibold text-slate-900">Magazine Attached (Empty)</option>
+                                                        <option value="Unknown / Unspecified" class="font-semibold text-slate-900">Unknown / Unspecified</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition
+                                                        at Recovery</label>
+                                                    <select id="wpnCondition"
+                                                        class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                        <option value="" class="text-slate-400 font-normal">Select...</option>
+                                                        <option value="Operable / Good Condition" class="font-semibold text-slate-900">Operable / Good Condition</option>
+                                                        <option value="Fair / Used Condition" class="font-semibold text-slate-900">Fair / Used Condition</option>
+                                                        <option value="Rusty / Corroded" class="font-semibold text-slate-900">Rusty / Corroded</option>
+                                                        <option value="Damaged / Inoperable" class="font-semibold text-slate-900">Damaged / Inoperable</option>
+                                                        <option value="Serial Defaced / Tampered" class="font-semibold text-slate-900">Serial Defaced / Tampered</option>
+                                                        <option value="Modified / Sawed-Off" class="font-semibold text-slate-900">Modified / Sawed-Off</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Exact
+                                                        Location Found</label>
+                                                    <input type="text" id="wpnLocationFound"
+                                                        placeholder="e.g. Bedroom closet, Under vehicle driver seat, Roadside ditch"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div class="md:col-span-3">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Distinguishing
+                                                        Marks / Features</label>
+                                                    <textarea id="wpnMarks" rows="2"
+                                                        placeholder="e.g. Scratch on left grip, custom insignia engraved, missing safety switch"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     <!-- AMMUNITION SPECIFIC FIELDS -->
                                     <div id="ammoFieldsWrapper"
-                                        class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-2 space-y-4">
-                                        <div class="flex items-center gap-2 mb-1">
+                                        class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div class="flex items-center gap-2 mb-2">
                                             <div
                                                 class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
@@ -7299,46 +8262,139 @@
                                                 </svg>
                                             </div>
                                             <h4
-                                                class="text-xs font-extrabold text-slate-800 uppercase tracking-widest">
+                                                class="text-sm font-extrabold text-slate-800 uppercase tracking-widest">
                                                 Ammunition Specific Details</h4>
                                         </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
-                                                    Appearance</label>
-                                                <input type="text" id="ammoCartridgeAppearance"
-                                                    placeholder="e.g. Brass casing, FMJ"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+
+                                        <!-- 1. Physical Description -->
+                                        <div class="space-y-3">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                1. Physical Description</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
+                                                        Appearance</label>
+                                                    <input type="text" id="ammoCartridgeAppearance"
+                                                        placeholder="e.g. Brass casing, FMJ, Nickel-plated"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Projectile
+                                                        / Bullet Type</label>
+                                                    <input type="text" id="ammoProjectileType"
+                                                        placeholder="e.g. Full Metal Jacket (FMJ), Hollow Point, Lead Round Nose"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Cartridge
+                                                        Case Material</label>
+                                                    <input type="text" id="ammoCaseMaterial"
+                                                        placeholder="e.g. Brass, Steel, Aluminium, Plastic"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour
+                                                        / Markings</label>
+                                                    <input type="text" id="ammoColourMarkings"
+                                                        placeholder="e.g. Headstamp CBC 9mm LUGER, Red primer sealant"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition</label>
+                                                    <select id="ammoCondition" onchange="toggleAmmoOtherCondition(this)"
+                                                        class="w-full appearance-none px-3.5 py-2.5 bg-white border border-slate-300 hover:border-emerald-500 focus:border-emerald-600 rounded-xl font-bold text-slate-800 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                                        <option value="" class="text-slate-400 font-normal">Select Condition...</option>
+                                                        <option value="Intact" class="font-semibold text-slate-900">Intact</option>
+                                                        <option value="Damaged" class="font-semibold text-slate-900">Damaged</option>
+                                                        <option value="Corroded" class="font-semibold text-slate-900">Corroded</option>
+                                                        <option value="Deformed" class="font-semibold text-slate-900">Deformed</option>
+                                                        <option value="Other" class="font-semibold text-slate-900">Other</option>
+                                                    </select>
+                                                </div>
+                                                <div id="ammoOtherConditionWrapper" class="hidden">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Describe
+                                                        Other Condition</label>
+                                                    <input type="text" id="ammoOtherCondition"
+                                                        placeholder="Specify condition details..."
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Projectile
-                                                    / Bullet Type</label>
-                                                <input type="text" id="ammoProjectileType"
-                                                    placeholder="e.g. Full Metal Jacket (FMJ)"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+
+                                        <!-- 2. Packaging & Sealing -->
+                                        <div class="space-y-3 pt-2">
+                                            <h5
+                                                class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded-md inline-block">
+                                                2. Packaging &amp; Sealing</h5>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging
+                                                        Type</label>
+                                                    <input type="text" id="ammoPackagingType"
+                                                        placeholder="e.g. Cardboard Box, Plastic Ammo Can, Loose Bag"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Seal
+                                                        / Tamper-Evident Condition</label>
+                                                    <input type="text" id="ammoSealCondition"
+                                                        placeholder="e.g. Intact Tamper-Evident Bag #SEAL-90812"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Package
+                                                        / Reference Number</label>
+                                                    <input type="text" id="ammoPackageReferenceNumber"
+                                                        placeholder="e.g. PKG-2026-AM01"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition
+                                                        When Received</label>
+                                                    <input type="text" id="ammoConditionWhenReceived"
+                                                        placeholder="e.g. Sealed and untampered"
+                                                        class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Condition</label>
-                                                <select id="ammoCondition" onchange="toggleAmmoOtherCondition(this)"
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                    <option value="">Select Condition...</option>
-                                                    <option value="Intact">Intact</option>
-                                                    <option value="Damaged">Damaged</option>
-                                                    <option value="Corroded">Corroded</option>
-                                                    <option value="Other">Other</option>
-                                                </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- OTHER EXHIBIT DESCRIPTION PANEL (shown when Other Exhibits is selected) -->
+                                    <div id="otherExhibitDescriptionWrapper"
+                                        class="other-exhibit-description-wrapper hidden col-span-full bg-slate-50/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
+                                        <div class="flex items-center space-x-2 text-slate-800">
+                                            <div
+                                                class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L19.828 4.828a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                                </svg>
                                             </div>
-                                            <div id="ammoOtherConditionWrapper" class="hidden">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Describe
-                                                    Other Condition</label>
-                                                <input type="text" id="ammoOtherCondition"
-                                                    placeholder="Specify condition details..."
-                                                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                            </div>
+                                            <span
+                                                class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Specify Other Exhibit Description &amp; Details</span>
+                                        </div>
+                                        <div>
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Exhibit Description / Specifications <span
+                                                    class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <textarea id="newOtherExhibitDescription" name="other_exhibit_description" rows="3"
+                                                placeholder="Type detailed description and specifications of this exhibit..."
+                                                class="other-exhibit-description-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 font-sans"></textarea>
                                         </div>
                                     </div>
 
@@ -7456,7 +8512,7 @@
                                                         </span>
                                                         <input type="text"
                                                             class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400"
-                                                            placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
+                                                            placeholder="Officer Full Name">
                                                     </div>
                                                     <div class="flex items-center gap-1.5">
                                                         <div class="relative flex-1 flex items-center group">
@@ -7499,11 +8555,14 @@
                                                     class="text-slate-400 font-normal">(Multiple Supported)</span>
                                             </label>
                                             <span id="seizurePhotosCount"
-                                                class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300">0
+                                                class="seizure-photos-count hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300">0
                                                 Photos Uploaded</span>
                                         </div>
 
                                         <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload(this)"
+                                            ondragover="event.preventDefault(); this.classList.add('border-emerald-500', 'bg-emerald-50/50');"
+                                            ondragleave="this.classList.remove('border-emerald-500', 'bg-emerald-50/50');"
+                                            ondrop="event.preventDefault(); this.classList.remove('border-emerald-500', 'bg-emerald-50/50'); handleSeizureDrop(event, this);"
                                             class="w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
                                             <div id="placeholderSeizureBox"
                                                 class="flex flex-col items-center space-y-1 text-slate-400 group-hover:text-black transition-colors">
@@ -7553,7 +8612,7 @@
                                 class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl transition-all cursor-pointer border-none">
                                 Cancel
                             </button>
-                            <button type="submit" id="saveSection4SeizureBtn"
+                            <button type="button" id="saveSection4SeizureBtn"
                                 onclick="{{ $isLabAnalysis ? 'submitCombinedLabAndSeizureForm(event)' : 'submitSection4SeizureForm(event)' }}"
                                 class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center cursor-pointer border-none">
                                 <span
@@ -8999,9 +10058,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
 
                     if (officerBoxEl) {
-                        officerBoxEl.innerHTML = officer ?
-                            `<div class="text-[11px] font-medium text-slate-600 mt-2">Officer: <span class="font-bold text-slate-900">${escapeHtml(officer)}</span></div>` :
-                            '';
+                        officerBoxEl.innerHTML = '';
                     }
 
                     if (notesBoxEl) {
@@ -9655,8 +10712,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             badgeEl.textContent = '⏳ IN PROGRESS';
                         }
                     }
-                    if (officerBoxEl) officerBoxEl.innerHTML =
-                        `<div class="text-[11px] font-medium text-slate-600 mt-2">Officer: <span class="font-bold text-slate-900">${escapeHtml(analyst)}</span></div>`;
+                    if (officerBoxEl) officerBoxEl.innerHTML = '';
                     if (notesBoxEl) notesBoxEl.innerHTML =
                         `<div class="text-[11px] text-slate-700 mt-2 p-2.5 bg-white/90 rounded-lg border border-slate-200/80 leading-relaxed"><span class="font-bold text-[10px] text-slate-400 block font-mono-code uppercase mb-0.5">Unit Findings:</span>"${escapeHtml(notes)}"</div>`;
 
@@ -9745,6 +10801,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         block.querySelector('#weaponSearchInput')?.value ||
                         block.querySelector('#newSeizureNameCurrency')?.value ||
                         block.querySelector('#currencySearchInput')?.value ||
+                        block.querySelector('#newSeizureNameAmmo')?.value ||
+                        block.querySelector('#ammoSearchInput')?.value ||
                         block.querySelector('#newSeizureNameDevice')?.value ||
                         block.querySelector('#deviceSearchInput')?.value ||
                         block.querySelector('#newSeizureName')?.value || '';
@@ -9775,12 +10833,89 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     const devColour = block.querySelector('#newDevColour')?.value || '';
                     const devMarks = block.querySelector('#newDevMarks')?.value || '';
 
+                    const wpnModel = block.querySelector('#wpnModel')?.value || '';
+                    const wpnSerialNo = block.querySelector('#wpnSerialNo')?.value || '';
+                    const wpnCalibre = block.querySelector('#wpnCalibre')?.value || '';
+                    const wpnColour = block.querySelector('#wpnColour')?.value || '';
+                    const wpnSize = block.querySelector('#wpnSize')?.value || '';
+                    const wpnMarks = block.querySelector('#wpnMarks')?.value || '';
+                    const wpnLocationFound = block.querySelector('#wpnLocationFound')?.value || '';
+                    const wpnLoadedStatus = block.querySelector('#wpnLoadedStatus')?.value || '';
+                    const wpnCondition = block.querySelector('#wpnCondition')?.value || '';
+
+                    const vehMake = block.querySelector('#vehMake')?.value || '';
+                    const vehModel = block.querySelector('#vehModel')?.value || '';
+                    const vehType = block.querySelector('#vehType')?.value || block.querySelector('#vehTypeSearchInput')?.value || '';
+                    const vehYear = block.querySelector('#vehYear')?.value || '';
+                    const vehColour = block.querySelector('#vehColour')?.value || '';
+                    const vehRegNo = block.querySelector('#vehRegNo')?.value || '';
+                    const vehVIN = block.querySelector('#vehVIN')?.value || '';
+                    const vehEngineNo = block.querySelector('#vehEngineNo')?.value || '';
+                    const vehCountryReg = block.querySelector('#vehCountryReg')?.value || '';
+                    const vehOwner = block.querySelector('#vehOwner')?.value || '';
+                    const vehDriver = block.querySelector('#vehDriver')?.value || '';
+                    const vehOwnerContact = block.querySelector('#vehOwnerContact')?.value || '';
+                    const vehDocsAvailable = block.querySelector('#vehDocsAvailable')?.value || '';
+                    const vehDocRef = block.querySelector('#vehDocRef')?.value || '';
+                    const vehCondition = block.querySelector('#vehCondition')?.value || '';
+                    const vehFuel = block.querySelector('#vehFuel')?.value || '';
+                    const vehKeysRecv = block.querySelector('#vehKeysRecv')?.value || '';
+                    const vehKeyCount = block.querySelector('#vehKeyCount')?.value || '';
+                    const vehDamage = block.querySelector('#vehDamage')?.value || '';
+                    const vehMods = block.querySelector('#vehMods')?.value || '';
+                    const vehFeatures = block.querySelector('#vehFeatures')?.value || '';
+
+                    const ammoCartridgeAppearance = block.querySelector('#ammoCartridgeAppearance')?.value || '';
+                    const ammoProjectileType = block.querySelector('#ammoProjectileType')?.value || '';
+                    const ammoCaseMaterial = block.querySelector('#ammoCaseMaterial')?.value || '';
+                    const ammoColourMarkings = block.querySelector('#ammoColourMarkings')?.value || '';
+                    const ammoConditionVal = block.querySelector('#ammoCondition')?.value || '';
+                    const ammoOtherConditionVal = block.querySelector('#ammoOtherCondition')?.value || '';
+                    const ammoPackagingTypeVal = block.querySelector('#ammoPackagingType')?.value || '';
+                    const ammoSealConditionVal = block.querySelector('#ammoSealCondition')?.value || '';
+                    const ammoPackageReferenceNumberVal = block.querySelector('#ammoPackageReferenceNumber')?.value || '';
+                    const ammoConditionWhenReceivedVal = block.querySelector('#ammoConditionWhenReceived')?.value || '';
+                    const otherExhibitDescription = block.querySelector('#newOtherExhibitDescription')?.value || block.querySelector('.other-exhibit-description-input')?.value || '';
+
+                    const isAmmoCat = category === 'Ammunition' || (typeof category === 'string' && (category.toLowerCase().includes('ammo') || category.toLowerCase().includes('ammunition')));
+                    const isOtherCat = category === 'Other Exhibits' || category === 'Other' || category === 'Other Exhibit' || (typeof category === 'string' && category.toLowerCase().includes('other'));
+                    const ammoDetailsObj = isAmmoCat ? {
+                        cartridge_appearance: ammoCartridgeAppearance,
+                        projectile_bullet_type: ammoProjectileType,
+                        cartridge_case_material: ammoCaseMaterial,
+                        colour_markings: ammoColourMarkings,
+                        condition: ammoConditionVal,
+                        other_condition: ammoOtherConditionVal,
+                        packaging_type: ammoPackagingTypeVal,
+                        seal_tamper_evident_condition: ammoSealConditionVal,
+                        package_reference_number: ammoPackageReferenceNumberVal,
+                        condition_when_received: ammoConditionWhenReceivedVal
+                    } : null;
+
+                    if ((category === 'Vehicles' || category === 'Vehicle' || (typeof category === 'string' && category.toLowerCase().includes('vehic'))) && !seizureName.trim()) {
+                        seizureName = [vehMake, vehModel, vehRegNo ? `(${vehRegNo})` : ''].filter(Boolean).join(' ') || 'Vehicle Exhibit';
+                    } else if (isAmmoCat && (!seizureName.trim() || seizureName === category)) {
+                        seizureName = [ammoProjectileType, ammoCartridgeAppearance].filter(Boolean).join(' - ') || 'Ammunition Exhibit';
+                    } else if (isOtherCat && (!seizureName.trim() || seizureName === category)) {
+                        seizureName = otherExhibitDescription ? (otherExhibitDescription.length > 50 ? otherExhibitDescription.substring(0, 50) + '...' : otherExhibitDescription) : 'Other Exhibit';
+                    }
+
                     if (seizureName.trim()) {
+                        const photoInputs = block.querySelectorAll('.seizure-photo-url-input');
+                        const photoItems = block.querySelectorAll('.seizure-photo-item[data-photo-url]');
+                        const photoUrlsList = Array.from(photoInputs).map(inp => inp.value).filter(Boolean);
+                        photoItems.forEach(item => {
+                            const u = item.getAttribute('data-photo-url');
+                            if (u && !photoUrlsList.includes(u)) photoUrlsList.push(u);
+                        });
+
                         exhibits.push({
                             associated_person: assocPerson,
                             suspect_name: assocPerson,
                             category: category,
                             exhibit_category: category,
+                            photos: photoUrlsList,
+                            evidence_photos: photoUrlsList,
                             seizure_name: seizureName,
                             commodity_name: seizureName,
                             name: seizureName,
@@ -9807,7 +10942,100 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             dev_mac_address: devMacAddress,
                             dev_storage: devStorage,
                             dev_colour: devColour,
-                            dev_marks: devMarks
+                            dev_marks: devMarks,
+                            wpn_model: wpnModel,
+                            wpn_serial_no: wpnSerialNo,
+                            wpn_calibre: wpnCalibre,
+                            wpn_colour: wpnColour,
+                            wpn_size: wpnSize,
+                            wpn_marks: wpnMarks,
+                            wpn_location_found: wpnLocationFound,
+                            wpn_loaded_status: wpnLoadedStatus,
+                            wpn_condition: wpnCondition,
+                            weapon_model: wpnModel,
+                            weapon_serial: wpnSerialNo,
+                            weapon_calibre: wpnCalibre,
+                            weapon_colour: wpnColour,
+                            weapon_size: wpnSize,
+                            veh_make: vehMake,
+                            veh_model: vehModel,
+                            veh_type: vehType,
+                            veh_year: vehYear,
+                            veh_colour: vehColour,
+                            veh_reg_no: vehRegNo,
+                            veh_vin: vehVIN,
+                            veh_engine_no: vehEngineNo,
+                            veh_country_reg: vehCountryReg,
+                            veh_owner: vehOwner,
+                            veh_driver: vehDriver,
+                            veh_owner_contact: vehOwnerContact,
+                            veh_docs_available: vehDocsAvailable,
+                            veh_doc_ref: vehDocRef,
+                            veh_condition: vehCondition,
+                            veh_fuel: vehFuel,
+                            veh_keys_recv: vehKeysRecv,
+                            veh_key_count: vehKeyCount,
+                            veh_damage: vehDamage,
+                            veh_mods: vehMods,
+                            veh_features: vehFeatures,
+                            vehicle_make_model: vehMake ? (vehModel ? (vehMake + ' ' + vehModel) : vehMake) : vehModel,
+                            vehicle_registration: vehRegNo,
+                            vehicle_chassis_vin: vehVIN,
+                            vehicle_color_type: vehColour,
+                            vehicle_type: vehType,
+                            vehicle_year: vehYear,
+                            engine_number: vehEngineNo,
+                            country_of_registration: vehCountryReg,
+                            vehicle_owner: vehOwner,
+                            vehicle_driver: vehDriver,
+                            ammo_cartridge_appearance: ammoCartridgeAppearance,
+                            ammo_projectile_type: ammoProjectileType,
+                            ammo_case_material: ammoCaseMaterial,
+                            ammo_colour_markings: ammoColourMarkings,
+                            ammo_condition: ammoConditionVal,
+                            ammo_other_condition: ammoOtherConditionVal,
+                            ammo_packaging_type: ammoPackagingTypeVal,
+                            ammo_seal_condition: ammoSealConditionVal,
+                            ammo_package_reference_number: ammoPackageReferenceNumberVal,
+                            ammo_condition_when_received: ammoConditionWhenReceivedVal,
+                            ammunition_details: ammoDetailsObj,
+                            ammo: ammoDetailsObj,
+                            other_exhibit_description: otherExhibitDescription,
+                            other_description: otherExhibitDescription,
+                            veh: {
+                                make: vehMake,
+                                model: vehModel,
+                                type: vehType,
+                                year: vehYear,
+                                colour: vehColour,
+                                reg_no: vehRegNo,
+                                vin: vehVIN,
+                                engine_no: vehEngineNo,
+                                country_reg: vehCountryReg,
+                                owner: vehOwner,
+                                driver: vehDriver,
+                                owner_contact: vehOwnerContact,
+                                docs_available: vehDocsAvailable,
+                                doc_ref: vehDocRef,
+                                condition: vehCondition,
+                                fuel: vehFuel,
+                                keys_recv: vehKeysRecv,
+                                key_count: vehKeyCount,
+                                damage: vehDamage,
+                                mods: vehMods,
+                                features: vehFeatures
+                            },
+                            wpn: {
+                                model: wpnModel,
+                                serial_no: wpnSerialNo,
+                                calibre: wpnCalibre,
+                                colour: wpnColour,
+                                size: wpnSize,
+                                marks: wpnMarks,
+                                location_found: wpnLocationFound,
+                                loaded_status: wpnLoadedStatus,
+                                condition: wpnCondition
+                            }
                         });
                     }
                 });
@@ -11286,6 +12514,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             const vehicleFieldsWrapper = clone.querySelector('#vehicleFieldsWrapper');
             const weaponFieldsWrapper = clone.querySelector('#weaponFieldsWrapper');
             const ammoFieldsWrapper = clone.querySelector('#ammoFieldsWrapper');
+            const otherDescriptionWrapper = clone.querySelector('#otherExhibitDescriptionWrapper') || clone.querySelector('.other-exhibit-description-wrapper');
 
             // Hide all dropdown panels in clone
             clone.querySelectorAll(
@@ -11303,9 +12532,28 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.add('hidden');
             if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
             if (ammoFieldsWrapper) ammoFieldsWrapper.classList.add('hidden');
+            if (otherDescriptionWrapper) {
+                otherDescriptionWrapper.classList.add('hidden');
+                const otherDescInput = otherDescriptionWrapper.querySelector('#newOtherExhibitDescription, .other-exhibit-description-input');
+                if (otherDescInput) otherDescInput.value = '';
+            }
 
             const commodityTextWrapper = clone.querySelector('#commodityTextWrapper');
             if (commodityTextWrapper) commodityTextWrapper.classList.remove('hidden');
+
+            // Reset photos in clone
+            const clonePhotoGrid = clone.querySelector('.seizurePhotosGrid');
+            if (clonePhotoGrid) {
+                clonePhotoGrid.innerHTML = '';
+                clonePhotoGrid.classList.add('hidden');
+            }
+            const clonePhotoCount = clone.querySelector('#seizurePhotosCount') || clone.querySelector('.seizure-photos-count');
+            if (clonePhotoCount) {
+                clonePhotoCount.innerText = '0 Photos Uploaded';
+                clonePhotoCount.classList.add('hidden');
+            }
+            const cloneFileInput = clone.querySelector('.fileSeizurePhoto');
+            if (cloneFileInput) cloneFileInput.value = '';
 
             container.appendChild(clone);
             updateSeizureBlockNumbers();
@@ -11384,6 +12632,77 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
 
         function openUnitListPanel(el) {
             openSeizurePanel(el, '#unitListPanel');
+        }
+
+        function openVehTypeListPanel(el) {
+            openSeizurePanel(el, '#vehTypeListPanel');
+        }
+
+        function selectVehType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root = getSeizureBlockFromEvent(e);
+            const hidden = root.querySelector('#vehType');
+            const display = root.querySelector('#vehTypeSearchInput');
+            const panel = root.querySelector('#vehTypeListPanel');
+            if (hidden) hidden.value = val;
+            if (display) {
+                display.value = val;
+                display.removeAttribute('readonly');
+            }
+            if (panel) panel.classList.add('hidden');
+        }
+
+        function filterVehTypeList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#vehTypeSearchInput')?.value || '';
+            const hidden = root.querySelector('#vehType');
+            if (hidden) hidden.value = rawVal;
+            const q = rawVal.toLowerCase();
+            filterVehTypeListByQuery(q, root);
+        }
+
+        function filterVehTypeListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#vehTypeSearchInner')?.value || '';
+            const hidden = root.querySelector('#vehType');
+            if (hidden) hidden.value = rawVal;
+            const display = root.querySelector('#vehTypeSearchInput');
+            if (display) display.value = rawVal;
+            const q = rawVal.toLowerCase();
+            filterVehTypeListByQuery(q, root);
+        }
+
+        function filterVehTypeListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#vehTypeList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#vehTypeCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'vehTypeCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                <button type="button" onclick="selectVehType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                    <span>+ Use Custom Vehicle Type: "${trimmed}"</span>
+                    <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                </button>
+            `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.veh-type-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
         }
 
         function selectExhibitCategory(val, e) {
@@ -11474,8 +12793,11 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             const ammoWrapper = root.querySelector('#ammoSelectWrapper');
             const deviceWrapper = root.querySelector('#deviceSelectWrapper');
             const deviceFieldsWrapper = root.querySelector('#deviceFieldsWrapper');
+            const vehicleFieldsWrapper = root.querySelector('#vehicleFieldsWrapper');
             const weaponFieldsWrapper = root.querySelector('#weaponFieldsWrapper');
             const ammoFieldsWrapper = root.querySelector('#ammoFieldsWrapper');
+            const otherDescriptionWrapper = root.querySelector('#otherExhibitDescriptionWrapper') || root.querySelector('.other-exhibit-description-wrapper');
+            const otherDescriptionInput = root.querySelector('#newOtherExhibitDescription') || root.querySelector('.other-exhibit-description-input');
             const textInput = root.querySelector('#newSeizureName');
             const quantityLabel = root.querySelector('#quantityLabel');
 
@@ -11486,20 +12808,30 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             if (ammoWrapper) ammoWrapper.classList.add('hidden');
             if (deviceWrapper) deviceWrapper.classList.add('hidden');
             if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
+            if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.add('hidden');
             if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
             if (ammoFieldsWrapper) ammoFieldsWrapper.classList.add('hidden');
+            if (otherDescriptionWrapper) otherDescriptionWrapper.classList.add('hidden');
+            if (otherDescriptionInput) otherDescriptionInput.removeAttribute('required');
+
+            const catNorm = typeof category === 'string' ? category.toLowerCase().trim() : '';
 
             if (category === 'Drugs') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (drugWrapper) drugWrapper.classList.remove('hidden');
-            } else if (category === 'Weapons') {
+            } else if (category === 'Weapons' || category === 'Weapon' || catNorm === 'weapons' || catNorm === 'weapon' || catNorm === 'firearms' || catNorm === 'firearm') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (weaponWrapper) weaponWrapper.classList.remove('hidden');
                 if (weaponFieldsWrapper) weaponFieldsWrapper.classList.remove('hidden');
+            } else if (category === 'Vehicles' || category === 'Vehicle' || catNorm === 'vehicles' || catNorm === 'vehicle') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
+                if (textWrapper) textWrapper.classList.remove('hidden');
+                if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.remove('hidden');
+                if (textInput) textInput.placeholder = 'e.g. Toyota Hilux (Unregistered)';
             } else if (category === 'Money') {
                 if (quantityLabel) quantityLabel.innerText = 'Amount';
                 if (currencyWrapper) currencyWrapper.classList.remove('hidden');
-            } else if (category === 'Ammunition') {
+            } else if (category === 'Ammunition' || catNorm === 'ammunition' || catNorm === 'ammo') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';
                 if (ammoWrapper) ammoWrapper.classList.remove('hidden');
                 if (ammoFieldsWrapper) ammoFieldsWrapper.classList.remove('hidden');
@@ -11508,6 +12840,14 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
                 if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
                 if (textWrapper) textWrapper.classList.remove('hidden');
+            } else if (category === 'Other Exhibits' || category === 'Other' || category === 'Other Exhibit' || catNorm === 'other exhibits' || catNorm === 'other exhibit' || catNorm === 'other' || catNorm.includes('other')) {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity';
+                if (textWrapper) textWrapper.classList.remove('hidden');
+                if (textInput) textInput.placeholder = 'e.g. Hardware Devices / Illegal Tools';
+                if (otherDescriptionWrapper) {
+                    otherDescriptionWrapper.classList.remove('hidden');
+                    if (otherDescriptionInput) otherDescriptionInput.setAttribute('required', 'required');
+                }
             } else {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (textWrapper) textWrapper.classList.remove('hidden');
@@ -11782,6 +13122,73 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             });
         }
 
+        function selectAmmoType(val, e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            const root = getSeizureBlockFromEvent(e);
+            const hidden = root.querySelector('#newSeizureNameAmmo');
+            const display = root.querySelector('#ammoSearchInput');
+            const panel = root.querySelector('#ammoListPanel');
+            if (hidden) hidden.value = val;
+            if (display) display.value = val;
+            if (panel) panel.classList.add('hidden');
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = val;
+            if (typeof syncSection4ToSection5InReview === 'function') syncSection4ToSection5InReview();
+        }
+
+        function filterAmmoList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#ammoSearchInput')?.value || '';
+            const hidden = root.querySelector('#newSeizureNameAmmo');
+            if (hidden) hidden.value = rawVal;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = rawVal;
+            filterAmmoListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function filterAmmoListInner(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#ammoSearchInner')?.value || '';
+            const hidden = root.querySelector('#newSeizureNameAmmo');
+            if (hidden) hidden.value = rawVal;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = rawVal;
+            filterAmmoListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function filterAmmoListByQuery(q, rootEl) {
+            const root = rootEl || document;
+            const list = root.querySelector('#ammoList');
+            if (!list) return;
+
+            let customLi = list.querySelector('#ammoCustomItem');
+            const trimmed = (q || '').trim();
+            if (trimmed.length > 0) {
+                if (!customLi) {
+                    customLi = document.createElement('li');
+                    customLi.id = 'ammoCustomItem';
+                    customLi.className = 'px-1.5 py-1 mb-1 border-b border-emerald-100';
+                    list.insertBefore(customLi, list.firstChild);
+                }
+                const safeVal = trimmed.replace(/'/g, "\\'");
+                customLi.innerHTML = `
+                <button type="button" onclick="selectAmmoType('${safeVal}', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center justify-between transition-colors border border-emerald-200 cursor-pointer">
+                    <span>+ Use Custom Entry: "${trimmed}"</span>
+                    <span class="text-[10px] font-mono-code bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-bold">CUSTOM</span>
+                </button>
+            `;
+                customLi.style.display = '';
+            } else if (customLi) {
+                customLi.style.display = 'none';
+            }
+
+            const items = list.querySelectorAll('.ammo-item');
+            items.forEach(function(li) {
+                const text = li.innerText.toLowerCase();
+                li.style.display = (!q || text.includes(q)) ? '' : 'none';
+            });
+        }
+
         function selectPackagingType(val, e) {
             if (e && e.stopPropagation) e.stopPropagation();
             const root = getSeizureBlockFromEvent(e);
@@ -11929,7 +13336,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </span>
-                    <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
+                    <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name">
                 </div>
                 <div class="flex items-center gap-1.5">
                     <div class="relative flex-1 flex items-center group">
@@ -12002,35 +13409,119 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             if (input) input.click();
         }
 
+        function handleSeizureDrop(e, dropzoneEl) {
+            if (e.preventDefault) e.preventDefault();
+            if (e.stopPropagation) e.stopPropagation();
+            const block = dropzoneEl ? dropzoneEl.closest('.seizure-block') : document;
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                uploadSeizurePhotos(e.dataTransfer.files, block);
+            }
+        }
+
+        async function uploadSeizurePhotos(files, block) {
+            if (!files || files.length === 0) return;
+            const targetBlock = block || document;
+            const grid = targetBlock.querySelector('.seizurePhotosGrid');
+            if (!grid) return;
+
+            grid.classList.remove('hidden');
+
+            const tokenEl = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = tokenEl ? tokenEl.content : '';
+
+            const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            if (validFiles.length === 0) {
+                alert('Please select valid image files (JPEG, PNG, WEBP, GIF).');
+                return;
+            }
+
+            for (const file of validFiles) {
+                if (file.size > 10 * 1024 * 1024) {
+                    alert(`File "${file.name}" exceeds the 10MB maximum limit.`);
+                    continue;
+                }
+
+                // Temporary loading placeholder card
+                const tempDiv = document.createElement('div');
+                tempDiv.className = 'seizure-photo-item relative group rounded-xl overflow-hidden border border-emerald-300 shadow-2xs aspect-square bg-slate-100 flex items-center justify-center animate-pulse';
+                tempDiv.innerHTML = `
+                    <div class="flex flex-col items-center justify-center space-y-1 p-2 text-center">
+                        <svg class="w-5 h-5 text-emerald-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span class="text-[9px] font-mono-code font-bold text-slate-500 truncate max-w-[80px]">Uploading...</span>
+                    </div>
+                `;
+                grid.appendChild(tempDiv);
+
+                const formData = new FormData();
+                formData.append('photos[]', file);
+                if (csrfToken) formData.append('_token', csrfToken);
+
+                try {
+                    const res = await fetch('/upload-evidence-photos', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    if (data.success && data.urls && data.urls.length > 0) {
+                        const url = data.urls[0];
+                        tempDiv.classList.remove('animate-pulse', 'border-emerald-300');
+                        tempDiv.classList.add('border-slate-200');
+                        tempDiv.setAttribute('data-photo-url', url);
+                        tempDiv.innerHTML = `
+                            <img src="${url}" class="w-full h-full object-cover" alt="Exhibit Photo">
+                            <input type="hidden" class="seizure-photo-url-input" value="${url}">
+                            <div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-1.5 p-1" onclick="event.stopPropagation()">
+                                <button type="button" onclick="openMugshotModal('${url}', 'Exhibit Visual Evidence Photo')" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold rounded-lg shadow-xs cursor-pointer border-none">
+                                    View
+                                </button>
+                                <button type="button" onclick="this.closest('.seizure-photo-item').remove(); updateSeizurePhotosCount(this.closest('.seizure-block') || document);" class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-[9px] font-bold rounded-lg shadow-xs cursor-pointer border-none">
+                                    Remove
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        tempDiv.remove();
+                        alert(data.message || `Failed to upload ${file.name}`);
+                    }
+                } catch (err) {
+                    tempDiv.remove();
+                    console.error('Error uploading photo:', err);
+                    alert(`Network error uploading ${file.name}`);
+                }
+            }
+
+            updateSeizurePhotosCount(targetBlock);
+        }
+
+        function updateSeizurePhotosCount(block) {
+            const targetBlock = block || document;
+            const grid = targetBlock.querySelector('.seizurePhotosGrid');
+            const countBadge = targetBlock.querySelector('#seizurePhotosCount') || targetBlock.querySelector('.seizure-photos-count');
+            const items = targetBlock.querySelectorAll('.seizure-photo-item');
+            if (countBadge) {
+                if (items.length > 0) {
+                    countBadge.innerText = `${items.length} Photo${items.length > 1 ? 's' : ''} Attached`;
+                    countBadge.classList.remove('hidden');
+                } else {
+                    countBadge.innerText = '0 Photos Uploaded';
+                    countBadge.classList.add('hidden');
+                }
+            }
+            if (grid && items.length === 0) {
+                grid.classList.add('hidden');
+            }
+        }
+
         function previewSeizurePhotos(e, inputEl) {
             const block = inputEl ? inputEl.closest('.seizure-block') : document;
             const files = e.target.files;
-            const grid = block.querySelector('.seizurePhotosGrid');
-            if (!grid) return;
-
-            grid.innerHTML = '';
             if (files && files.length > 0) {
-                grid.classList.remove('hidden');
-                Array.from(files).forEach((file, index) => {
-                    if (file.type.startsWith('image/')) {
-                        const reader = new FileReader();
-                        reader.onload = function(evt) {
-                            const imgDiv = document.createElement('div');
-                            imgDiv.className =
-                                'relative group rounded-xl overflow-hidden border border-slate-200 shadow-2xs aspect-square bg-slate-100';
-                            imgDiv.innerHTML = `
-                            <img src="${evt.target.result}" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span class="text-[10px] text-white font-mono-code font-bold px-2 py-1 bg-slate-900/80 rounded-lg">Photo #${index + 1}</span>
-                            </div>
-                        `;
-                            grid.appendChild(imgDiv);
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            } else {
-                grid.classList.add('hidden');
+                uploadSeizurePhotos(files, block);
+                inputEl.value = '';
             }
         }
 
@@ -12084,6 +13575,10 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         wrapper: block.querySelector('#unitSelectWrapper'),
                         panel: block.querySelector('#unitListPanel')
                     },
+                    {
+                        wrapper: block.querySelector('#vehTypeSelectWrapper'),
+                        panel: block.querySelector('#vehTypeListPanel')
+                    },
                 ];
                 items.forEach(item => {
                     if (item.wrapper && item.panel && !item.wrapper.contains(e.target)) {
@@ -12091,6 +13586,24 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
                 });
             });
+        }, true);
+
+        // Prevent accidental form submission when pressing Enter in any single-line input within exhibit/lab forms
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const target = e.target;
+                if (target && target.tagName !== 'TEXTAREA' && (
+                    target.closest('#section4SeizuresForm') ||
+                    target.closest('#section5LabForm') ||
+                    target.closest('.seizure-block') ||
+                    target.closest('#section4Seizures') ||
+                    target.closest('#section5FormContainer')
+                )) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+            }
         }, true);
 
         async function submitSection4SeizureForm(e) {
@@ -12116,6 +13629,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     block.querySelector('#weaponSearchInput')?.value ||
                     block.querySelector('#newSeizureNameCurrency')?.value ||
                     block.querySelector('#currencySearchInput')?.value ||
+                    block.querySelector('#newSeizureNameAmmo')?.value ||
+                    block.querySelector('#ammoSearchInput')?.value ||
                     block.querySelector('#newSeizureNameDevice')?.value ||
                     block.querySelector('#deviceSearchInput')?.value ||
                     block.querySelector('#newSeizureName')?.value || '';
@@ -12143,15 +13658,92 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 const devColour = block.querySelector('#newDevColour')?.value || '';
                 const devMarks = block.querySelector('#newDevMarks')?.value || '';
 
+                const wpnModel = block.querySelector('#wpnModel')?.value || '';
+                const wpnSerialNo = block.querySelector('#wpnSerialNo')?.value || '';
+                const wpnCalibre = block.querySelector('#wpnCalibre')?.value || '';
+                const wpnColour = block.querySelector('#wpnColour')?.value || '';
+                const wpnSize = block.querySelector('#wpnSize')?.value || '';
+                const wpnMarks = block.querySelector('#wpnMarks')?.value || '';
+                const wpnLocationFound = block.querySelector('#wpnLocationFound')?.value || '';
+                const wpnLoadedStatus = block.querySelector('#wpnLoadedStatus')?.value || '';
+                const wpnCondition = block.querySelector('#wpnCondition')?.value || '';
+
+                const vehMake = block.querySelector('#vehMake')?.value || '';
+                const vehModel = block.querySelector('#vehModel')?.value || '';
+                const vehType = block.querySelector('#vehType')?.value || block.querySelector('#vehTypeSearchInput')?.value || '';
+                const vehYear = block.querySelector('#vehYear')?.value || '';
+                const vehColour = block.querySelector('#vehColour')?.value || '';
+                const vehRegNo = block.querySelector('#vehRegNo')?.value || '';
+                const vehVIN = block.querySelector('#vehVIN')?.value || '';
+                const vehEngineNo = block.querySelector('#vehEngineNo')?.value || '';
+                const vehCountryReg = block.querySelector('#vehCountryReg')?.value || '';
+                const vehOwner = block.querySelector('#vehOwner')?.value || '';
+                const vehDriver = block.querySelector('#vehDriver')?.value || '';
+                const vehOwnerContact = block.querySelector('#vehOwnerContact')?.value || '';
+                const vehDocsAvailable = block.querySelector('#vehDocsAvailable')?.value || '';
+                const vehDocRef = block.querySelector('#vehDocRef')?.value || '';
+                const vehCondition = block.querySelector('#vehCondition')?.value || '';
+                const vehFuel = block.querySelector('#vehFuel')?.value || '';
+                const vehKeysRecv = block.querySelector('#vehKeysRecv')?.value || '';
+                const vehKeyCount = block.querySelector('#vehKeyCount')?.value || '';
+                const vehDamage = block.querySelector('#vehDamage')?.value || '';
+                const vehMods = block.querySelector('#vehMods')?.value || '';
+                const vehFeatures = block.querySelector('#vehFeatures')?.value || '';
+
+                const ammoCartridgeAppearance = block.querySelector('#ammoCartridgeAppearance')?.value || '';
+                const ammoProjectileType = block.querySelector('#ammoProjectileType')?.value || '';
+                const ammoCaseMaterial = block.querySelector('#ammoCaseMaterial')?.value || '';
+                const ammoColourMarkings = block.querySelector('#ammoColourMarkings')?.value || '';
+                const ammoConditionVal = block.querySelector('#ammoCondition')?.value || '';
+                const ammoOtherConditionVal = block.querySelector('#ammoOtherCondition')?.value || '';
+                const ammoPackagingTypeVal = block.querySelector('#ammoPackagingType')?.value || '';
+                const ammoSealConditionVal = block.querySelector('#ammoSealCondition')?.value || '';
+                const ammoPackageReferenceNumberVal = block.querySelector('#ammoPackageReferenceNumber')?.value || '';
+                const ammoConditionWhenReceivedVal = block.querySelector('#ammoConditionWhenReceived')?.value || '';
+                const otherExhibitDescription = block.querySelector('#newOtherExhibitDescription')?.value || block.querySelector('.other-exhibit-description-input')?.value || '';
+
+                const isAmmoCat = category === 'Ammunition' || (typeof category === 'string' && (category.toLowerCase().includes('ammo') || category.toLowerCase().includes('ammunition')));
+                const isOtherCat = category === 'Other Exhibits' || category === 'Other' || category === 'Other Exhibit' || (typeof category === 'string' && category.toLowerCase().includes('other'));
+                const ammoDetailsObj = isAmmoCat ? {
+                    cartridge_appearance: ammoCartridgeAppearance,
+                    projectile_bullet_type: ammoProjectileType,
+                    cartridge_case_material: ammoCaseMaterial,
+                    colour_markings: ammoColourMarkings,
+                    condition: ammoConditionVal,
+                    other_condition: ammoOtherConditionVal,
+                    packaging_type: ammoPackagingTypeVal,
+                    seal_tamper_evident_condition: ammoSealConditionVal,
+                    package_reference_number: ammoPackageReferenceNumberVal,
+                    condition_when_received: ammoConditionWhenReceivedVal
+                } : null;
+
+                if ((category === 'Vehicles' || category === 'Vehicle' || (typeof category === 'string' && category.toLowerCase().includes('vehic'))) && !seizureName.trim()) {
+                    seizureName = [vehMake, vehModel, vehRegNo ? `(${vehRegNo})` : ''].filter(Boolean).join(' ') || 'Vehicle Exhibit';
+                } else if (isAmmoCat && (!seizureName.trim() || seizureName === category)) {
+                    seizureName = [ammoProjectileType, ammoCartridgeAppearance].filter(Boolean).join(' - ') || 'Ammunition Exhibit';
+                } else if (isOtherCat && (!seizureName.trim() || seizureName === category)) {
+                    seizureName = otherExhibitDescription ? (otherExhibitDescription.length > 50 ? otherExhibitDescription.substring(0, 50) + '...' : otherExhibitDescription) : 'Other Exhibit';
+                }
+
                 const exhibitType = block.querySelector('.exhibit-type-select')?.value || (category === 'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit');
                 const drugClassification = block.querySelector('.drug-classification-select')?.value || (category === 'Drugs' ? 'Class A' : 'N/A');
 
                 if (seizureName.trim()) {
+                    const photoInputs = block.querySelectorAll('.seizure-photo-url-input');
+                    const photoItems = block.querySelectorAll('.seizure-photo-item[data-photo-url]');
+                    const photoUrlsList = Array.from(photoInputs).map(inp => inp.value).filter(Boolean);
+                    photoItems.forEach(item => {
+                        const u = item.getAttribute('data-photo-url');
+                        if (u && !photoUrlsList.includes(u)) photoUrlsList.push(u);
+                    });
+
                     exhibits.push({
                         associated_person: assocPerson,
                         suspect_name: assocPerson,
                         category: category,
                         exhibit_category: category,
+                        photos: photoUrlsList,
+                        evidence_photos: photoUrlsList,
                         exhibit_type: exhibitType,
                         drug_classification: drugClassification,
                         seizure_name: seizureName,
@@ -12180,7 +13772,100 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         dev_mac_address: devMacAddress,
                         dev_storage: devStorage,
                         dev_colour: devColour,
-                        dev_marks: devMarks
+                        dev_marks: devMarks,
+                        wpn_model: wpnModel,
+                        wpn_serial_no: wpnSerialNo,
+                        wpn_calibre: wpnCalibre,
+                        wpn_colour: wpnColour,
+                        wpn_size: wpnSize,
+                        wpn_marks: wpnMarks,
+                        wpn_location_found: wpnLocationFound,
+                        wpn_loaded_status: wpnLoadedStatus,
+                        wpn_condition: wpnCondition,
+                        weapon_model: wpnModel,
+                        weapon_serial: wpnSerialNo,
+                        weapon_calibre: wpnCalibre,
+                        weapon_colour: wpnColour,
+                        weapon_size: wpnSize,
+                        veh_make: vehMake,
+                        veh_model: vehModel,
+                        veh_type: vehType,
+                        veh_year: vehYear,
+                        veh_colour: vehColour,
+                        veh_reg_no: vehRegNo,
+                        veh_vin: vehVIN,
+                        veh_engine_no: vehEngineNo,
+                        veh_country_reg: vehCountryReg,
+                        veh_owner: vehOwner,
+                        veh_driver: vehDriver,
+                        veh_owner_contact: vehOwnerContact,
+                        veh_docs_available: vehDocsAvailable,
+                        veh_doc_ref: vehDocRef,
+                        veh_condition: vehCondition,
+                        veh_fuel: vehFuel,
+                        veh_keys_recv: vehKeysRecv,
+                        veh_key_count: vehKeyCount,
+                        veh_damage: vehDamage,
+                        veh_mods: vehMods,
+                        veh_features: vehFeatures,
+                        vehicle_make_model: vehMake ? (vehModel ? (vehMake + ' ' + vehModel) : vehMake) : vehModel,
+                        vehicle_registration: vehRegNo,
+                        vehicle_chassis_vin: vehVIN,
+                        vehicle_color_type: vehColour,
+                        vehicle_type: vehType,
+                        vehicle_year: vehYear,
+                        engine_number: vehEngineNo,
+                        country_of_registration: vehCountryReg,
+                        vehicle_owner: vehOwner,
+                        vehicle_driver: vehDriver,
+                        ammo_cartridge_appearance: ammoCartridgeAppearance,
+                        ammo_projectile_type: ammoProjectileType,
+                        ammo_case_material: ammoCaseMaterial,
+                        ammo_colour_markings: ammoColourMarkings,
+                        ammo_condition: ammoConditionVal,
+                        ammo_other_condition: ammoOtherConditionVal,
+                        ammo_packaging_type: ammoPackagingTypeVal,
+                        ammo_seal_condition: ammoSealConditionVal,
+                        ammo_package_reference_number: ammoPackageReferenceNumberVal,
+                        ammo_condition_when_received: ammoConditionWhenReceivedVal,
+                        ammunition_details: ammoDetailsObj,
+                        ammo: ammoDetailsObj,
+                        other_exhibit_description: otherExhibitDescription,
+                        other_description: otherExhibitDescription,
+                        veh: {
+                            make: vehMake,
+                            model: vehModel,
+                            type: vehType,
+                            year: vehYear,
+                            colour: vehColour,
+                            reg_no: vehRegNo,
+                            vin: vehVIN,
+                            engine_no: vehEngineNo,
+                            country_reg: vehCountryReg,
+                            owner: vehOwner,
+                            driver: vehDriver,
+                            owner_contact: vehOwnerContact,
+                            docs_available: vehDocsAvailable,
+                            doc_ref: vehDocRef,
+                            condition: vehCondition,
+                            fuel: vehFuel,
+                            keys_recv: vehKeysRecv,
+                            key_count: vehKeyCount,
+                            damage: vehDamage,
+                            mods: vehMods,
+                            features: vehFeatures
+                        },
+                        wpn: {
+                            model: wpnModel,
+                            serial_no: wpnSerialNo,
+                            calibre: wpnCalibre,
+                            colour: wpnColour,
+                            size: wpnSize,
+                            marks: wpnMarks,
+                            location_found: wpnLocationFound,
+                            loaded_status: wpnLoadedStatus,
+                            condition: wpnCondition
+                        }
                     });
                 }
             });

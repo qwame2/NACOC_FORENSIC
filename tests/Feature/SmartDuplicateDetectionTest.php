@@ -26,7 +26,7 @@ class SmartDuplicateDetectionTest extends TestCase
             'case_number'      => 'CSS-2026-1001',
             'title'            => 'High Priority Cocaine Seizure',
             'unit_name'        => 'Crime Scene Support',
-            'commanding_officer'=> 'Insp. Ofori',
+            'submitting_officer'=> 'Insp. Ofori',
             'suspect_name'     => 'Eric Addo, Linda Atta',
             'ghana_card'       => 'GHA-99887766-1',
             'dob'              => '1990-05-12',

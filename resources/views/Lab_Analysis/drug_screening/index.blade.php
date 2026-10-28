@@ -284,7 +284,7 @@
                                 @forelse($screenings as $index => $screening)
                                 @php
                                     $suspect = $screening->suspect;
-                                    $parentCase = $suspect ? $suspect->multipleCase : null;
+                                    $parentCase = $suspect ? ($suspect->case ?? ($suspect->singleCase ?? $suspect->multipleCase)) : null;
                                     $resultLower = strtolower(trim($screening->result));
 
                                     $rawMug = $suspect ? $suspect->mugshot_front : null;
@@ -365,7 +365,7 @@
                                                 NEGATIVE
                                             </span>
                                             <div class="text-[10px] text-emerald-600 font-bold font-mono-code mt-0.5">
-                                                No substance(s) found
+                                                No drug(s) detected
                                             </div>
                                         </div>
                                         @else
@@ -406,7 +406,7 @@
                                                     'purpose' => $screening->purpose,
                                                     'screening_date' => $screening->screening_date ? $screening->screening_date->format('d M Y') : 'N/A',
                                                     'result' => $screening->result,
-                                                    'substances_found' => $screening->substances_found ?? ($resultLower === 'negative' ? 'No substance(s) found' : ($resultLower === 'positive' ? 'Substances detected' : 'Pending laboratory screening')),
+                                                    'substances_found' => $screening->substances_found ?? ($resultLower === 'negative' ? 'No drug(s) detected' : ($resultLower === 'positive' ? 'Substances detected' : 'Pending laboratory screening')),
                                                     'notes' => $screening->notes ?? $screening->note ?? 'No additional clinical remarks recorded.',
                                                     'note' => $screening->notes ?? $screening->note ?? 'No additional clinical remarks recorded.',
                                                     'created_at' => $screening->created_at ? $screening->created_at->format('d M Y, H:i') : 'N/A',
@@ -459,6 +459,12 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if(method_exists($screenings, 'links'))
+                        <div class="border-t border-slate-200">
+                            {{ $screenings->links() }}
+                        </div>
+                    @endif
                 </div>
 
             </main>
@@ -504,7 +510,7 @@
 
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                     <div class="text-[10px] font-mono-code uppercase text-slate-500 font-bold">Substance(s) Identified / Found</div>
-                    <div id="modalSubstancesFound" class="font-extrabold mt-0.5 font-mono-code text-xs text-slate-800">No substance(s) found</div>
+                    <div id="modalSubstancesFound" class="font-extrabold mt-0.5 font-mono-code text-xs text-slate-800">No drug(s) detected</div>
                 </div>
 
                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
@@ -570,7 +576,7 @@
 
             const subEl = document.getElementById('modalSubstancesFound');
             if (subEl) {
-                subEl.textContent = data.substances_found || (data.result.toLowerCase() === 'negative' ? 'No substance(s) found' : 'None specified');
+                subEl.textContent = data.substances_found || (data.result.toLowerCase() === 'negative' ? 'No drug(s) detected' : 'None specified');
                 if (data.result.toLowerCase() === 'positive') {
                     subEl.className = 'font-extrabold mt-0.5 font-mono-code text-xs text-rose-700';
                 } else if (data.result.toLowerCase() === 'negative') {

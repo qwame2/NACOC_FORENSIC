@@ -77,6 +77,7 @@
         $addCaseUrl = url('/Crime_Scene_Support/create');
     }
     $addCaseBtnLabel = 'Create New Case';
+    $allDatasetCases = $allCases ?? \App\Models\ForensicCase::allCases();
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -95,7 +96,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -308,13 +309,13 @@
                             </div>
                         </div>
                         <div class="text-3xl font-black text-slate-900 font-mono-code" id="statTotalCases">
-                            {{ count($cases) }}</div>
+                            {{ count($allDatasetCases) }}</div>
                         <div class="flex items-center text-[11px] text-emerald-600 mt-2 font-bold">
                             <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                             </svg>
-                            +{{ count($cases) }} cases registered in database
+                            +{{ count($allDatasetCases) }} cases registered in database
                         </div>
                     </div>
 
@@ -332,7 +333,7 @@
                             </div>
                         </div>
                         <div class="text-3xl font-black text-amber-600 font-mono-code" id="statPendingLab">
-                            {{ $cases->whereIn('status', ['Lab Testing', 'Lab Analysis', 'Awaiting Sign-off'])->count() }}
+                            {{ $allDatasetCases->whereIn('status', ['Lab Testing', 'Lab Analysis', 'Awaiting Sign-off'])->count() }}
                         </div>
                         <div class="flex items-center text-[11px] text-amber-700 mt-2 font-semibold">
                             Priority exhibit test in progress
@@ -354,7 +355,7 @@
                             </div>
                         </div>
                         <div class="text-3xl font-black text-emerald-600 font-mono-code" id="statPendingApproval">
-                            {{ $cases->whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count() }}
+                            {{ $allDatasetCases->whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count() }}
                         </div>
                         <div class="flex items-center text-[11px] text-emerald-700 mt-2 font-semibold">
                             Awaiting Directorate &amp; Head Approval
@@ -375,7 +376,7 @@
                             </div>
                         </div>
                         <div class="text-3xl font-black text-emerald-600 font-mono-code" id="statCourtReady">
-                            {{ $cases->whereIn('status', ['Approved', 'Court Ready', 'Certified', 'Completed', 'Authorized'])->count() }}
+                            {{ $allDatasetCases->whereIn('status', ['Approved', 'Court Ready', 'Certified', 'Completed', 'Authorized'])->count() }}
                         </div>
                         <div class="flex items-center text-[11px] text-emerald-700 mt-2 font-semibold">
                             Issued &amp; Certified Dockets
@@ -422,7 +423,7 @@
                             Showing <span id="visibleCaseCount"
                                 class="font-extrabold text-slate-900">{{ count($cases) }}</span>
                             of <span id="totalCaseCount"
-                                class="font-extrabold text-slate-900">{{ count($cases) }}</span>
+                                class="font-extrabold text-slate-900">{{ count($allDatasetCases) }}</span>
                             field case records
                         </div>
                         <div id="activeFilterBadge"
@@ -448,9 +449,12 @@
                             <tbody class="divide-y divide-slate-200" id="casesTableBody">
                                 @forelse($cases as $case)
                                     @php
-                                        $priorityClass = match (strtoupper($case->priority ?? 'NORMAL')) {
+                                        $priorityClass = match (strtoupper($case->priority ?? 'HIGH')) {
                                             'CRITICAL' => 'bg-red-100 text-red-700 border-red-200',
                                             'HIGH' => 'bg-amber-100 text-amber-800 border-amber-200',
+                                            'LOW' => 'bg-slate-100 text-slate-700 border-slate-300',
+                                            'MEDIUM' => 'bg-blue-100 text-blue-800 border-blue-200',
+                                            'URGENT' => 'bg-rose-100 text-rose-800 border-rose-200',
                                             default => 'bg-slate-200 text-slate-700 border-slate-300',
                                         };
 
@@ -500,7 +504,7 @@
                                         };
 
                                         $suspectDisplayName =
-                                            $case->suspect_name ?? ($case->commanding_officer ?? 'Unassigned Target');
+                                            $case->suspect_name ?? 'Unassigned Target';
 
                                         $frontPic = $case->mugshot_front ?? ($dDataLanding['mugshot_front'] ?? null);
                                         if (!$frontPic && !empty($case->evidence_photos)) {
@@ -595,7 +599,7 @@
                                             <div class="flex items-center space-x-1.5 mt-0.5">
                                                 <span
                                                     class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold {{ $priorityClass }}">
-                                                    {{ strtoupper($case->priority ?? 'NORMAL') }}
+                                                    {{ strtoupper($case->priority ?? 'HIGH') }}
                                                 </span>
                                             </div>
                                         </td>
@@ -616,7 +620,7 @@
                                                             data-alias="{{ $sp['alias'] }}"
                                                             data-pic="{{ $sp['pic'] ?? '' }}"
                                                             data-ref="{{ $case->case_number }}"
-                                                            data-priority="{{ strtoupper($case->priority ?? 'NORMAL') }}"
+                                                            data-priority="{{ strtoupper($case->priority ?? 'HIGH') }}"
                                                             title="{{ $sp['name'] }} {{ $sp['alias'] !== 'N/A' ? "({$sp['alias']})" : '' }}">
                                                             @if ($sp['is_associate'])
                                                                 <span
@@ -813,15 +817,24 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6"
-                                            class="py-8 text-center text-slate-500 font-mono-code text-xs">
-                                            No forensic case dockets found in database.
+                                        <td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs">
+                                            <div class="flex flex-col items-center justify-center space-y-2">
+                                                <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <p class="font-bold text-slate-700">No forensic case dockets found</p>
+                                                <p class="text-[11px] text-slate-400">There are no records matching your query or stored in the database.</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforelse
                             </tbody>
                         </table>
                     </div>
+
+                    @if(method_exists($cases, 'links') && $cases->hasPages())
+                        <div class="border-t border-slate-200">
+                            {{ $cases->links() }}
+                        </div>
+                    @endif
 
                     <!-- PAGINATION FOOTER PANEL -->
                     <div
@@ -1064,8 +1077,8 @@
                     }
                 });
                 if (!res.ok) return;
-                const cases = await res.json();
-                if (!Array.isArray(cases)) return;
+                const rawCasesData = await res.json();
+                const cases = Array.isArray(rawCasesData) ? rawCasesData : (rawCasesData.data || []);
 
                 const tbody = document.getElementById('casesTableBody');
                 if (!tbody) return;
@@ -1079,7 +1092,7 @@
                 let html = '';
                 if (cases.length === 0) {
                     html =
-                        `<tr><td colspan="6" class="py-8 text-center text-slate-500 font-mono-code text-xs">No forensic case dockets found in database.</td></tr>`;
+                        `<tr><td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs"><div class="flex flex-col items-center justify-center space-y-2"><svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><p class="font-bold text-slate-700">No forensic case dockets found</p></div></td></tr>`;
                 } else {
                     cases.forEach(c => {
                         const status = c.status || 'Active Investigation';
@@ -1092,11 +1105,18 @@
                         if (isPending) pendingApprovalCount++;
                         if (isApproved) courtReadyCount++;
 
-                        const priorityClass = (c.priority || '').toUpperCase() === 'CRITICAL' ?
+                        const pUpper = (c.priority || 'HIGH').toUpperCase();
+                        const priorityClass = pUpper === 'CRITICAL' ?
                             'bg-red-100 text-red-700 border-red-200' :
-                            ((c.priority || '').toUpperCase() === 'HIGH' ?
+                            (pUpper === 'HIGH' ?
                                 'bg-amber-100 text-amber-800 border-amber-200' :
-                                'bg-slate-200 text-slate-700 border-slate-300');
+                                (pUpper === 'LOW' ?
+                                    'bg-slate-100 text-slate-700 border-slate-300' :
+                                    (pUpper === 'MEDIUM' ?
+                                        'bg-blue-100 text-blue-800 border-blue-200' :
+                                        (pUpper === 'URGENT' ?
+                                            'bg-rose-100 text-rose-800 border-rose-200' :
+                                            'bg-slate-200 text-slate-700 border-slate-300'))));
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data
                             .full_name : 'Unnamed Suspect');
@@ -1191,7 +1211,7 @@
                                      data-alias="${sAlias.replace(/"/g, '&quot;')}"
                                      data-pic="${sPic ? sPic.replace(/"/g, '&quot;') : ''}"
                                      data-ref="${c.case_number}"
-                                     data-priority="${(c.priority || 'NORMAL').toUpperCase()}"
+                                     data-priority="${(c.priority || 'HIGH').toUpperCase()}"
                                      title="${sName.replace(/"/g, '&quot;')} ${sAlias !== 'N/A' ? '(' + sAlias.replace(/"/g, '&quot;') + ')' : ''}">
                                     ${assocBadge}
                                     <div class="w-10 h-10 rounded-full bg-slate-100 ring-2 ring-gray-300 shadow-sm flex items-center justify-center font-bold text-slate-700 text-xs overflow-hidden group-hover:ring-2 group-hover:ring-blue-500 group-hover:z-40 transition-all duration-200">
@@ -1295,7 +1315,7 @@
                             <td class="py-4 px-4 whitespace-nowrap">
                                 <div class="font-bold font-mono-code text-blue-600 text-xs">${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-0.5">
-                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'NORMAL').toUpperCase()}</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold ${priorityClass}">${(c.priority || 'HIGH').toUpperCase()}</span>
                                 </div>
                             </td>
                             <td class="py-4 px-4">

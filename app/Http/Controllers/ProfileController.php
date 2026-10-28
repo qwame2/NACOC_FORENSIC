@@ -21,12 +21,8 @@ class ProfileController extends Controller
         }
 
         // Determine user role badge label
-        $isForensicHead = $user->is_head && (
-            $user->unit === 'Forensic Directorate' ||
-            $user->unit === 'Forensic Head' ||
-            $user->unit === 'Directorate Head' ||
-            str_contains($user->unit ?? '', 'Forensic Directorate')
-        );
+        $resolvedUnit = \App\Enums\ForensicUnit::resolve($user->unit ?? '');
+        $isForensicHead = $user->is_head && ($resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE || str_contains($user->unit ?? '', 'Forensic Directorate'));
 
         if ($isForensicHead) {
             $roleLabel = 'Head of Forensic Directorate';
@@ -75,12 +71,12 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'fullname' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username,' . $user->id],
-            'phone_number' => ['required', 'string', 'regex:/^[0-9]{10}$/'],
+            'phone_number' => ['required', 'string', 'regex:' . config('forensics.service_id.phone_regex', '/^[0-9]{10}$/')],
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'avatar_data' => ['nullable', 'string'],
-            'avatar_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+            'avatar_file' => ['nullable', 'image', 'mimes:' . config('forensics.upload_limits.allowed_image_mimes', 'jpeg,png,jpg,webp'), 'max:' . config('forensics.upload_limits.avatar_max_kb', 5120)],
             'signature_data' => ['nullable', 'string'],
-            'signature_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,svg', 'max:5120'],
+            'signature_file' => ['nullable', 'image', 'mimes:' . config('forensics.upload_limits.allowed_signature_mimes', 'jpeg,png,jpg,webp,svg'), 'max:' . config('forensics.upload_limits.signature_max_kb', 5120)],
         ], [
             'fullname.required' => 'Full Name is required.',
             'username.required' => 'Username is required.',

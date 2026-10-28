@@ -25,7 +25,6 @@ class CaseStatusOwnershipAndAuditTest extends TestCase
             'case_number' => 'CSS-2026-STATUS1',
             'title' => 'Republic vs John Doe',
             'unit_name' => 'Crime Scene Support',
-            'commanding_officer' => $headUser->fullname,
             'submitting_officer' => $headUser->fullname,
             'suspect_name' => 'John Doe',
             'priority' => 'HIGH',

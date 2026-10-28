@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CaseController;
+use App\Http\Controllers\CaseWorkflowController;
+use App\Http\Controllers\CaseDocumentController;
+use App\Http\Controllers\CaseReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DrugScreeningController;
 use App\Models\User;
@@ -47,7 +50,7 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
 });
 Route::post('/api/login', [AuthController::class, 'login']);
 Route::post('/api/logout', [AuthController::class, 'logout']);
-Route::get('/api/dashboard/realtime', [CaseController::class, 'dashboardRealtime']);
+Route::get('/api/dashboard/realtime', [CaseReportController::class, 'dashboardRealtime']);
 Route::get('/dashboard', function () {
     $cases = ForensicCase::allCases();
     $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
@@ -85,61 +88,67 @@ Route::middleware(['auth'])->group(function () {
     // MASTER CASE DIRECTORY & HISTORY ROUTES
     Route::get('/history', function (\Illuminate\Http\Request $request) {
         $user = auth()->user();
-        $cases = ForensicCase::allCases();
+        $allCases = ForensicCase::allCases();
         $unitFilter = $request->query('unit') ?? $request->query('from') ?? ($user ? $user->unit : 'All Units');
-        return view('history', compact('cases', 'unitFilter'));
+        $filtered = ($unitFilter && $unitFilter !== 'All Units')
+            ? $allCases->filter(fn($c) => strtolower($c->unit_name) === strtolower($unitFilter))->values()
+            : $allCases;
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+        $cases = ForensicCase::paginateCases($filtered, $perPage);
+        return view('history', compact('cases', 'unitFilter', 'allCases'));
     })->name('history');
 
     Route::get('/History', function (\Illuminate\Http\Request $request) {
-        $user = auth()->user();
-        $cases = ForensicCase::allCases();
-        $unitFilter = $request->query('unit') ?? $request->query('from') ?? ($user ? $user->unit : 'All Units');
-        return view('history', compact('cases', 'unitFilter'));
+        return redirect()->to('/history?' . http_build_query($request->all()));
     });
 
     Route::get('/Crime_Scene_Support/history', function (\Illuminate\Http\Request $request) {
-        $cases = ForensicCase::allCases();
-        $unitFilter = 'Crime Scene Support';
-        return view('history', compact('cases', 'unitFilter'));
+        return redirect()->to('/history?unit=Crime+Scene+Support&' . http_build_query($request->except('unit')));
     });
 
     Route::get('/Lab_Analysis/history', function (\Illuminate\Http\Request $request) {
-        $cases = ForensicCase::allCases();
-        $unitFilter = 'Lab Analysis';
-        return view('history', compact('cases', 'unitFilter'));
+        return redirect()->to('/history?unit=Lab+Analysis&' . http_build_query($request->except('unit')));
     });
 
     Route::get('/Evidence_Management/history', function (\Illuminate\Http\Request $request) {
-        $cases = ForensicCase::allCases();
-        $unitFilter = 'Evidence Management';
-        return view('history', compact('cases', 'unitFilter'));
+        return redirect()->to('/history?unit=Evidence+Management&' . http_build_query($request->except('unit')));
     });
 
     Route::get('/Digital_Forensics/history', function (\Illuminate\Http\Request $request) {
-        $cases = ForensicCase::allCases();
-        $unitFilter = 'Digital & Physical Forensics';
-        return view('history', compact('cases', 'unitFilter'));
+        return redirect()->to('/history?unit=Digital+%26+Physical+Forensics&' . http_build_query($request->except('unit')));
     });
 
     Route::get('/Forensic_Head/history', function (\Illuminate\Http\Request $request) {
-        $cases = ForensicCase::allCases();
-        $unitFilter = 'All Units';
-        return view('history', compact('cases', 'unitFilter'));
+        return redirect()->to('/history?unit=All+Units&' . http_build_query($request->except('unit')));
     });
 
-    Route::get('/cases', function () {
-        $cases = ForensicCase::allCases();
-        return view('cases.landing', compact('cases'));
+    Route::get('/cases', function (\Illuminate\Http\Request $request) {
+        $allCases = ForensicCase::allCases();
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+        $cases = ForensicCase::paginateCases($allCases, $perPage);
+        return view('cases.landing', compact('cases', 'allCases'));
     });
 
-    Route::get('/cases/landing', function () {
-        $cases = ForensicCase::allCases();
-        return view('cases.landing', compact('cases'));
+    Route::get('/cases/landing', function (\Illuminate\Http\Request $request) {
+        $allCases = ForensicCase::allCases();
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+        $cases = ForensicCase::paginateCases($allCases, $perPage);
+        return view('cases.landing', compact('cases', 'allCases'));
     });
 
-    Route::get('/Crime_Scene_Support/cases', function () {
-        $cases = ForensicCase::allCases();
-        return view('cases.landing', compact('cases'));
+    Route::get('/Crime_Scene_Support/cases', function (\Illuminate\Http\Request $request) {
+        $allCases = ForensicCase::allCases();
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+        $cases = ForensicCase::paginateCases($allCases, $perPage);
+        return view('cases.landing', compact('cases', 'allCases'));
     });
 
     Route::get('/api/cases', [CaseController::class, 'index']);
@@ -153,17 +162,18 @@ Route::middleware(['auth'])->group(function () {
     // CASE CREATION & UNIT PROGRESS UPDATES
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::post('/cases/{id}/update', [CaseController::class, 'updateCase'])->name('cases.update');
-    Route::post('/cases/{id}/update-unit-progress', [CaseController::class, 'updateUnitProgress']);
+    Route::post('/cases/{id}/update-unit-progress', [CaseWorkflowController::class, 'updateUnitProgress']);
     Route::post('/cases/{id}/associate', [CaseController::class, 'associate']);
-    Route::post('/cases/upload-evidence-photos', [CaseController::class, 'uploadEvidencePhotos']);
+    Route::post('/cases/upload-evidence-photos', [CaseDocumentController::class, 'uploadEvidencePhotos']);
+    Route::post('/upload-evidence-photos', [CaseDocumentController::class, 'uploadEvidencePhotos']);
     Route::post('/cases/{id}/reassign-exhibit', [CaseController::class, 'reassignExhibit']);
-    Route::post('/cases/{id}/case-status', [CaseController::class, 'updateCaseStatus']);
-    Route::post('/cases/{id}/suspect-disposition', [CaseController::class, 'updateSuspectDisposition']);
-    Route::post('/cases/{id}/handover/initiate', [CaseController::class, 'initiateHandover']);
-    Route::post('/cases/{id}/handover/respond', [CaseController::class, 'respondHandover']);
-    Route::post('/cases/{id}/upload-gsa-report', [CaseController::class, 'storeGsaReports']);
-    Route::post('/Lab_Analysis/gsa-reports/store', [CaseController::class, 'storeGsaReports']);
-    Route::get('/cases/{id}/audit-trail', [CaseController::class, 'getAuditTrail']);
+    Route::post('/cases/{id}/case-status', [CaseWorkflowController::class, 'updateCaseStatus']);
+    Route::post('/cases/{id}/suspect-disposition', [CaseWorkflowController::class, 'updateSuspectDisposition']);
+    Route::post('/cases/{id}/handover/initiate', [CaseWorkflowController::class, 'initiateHandover']);
+    Route::post('/cases/{id}/handover/respond', [CaseWorkflowController::class, 'respondHandover']);
+    Route::post('/cases/{id}/upload-gsa-report', [CaseDocumentController::class, 'storeGsaReports']);
+    Route::post('/Lab_Analysis/gsa-reports/store', [CaseDocumentController::class, 'storeGsaReports']);
+    Route::get('/cases/{id}/audit-trail', [CaseWorkflowController::class, 'getAuditTrail']);
 
     // GENERAL DOCKET & EVENT ROUTES
     Route::get('/cases/create', function () {
@@ -295,23 +305,23 @@ Route::middleware(['auth'])->group(function () {
         return view('Lab_Analysis.lab_analysis');
     });
 
-    Route::get('/lab-result', [CaseController::class, 'labResultPage'])->name('lab.result');
-    Route::get('/Lab_Analysis/lab-result', [CaseController::class, 'labResultPage']);
-    Route::get('/Lab_Analysis/certificate/{id}', [CaseController::class, 'showLabCertificate'])->name('lab.certificate');
-    Route::get('/lab-certificate/{id}', [CaseController::class, 'showLabCertificate']);
-    Route::get('/Lab_Analysis/analytical/{id}', [CaseController::class, 'showLabAnalytical'])->name('lab.analytical');
-    Route::get('/lab-analytical/{id}', [CaseController::class, 'showLabAnalytical']);
-    Route::get('/Lab_Analysis/nlr-report-pdf/{id}', [CaseController::class, 'showNlrReportPdf'])->name('lab.nlr.pdf');
-    Route::get('/lab-nlr-pdf/{id}', [CaseController::class, 'showNlrReportPdf']);
-    Route::post('/Lab_Analysis/nlr-reports/store', [CaseController::class, 'storeNlrReport'])->name('lab.nlr.store');
+    Route::get('/lab-result', [CaseReportController::class, 'labResultPage'])->name('lab.result');
+    Route::get('/Lab_Analysis/lab-result', [CaseReportController::class, 'labResultPage']);
+    Route::get('/Lab_Analysis/certificate/{id}', [CaseDocumentController::class, 'showLabCertificate'])->name('lab.certificate');
+    Route::get('/lab-certificate/{id}', [CaseDocumentController::class, 'showLabCertificate']);
+    Route::get('/Lab_Analysis/analytical/{id}', [CaseDocumentController::class, 'showLabAnalytical'])->name('lab.analytical');
+    Route::get('/lab-analytical/{id}', [CaseDocumentController::class, 'showLabAnalytical']);
+    Route::get('/Lab_Analysis/nlr-report-pdf/{id}', [CaseDocumentController::class, 'showNlrReportPdf'])->name('lab.nlr.pdf');
+    Route::get('/lab-nlr-pdf/{id}', [CaseDocumentController::class, 'showNlrReportPdf']);
+    Route::post('/Lab_Analysis/nlr-reports/store', [CaseDocumentController::class, 'storeNlrReport'])->name('lab.nlr.store');
 
     // Dedicated Laboratory Analysis Report & Drug Suspect Register Management Page
-    Route::get('/Lab_Analysis/report', [CaseController::class, 'labReportPage'])->name('lab.report');
-    Route::get('/lab-analysis/report', [CaseController::class, 'labReportPage']);
+    Route::get('/Lab_Analysis/report', [CaseReportController::class, 'labReportPage'])->name('lab.report');
+    Route::get('/lab-analysis/report', [CaseReportController::class, 'labReportPage']);
 
     // Generated PDF Situational Report & Dossier
-    Route::get('/Lab_Analysis/lab_sitrep_pdf', [CaseController::class, 'labSitrepReport'])->name('lab.sitrep.pdf');
-    Route::get('/lab-analysis/lab_sitrep_pdf', [CaseController::class, 'labSitrepReport']);
+    Route::get('/Lab_Analysis/lab_sitrep_pdf', [CaseReportController::class, 'labSitrepReport'])->name('lab.sitrep.pdf');
+    Route::get('/lab-analysis/lab_sitrep_pdf', [CaseReportController::class, 'labSitrepReport']);
 
     // General / Aside-bar Report Route Handler
     Route::get('/Report', function (\Illuminate\Http\Request $request) {
@@ -320,7 +330,7 @@ Route::middleware(['auth'])->group(function () {
         $unitLower = strtolower($unit);
 
         if (str_contains($unitLower, 'lab')) {
-            return app(\App\Http\Controllers\CaseController::class)->labReportPage($request);
+            return app(\App\Http\Controllers\CaseReportController::class)->labReportPage($request);
         } elseif (str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical')) {
             return redirect()->to('/Digital_Forensics/multi_dpf_pdf');
         } elseif (str_contains($unitLower, 'evidence')) {
@@ -328,7 +338,7 @@ Route::middleware(['auth'])->group(function () {
         }
 
         // Default to Lab Analysis Dedicated Report Page
-        return app(\App\Http\Controllers\CaseController::class)->labReportPage($request);
+        return app(\App\Http\Controllers\CaseReportController::class)->labReportPage($request);
     })->name('general.report');
 
     Route::get('/Lab_Analysis/examination', function () {
@@ -341,7 +351,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('lab_analysis.create');
 
     // GSA Report Upload — store files linked to a suspect
-    Route::post('/Lab_Analysis/gsa-reports/store', [CaseController::class, 'storeGsaReports'])
+    Route::post('/Lab_Analysis/gsa-reports/store', [CaseDocumentController::class, 'storeGsaReports'])
          ->name('lab.gsa.store');
 
     // GSA Report Fetch — get all active GSA files for a suspect (used in docket view)
@@ -404,14 +414,18 @@ Route::middleware(['auth'])->group(function () {
         return view('Digital_Forensics.digital_forensics');
     });
 
-    Route::get('/Digital_Forensics/cases', function () {
+    Route::get('/Digital_Forensics/cases', function (\Illuminate\Http\Request $request) {
         $authUser = auth()->user();
         $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Digital%')->orWhere('unit', 'LIKE', '%Physical%')->where('is_head', true)->first()
                    ?? \App\Models\User::where('is_head', true)->first();
         $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
         $allCases = ForensicCase::allCases();
-        $cases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
-        return view('Digital_Forensics.cases', compact('cases', 'headName'));
+        $digitalCases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 1) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+        $cases = ForensicCase::paginateCases($digitalCases, $perPage);
+        return view('Digital_Forensics.cases', compact('cases', 'headName', 'allCases', 'digitalCases'));
     })->name('digital_forensics.cases');
 
     Route::get('/Digital_Forensics/case-register', function () {
@@ -627,7 +641,7 @@ Route::middleware(['auth'])->group(function () {
                 'report_date' => $rItem->created_at ? $rItem->created_at->format('Y-m-d') : date('Y-m-d'),
                 'location_post' => $rItem->location_post ?? ($cItem->location ?? 'Kotoka International Airport (Cargo Wing)'),
                 'raid_location' => $cItem->raid_location ?? ($cItem->seizure_location ?? ($rItem->location_post ?? 'Kotoka International Airport (Cargo Wing)')),
-                'submitting_officer' => $cItem->submitting_officer ?? 'Det. Insp. K. Mensah',
+                'submitting_officer' => $cItem->submitting_officer ?? 'N/A',
                 'exhibit_type_display' => $caseExhibitDisplay,
                 'device_specs' => $caseSpecs,
                 'brief_description' => $cBrief,
@@ -1416,11 +1430,15 @@ Route::middleware(['auth'])->group(function () {
             return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
         });
 
-        Route::get('/Forensic_Head/cases', function () {
-            $cases = ForensicCase::allCases();
-            $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
+        Route::get('/Forensic_Head/cases', function (\Illuminate\Http\Request $request) {
+            $allCases = ForensicCase::allCases();
+            $pendingCasesCount = $allCases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
             $pendingCount = User::where('is_approved', false)->count();
-            return view('Forensic_Head.cases', compact('cases', 'pendingCasesCount', 'pendingCount'));
+            $perPage = (int) $request->input('per_page', 15);
+            if ($perPage < 1) $perPage = 15;
+            if ($perPage > 100) $perPage = 100;
+            $cases = ForensicCase::paginateCases($allCases, $perPage);
+            return view('Forensic_Head.cases', compact('cases', 'pendingCasesCount', 'pendingCount', 'allCases'));
         });
 
         Route::get('/Forensic_Head/cases/{id}/review', [CaseController::class, 'showReview']);
@@ -1447,7 +1465,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cases/{id}/decline', [CaseController::class, 'decline']);
 
         Route::get('/Forensic_Head/approvals', function (\Illuminate\Http\Request $request) {
-            $users = User::orderBy('created_at', 'desc')->get();
+            $perPage = (int) $request->input('per_page', 15);
+            if ($perPage < 1) $perPage = 15;
+            if ($perPage > 100) $perPage = 100;
+
+            $users = User::orderBy('created_at', 'desc')->paginate($perPage)->withQueryString();
 
             $pendingCount = User::where('is_approved', false)->count();
             $activeCount = User::where('is_approved', true)->count();

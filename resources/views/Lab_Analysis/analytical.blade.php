@@ -230,9 +230,9 @@
     }
     if (empty($rawSuspects)) {
         $rawSuspects[] = [
-            'suspect_name' => $case->suspect_name ?? 'KOJO ADU',
-            'suspect_alias' => $case->suspect_alias ?? 'Kofi Ghana',
-            'ghana_card' => $case->ghana_card ?? 'GHA-78920194-2',
+            'suspect_name' => $case->suspect_name ?? 'N/A',
+            'suspect_alias' => $case->suspect_alias ?? 'N/A',
+            'ghana_card' => $case->ghana_card ?? 'N/A',
             'gender' => $case->gender ?? 'Male',
             'age' => $case->age ?? 34,
             'role' => 'Primary Suspect',
@@ -450,7 +450,7 @@
             $dossierGroups['single'] = $suspectLabResults;
         }
     } else {
-        // Whole-word owner matching (owner labels may be joint, e.g. "KOJO ADU, AMA SERWAA")
+        // Whole-word owner matching (owner labels may be joint, e.g. "PRIMARY SUSPECT, CO-SUSPECT")
         $ownerMatchesSuspect = function ($owner, $suspectName) {
             $sn = strtolower(trim((string) $suspectName));
             if ($sn === '') {
@@ -574,7 +574,7 @@
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
     <style>
@@ -2215,7 +2215,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NLR Report - ${caseNo}</title>
-    <script src="https://cdn.tailwindcss.com"><\/script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"><\/script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         .font-serif-header { font-family: 'Cinzel', serif; }

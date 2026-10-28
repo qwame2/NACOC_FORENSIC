@@ -14,6 +14,7 @@ class CaseSuspect extends Model
     ];
 
     protected $fillable = [
+        'single_suspect_case_id',
         'multiple_suspect_case_id',
         'suspect_number',
         'role',
@@ -64,9 +65,29 @@ class CaseSuspect extends Model
         'phones'         => 'array',
     ];
 
+    public function singleCase()
+    {
+        return $this->belongsTo(SingleSuspectCase::class, 'single_suspect_case_id');
+    }
+
     public function multipleCase()
     {
         return $this->belongsTo(MultipleSuspectCase::class, 'multiple_suspect_case_id');
+    }
+
+    public function multipleSuspectCase()
+    {
+        return $this->multipleCase();
+    }
+
+    public function case()
+    {
+        return $this->single_suspect_case_id ? $this->singleCase() : $this->multipleCase();
+    }
+
+    public function getCaseNumberAttribute()
+    {
+        return $this->singleCase?->case_number ?? ($this->multipleCase?->case_number ?? null);
     }
 
     public function exhibits()

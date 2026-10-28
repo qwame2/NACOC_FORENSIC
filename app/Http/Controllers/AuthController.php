@@ -22,37 +22,20 @@ class AuthController extends Controller
         }
 
         $unit = $user->unit ?? '';
+        $resolvedUnit = \App\Enums\ForensicUnit::resolve($unit);
 
-        $isForensicHead = $user->is_head && (
-            $unit === 'Forensic Directorate' ||
-            $unit === 'Forensic Head' ||
-            $unit === 'Directorate Head' ||
-            str_contains($unit, 'Forensic Directorate')
-        );
-
-        if ($isForensicHead) {
+        if ($user->is_head && ($resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE || str_contains($unit, 'Forensic Directorate'))) {
             return '/Forensic_Head';
         }
 
-        $unitLower = strtolower($unit);
-
-        if (str_contains($unitLower, 'crime') || str_contains($unitLower, 'field') || str_contains($unitLower, 'cssu')) {
-            return $user->is_head ? '/Crime_Scene_Support/head' : '/Crime_Scene_Support/staff';
-        }
-
-        if (str_contains($unitLower, 'lab') || str_contains($unitLower, 'cflu')) {
-            return '/Lab_Analysis/create';
-        }
-
-        if (str_contains($unitLower, 'evidence') || str_contains($unitLower, 'emu')) {
-            return '/cases?unit=Evidence+Management';
-        }
-
-        if (str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical') || str_contains($unitLower, 'dpfu')) {
-            return '/cases?unit=Digital+%26+Physical+Forensics';
-        }
-
-        return $user->is_head ? '/Crime_Scene_Support/head' : '/cases';
+        return match ($resolvedUnit) {
+            \App\Enums\ForensicUnit::CRIME_SCENE_SUPPORT        => $user->is_head ? '/Crime_Scene_Support/head' : '/Crime_Scene_Support/staff',
+            \App\Enums\ForensicUnit::LAB_ANALYSIS                => '/Lab_Analysis/create',
+            \App\Enums\ForensicUnit::EVIDENCE_MANAGEMENT         => '/cases?unit=Evidence+Management',
+            \App\Enums\ForensicUnit::DIGITAL_PHYSICAL_FORENSICS  => '/cases?unit=Digital+%26+Physical+Forensics',
+            \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE        => '/Forensic_Head',
+            default                                              => $user->is_head ? '/Crime_Scene_Support/head' : '/cases',
+        };
     }
 
     /**
@@ -238,8 +221,8 @@ class AuthController extends Controller
         $validated = $request->validate([
             'fullname' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
-            'service_id' => ['required', 'string', 'regex:/^(SD|JD)-[0-9]{3,}$/i', 'unique:users,service_id'],
-            'phone_number' => ['required', 'string', 'regex:/^[0-9]{10}$/'],
+            'service_id' => ['required', 'string', 'regex:' . config('forensics.service_id.regex', '/^(SD|JD|SVC)-[0-9]{3,}$/i'), 'unique:users,service_id'],
+            'phone_number' => ['required', 'string', 'regex:' . config('forensics.service_id.phone_regex', '/^[0-9]{10}$/')],
             'unit' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'terms' => ['accepted'],

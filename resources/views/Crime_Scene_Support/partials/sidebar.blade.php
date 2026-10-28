@@ -238,7 +238,7 @@
                 $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Crime Scene%')->where('is_head', true)->first()
                            ?? \App\Models\User::where('is_head', true)->first();
             }
-            $userName = session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : ($isLabContext ? 'Supt. Eric Mensah' : 'John Adu'));
+            $userName = session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'N/A');
             $userUnit = session('user_unit') ?? ($dbUnitHead ? $dbUnitHead->unit : ($isLabContext ? 'Lab Analysis' : 'Crime Scene Support'));
             $userAvatar = $dbUnitHead?->avatar ?? null;
         }
