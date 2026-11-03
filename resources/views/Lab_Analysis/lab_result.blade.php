@@ -76,17 +76,17 @@
                         <div>
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="px-2.5 py-0.5 bg-emerald-500 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">LAB ANALYSIS RESULT</span>
-                                <span class="text-xs text-slate-400">&bull;</span>
+                                <span class="text-xs text-slate-500 font-bold">/</span>
                                 <span class="text-xs font-bold text-emerald-400 font-mono-code">DRUG &amp; NARCOTICS SUSPECT REGISTER</span>
                             </div>
                             <h1 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                                <span>Drug-Linked Suspect Chemical Analysis Directory</span>
+                                <span>Drug-Linked Suspect Analysis Directory</span>
                             </h1>
                             <p class="text-xs text-slate-300 mt-1 max-w-2xl">
                                 Official Forensic Laboratory register displaying suspect mugshots and chemical analysis dockets. Suspects linked to the same drug exhibit are grouped together in a unified docket card.
                             </p>
                         </div>
-                        <div class="flex items-center gap-3 shrink-0">
+                        <div class="flex items-center gap-4 shrink-0 flex-wrap">
                             <div class="text-right">
                                 <div class="text-[10px] font-mono-code uppercase text-slate-400">Head Chemist Signature</div>
                                 <div class="text-xs font-bold text-emerald-400 font-mono-code">{{ $headName }}</div>
@@ -446,7 +446,7 @@
                     </div>
                     <div>
                         <h2 class="text-sm font-extrabold tracking-wider uppercase font-mono-code text-white">OFFICIAL NARCOTICS ANALYSIS CERTIFICATE</h2>
-                        <p class="text-[11px] text-emerald-400 font-mono-code">NACOC FORENSIC SCIENCE LABORATORY &bull; HIGH COURT ADMISSIBLE</p>
+                        <p class="text-[11px] text-emerald-400 font-mono-code">NACOC FORENSIC SCIENCE LABORATORY | HIGH COURT ADMISSIBLE</p>
                     </div>
                 </div>
                 <button type="button" onclick="closeLabReportModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
@@ -543,7 +543,7 @@
                     <div>
                         <div class="text-[10px] font-mono-code uppercase font-bold text-emerald-900">Certifying Forensic Chemist</div>
                         <div id="modalAnalyst" class="text-xs font-extrabold text-slate-900 mt-0.5"></div>
-                        <div class="text-[10px] text-emerald-700 font-medium">Head of Lab: {{ $headName }} &bull; NACOC Directorate</div>
+                        <div class="text-[10px] text-emerald-700 font-medium">Head of Lab: {{ $headName }} | NACOC Directorate</div>
                     </div>
                     <div class="px-3 py-1.5 bg-emerald-600 text-white font-mono-code font-extrabold text-[10px] rounded-xl shadow-xs">
                         OFFICIAL STAMP VERIFIED
@@ -554,7 +554,7 @@
 
             <!-- MODAL FOOTER -->
             <div class="px-6 py-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between shrink-0">
-                <span class="text-[11px] font-mono-code text-slate-500 font-bold">Narcotics Control Commission &bull; Forensic Command</span>
+                <span class="text-[11px] font-mono-code text-slate-500 font-bold">Narcotics Control Commission | Forensic Command</span>
                 <button type="button" onclick="closeLabReportModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer">
                     Close Certificate
                 </button>

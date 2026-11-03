@@ -104,27 +104,32 @@ class SuspectNlrReport extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->where(function ($q) {
+            $q->where('status', 'active')
+              ->orWhereNull('status')
+              ->orWhere('status', '!=', 'deleted');
+        });
     }
 
     // ── Lookup helpers (used by docket & analytical report views) ─────────
 
-    public static function forCase($caseNumber = null, $multipleSuspectCaseId = null)
+    public static function forCase($caseNumber = null, $caseId = null)
     {
-        if (empty($caseNumber) && empty($multipleSuspectCaseId)) {
+        if (empty($caseNumber) && empty($caseId)) {
             return collect();
         }
 
         $cStr = (string) $caseNumber;
-        $mId = !empty($multipleSuspectCaseId) ? (int) $multipleSuspectCaseId : null;
+        $id = !empty($caseId) ? (int) $caseId : null;
 
         return static::with('suspect:id,suspect_name')
-            ->where(function ($q) use ($cStr, $mId) {
+            ->where(function ($q) use ($cStr, $id) {
                 if (!empty($cStr)) {
                     $q->orWhere('case_number', $cStr);
                 }
-                if (!empty($mId)) {
-                    $q->orWhere('multiple_suspect_case_id', $mId);
+                if (!empty($id)) {
+                    $q->orWhere('multiple_suspect_case_id', $id)
+                      ->orWhere('single_suspect_case_id', $id);
                 }
             })
             ->active()
@@ -140,11 +145,24 @@ class SuspectNlrReport extends Model
 
         return collect($files)->filter(function ($f) use ($suspectId, $wantedName, $norm) {
             if (!empty($suspectId) && !empty($f->case_suspect_id)) {
-                return (int) $f->case_suspect_id === (int) $suspectId;
+                if ((int) $f->case_suspect_id === (int) $suspectId) {
+                    return true;
+                }
             }
             $fName = !empty($f->suspect) ? ($f->suspect->suspect_name ?? null) : null;
             if ($wantedName !== '' && !empty($fName) && $norm($fName) === $wantedName) {
                 return true;
+            }
+            if ($wantedName !== '' && !empty($fName)) {
+                if (str_contains($wantedName, $norm($fName)) || str_contains($norm($fName), $wantedName)) {
+                    return true;
+                }
+            }
+            if (!empty($f->single_suspect_case_id)) {
+                return true;
+            }
+            if (!empty($f->multiple_suspect_case_id)) {
+                return false;
             }
             if (empty($f->case_suspect_id)) {
                 return true;

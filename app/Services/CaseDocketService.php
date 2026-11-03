@@ -129,6 +129,7 @@ class CaseDocketService
             'case_number'          => ['nullable', 'string', 'max:50'],
             'title'                => ['required', 'string', 'max:255'],
             'unit_name'            => ['nullable', 'string', 'max:255'],
+            'arresting_officer'    => ['nullable', 'string', 'max:255'],
             'submitting_officer'   => ['nullable', 'string', 'max:255'],
             'suspect_name'         => ['required', 'string', 'max:255'],
             'associated_person'    => ['nullable', 'string', 'max:255'],
@@ -433,7 +434,7 @@ class CaseDocketService
             }
         }
 
-        $prefix = ($request->filled('unit_name') && str_contains($request->input('unit_name'), 'Forensic')) ? 'FSD' : 'NCC';
+        $prefix = 'NCC';
         $caseNumberService = app(CaseNumberService::class);
 
         $unit = Unit::where('name', $validated['unit_name'] ?? null)->first();
@@ -471,7 +472,8 @@ class CaseDocketService
             'unit_name'                => $validated['unit_name'] ?? ($user ? $user->unit : 'Forensic Directorate'),
             'unit_id'                  => $unit ? $unit->id : null,
             'user_id'                  => $user ? $user->id : null,
-            'submitting_officer'       => $validated['submitting_officer'] ?? ($user ? $user->fullname : 'Officer in Charge'),
+            'arresting_officer'        => $validated['arresting_officer'] ?? ($validated['submitting_officer'] ?? ($user ? $user->fullname : 'Field Arresting Officer')),
+            'submitting_officer'       => $validated['arresting_officer'] ?? ($validated['submitting_officer'] ?? ($user ? $user->fullname : 'Field Arresting Officer')),
             'suspect_docket_mode'      => $validated['suspect_docket_mode'] ?? null,
             'operation_code'           => $validated['operation_code'] ?? null,
             'operation_code_name'      => $validated['operation_code_name'] ?? null,
@@ -620,10 +622,11 @@ class CaseDocketService
 
         // Fix Issue 2: Wrap transaction in CaseNumberService::withUniqueRetry to handle race conditions
         try {
+            $preferredRef = $request->filled('case_number') ? trim($request->input('case_number')) : null;
             $case = $caseNumberService->withUniqueRetry(function (string $generatedRef) use (
                 $allSuspects, $suspectFields, $sharedFields, $validated, $user, $request
             ) {
-                $caseRef = $request->filled('case_number') ? trim($request->input('case_number')) : $generatedRef;
+                $caseRef = $generatedRef;
 
                 return DB::transaction(function () use (
                     $allSuspects, $suspectFields, $sharedFields, $caseRef, $validated,
@@ -724,76 +727,106 @@ class CaseDocketService
                         }
                     }
 
-                    // Lab data submission check
-                    $hasSubmittedLabData = !empty($request->input('presumptive_result'))
-                        || !empty($request->input('presumptive_test_result'))
-                        || !empty($request->input('presumptive_reaction_result_input'))
-                        || !empty($request->input('docket_data.lab_examination.presumptive_result'))
-                        || !empty($request->input('confirmatory_test_result'))
-                        || !empty($request->input('confirmatory_substance_identification'))
-                        || !empty($request->input('sample_weight_gross'))
-                        || !empty($request->input('sample_weight_taken'))
-                        || !empty($request->input('sample_weight_reserved'));
-
-                    $labStatus = $hasSubmittedLabData ? WorkflowStatus::COMPLETED->value : WorkflowStatus::PENDING->value;
-                    $labOfficer = $hasSubmittedLabData ? ($user ? $user->fullname : ($case->submitting_officer ?: 'Lab Analyst')) : null;
-                    $labUpdatedAt = $hasSubmittedLabData ? now()->toDateTimeString() : null;
-
                     $isLabCreatedCaseStore = !empty($case->unit_name) && (
                         strtolower(trim($case->unit_name)) === 'lab analysis' ||
                         str_contains(strtolower($case->unit_name), 'lab analysis') ||
                         str_contains(strtolower($case->unit_name), 'laboratory')
                     );
+                    $isCssCreatedCaseStore = !empty($case->unit_name) && (
+                        str_contains(strtolower($case->unit_name), 'crime') ||
+                        str_contains(strtolower($case->unit_name), 'scene')
+                    );
+                    $isDpfCreatedCaseStore = !empty($case->unit_name) && (
+                        str_contains(strtolower($case->unit_name), 'digital') ||
+                        str_contains(strtolower($case->unit_name), 'physical')
+                    );
+                    $isEvidenceCreatedCaseStore = !empty($case->unit_name) && (
+                        str_contains(strtolower($case->unit_name), 'evidence')
+                    );
 
-                    // Fix Issue 20: Dead code removed — $isDrugStore is cleanly evaluated via isDrugCase()
                     $isDrugStore = $case->isDrugCase();
+                    $isElectronicStore = method_exists($case, 'isElectronicCase') ? $case->isElectronicCase() : false;
 
-                    if ($isDrugStore) {
-                        $unitProgressBlock = [
-                            UnitName::LAB_ANALYSIS->value => [
-                                'status'     => $labStatus,
-                                'officer'    => $labOfficer,
-                                'updated_at' => $labUpdatedAt,
-                            ],
-                            UnitName::EVIDENCE_MANAGEMENT->value => [
-                                'status'     => WorkflowStatus::PENDING->value,
-                                'officer'    => null,
-                                'updated_at' => null,
-                            ],
+                    // Only genuine lab submissions by the Lab Analysis unit can complete lab analysis during creation
+                    $hasSubmittedLabData = $isLabCreatedCaseStore && (
+                        !empty($request->input('presumptive_result'))
+                        || !empty($request->input('presumptive_test_result'))
+                        || !empty($request->input('presumptive_reaction_result_input'))
+                        || !empty($request->input('confirmatory_test_result'))
+                        || !empty($request->input('confirmatory_substance_identification'))
+                        || !empty($request->input('sample_weight_taken'))
+                        || !empty($request->input('sample_weight_reserved'))
+                    );
+
+                    $labStatus = $hasSubmittedLabData ? WorkflowStatus::COMPLETED->value : WorkflowStatus::PENDING->value;
+                    $labOfficer = $hasSubmittedLabData ? ($user ? $user->fullname : ($case->arresting_officer ?? ($case->submitting_officer ?: 'Lab Analyst'))) : null;
+                    $labUpdatedAt = $hasSubmittedLabData ? now()->toDateTimeString() : null;
+
+                    $unitProgressBlock = [];
+
+                    // Creator unit always appears first and is marked COMPLETED upon logging the case
+                    if ($isLabCreatedCaseStore) {
+                        $unitProgressBlock[UnitName::LAB_ANALYSIS->value] = [
+                            'status'     => $labStatus,
+                            'officer'    => $labOfficer,
+                            'updated_at' => $labUpdatedAt,
                         ];
-                    } elseif ($isLabCreatedCaseStore) {
-                        $unitProgressBlock = [
-                            UnitName::EVIDENCE_MANAGEMENT->value => [
-                                'status'     => WorkflowStatus::COMPLETED->value,
-                                'officer'    => $case->submitting_officer ?: 'Evidence Officer',
-                                'updated_at' => now()->toDateTimeString(),
-                            ],
+                    } elseif ($isCssCreatedCaseStore) {
+                        $unitProgressBlock[UnitName::CRIME_SCENE_SUPPORT->value] = [
+                            'status'     => WorkflowStatus::COMPLETED->value,
+                            'officer'    => $case->arresting_officer ?? ($case->submitting_officer ?: 'Field Officer'),
+                            'updated_at' => now()->toDateTimeString(),
+                        ];
+                    } elseif ($isDpfCreatedCaseStore) {
+                        $unitProgressBlock[UnitName::DIGITAL_PHYSICAL_FORENSICS->value] = [
+                            'status'     => WorkflowStatus::COMPLETED->value,
+                            'officer'    => $case->arresting_officer ?? ($case->submitting_officer ?: 'Forensic Analyst'),
+                            'updated_at' => now()->toDateTimeString(),
+                        ];
+                    } elseif ($isEvidenceCreatedCaseStore) {
+                        $unitProgressBlock[UnitName::EVIDENCE_MANAGEMENT->value] = [
+                            'status'     => WorkflowStatus::COMPLETED->value,
+                            'officer'    => $case->arresting_officer ?? ($case->submitting_officer ?: 'Evidence Custodian'),
+                            'updated_at' => now()->toDateTimeString(),
                         ];
                     } else {
-                        $unitProgressBlock = [
-                            UnitName::CRIME_SCENE_SUPPORT->value => [
-                                'status'     => WorkflowStatus::COMPLETED->value,
-                                'officer'    => $case->submitting_officer ?: 'Field Officer',
-                                'updated_at' => now()->toDateTimeString(),
-                            ],
-                            UnitName::EVIDENCE_MANAGEMENT->value => [
-                                'status'     => WorkflowStatus::PENDING->value,
-                                'officer'    => null,
-                                'updated_at' => null,
-                            ],
-                            UnitName::DIGITAL_PHYSICAL_FORENSICS->value => [
-                                'status'     => WorkflowStatus::PENDING->value,
-                                'officer'    => null,
-                                'updated_at' => null,
-                            ],
+                        $unitProgressBlock[UnitName::CRIME_SCENE_SUPPORT->value] = [
+                            'status'     => WorkflowStatus::COMPLETED->value,
+                            'officer'    => $case->arresting_officer ?? ($case->submitting_officer ?: 'Field Officer'),
+                            'updated_at' => now()->toDateTimeString(),
+                        ];
+                    }
+
+                    // Involved specialist units in canonical sequence
+                    if ($isDrugStore && !isset($unitProgressBlock[UnitName::LAB_ANALYSIS->value])) {
+                        $unitProgressBlock[UnitName::LAB_ANALYSIS->value] = [
+                            'status'     => WorkflowStatus::PENDING->value,
+                            'officer'    => null,
+                            'updated_at' => null,
+                        ];
+                    }
+                    if ($isElectronicStore && !isset($unitProgressBlock[UnitName::DIGITAL_PHYSICAL_FORENSICS->value])) {
+                        $unitProgressBlock[UnitName::DIGITAL_PHYSICAL_FORENSICS->value] = [
+                            'status'     => WorkflowStatus::PENDING->value,
+                            'officer'    => null,
+                            'updated_at' => null,
+                        ];
+                    }
+
+                    // Evidence Management is always present as the final operational stage
+                    if (!isset($unitProgressBlock[UnitName::EVIDENCE_MANAGEMENT->value])) {
+                        $unitProgressBlock[UnitName::EVIDENCE_MANAGEMENT->value] = [
+                            'status'     => WorkflowStatus::PENDING->value,
+                            'officer'    => null,
+                            'updated_at' => null,
                         ];
                     }
 
                     $caseDocketData = $this->decodeDocket($case);
                     $caseDocketData['unit_progress'] = $unitProgressBlock;
 
-                    // Fix Issue 11: Delegate lab exam building and persistence to LaboratoryExamService
-                    if ($hasSubmittedLabData) {
+                    // Fix Issue 11: Delegate lab exam building and persistence to LaboratoryExamService only for Lab Analysis unit creations
+                    if ($hasSubmittedLabData && $isLabCreatedCaseStore) {
                         $primarySuspectName = $primarySuspect['suspect_name'] ?? $case->suspect_name;
                         $labService = app(LaboratoryExamService::class);
                         $caseDocketData = $labService->saveExam($case, $request->all(), $primarySuspectName, false, $labOfficer);
@@ -836,6 +869,15 @@ class CaseDocketService
                             }
                         }
                         $folder = 'gsa_reports/' . now()->format('Y/m');
+                        $rawDocketExhibitType = $request->input('exhibit_type');
+                        $docketExhibitType = null;
+                        if (is_array($rawDocketExhibitType)) {
+                            $filtered = array_filter(array_map('trim', $rawDocketExhibitType), fn($v) => $v !== '');
+                            $docketExhibitType = !empty($filtered) ? implode(', ', $filtered) : null;
+                        } elseif (!empty($rawDocketExhibitType)) {
+                            $docketExhibitType = trim((string)$rawDocketExhibitType) ?: null;
+                        }
+
                         foreach ($gsaFiles as $file) {
                             if ($file instanceof \Illuminate\Http\UploadedFile) {
                                 $ext    = strtolower($file->getClientOriginalExtension());
@@ -854,6 +896,7 @@ class CaseDocketService
                                     'file_extension'           => $ext,
                                     'file_size'                => $file->getSize(),
                                     'lab_number'               => $request->input('laboratory_number') ?? $request->input('lab_number'),
+                                    'exhibit_type'             => $docketExhibitType,
                                     'case_number'              => $case->case_number,
                                     'status'                   => 'active',
                                 ]);
@@ -863,7 +906,7 @@ class CaseDocketService
 
                     return $case;
                 });
-            }, $prefix, 3);
+            }, 'NCC', 10, $preferredRef);
 
             Cache::forget($lockKey);
         } catch (\Throwable $e) {
@@ -949,7 +992,13 @@ class CaseDocketService
                 $case->operation_code = $opVal;
                 $docketData['operation_type'] = $opVal;
             }
-            if ($request->filled('submitting_officer')) $case->submitting_officer = trim($request->input('submitting_officer'));
+            if ($request->filled('arresting_officer')) {
+                $case->arresting_officer = trim($request->input('arresting_officer'));
+                $case->submitting_officer = $case->arresting_officer;
+            } elseif ($request->filled('submitting_officer')) {
+                $case->arresting_officer = trim($request->input('submitting_officer'));
+                $case->submitting_officer = $case->arresting_officer;
+            }
 
             if ($request->has('suspect_name')) {
                 $newSingleName = trim($request->input('suspect_name'));
@@ -1613,7 +1662,8 @@ class CaseDocketService
                     'unit_name'            => $single->unit_name,
                     'unit_id'              => $single->unit_id,
                     'user_id'              => $single->user_id,
-                    'submitting_officer'   => $single->submitting_officer,
+                    'arresting_officer'    => $single->arresting_officer ?? $single->submitting_officer,
+                    'submitting_officer'   => $single->arresting_officer ?? $single->submitting_officer,
                     'operation_code'       => $single->operation_code,
                     'operation_code_name'  => $single->operation_code_name,
                     'raid_location'        => $single->raid_location,

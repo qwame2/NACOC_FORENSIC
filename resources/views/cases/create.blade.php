@@ -13,9 +13,9 @@
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
         $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A'));
-        $examRefAuto = 'NLR-FM-T35-F';
-        $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
-        $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
+        $examRefAuto = app(\App\Services\CaseReferenceService::class)->generateExamReference();
+        $labNumberAuto = app(\App\Services\CaseReferenceService::class)->generateLabNumber();
+        $caseRefAuto = app(\App\Services\CaseNumberService::class)->generate();
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
         $isDrugCase = false;
@@ -3089,7 +3089,7 @@
                                             type="hidden" 
                                             id="presumptiveReactionResultInput" 
                                             name="presumptive_reaction_result_input" 
-                                            value="YES (Positive Colorimetric Reaction)"
+                                            value=""
                                         >
                                     </div>
                                 </div>
@@ -3625,7 +3625,7 @@
             if (results.length > 0) {
                 inputEl.value = `YES (${results.join('; ')})`;
             } else {
-                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+                inputEl.value = '';
             }
         }
 
@@ -5078,7 +5078,6 @@
         function processNewArrested(confirmDuplicate = false) {
             // Check global lock immediately to prevent duplicate submissions on double-click
             if (isCaseSubmitting) {
-                console.warn('Case submission already in progress. Ignoring duplicate click.');
                 return;
             }
 
@@ -5119,7 +5118,7 @@
             const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
                 ? caseTitleInput.trim()
                 : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
-            const caseRef = 'NCC-2026-' + Math.floor(1000 + Math.random() * 9000);
+            const caseRef = document.getElementById('labCaseReferenceInput')?.value || ('NCC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000));
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
             const spousePhone = document.getElementById('newArrestedSpousePhone')?.value || '';
@@ -5393,14 +5392,14 @@
             const vehMods = primarySeizure.veh?.mods || '';
             const vehFeatures = primarySeizure.veh?.features || '';
 
-            let presumptiveVal = 'YES (Positive Colorimetric Reaction)';
+            let presumptiveVal = null;
             const yesBox = document.getElementById('presumptiveTestYes');
             const noBox = document.getElementById('presumptiveTestNo');
             if (noBox && noBox.checked) {
                 presumptiveVal = 'NO (Negative Reaction)';
             } else if (yesBox && yesBox.checked) {
                 const customResult = document.getElementById('presumptiveReactionResultInput')?.value;
-                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES (Positive Colorimetric Reaction)';
+                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : null;
             }
 
             // Collect all suspects (Suspect #1 + any additional)
@@ -5611,6 +5610,7 @@
                     status: 'Under Multi-Unit Processing',
                     location: `${raidLocation} (${address})`,
                     description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
+                    arresting_officer: primarySeizure.seizure_officer || null,
                     submitting_officer: primarySeizure.seizure_officer || null,
                     confirm_duplicate: confirmDuplicate ? 1 : 0
                 })
@@ -5694,7 +5694,6 @@
             .catch(err => {
                 setSubmittingState(false);
                 if (err.message === 'DUPLICATE_CASE_INTERCEPTED' || err.message === 'SESSION_EXPIRED') return;
-                console.error('Error saving case:', err);
                 const msg = err.message || 'An error occurred while saving the case. Please enter all required suspect details.';
                 const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
                 showValidationErrorPopover(errItems);
@@ -5734,9 +5733,7 @@
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-            } catch(e) {
-                console.warn('Could not save docket draft:', e);
-            }
+            } catch(e) {}
         }
 
         function handleDraftAndContinueLater() {
@@ -5832,9 +5829,7 @@
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
                 }
-            } catch(e) {
-                console.error('Error restoring docket draft:', e);
-            }
+            } catch(e) {}
         }
 
         function clearDocketFormDraft() {
@@ -5879,7 +5874,7 @@
             const modal = document.getElementById('successPopoverModal');
             const caseRefEl = document.getElementById('popoverCaseRef');
             if (caseRefEl) {
-                caseRefEl.textContent = ref || 'NCC-2026-4342';
+                caseRefEl.textContent = ref || '-';
             }
             if (modal) {
                 modal.classList.remove('hidden');
@@ -7763,9 +7758,7 @@
                             hideSuspectDuplicateNoticeCard();
                         }
                     }
-                } catch (e) {
-                    console.warn('Suspect duplicate check error:', e);
-                }
+                } catch (e) {}
             }, 400);
         }
 
@@ -7817,7 +7810,7 @@
             const mCase = data.matched_case || {};
             currentMatchedCaseNumber = mCase.case_number || null;
 
-            if (cRef) cRef.innerText = mCase.case_number || 'NCC-2026-XXXX';
+            if (cRef) cRef.innerText = mCase.case_number || 'NCC-{{ date('Y') }}-XXXX';
             if (cTitle) cTitle.innerText = mCase.title || 'Republic Vs Suspect';
             if (sName) sName.innerText = mCase.suspect_name || mCase.docket_data?.full_name || 'N/A';
             if (gCard) gCard.innerText = mCase.ghana_card || mCase.docket_data?.id_card || 'N/A';
@@ -8202,8 +8195,9 @@
 
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
-            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-'))) {
-                examRefInput.value = 'NLR-FM-T35-F';
+            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-') || examRefInput.value.startsWith('NLR-'))) {
+                const randExam = Math.floor(1000 + Math.random() * 9000);
+                examRefInput.value = 'NLA-FM-T' + randExam + '-F';
             }
 
             const name = selectedOption.getAttribute('data-name') || '';
@@ -8764,7 +8758,7 @@
                         Crime Scene Data Saved Successfully!
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-2026-4342</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
+                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-{{ date('Y') }}-XXXX</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
                     </p>
                 </div>
             </div>
@@ -8859,7 +8853,7 @@
                 <div class="flex items-center justify-between border-b border-amber-200/60 pb-2">
                     <div>
                         <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Matched Case Number</span>
-                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">NCC-2026-0000</div>
+                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">NCC-{{ date('Y') }}-0000</div>
                     </div>
                     <span id="dupModalScore" class="px-2.5 py-1 bg-amber-500 text-white font-mono-code font-bold text-[11px] rounded-full shadow-2xs">
                         95% Match

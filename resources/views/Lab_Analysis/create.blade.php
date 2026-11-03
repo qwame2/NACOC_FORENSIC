@@ -18,10 +18,10 @@
         $officerName =
             auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
         $examRefAuto = !empty($case->lab_exam_reference)
-            ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $case->lab_exam_reference)
-            : 'NLR-FM-T35-F';
-        $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
-        $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
+            ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($case->lab_exam_reference)
+            : app(\App\Services\CaseReferenceService::class)->generateExamReference('Lab Analysis');
+        $labNumberAuto = app(\App\Services\CaseReferenceService::class)->generateLabNumber();
+        $caseRefAuto = app(\App\Services\CaseNumberService::class)->generate();
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
         $isDrugCase = true;
@@ -286,13 +286,12 @@
                                 class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">LAB
                                 ANALYSIS UNIT</span>
                             <span class="text-xs text-slate-400">&bull;</span>
-                            <span class="text-xs font-bold text-slate-700 font-mono-code">CHEMISTRY &amp; NARCOTICS
-                                COMMAND</span>
+
                         </div>
-                        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Lab Analysis &amp; Chemical
-                            Sample Intake Portal</h1>
+                        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Arrested Person (Suspect
+                            Docket Portal)</h1>
                         <p class="text-xs text-slate-500 mt-1">Official Registration of Narcotic Exhibits, Seized
-                            Chemical Samples &amp; Laboratory Assay Dockets</p>
+                            Drug Samples &amp; Laboratory Assay Dockets</p>
                     </div>
                 </div>
 
@@ -5554,54 +5553,78 @@
                             </div>
                         </div>
 
-                        <!-- GSA DETAILS: GSA Lab No., GSA Case Reference & GSA Status -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                            <!-- GSA Lab No. -->
-                            <div class="space-y-1.5">
-                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
-                                        </svg>
-                                        GSA Lab No.
-                                    </span>
-                                    <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Official No.</span>
-                                </label>
-                                <input type="text" id="gsaLabNumberInput" name="gsa_lab_number"
-                                    placeholder="Enter GSA Lab No. (e.g. GSA/LAB/2026/0892)"
-                                    class="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-xs shadow-2xs">
+                        <!-- GSA DETAILS: GSA Lab No., GSA Case Reference, GSA Status & Exhibit Types -->
+                        <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <!-- GSA Lab No. -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                            </svg>
+                                            GSA Lab No.
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Official No.</span>
+                                    </label>
+                                    <input type="text" id="gsaLabNumberInput" name="gsa_lab_number"
+                                        placeholder="Enter GSA Lab No. (e.g. GSA/LAB/2026/0892)"
+                                        class="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-xs shadow-2xs">
+                                </div>
+
+                                <!-- GSA Case Reference -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            GSA Case Reference
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded font-bold uppercase">Reference</span>
+                                    </label>
+                                    <textarea id="gsaCaseReferenceInput" name="gsa_case_reference" rows="2"
+                                        placeholder="Enter GSA Case Reference details..."
+                                        class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                                </div>
+
+                                <!-- GSA Status -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            GSA Status
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Status</span>
+                                    </label>
+                                    <textarea id="gsaStatusInput" name="gsa_status" rows="2"
+                                        placeholder="Enter GSA Status (e.g. Analysis Complete, Certified...)"
+                                        class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                                </div>
                             </div>
 
-                            <!-- GSA Case Reference -->
-                            <div class="space-y-1.5">
-                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5">
+                            <!-- Exhibit Types Container -->
+                            <div class="pt-3 border-t border-blue-200/60 space-y-2" id="gsaExhibitTypesSection">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                         </svg>
-                                        GSA Case Reference
-                                    </span>
-                                    <span class="text-[9px] font-mono-code text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded font-bold uppercase">Reference</span>
-                                </label>
-                                <textarea id="gsaCaseReferenceInput" name="gsa_case_reference" rows="2"
-                                    placeholder="Enter GSA Case Reference details..."
-                                    class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
-                            </div>
-
-                            <!-- GSA Status -->
-                            <div class="space-y-1.5">
-                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
-                                    <span class="flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        GSA Status
-                                    </span>
-                                    <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Status</span>
-                                </label>
-                                <textarea id="gsaStatusInput" name="gsa_status" rows="2"
-                                    placeholder="Enter GSA Status (e.g. Analysis Complete, Certified...)"
-                                    class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                                        <span>Exhibit Type</span>
+                                    </label>
+                                    <button type="button" onclick="addGsaExhibitTypeInput()" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono-code font-bold uppercase text-blue-700 bg-blue-100 hover:bg-blue-200 active:scale-95 rounded-lg border border-blue-200 transition-all cursor-pointer">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        <span>Add Exhibit Type</span>
+                                    </button>
+                                </div>
+                                <div id="gsaExhibitTypeList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -6000,7 +6023,7 @@
                                         <!-- Hidden Presumptive Reaction Result for Form Submission -->
                                         <input type="hidden" id="presumptiveReactionResultInput"
                                             name="presumptive_reaction_result_input"
-                                            value="YES (Positive Colorimetric Reaction)">
+                                            value="">
                                     </div>
                                 </div>
                             </div>
@@ -6368,14 +6391,14 @@
                 gsaBtn.classList.remove('ring-2', 'ring-blue-400');
             }
 
-            // Ensure Analysis / Examination Reference in Section 5 uses the NLR reference form instead of GSA form
+            // Ensure Analysis / Examination Reference in Section 5 uses the NLA reference form
             const examRefInput = document.getElementById('labExamReferenceInput');
             if (examRefInput) {
                 if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
-                    const randNum = 35;
-                    examRefInput.value = `NLR-FM-T${randNum}-F`;
-                } else if (examRefInput.value.startsWith('GSA-')) {
-                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-').replace('T28', 'T35');
+                    const randNum = Math.floor(1000 + Math.random() * 9000);
+                    examRefInput.value = `NLA-FM-T${randNum}-F`;
+                } else if (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-')) {
+                    examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
                 }
             }
 
@@ -6498,6 +6521,30 @@
             gsaUpdateCount();
         }
 
+        function addGsaExhibitTypeInput() {
+            const list = document.getElementById('gsaExhibitTypeList');
+            if (!list) return;
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-1.5 gsa-exhibit-type-row';
+            row.innerHTML = `
+                <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                    class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                <button type="button" onclick="removeGsaExhibitTypeInput(this)" class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl border border-red-200 transition-all shrink-0 cursor-pointer" title="Remove">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            list.appendChild(row);
+            const input = row.querySelector('input');
+            if (input) input.focus();
+        }
+
+        function removeGsaExhibitTypeInput(btn) {
+            const row = btn?.closest('.gsa-exhibit-type-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
         function clearAllGsaFiles() {
             gsaFilesMap = {};
             const grid = document.getElementById('gsaFileGrid');
@@ -6510,6 +6557,14 @@
             if (gsaCaseRef) gsaCaseRef.value = '';
             const gsaStatus = document.getElementById('gsaStatusInput');
             if (gsaStatus) gsaStatus.value = '';
+            const exhibitList = document.getElementById('gsaExhibitTypeList');
+            if (exhibitList) {
+                exhibitList.innerHTML = `
+                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                    </div>`;
+            }
             gsaUpdateCount();
         }
 
@@ -6583,6 +6638,15 @@
             if (gsaStatusVal) {
                 formData.append('gsa_status', gsaStatusVal);
             }
+
+            const exhibitInputs = document.querySelectorAll('#gsaExhibitTypeList .gsa-exhibit-type-input');
+            exhibitInputs.forEach(input => {
+                const val = input.value?.trim();
+                if (val) {
+                    formData.append('exhibit_type[]', val);
+                }
+            });
+
             formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}');
 
             if (fileKeys.length > 0) {
@@ -6611,11 +6675,9 @@
                 const result = await res.json().catch(() => ({}));
                 if (res.ok && result.success) {
                     clearAllGsaFiles();
-                } else {
-                    console.warn('GSA report auto-upload notice:', result.message);
                 }
             } catch (err) {
-                console.error('Error auto-uploading GSA report with case save:', err);
+                // Silently ignore auto-upload errors
             }
         }
 
@@ -6881,7 +6943,7 @@
             if (results.length > 0) {
                 inputEl.value = `YES (${results.join('; ')})`;
             } else {
-                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+                inputEl.value = '';
             }
         }
 
@@ -8387,7 +8449,6 @@
         function processNewArrested(confirmDuplicate = false) {
             // Check global lock immediately to prevent duplicate submissions on double-click
             if (isCaseSubmitting) {
-                console.warn('Case submission already in progress. Ignoring duplicate click.');
                 return;
             }
 
@@ -8432,7 +8493,7 @@
             const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
                 ? caseTitleInput.trim()
                 : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
-            const caseRef = 'NCC-2026-' + Math.floor(1000 + Math.random() * 9000);
+            const caseRef = document.getElementById('labCaseReferenceInput')?.value || ('NCC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000));
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
             const spousePhone = document.getElementById('newArrestedSpousePhone')?.value || '';
@@ -8752,15 +8813,14 @@
             const vehMods = primarySeizure.veh?.mods || '';
             const vehFeatures = primarySeizure.veh?.features || '';
 
-            let presumptiveVal = 'YES (Positive Colorimetric Reaction)';
+            let presumptiveVal = null;
             const yesBox = document.getElementById('presumptiveTestYes');
             const noBox = document.getElementById('presumptiveTestNo');
             if (noBox && noBox.checked) {
                 presumptiveVal = 'NO (Negative Reaction)';
             } else if (yesBox && yesBox.checked) {
                 const customResult = document.getElementById('presumptiveReactionResultInput')?.value;
-                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() :
-                    'YES (Positive Colorimetric Reaction)';
+                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : null;
             }
 
             // Collect all suspects (Suspect #1 + any additional)
@@ -8992,6 +9052,7 @@
                         status: 'Under Multi-Unit Processing',
                         location: `${raidLocation} (${address})`,
                         description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
+                        arresting_officer: primarySeizure.seizure_officer || null,
                         submitting_officer: primarySeizure.seizure_officer || null,
                         confirm_duplicate: confirmDuplicate ? 1 : 0
                     })
@@ -9079,7 +9140,6 @@
                 .catch(err => {
                     setSubmittingState(false);
                     if (err.message === 'DUPLICATE_CASE_INTERCEPTED' || err.message === 'SESSION_EXPIRED') return;
-                    console.error('Error saving case:', err);
                     const msg = err.message ||
                         'An error occurred while saving the case. Please enter all required suspect details.';
                     const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
@@ -9121,9 +9181,7 @@
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-            } catch (e) {
-                console.warn('Could not save docket draft:', e);
-            }
+            } catch (e) {}
         }
 
         function handleDraftAndContinueLater() {
@@ -9221,9 +9279,7 @@
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
                 }
-            } catch (e) {
-                console.error('Error restoring docket draft:', e);
-            }
+            } catch (e) {}
         }
 
         function clearDocketFormDraft() {
@@ -9268,7 +9324,7 @@
             const modal = document.getElementById('successPopoverModal');
             const caseRefEl = document.getElementById('popoverCaseRef');
             if (caseRefEl) {
-                caseRefEl.textContent = ref || 'NCC-2026-4342';
+                caseRefEl.textContent = ref || '-';
             }
             if (modal) {
                 modal.classList.remove('hidden');
@@ -11137,6 +11193,17 @@
                 if (raidRefInput) raidRefInput.value = refParam;
             }
 
+            const modeParam = urlParams.get('mode') || urlParams.get('action');
+            if (modeParam === 'nlr' || urlParams.get('section') === '5') {
+                if (typeof switchToNlrExamSection === 'function') {
+                    setTimeout(() => switchToNlrExamSection(), 200);
+                }
+            } else if (modeParam === 'gsa' || urlParams.get('section') === 'gsa') {
+                if (typeof switchToGsaUploadSection === 'function') {
+                    setTimeout(() => switchToGsaUploadSection(), 200);
+                }
+            }
+
             const dropzone = document.getElementById('seizurePhotoDropzone');
             if (dropzone) {
                 ['dragenter', 'dragover'].forEach(eventName => {
@@ -11233,9 +11300,7 @@
                             hideSuspectDuplicateNoticeCard();
                         }
                     }
-                } catch (e) {
-                    console.warn('Suspect duplicate check error:', e);
-                }
+                } catch (e) {}
             }, 400);
         }
 
@@ -11288,7 +11353,7 @@
             const mCase = data.matched_case || {};
             currentMatchedCaseNumber = mCase.case_number || null;
 
-            if (cRef) cRef.innerText = mCase.case_number || 'NCC-2026-XXXX';
+            if (cRef) cRef.innerText = mCase.case_number || 'NCC-{{ date('Y') }}-XXXX';
             if (cTitle) cTitle.innerText = mCase.title || 'Republic Vs Suspect';
             if (sName) sName.innerText = mCase.suspect_name || mCase.docket_data?.full_name || 'N/A';
             if (gCard) gCard.innerText = mCase.ghana_card || mCase.docket_data?.id_card || 'N/A';
@@ -11716,10 +11781,10 @@
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
             if (examRefInput) {
                 if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
-                    const randNum = 35;
-                    examRefInput.value = `NLR-FM-T${randNum}-F`;
-                } else if (examRefInput.value.startsWith('GSA-')) {
-                    examRefInput.value = examRefInput.value.replace(/^GSA-/, 'NLR-').replace('T28', 'T35');
+                    const randNum = Math.floor(1000 + Math.random() * 9000);
+                    examRefInput.value = `NLA-FM-T${randNum}-F`;
+                } else if (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-')) {
+                    examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
                 }
             }
 
@@ -12346,7 +12411,7 @@
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
                         Official Suspect Arrested Docket <span id="popoverCaseRef"
-                            class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-2026-4342</span>
+                            class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-{{ date('Y') }}-XXXX</span>
                         has been saved. The other 3 forensic units can now access, build on, and submit their findings
                         before final HOF approval.
                     </p>
@@ -12472,7 +12537,7 @@
                         <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Matched Case
                             Number</span>
                         <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">
-                            NCC-2026-0000</div>
+                            NCC-{{ date('Y') }}-0000</div>
                     </div>
                     <span id="dupModalScore"
                         class="px-2.5 py-1 bg-amber-500 text-white font-mono-code font-bold text-[11px] rounded-full shadow-2xs">

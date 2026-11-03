@@ -592,7 +592,6 @@
                 }
             } catch (err) {
                 // If fetch fails (e.g. network error), fallback to normal form submission
-                console.warn('AJAX login error, submitting via standard POST:', err);
                 form.submit();
             }
         }

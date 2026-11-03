@@ -801,7 +801,7 @@
 
                                 <div>
                                     <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">
-                                        Seizure / Raid Location
+                                        Location of Arrest
                                     </p>
                                     <p class="mt-1 text-xs font-medium text-slate-800">
                                         {{ $raidLoc }}
@@ -1327,7 +1327,7 @@
                     parentContainer.removeChild(insertTarget);
 
                 } catch (err) {
-                    console.error('PDF.js render error:', err);
+                    // Silently ignore PDF render error
                 }
             }
 

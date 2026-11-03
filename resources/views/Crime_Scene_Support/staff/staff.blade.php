@@ -534,10 +534,6 @@
                     row.style.display = 'none';
                 }
             });
-
-            if (eventName !== 'All Events') {
-                console.log(`Filtered by Event: ${eventName}`);
-            }
         }
 
         function toggleEvidenceModal() {

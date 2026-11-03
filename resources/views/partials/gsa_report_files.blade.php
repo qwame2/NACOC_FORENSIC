@@ -42,6 +42,13 @@
                                 {{ $gsaF->file_size_label }} &bull;
                                 {{ $gsaF->created_at ? $gsaF->created_at->format('M d, Y H:i') : 'Attached' }}
                             </div>
+                            @if (!empty($gsaF->exhibit_type))
+                                <div class="mt-0.5 flex items-center gap-1">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-200 truncate max-w-full" title="Exhibit Type: {{ $gsaF->exhibit_type }}">
+                                        Exhibit Type: {{ $gsaF->exhibit_type }}
+                                    </span>
+                                </div>
+                            @endif
                         </div>
                     </div>
                     @php

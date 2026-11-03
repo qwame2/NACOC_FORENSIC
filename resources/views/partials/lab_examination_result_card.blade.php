@@ -1,11 +1,19 @@
 @php
     $sDossierLabExam = $labExam ?? ($sDossierLabExam ?? []);
     $headingName = $labHeadingName ?? ($labExamHeadingName ?? ($sName ?? 'Primary Suspect'));
+    $hasLabData = !empty($sDossierLabExam) && (
+        !empty($sDossierLabExam['has_saved']) ||
+        !empty($sDossierLabExam['has_saved_lab']) ||
+        !empty($sDossierLabExam['exam_reference']) ||
+        !empty($sDossierLabExam['laboratory_number']) ||
+        !empty($sDossierLabExam['substance_identification']) ||
+        !empty($sDossierLabExam['presumptive_result'])
+    );
 @endphp
 
-@if (!empty($sDossierLabExam))
+@if ($hasLabData)
     <!-- LABORATORY EXAMINATION RESULT FOR {{ strtoupper($headingName) }} -->
-    <div class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-4">
+    <div id="labCard-{{ strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $headingName)) }}" data-lab-card="true" class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-4">
         <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
             <div class="flex items-center space-x-3">
                 <div
@@ -35,7 +43,7 @@
                         Analysis Reference:</td>
                     <td
                         class="p-2.5 font-black text-emerald-900 font-mono-code border-r border-slate-300 w-3/10">
-                        {{ !empty($sDossierLabExam['exam_reference']) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $sDossierLabExam['exam_reference']) : 'NLR-FM-T35-F' }}</td>
+                        {{ !empty($sDossierLabExam['exam_reference']) ? (str_starts_with(trim($sDossierLabExam['exam_reference']), 'GSA-') ? str_replace('GSA-', 'NLR-', $sDossierLabExam['exam_reference']) : $sDossierLabExam['exam_reference']) : app(\App\Services\CaseReferenceService::class)->resolveExamReference($case ?? null, $sDossierLabExam ?? []) }}</td>
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
                         Exhibit Number:</td>
@@ -73,16 +81,39 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Examination Timeline:</td>
                     <td class="p-2 bg-white">
+                        @php
+                            $caseInc = !empty($case->incident_date)
+                                ? (is_object($case->incident_date) ? $case->incident_date->format('Y-m-d') : substr((string)$case->incident_date, 0, 10))
+                                : null;
+                            $caseCre = isset($case) && $case->created_at
+                                ? (is_object($case->created_at) ? $case->created_at->format('Y-m-d') : substr((string)$case->created_at, 0, 10))
+                                : date('Y-m-d');
+                            $caseUp = isset($case) && $case->updated_at
+                                ? (is_object($case->updated_at) ? $case->updated_at->format('Y-m-d') : substr((string)$case->updated_at, 0, 10))
+                                : date('Y-m-d');
+
+                            $rawRec = $sDossierLabExam['date_received'] ?? ($sDossierLabExam['lab_date_received'] ?? null);
+                            $timelineReceived = (!empty($rawRec) && $rawRec !== 'N/A')
+                                ? (is_object($rawRec) ? $rawRec->format('Y-m-d') : substr((string)$rawRec, 0, 10))
+                                : ($caseInc ?: $caseCre);
+
+                            $rawStart = $sDossierLabExam['date_started'] ?? ($sDossierLabExam['lab_date_started'] ?? null);
+                            $timelineStarted = (!empty($rawStart) && $rawStart !== 'N/A')
+                                ? (is_object($rawStart) ? $rawStart->format('Y-m-d') : substr((string)$rawStart, 0, 10))
+                                : $timelineReceived;
+
+                            $rawComp = $sDossierLabExam['date_completed'] ?? ($sDossierLabExam['lab_date_completed'] ?? null);
+                            $timelineCompleted = (!empty($rawComp) && $rawComp !== 'N/A')
+                                ? (is_object($rawComp) ? $rawComp->format('Y-m-d') : substr((string)$rawComp, 0, 10))
+                                : ($caseUp ?: $timelineStarted);
+                        @endphp
                         <div
                             class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
-                            <span>Received: <strong
-                                    class="text-blue-900">{{ $sDossierLabExam['date_received'] ?? 'N/A' }}</strong></span>
+                            <span>Received: <strong class="text-blue-900">{{ $timelineReceived }}</strong></span>
                             <span>|</span>
-                            <span>Started: <strong
-                                    class="text-amber-900">{{ $sDossierLabExam['date_started'] ?? 'N/A' }}</strong></span>
+                            <span>Started: <strong class="text-amber-900">{{ $timelineStarted }}</strong></span>
                             <span>|</span>
-                            <span>Completed: <strong
-                                    class="text-emerald-900">{{ $sDossierLabExam['date_completed'] ?? 'N/A' }}</strong></span>
+                            <span>Completed: <strong class="text-emerald-900">{{ $timelineCompleted }}</strong></span>
                         </div>
                     </td>
                 </tr>
@@ -232,13 +263,16 @@
                         Confirmatory Test:</td>
                     <td class="p-2.5 font-black text-emerald-900">
                         @php
-                            $confVal = strtoupper(
-                                trim(
-                                    (string) ($sDossierLabExam['confirmatory_result'] ?? 'YES'),
-                                ),
-                            );
+                            $rawConf = $sDossierLabExam['confirmatory_result'] ?? ($sDossierLabExam['confirmatory'] ?? null);
+                            $confVal = !empty($rawConf) && $rawConf !== 'N/A' ? strtoupper(trim((string)$rawConf)) : null;
                         @endphp
-                        <span class="font-bold {{ $confVal !== 'NO' ? 'text-emerald-700' : 'text-red-700' }}">{{ $confVal !== 'NO' ? 'YES' : 'NO' }}</span>
+                        @if ($confVal === 'YES')
+                            <span class="font-bold text-emerald-700">YES</span>
+                        @elseif ($confVal === 'NO')
+                            <span class="font-bold text-red-700">NO</span>
+                        @else
+                            <span class="font-bold text-slate-500">N/A</span>
+                        @endif
                     </td>
                 </tr>
                 <tr class="bg-slate-100/90 border-b border-slate-300">

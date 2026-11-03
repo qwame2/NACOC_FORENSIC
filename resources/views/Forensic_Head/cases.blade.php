@@ -176,7 +176,8 @@
                         @php
                             $pendingCasesNotif = (int)(\App\Models\ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count());
                             $pendingUsersNotif = (int)(\App\Models\User::where('is_approved', false)->count());
-                            $totalAlertsCount = $pendingCasesNotif + $pendingUsersNotif + 1;
+                            $pendingHandoversNotif = (int)(\App\Models\CaseHandover::whereNull('acknowledged_at')->count());
+                            $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0) + ($pendingUsersNotif > 0 ? 1 : 0) + ($pendingHandoversNotif > 0 ? 1 : 0);
                         @endphp
                         <button type="button" id="notificationBellBtn" onclick="toggleNotificationDropdown()" class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors relative border-none bg-transparent cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,7 +186,7 @@
                             @if($totalAlertsCount > 0)
                                 <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
                             @endif
-                        </a>
+                        </button>
 
                         <!-- NOTIFICATIONS & GENERAL ALERTS DROPDOWN MENU -->
                         <div id="notificationDropdown" class="hidden absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden font-sans">
@@ -211,7 +212,7 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-[10px] font-extrabold font-mono-code text-amber-700 uppercase">Case Approvals</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">JUST NOW</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
                                             @if($pendingCasesNotif > 0)
@@ -238,7 +239,7 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account Control</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">TODAY</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
                                             @if($pendingUsersNotif > 0)
@@ -265,10 +266,22 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Evidence Vault</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">3 MIN AGO</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">4 Barcoded Exhibits Transferred to Vault</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Inter-unit evidence transfer received from Crime Scene Support Unit.</div>
+                                        <div class="text-xs font-bold text-slate-900 truncate">
+                                            @if($pendingHandoversNotif > 0)
+                                                {{ $pendingHandoversNotif }} Pending Evidence Transfer(s)
+                                            @else
+                                                All Custody Transfers Acknowledged
+                                            @endif
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                            @if($pendingHandoversNotif > 0)
+                                                Chain of custody handovers awaiting recipient acknowledgment.
+                                            @else
+                                                Evidence vault records and chain of custody are up to date.
+                                            @endif
+                                        </div>
                                     </div>
                                 </a>
 
@@ -282,8 +295,8 @@
                                             <span class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Chain Integrity Audit</span>
                                             <span class="text-[9px] font-bold text-emerald-600 font-mono-code">SYSTEM OK</span>
                                         </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">100% Tamper-Free Hash Audit Verified</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">SHA-256 digital hashes matched across all 4 forensic unit databases.</div>
+                                        <div class="text-xs font-bold text-slate-900 truncate">Chain of Custody Verified</div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Audit trail active and synchronized across forensic directorates.</div>
                                     </div>
                                 </div>
 
@@ -799,43 +812,6 @@
                             {{ $cases->links() }}
                         </div>
                     @endif
-
-                    <!-- PAGINATION FOOTER PANEL -->
-                    <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
-                        <!-- LEFT: Rows selector & Range text -->
-                        <div class="flex items-center space-x-3 text-slate-600">
-                            <div class="flex items-center space-x-1.5">
-                                <span class="text-slate-500 font-bold uppercase text-[10px]">Rows:</span>
-                                <select id="perPageSelect" onchange="changePerPage(this.value)" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-extrabold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 shadow-2xs cursor-pointer">
-                                    <option value="10" selected>10</option>
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                </select>
-                            </div>
-                            <span class="text-slate-300">|</span>
-                            <div>
-                                Showing <span id="paginationRange" class="font-extrabold text-slate-900">0 - 0</span> of <span id="paginationTotal" class="font-extrabold text-slate-900">0</span> records
-                            </div>
-                        </div>
-
-                        <!-- RIGHT: Navigation Buttons -->
-                        <div class="flex items-center space-x-1.5" id="paginationControls">
-                            <button id="prevPageBtn" onclick="goToPage(currentPage - 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                                <span>Prev</span>
-                            </button>
-                            
-                            <div id="pageNumbersContainer" class="flex items-center space-x-1">
-                                <!-- Dynamic page number buttons -->
-                            </div>
-
-                            <button id="nextPageBtn" onclick="goToPage(currentPage + 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
-                                <span>Next</span>
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
             </main>
@@ -928,8 +904,6 @@
     <script>
         let currentUnitFilter = 'ALL';
         let currentStatusFilter = 'ALL';
-        let currentPage = 1;
-        let itemsPerPage = 10;
         let activeInspectRef = null;
 
         function updateClock() {
@@ -945,7 +919,7 @@
             const searchInput = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
             const rows = Array.from(document.querySelectorAll('#casesTableBody .case-row'));
 
-            let matchingRows = [];
+            let visibleCount = 0;
             rows.forEach(row => {
                 const text = row.innerText.toLowerCase();
                 const unit = row.getAttribute('data-unit') || '';
@@ -956,38 +930,17 @@
                 const matchesStatus = (currentStatusFilter === 'ALL' || status === currentStatusFilter);
 
                 if (matchesSearch && matchesUnit && matchesStatus) {
-                    matchingRows.push(row);
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            const totalMatching = matchingRows.length;
-            const totalPages = Math.max(1, Math.ceil(totalMatching / itemsPerPage));
-
-            if (currentPage > totalPages) currentPage = totalPages;
-            if (currentPage < 1) currentPage = 1;
-
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = Math.min(startIndex + itemsPerPage, totalMatching);
-
-            matchingRows.forEach((row, index) => {
-                if (index >= startIndex && index < endIndex) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                 }
             });
 
-            updatePaginationUI(startIndex, endIndex, totalMatching, totalPages);
-        }
-
-        function updatePaginationUI(startIndex, endIndex, totalMatching, totalPages) {
             const visibleCountEl = document.getElementById('visibleCaseCount');
-            if (visibleCountEl) visibleCountEl.innerText = totalMatching;
+            if (visibleCountEl) visibleCountEl.innerText = visibleCount;
 
             const badge = document.getElementById('activeFilterBadge');
-            const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
             if (badge) {
                 if (searchInput || currentUnitFilter !== 'ALL' || currentStatusFilter !== 'ALL') {
                     badge.classList.remove('hidden');
@@ -995,48 +948,19 @@
                     badge.classList.add('hidden');
                 }
             }
-
-            const rangeEl = document.getElementById('paginationRange');
-            if (rangeEl) {
-                rangeEl.innerText = totalMatching > 0 ? `${startIndex + 1} - ${endIndex}` : '0 - 0';
-            }
-
-            const totalEl = document.getElementById('paginationTotal');
-            if (totalEl) totalEl.innerText = totalMatching;
-
-            const prevBtn = document.getElementById('prevPageBtn');
-            if (prevBtn) prevBtn.disabled = (currentPage <= 1);
-
-            const nextBtn = document.getElementById('nextPageBtn');
-            if (nextBtn) nextBtn.disabled = (currentPage >= totalPages || totalMatching === 0);
-
-            const pageContainer = document.getElementById('pageNumbersContainer');
-            if (pageContainer) {
-                let pagesHtml = '';
-                const maxVisibleButtons = 5;
-                let startPage = Math.max(1, currentPage - 2);
-                let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
-                if (endPage - startPage < maxVisibleButtons - 1) {
-                    startPage = Math.max(1, endPage - maxVisibleButtons + 1);
-                }
-
-                for (let i = startPage; i <= endPage; i++) {
-                    const isActive = (i === currentPage);
-                    pagesHtml += `<button onclick="goToPage(${i})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-blue-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}">${i}</button>`;
-                }
-                pageContainer.innerHTML = pagesHtml;
-            }
         }
 
         function goToPage(page) {
-            currentPage = page;
-            filterCases();
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', page);
+            window.location.href = url.toString();
         }
 
         function changePerPage(val) {
-            itemsPerPage = parseInt(val, 10) || 10;
-            currentPage = 1;
-            filterCases();
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', val);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
         }
 
         function filterUnit(unitName, element) {
@@ -1105,7 +1029,7 @@
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
                     });
                 } catch (e) {
-                    console.error(e);
+                    // Silently handle error
                 }
                 approveCase(ref);
                 closeInspectModal();
@@ -1122,7 +1046,7 @@
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
                     });
                 } catch (e) {
-                    console.error(e);
+                    // Silently handle error
                 }
                 declineCase(ref);
                 closeInspectModal();
@@ -1148,7 +1072,6 @@
                     showToast('Error Declining Case', data.message || 'Could not decline case.');
                 }
             } catch (e) {
-                console.error(e);
                 showToast('Connection Error', `Error declining case ${ref}.`);
             }
         }
@@ -1187,7 +1110,6 @@
                     showToast('Error Approving Case', data.message || 'Could not approve case.');
                 }
             } catch (e) {
-                console.error(e);
                 showToast('Connection Error', `Error approving case ${ref}.`);
             }
         }
@@ -1219,7 +1141,6 @@
                     showToast('Batch Approve Failed', data.message || 'Error processing request.');
                 }
             } catch (e) {
-                console.error(e);
                 showToast('Connection Error', 'Failed to communicate with server.');
             }
         }
@@ -1599,7 +1520,7 @@
 
                 filterCases();
             } catch (e) {
-                console.warn('Cases table polling failed:', e);
+                // Background polling failure handled silently
             }
         }
 

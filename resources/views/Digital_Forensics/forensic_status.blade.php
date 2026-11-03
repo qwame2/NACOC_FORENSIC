@@ -71,10 +71,490 @@
         ];
     };
 
+    // WHY: The Case Reference dropdown is scoped to the Digital & Physical Forensics Unit.
+    // It must only list suspects whose linked exhibit category is the electronic-devices
+    // category — not entire cases and not suspects tied to other exhibit types.
+    //
+    // In a multi-suspect case like REF-001 where Suspect A has a drug exhibit and
+    // Suspect B has an electronic exhibit, ONLY Suspect B should appear here.
+    // Listing the full case would let an examiner attach digital work to the wrong
+    // suspect, breaking the chain of custody and audit trail.
+    //
+    // The category value is read from config('forensic.exhibit_categories.electronic_devices')
+    // and is never hardcoded — see config/forensic.php for the canonical list.
+
+    // WHY: The exhibit category is read from config, never hardcoded. If the wording
+    // of 'Electronic Devices' is ever changed (renamed, translated, or variant added),
+    // only config/forensic.php needs to be updated — not this query, not the view,
+    // not any other consumer. A hardcoded string would silently break every filter
+    // that depends on it.
+    $electronicCategory = config('forensic.exhibit_categories.electronic_devices');
+    $digitalUnitName = config('forensics.units.DPFU.name') ?? (\App\Enums\UnitName::DIGITAL_PHYSICAL_FORENSICS->value ?? 'Digital & Physical Forensics');
+    $exhibitCategoryColumn = 'exhibit_category';
+
+    $isMatchingCategory = function($cat) use ($electronicCategory) {
+        if (empty($cat) || empty($electronicCategory)) return false;
+        $cTrim = trim((string)$cat);
+        $eTrim = trim((string)$electronicCategory);
+        return (strcasecmp($cTrim, $eTrim) === 0) || (stripos($cTrim, $eTrim) !== false);
+    };
+
+    $dropdownCandidates = [];
     $caseMapData = [];
-    foreach ($cases as $cItem) {
+
+    foreach ($allCases as $cItem) {
         $cNo = $cItem->case_number ?? ($cItem['case_number'] ?? '');
         if (empty($cNo)) continue;
+
+        $savedForCase = $savedReports->firstWhere('case_number', $cNo);
+        $dData = is_array($cItem->docket_data) ? $cItem->docket_data : (json_decode($cItem->docket_data ?? '[]', true) ?: []);
+
+        $isMulti = (isset($cItem->underlyingRecord) && $cItem->underlyingRecord instanceof \App\Models\MultipleSuspectCase)
+            || (method_exists($cItem, 'isMultipleSuspect') && $cItem->isMultipleSuspect())
+            || !empty($cItem->is_multiple);
+
+        $multiC = $isMulti
+            ? ($cItem->underlyingRecord instanceof \App\Models\MultipleSuspectCase ? $cItem->underlyingRecord : \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first())
+            : \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
+
+        $singleC = !$isMulti
+            ? ($cItem->underlyingRecord instanceof \App\Models\SingleSuspectCase ? $cItem->underlyingRecord : \App\Models\SingleSuspectCase::where('case_number', $cNo)->first())
+            : \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
+
+        if ($multiC) {
+            $allCaseExhibits = $multiC->exhibits()->get();
+            if ($allCaseExhibits->isEmpty() && isset($cItem->underlyingRecord) && isset($cItem->underlyingRecord->exhibits) && count($cItem->underlyingRecord->exhibits) > 0) {
+                $allCaseExhibits = collect($cItem->underlyingRecord->exhibits);
+            }
+            if ($allCaseExhibits->isEmpty() && method_exists($cItem, 'getRelation') && $cItem->relationLoaded('exhibits')) {
+                $allCaseExhibits = collect($cItem->getRelation('exhibits') ?: []);
+            }
+
+            $suspects = $multiC->suspects()->orderBy('suspect_number')->get();
+            if ($suspects->isEmpty() && !empty($dData['suspects']) && is_array($dData['suspects'])) {
+                $suspects = collect($dData['suspects'])->map(function($s, $idx) {
+                    return (object)[
+                        'id'            => $s['id'] ?? null,
+                        'suspect_name'  => $s['suspect_name'] ?? ('Suspect ' . ($idx + 1)),
+                        'suspect_alias' => $s['suspect_alias'] ?? null,
+                        'mugshot_front' => $s['mugshot_front'] ?? null,
+                        'role'          => $s['role'] ?? ($idx === 0 ? 'Primary Suspect' : 'Co-Suspect'),
+                        'raid_location' => $s['raid_location'] ?? null,
+                        'arrest_date'   => $s['arrest_date'] ?? null,
+                    ];
+                });
+            }
+
+            foreach ($suspects as $s) {
+                $sExhibits = $allCaseExhibits->filter(function($ex) use ($s, $suspects) {
+                    if (!empty($ex->suspect_id) && !empty($s->id)) {
+                        return (string)$ex->suspect_id === (string)$s->id;
+                    }
+                    if (!empty($ex->associated_person)) {
+                        if (str_contains(strtolower($ex->associated_person), 'all suspect')) {
+                            return true;
+                        }
+                        return strcasecmp(trim($ex->associated_person), trim($s->suspect_name)) === 0;
+                    }
+                    if (empty($ex->suspect_id) && empty($ex->associated_person)) {
+                        return ($s->role ?? '') === 'Primary Suspect' || count($suspects) === 1;
+                    }
+                    return false;
+                });
+
+                $sJsonSeizures = collect();
+                if (!empty($dData['seizures']) && is_array($dData['seizures'])) {
+                    foreach ($dData['seizures'] as $sz) {
+                        $belongs = false;
+                        if (!empty($sz['suspect_id']) && !empty($s->id) && (string)$sz['suspect_id'] === (string)$s->id) {
+                            $belongs = true;
+                        } elseif (!empty($sz['associated_person'])) {
+                            if (str_contains(strtolower($sz['associated_person']), 'all suspect')) {
+                                $belongs = true;
+                            } elseif (strcasecmp(trim($sz['associated_person']), trim($s->suspect_name)) === 0) {
+                                $belongs = true;
+                            }
+                        } elseif (empty($sz['suspect_id']) && empty($sz['associated_person']) && (($s->role ?? '') === 'Primary Suspect' || count($suspects) === 1)) {
+                            $belongs = true;
+                        }
+                        if ($belongs) {
+                            $sJsonSeizures->push((object)[
+                                $exhibitCategoryColumn => $sz['category'] ?? ($sz[$exhibitCategoryColumn] ?? null),
+                                'dev_model'            => $sz['dev_model'] ?? ($sz['commodity_name'] ?? ($sz['seizure_name'] ?? ($sz['name'] ?? null))),
+                                'seizure_quantity'     => $sz['seizure_quantity'] ?? null,
+                                'seizure_location'     => $sz['seizure_location'] ?? null,
+                                'seizure_date'         => $sz['seizure_date'] ?? null,
+                            ]);
+                        }
+                    }
+                }
+
+                $matchingEx = $sExhibits->filter(fn($ex) => $isMatchingCategory($ex->{$exhibitCategoryColumn} ?? ($ex->category ?? null)));
+                $matchingJson = $sJsonSeizures->filter(fn($sz) => $isMatchingCategory($sz->{$exhibitCategoryColumn} ?? null));
+
+                if ($matchingEx->isNotEmpty() || $matchingJson->isNotEmpty()) {
+                    $devList = [];
+                    $qtyList = [];
+                    foreach ($matchingEx as $ex) {
+                        $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_type ?: ($ex->{$exhibitCategoryColumn} ?: '')));
+                        $qty = !empty($ex->seizure_quantity) ? trim((string)$ex->seizure_quantity) : '';
+                        if (!empty($qty)) $qtyList[] = $qty;
+                        if (!empty($qty) && !empty($devName)) {
+                            $itemStr = preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName) ? $devName : ($qty . ' ' . $devName);
+                        } else {
+                            $itemStr = $devName ?: $qty;
+                        }
+                        $itemStr = trim((string)$itemStr);
+                        if (!empty($itemStr)) $devList[] = $itemStr;
+                    }
+                    if (empty($devList)) {
+                        foreach ($matchingJson as $sz) {
+                            $devName = !empty($sz->dev_model) ? $sz->dev_model : ($sz->commodity_name ?? ($sz->seizure_name ?? ($sz->name ?? ($sz->{$exhibitCategoryColumn} ?? ''))));
+                            $qty = !empty($sz->seizure_quantity) ? trim((string)$sz->seizure_quantity) : '';
+                            if (!empty($qty)) $qtyList[] = $qty;
+                            if (!empty($qty) && !empty($devName)) {
+                                $itemStr = preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName) ? $devName : ($qty . ' ' . $devName);
+                            } else {
+                                $itemStr = $devName ?: $qty;
+                            }
+                            $itemStr = trim((string)$itemStr);
+                            if (!empty($itemStr)) $devList[] = $itemStr;
+                        }
+                    }
+
+                    $sName = $s->suspect_name ?? 'Unknown Suspect';
+                    $sAlias = $s->suspect_alias ?? null;
+                    $sMug = $s->mugshot_front ?? null;
+                    $sRole = $s->role ?? null;
+                    $suspectId = $s->id ?? null;
+
+                    $sAliasDisplay = (!empty($sAlias) && strtoupper($sAlias) !== 'N/A') ? ' (' . $sAlias . ')' : '';
+                    if (!empty($sRole) && !str_starts_with($sName, $sRole)) {
+                        $suspectLabel = $sRole . ' (' . $sName . $sAliasDisplay . ')';
+                    } else {
+                        $suspectLabel = $sName . $sAliasDisplay;
+                    }
+
+                    $optValue = $suspectId ? ($cNo . '|' . $suspectId) : $cNo;
+                    $optLabel = $cNo . ' — ' . $suspectLabel;
+
+                    $dropdownCandidates[] = [
+                        'value'         => $optValue,
+                        'label'         => $optLabel,
+                        'case_number'   => $cNo,
+                        'suspect_id'    => $suspectId,
+                        'suspect_name'  => $sName,
+                        'suspect_alias' => $sAlias,
+                        'suspect_mug'   => $sMug,
+                        'role'          => $sRole,
+                        'devices'       => !empty($devList) ? implode(', ', array_unique($devList)) : ($electronicCategory . ' / Mobile Exhibits'),
+                        'qty'           => !empty($qtyList) ? implode(', ', array_unique($qtyList)) : '1',
+                        'location'      => $s->raid_location ?? ($multiC->raid_location ?? null),
+                        'date'          => $s->arrest_date ?? ($multiC->incident_date ?? null),
+                        'case_item'     => $cItem,
+                        'multi_case'    => $multiC,
+                        'single_case'   => null,
+                        'is_multi'      => true,
+                    ];
+                }
+            }
+        } else {
+            $singleExhibits = $singleC ? $singleC->exhibits()->get() : collect();
+            if ($singleExhibits->isEmpty() && isset($cItem->underlyingRecord) && isset($cItem->underlyingRecord->exhibits) && count($cItem->underlyingRecord->exhibits) > 0) {
+                $singleExhibits = collect($cItem->underlyingRecord->exhibits);
+            }
+            if ($singleExhibits->isEmpty() && method_exists($cItem, 'getRelation') && $cItem->relationLoaded('exhibits')) {
+                $singleExhibits = collect($cItem->getRelation('exhibits') ?: []);
+            }
+
+            $matchingSingleEx = $singleExhibits->filter(fn($ex) => $isMatchingCategory($ex->{$exhibitCategoryColumn} ?? ($ex->category ?? null)));
+            $matchingSingleJson = collect($dData['seizures'] ?? [])->filter(fn($sz) => $isMatchingCategory($sz['category'] ?? ($sz[$exhibitCategoryColumn] ?? null)));
+            $isCaseCatMatch = $isMatchingCategory($cItem->{$exhibitCategoryColumn} ?? null);
+
+            if ($matchingSingleEx->isNotEmpty() || $matchingSingleJson->isNotEmpty() || $isCaseCatMatch) {
+                $devList = [];
+                $qtyList = [];
+                foreach ($matchingSingleEx as $ex) {
+                    $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_type ?: ($ex->{$exhibitCategoryColumn} ?: '')));
+                    $qty = !empty($ex->seizure_quantity) ? trim((string)$ex->seizure_quantity) : '';
+                    if (!empty($qty)) $qtyList[] = $qty;
+                    if (!empty($qty) && !empty($devName)) {
+                        $itemStr = preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName) ? $devName : ($qty . ' ' . $devName);
+                    } else {
+                        $itemStr = $devName ?: $qty;
+                    }
+                    $itemStr = trim((string)$itemStr);
+                    if (!empty($itemStr)) $devList[] = $itemStr;
+                }
+                if (empty($devList)) {
+                    foreach ($matchingSingleJson as $sz) {
+                        $devName = !empty($sz['dev_model']) ? $sz['dev_model'] : ($sz['commodity_name'] ?? ($sz['seizure_name'] ?? ($sz['name'] ?? ($sz[$exhibitCategoryColumn] ?? ($sz['category'] ?? '')))));
+                        $qty = !empty($sz['seizure_quantity']) ? trim((string)$sz['seizure_quantity']) : '';
+                        if (!empty($qty)) $qtyList[] = $qty;
+                        if (!empty($qty) && !empty($devName)) {
+                            $itemStr = preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $devName) ? $devName : ($qty . ' ' . $devName);
+                        } else {
+                            $itemStr = $devName ?: $qty;
+                        }
+                        $itemStr = trim((string)$itemStr);
+                        if (!empty($itemStr)) $devList[] = $itemStr;
+                    }
+                }
+                if (empty($devList)) {
+                    $mainDev = $cItem->dev_model ?? ($cItem->seizure_name ?? null);
+                    if (!empty($mainDev)) {
+                        $qty = !empty($cItem->seizure_quantity) ? trim((string)$cItem->seizure_quantity) : '';
+                        if (!empty($qty)) $qtyList[] = $qty;
+                        $devList[] = !empty($qty) && !preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $mainDev) ? $qty . ' ' . $mainDev : $mainDev;
+                    }
+                }
+
+                $linkedSuspect = ($singleC && method_exists($singleC, 'suspects')) ? $singleC->suspects()->first() : null;
+                $sName = $linkedSuspect?->suspect_name ?? ($singleC?->suspect_name ?? ($cItem->suspect_name ?? ($dData['suspects'][0]['suspect_name'] ?? 'Unknown Suspect')));
+                $sAlias = $linkedSuspect?->suspect_alias ?? ($singleC?->suspect_alias ?? ($cItem->suspect_alias ?? ($dData['suspects'][0]['suspect_alias'] ?? null)));
+                $sMug = $linkedSuspect?->mugshot_front ?? ($singleC?->mugshot_front ?? ($cItem->mugshot_front ?? ($dData['suspects'][0]['mugshot_front'] ?? null)));
+                $suspectId = $linkedSuspect?->id ?? null;
+
+                $sAliasDisplay = (!empty($sAlias) && strtoupper($sAlias) !== 'N/A') ? ' (' . $sAlias . ')' : '';
+                $optValue = $cNo;
+                $optLabel = $cNo . ' — ' . $sName . $sAliasDisplay;
+
+                $dropdownCandidates[] = [
+                    'value'         => $optValue,
+                    'label'         => $optLabel,
+                    'case_number'   => $cNo,
+                    'suspect_id'    => $suspectId,
+                    'suspect_name'  => $sName,
+                    'suspect_alias' => $sAlias,
+                    'suspect_mug'   => $sMug,
+                    'role'          => null,
+                    'devices'       => !empty($devList) ? implode(', ', array_unique($devList)) : ($electronicCategory . ' / Mobile Exhibits'),
+                    'qty'           => !empty($qtyList) ? implode(', ', array_unique($qtyList)) : '1',
+                    'location'      => $singleC?->raid_location ?? ($cItem->raid_location ?? null),
+                    'date'          => $singleC?->arrest_date ?? ($cItem->arrest_date ?? null),
+                    'case_item'     => $cItem,
+                    'multi_case'    => null,
+                    'single_case'   => $singleC,
+                    'is_multi'      => false,
+                ];
+            }
+        }
+    }
+
+    $dropdownOptions = collect($dropdownCandidates)->unique('value')->values()->all();
+
+    // WHY: The Digital Forensic & Investigation Directory table must only display
+    // cases and investigation dossiers that relate to electronic devices and digital forensics.
+    // In multi-suspect mixed cases (e.g., Suspect A with drugs, Suspect B with mobile phones),
+    // the directory table must display Suspect B (the electronic suspect) rather than Suspect A,
+    // ensuring the digital examiner is reviewing the actual subject of digital forensics.
+    // Non-electronic cases (pure narcotics, weapons, vehicles) must be completely excluded.
+    //
+    // The category is dynamically resolved via config('forensic.exhibit_categories.electronic_devices')
+    // to prevent brittle hardcoded category strings.
+    $candidatesByCase = collect($dropdownCandidates)->groupBy('case_number');
+
+    $isElectronicCase = function($cItem, $cNo = null, $rep = null) use ($candidatesByCase, $isMatchingCategory, $allCasesByNum) {
+        $caseNo = $cNo ?? ($cItem->case_number ?? ($cItem['case_number'] ?? ($rep->case_number ?? '')));
+        if (empty($caseNo)) return false;
+
+        // 1. If candidate was identified with electronic exhibits for this case number
+        if ($candidatesByCase->has($caseNo) && $candidatesByCase->get($caseNo)->isNotEmpty()) {
+            return true;
+        }
+
+        // 2. Check saved report directly
+        if ($rep) {
+            if ($isMatchingCategory($rep->devices_retrieved ?? null)) return true;
+            if ($isMatchingCategory($rep->report_data['exhibit_category'] ?? null)) return true;
+            if ($isMatchingCategory($rep->report_data['category'] ?? null)) return true;
+        }
+
+        // 3. Check case explicit exhibit category only (strict scoping without loose keyword or unit name guessing)
+        $caseObj = $cItem ?? $allCasesByNum->get($caseNo);
+        if ($caseObj) {
+            $cat = $caseObj->exhibit_category ?? ($caseObj->underlyingRecord->exhibit_category ?? null);
+            if ($isMatchingCategory($cat)) return true;
+        }
+
+        return false;
+    };
+
+    $directorySavedReports = $savedReports->filter(fn($rep) => $isElectronicCase($allCasesByNum->get($rep->case_number), $rep->case_number, $rep))->values();
+    $directoryCases = $allCases->filter(fn($cItem) => $isElectronicCase($cItem))->values();
+
+    foreach ($dropdownOptions as $cand) {
+        $candVal = $cand['value'];
+        $cNo = $cand['case_number'];
+        $cItem = $cand['case_item'];
+        $savedForCase = null;
+        if (!empty($cand['suspect_id'])) {
+            $savedForCase = \App\Models\DpfReport::where('case_number', $cNo)
+                ->where('suspect_id', $cand['suspect_id'])
+                ->latest('id')
+                ->first();
+        }
+        if (!$savedForCase) {
+            $savedForCase = $savedReports->firstWhere('case_number', $cNo);
+        }
+
+        $loc = $cand['location'];
+        if ($savedForCase && !empty(trim((string)$savedForCase->location_post))) {
+            $loc = $savedForCase->location_post;
+        }
+        if (empty($loc)) {
+            $loc = $cItem->raid_location ?? ($cItem->seizure_location ?? 'Kotoka International Airport (Cargo Wing)');
+        }
+
+        $devicesStr = $cand['devices'];
+        if ($savedForCase && !empty(trim((string)$savedForCase->devices_retrieved))) {
+            $devicesStr = $savedForCase->devices_retrieved;
+        }
+
+        $qtyStr = $cand['qty'];
+        if ($savedForCase && !empty(trim((string)$savedForCase->quantity))) {
+            $qtyStr = $savedForCase->quantity;
+        }
+
+        $rawDate = $cand['date'] ?? ($cItem->arrest_date ?? ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d')));
+        if ($savedForCase && !empty($savedForCase->investigation_date)) {
+            $arrestDateVal = is_object($savedForCase->investigation_date) ? $savedForCase->investigation_date->format('Y-m-d') : date('Y-m-d', strtotime((string)$savedForCase->investigation_date));
+        } else {
+            $parsedDate = date('Y-m-d', strtotime((string)$rawDate));
+            $arrestDateVal = ($parsedDate && $parsedDate !== '1970-01-01') ? $parsedDate : date('Y-m-d');
+        }
+
+        $sName = $cand['suspect_name'];
+        $dData = is_array($cItem->docket_data) ? $cItem->docket_data : (json_decode($cItem->docket_data ?? '[]', true) ?: []);
+        $suspectOp = $cItem->operation_code_name 
+            ?? ($dData['operation_code_name'] 
+            ?? ($dData['suspects'][0]['operation_code_name'] 
+            ?? ($cItem->operation_code ?? 'intelligence-led')));
+        $suspectOpType = !str_contains(strtolower($suspectOp), 'operation') ? strtolower($suspectOp) . ' operation' : strtolower($suspectOp);
+        $art = preg_match('/^[aeiou]/i', $suspectOpType) ? 'an' : 'a';
+        $opLoc = (!empty($loc) && $loc !== 'Kotoka International Airport (Cargo Wing)') ? $loc : 'Agbogbloshie';
+        $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$sName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to NACOC Headquarters for digital forensic examination and further investigation.";
+        $descStr = ($savedForCase && !empty(trim((string)$savedForCase->brief_case_description))) ? $savedForCase->brief_case_description : $generatedNarrative;
+
+        $mug = $cand['suspect_mug'];
+        if (!empty($mug)) {
+            $mug = trim((string)$mug);
+            if (!str_starts_with($mug, 'data:image') && !str_starts_with($mug, 'http://') && !str_starts_with($mug, 'https://') && !str_starts_with($mug, '/')) {
+                $mug = asset($mug);
+            }
+        }
+
+        $isCourtGranted = $savedForCase && strtoupper(trim($savedForCase->court_order_granted ?? 'NO')) === 'YES';
+
+        $rawExtMsg = $savedForCase ? ($savedForCase->report_data['extraction_analysis_notes'] ?? ($savedForCase->extraction_analysis_message ?? '')) : '';
+        $rawExtStatus = $savedForCase ? ($savedForCase->report_data['extraction_analysis_status'] ?? '') : '';
+        $cleanExtMsg = trim((string)$rawExtMsg);
+        if (preg_match('/^(YES|NO|IN PROGRESS|PENDING)(\s*[-–—:]\s*\1)?$/i', $cleanExtMsg)) {
+            if (empty($rawExtStatus)) {
+                $rawExtStatus = strtoupper(preg_replace('/[^A-Za-z ]/', '', explode('-', $cleanExtMsg)[0]));
+            }
+            $cleanExtMsg = '';
+        } elseif (!empty($rawExtStatus)) {
+            $cleanExtMsg = trim(preg_replace('/^' . preg_quote($rawExtStatus, '/') . '\s*[-–—:]\s*/i', '', $cleanExtMsg));
+            if (strtoupper($cleanExtMsg) === strtoupper($rawExtStatus) || in_array(strtoupper($cleanExtNotes ?? $cleanExtMsg), ['N/A', 'NONE', 'NO', 'YES'])) {
+                $cleanExtMsg = '';
+            }
+        }
+
+        $rawRwMsg = $savedForCase ? ($savedForCase->report_data['report_witness_statement_notes'] ?? ($savedForCase->report_witness_statement_message ?? '')) : '';
+        $rawRwStatus = $savedForCase ? ($savedForCase->report_data['report_witness_statement_status'] ?? '') : '';
+        $cleanRwMsg = trim((string)$rawRwMsg);
+        if (preg_match('/^(YES|NO|IN PROGRESS|PENDING)(\s*[-–—:]\s*\1)?$/i', $cleanRwMsg)) {
+            if (empty($rawRwStatus)) {
+                $rawRwStatus = strtoupper(preg_replace('/[^A-Za-z ]/', '', explode('-', $cleanRwMsg)[0]));
+            }
+            $cleanRwMsg = '';
+        } elseif (!empty($rawRwStatus)) {
+            $cleanRwMsg = trim(preg_replace('/^' . preg_quote($rawRwStatus, '/') . '\s*[-–—:]\s*/i', '', $cleanRwMsg));
+            if (strtoupper($cleanRwMsg) === strtoupper($rawRwStatus) || in_array(strtoupper($cleanRwMsg), ['N/A', 'NONE', 'NO', 'YES'])) {
+                $cleanRwMsg = '';
+            }
+        }
+
+        $rawOngExtMsg = $savedForCase ? ($savedForCase->report_data['ongoing_extraction_analysis_notes'] ?? '') : '';
+        $rawOngExtStatus = $savedForCase ? ($savedForCase->report_data['ongoing_extraction_analysis_status'] ?? '') : '';
+
+        $coFilesFormatted = [];
+        if ($savedForCase && !empty($savedForCase->court_order_files)) {
+            foreach ($savedForCase->court_order_files as $fPath) {
+                if (!empty($fPath)) {
+                    $rawName = basename($fPath);
+                    $cleanName = preg_replace('/^\d+_[a-z0-9]+_court_order_/i', '', $rawName);
+                    $cleanName = preg_replace('/^\d+_court_order_/i', '', $cleanName);
+                    $cleanName = preg_replace('/^court_order_/i', '', $cleanName);
+                    $ext = strtoupper(pathinfo($fPath, PATHINFO_EXTENSION));
+                    $url = (str_starts_with($fPath, 'http://') || str_starts_with($fPath, 'https://')) ? $fPath : asset($fPath);
+                    $coFilesFormatted[] = [
+                        'path'     => $fPath,
+                        'name'     => $cleanName ?: $rawName,
+                        'raw_name' => $rawName,
+                        'ext'      => $ext ?: 'DOC',
+                        'url'      => $url,
+                    ];
+                }
+            }
+        }
+
+        $rwFilesFormatted = [];
+        if ($savedForCase && !empty($savedForCase->report_witness_statement_files)) {
+            foreach ($savedForCase->report_witness_statement_files as $fPath) {
+                if (!empty($fPath)) {
+                    $rawName = basename($fPath);
+                    $cleanName = preg_replace('/^\d+_[a-z0-9]+_report_witness_/i', '', $rawName);
+                    $cleanName = preg_replace('/^\d+_report_witness_/i', '', $cleanName);
+                    $cleanName = preg_replace('/^report_witness_/i', '', $cleanName);
+                    $ext = strtoupper(pathinfo($fPath, PATHINFO_EXTENSION));
+                    $url = (str_starts_with($fPath, 'http://') || str_starts_with($fPath, 'https://')) ? $fPath : asset($fPath);
+                    $rwFilesFormatted[] = [
+                        'path'     => $fPath,
+                        'name'     => $cleanName ?: $rawName,
+                        'raw_name' => $rawName,
+                        'ext'      => $ext ?: 'DOC',
+                        'url'      => $url,
+                    ];
+                }
+            }
+        }
+
+        $entry = [
+            'location'                  => $loc,
+            'devices'                   => $devicesStr,
+            'qty'                       => $qtyStr,
+            'description'               => $descStr,
+            'date'                      => $arrestDateVal,
+            'court_order_requested'     => $savedForCase ? $savedForCase->court_order_requested : 'NO',
+            'court_order_granted'       => $savedForCase ? $savedForCase->court_order_granted : 'NO',
+            'court_order_files'         => $coFilesFormatted,
+            'extraction_status'         => $rawExtStatus ?: (!$isCourtGranted && $savedForCase && in_array(strtoupper($savedForCase->extraction_analysis_conducted ?? ''), ['YES', 'NO', 'IN PROGRESS', 'PENDING']) ? strtoupper($savedForCase->extraction_analysis_conducted) : 'NO'),
+            'extraction_notes'          => !$isCourtGranted ? $cleanExtMsg : '',
+            'ongoing_extraction_status' => $rawOngExtStatus ?: ($isCourtGranted && $savedForCase && in_array(strtoupper($savedForCase->extraction_analysis_conducted ?? ''), ['YES', 'NO', 'IN PROGRESS', 'PENDING']) ? strtoupper($savedForCase->extraction_analysis_conducted) : 'NO'),
+            'ongoing_extraction_notes'  => $rawOngExtMsg ?: ($isCourtGranted ? $cleanExtMsg : ''),
+            'report_witness_status'     => $rawRwStatus ?: ($savedForCase && in_array(strtoupper($savedForCase->report_witness_statement_sent ?? ''), ['YES', 'NO', 'PENDING']) ? strtoupper($savedForCase->report_witness_statement_sent) : 'NO'),
+            'report_witness_notes'      => $cleanRwMsg,
+            'report_witness_files'      => $rwFilesFormatted,
+            'intel_shared'              => $savedForCase ? $savedForCase->intel_shared : 'NO',
+            'remark'                    => $savedForCase ? $savedForCase->remark : '',
+            'suspect_name'              => $sName,
+            'suspect_alias'             => $cand['suspect_alias'],
+            'suspect_mug'               => $mug,
+            'co_count'                  => $cand['is_multi'] ? max(0, count($cand['multi_case']->suspects ?? []) - 1) : 0,
+        ];
+
+        $caseMapData[$candVal] = $entry;
+        if (!isset($caseMapData[$cNo])) {
+            $caseMapData[$cNo] = $entry;
+        }
+    }
+
+    // Fallback: Populate caseMapData for remaining digital cases
+    foreach ($cases as $cItem) {
+        $cNo = $cItem->case_number ?? ($cItem['case_number'] ?? '');
+        if (empty($cNo) || isset($caseMapData[$cNo])) continue;
 
         $savedForCase = $savedReports->firstWhere('case_number', $cNo);
         $dData = is_array($cItem->docket_data) ? $cItem->docket_data : (json_decode($cItem->docket_data ?? '[]', true) ?: []);
@@ -82,7 +562,6 @@
         $singleC = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
         $multiC = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
 
-        // 1. Resolve all exhibits belonging to this case
         $caseExhibits = collect();
         if (isset($cItem->underlyingRecord) && isset($cItem->underlyingRecord->exhibits) && count($cItem->underlyingRecord->exhibits) > 0) {
             $caseExhibits = $cItem->underlyingRecord->exhibits;
@@ -107,11 +586,10 @@
             }
         }
 
-        // 2. Fetch Seizure / Commodity Name (Devices / Exhibits) & Qty
         $exList = [];
         $qtyList = [];
         foreach ($caseExhibits as $ex) {
-            $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_type ?: ($ex->exhibit_category ?: '')));
+            $devName = !empty($ex->dev_model) ? $ex->dev_model : ($ex->commodity_name ?: ($ex->exhibit_type ?: ($ex->{$exhibitCategoryColumn} ?: '')));
             $qty = !empty($ex->seizure_quantity) ? trim((string)$ex->seizure_quantity) : '';
             if (!empty($qty)) $qtyList[] = $qty;
             if (!empty($qty) && !empty($devName)) {
@@ -119,7 +597,7 @@
             } else {
                 $itemStr = $devName ?: $qty;
             }
-            $itemStr = trim($itemStr);
+            $itemStr = trim((string)$itemStr);
             if (!empty($itemStr)) $exList[] = $itemStr;
         }
 
@@ -133,21 +611,12 @@
                 } else {
                     $itemStr = $devName ?: $qty;
                 }
-                $itemStr = trim($itemStr);
+                $itemStr = trim((string)$itemStr);
                 if (!empty($itemStr)) $exList[] = $itemStr;
             }
         }
 
-        if (empty($exList)) {
-            $mainName = $cItem->dev_model ?? ($cItem->seizure_name ?? ($cItem->seizure_name_drug ?? ($cItem->exhibit_category ?? null)));
-            if (!empty($mainName)) {
-                $qty = !empty($cItem->seizure_quantity) ? trim((string)$cItem->seizure_quantity) : '';
-                if (!empty($qty)) $qtyList[] = $qty;
-                $exList[] = !empty($qty) && !preg_match('/^' . preg_quote($qty, '/') . '(\s+|x\s*)/i', $mainName) ? $qty . ' ' . $mainName : $mainName;
-            }
-        }
-
-        $devicesStr = !empty($exList) ? implode(', ', array_unique($exList)) : 'Electronic Devices / Mobile Exhibits';
+        $devicesStr = !empty($exList) ? implode(', ', array_unique($exList)) : ($electronicCategory . ' / Mobile Exhibits');
         if ($savedForCase && !empty(trim((string)$savedForCase->devices_retrieved))) {
             $devicesStr = $savedForCase->devices_retrieved;
         }
@@ -157,7 +626,6 @@
             $qtyStr = $savedForCase->quantity;
         }
 
-        // 3. Fetch saved Raid Scene / Offence Location
         $loc = null;
         if ($savedForCase && !empty(trim((string)$savedForCase->location_post))) {
             $loc = $savedForCase->location_post;
@@ -175,149 +643,82 @@
             if (empty($loc) && $multiC && !empty($multiC->raid_location)) {
                 $loc = $multiC->raid_location;
             }
-            if (empty($loc) && $caseExhibits->isNotEmpty()) {
-                foreach ($caseExhibits as $ex) {
-                    if (!empty($ex->seizure_location)) {
-                        $loc = $ex->seizure_location;
-                        break;
-                    }
-                }
-            }
-            if (empty($loc)) {
-                $csLoc = \App\Models\CaseSuspect::where(function($sq) use ($cNo) {
-                    $sq->whereHas('multipleCase', fn($q) => $q->where('case_number', $cNo))
-                       ->orWhereHas('singleCase', fn($q) => $q->where('case_number', $cNo));
-                })->whereNotNull('raid_location')->value('raid_location');
-                if ($csLoc) $loc = $csLoc;
-            }
             if (empty($loc)) {
                 $loc = 'Kotoka International Airport (Cargo Wing)';
             }
         }
 
-        // 4. Fetch Brief Case Description Narrative
-        $generatedNarrative = method_exists($cItem, 'generateBriefCaseDescription') 
-            ? $cItem->generateBriefCaseDescription() 
-            : null;
+        $sInfo = $resolveSuspectInfo($cItem, $savedForCase);
 
-        if (empty($generatedNarrative)) {
-            $suspectOp = $cItem->operation_code_name 
-                ?? ($dData['operation_code_name'] 
-                ?? ($dData['suspects'][0]['operation_code_name'] 
-                ?? ($cItem->operation_code ?? 'intelligence-led')));
-            $suspectOpType = !str_contains(strtolower($suspectOp), 'operation') ? strtolower($suspectOp) . ' operation' : strtolower($suspectOp);
-            $art = preg_match('/^[aeiou]/i', $suspectOpType) ? 'an' : 'a';
+        $suspectOp = $cItem->operation_code_name 
+            ?? ($dData['operation_code_name'] 
+            ?? ($dData['suspects'][0]['operation_code_name'] 
+            ?? ($cItem->operation_code ?? 'intelligence-led')));
+        $suspectOpType = !str_contains(strtolower($suspectOp), 'operation') ? strtolower($suspectOp) . ' operation' : strtolower($suspectOp);
+        $art = preg_match('/^[aeiou]/i', $suspectOpType) ? 'an' : 'a';
+        $sName = $sInfo['name'];
+        $opLoc = (!empty($loc) && $loc !== 'Kotoka International Airport (Cargo Wing)') ? $loc : 'Agbogbloshie';
+        $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$sName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to NACOC Headquarters for digital forensic examination and further investigation.";
+        $descStr = ($savedForCase && !empty(trim((string)$savedForCase->brief_case_description))) ? $savedForCase->brief_case_description : $generatedNarrative;
 
-            $cFlags = method_exists($cItem, 'classifyExhibits') ? $cItem->classifyExhibits() : [];
-            $cHasDrug = !empty($cFlags['has_drug']) || (method_exists($cItem, 'isDrugCase') && $cItem->isDrugCase());
-            $cHasElectronic = !empty($cFlags['has_electronic']) || (method_exists($cItem, 'isDigitalCase') && $cItem->isDigitalCase()) || !empty($cItem->phones);
-
-            $sName = $cItem->suspect_name ?? ($dData['suspects'][0]['suspect_name'] ?? 'Victor Kofi');
-            $opLoc = (!empty($loc) && $loc !== 'Kotoka International Airport (Cargo Wing)') ? $loc : 'Agbogbloshie';
-
-            if ($cHasElectronic && !$cHasDrug) {
-                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to intercept and seize illicit electronic devices and digital evidence within the area. During the operation, {$sName} was arrested and electronic exhibits were seized, and the suspect was subsequently conveyed to NACOC Headquarters for digital forensic examination and further investigation.";
-            } elseif ($cHasElectronic && $cHasDrug) {
-                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to curb the trafficking of narcotic drugs and seize electronic devices used in illicit activities within the area. During the operation, {$sName} was arrested in possession of narcotic substances and electronic exhibits, and subsequently conveyed to NACOC Headquarters for chemical laboratory analysis and digital forensic investigation.";
-            } else {
-                $generatedNarrative = "On Thursday, 18 June 2026, officers of the Narcotics Control Commission (NACOC) conducted {$art} {$suspectOpType} at {$opLoc} in the Greater Accra Region to curb the use and sale of narcotic drugs within the area. During the operation, {$sName} was arrested and subsequently conveyed to NACOC Headquarters for further investigation.";
-            }
-        }
-
-        $descStr = ($savedForCase && !empty(trim((string)$savedForCase->brief_case_description)))
-            ? $savedForCase->brief_case_description
-            : $generatedNarrative;
-
-        // 5. Fetch Arrest Date & Time
-        if ($savedForCase && !empty($savedForCase->investigation_date)) {
-            $arrestDateVal = is_object($savedForCase->investigation_date) ? $savedForCase->investigation_date->format('Y-m-d') : date('Y-m-d', strtotime((string)$savedForCase->investigation_date));
-        } else {
-            $rawArrestDate = $cItem->arrest_date 
-                ?? ($cItem->date_of_arrest 
-                ?? ($cItem->incident_date 
-                ?? ($dData['arrest_date'] 
-                ?? ($dData['date_of_arrest'] 
-                ?? ($dData['incident_date'] 
-                ?? ($dData['suspects'][0]['arrest_date'] 
-                ?? ($dData['suspects'][0]['date_of_arrest'] 
-                ?? null)))))));
-
-            if (empty($rawArrestDate) && $singleC && !empty($singleC->arrest_date)) {
-                $rawArrestDate = $singleC->arrest_date;
-            }
-            if (empty($rawArrestDate) && $singleC && !empty($singleC->incident_date)) {
-                $rawArrestDate = $singleC->incident_date;
-            }
-            if (empty($rawArrestDate) && $multiC && !empty($multiC->incident_date)) {
-                $rawArrestDate = $multiC->incident_date;
-            }
-            if (empty($rawArrestDate) && $caseExhibits->isNotEmpty()) {
-                foreach ($caseExhibits as $ex) {
-                    if (!empty($ex->seizure_date)) {
-                        $rawArrestDate = $ex->seizure_date;
-                        break;
-                    }
+        $coFilesFormatted = [];
+        if ($savedForCase && !empty($savedForCase->court_order_files)) {
+            foreach ($savedForCase->court_order_files as $fPath) {
+                if (!empty($fPath)) {
+                    $rawName = basename($fPath);
+                    $cleanName = preg_replace('/^\d+_[a-z0-9]+_court_order_/i', '', $rawName);
+                    $cleanName = preg_replace('/^\d+_court_order_/i', '', $cleanName);
+                    $cleanName = preg_replace('/^court_order_/i', '', $cleanName);
+                    $ext = strtoupper(pathinfo($fPath, PATHINFO_EXTENSION));
+                    $url = (str_starts_with($fPath, 'http://') || str_starts_with($fPath, 'https://')) ? $fPath : asset($fPath);
+                    $coFilesFormatted[] = [
+                        'path'     => $fPath,
+                        'name'     => $cleanName ?: $rawName,
+                        'raw_name' => $rawName,
+                        'ext'      => $ext ?: 'DOC',
+                        'url'      => $url,
+                    ];
                 }
             }
-            if (!empty($rawArrestDate)) {
-                $parsedDate = date('Y-m-d', strtotime((string)$rawArrestDate));
-                $arrestDateVal = ($parsedDate && $parsedDate !== '1970-01-01') ? $parsedDate : ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d'));
-            } else {
-                $arrestDateVal = $cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d');
-            }
         }
 
-        $rawExtMsg = $savedForCase ? ($savedForCase->report_data['extraction_analysis_notes'] ?? ($savedForCase->extraction_analysis_message ?? '')) : '';
-        $rawExtStatus = $savedForCase ? ($savedForCase->report_data['extraction_analysis_status'] ?? '') : '';
-        $cleanExtMsg = trim((string)$rawExtMsg);
-        if (preg_match('/^(YES|NO|IN PROGRESS|PENDING)(\s*[-–—:]\s*\1)?$/i', $cleanExtMsg)) {
-            if (empty($rawExtStatus)) {
-                $rawExtStatus = strtoupper(preg_replace('/[^A-Za-z ]/', '', explode('-', $cleanExtMsg)[0]));
-            }
-            $cleanExtMsg = '';
-        } elseif (!empty($rawExtStatus)) {
-            $cleanExtMsg = trim(preg_replace('/^' . preg_quote($rawExtStatus, '/') . '\s*[-–—:]\s*/i', '', $cleanExtMsg));
-            if (strtoupper($cleanExtMsg) === strtoupper($rawExtStatus) || in_array(strtoupper($cleanExtMsg), ['N/A', 'NONE', 'NO', 'YES'])) {
-                $cleanExtMsg = '';
-            }
-        }
-
-        $rawRwMsg = $savedForCase ? ($savedForCase->report_data['report_witness_statement_notes'] ?? ($savedForCase->report_witness_statement_message ?? '')) : '';
-        $rawRwStatus = $savedForCase ? ($savedForCase->report_data['report_witness_statement_status'] ?? '') : '';
-        $cleanRwMsg = trim((string)$rawRwMsg);
-        if (preg_match('/^(YES|NO|IN PROGRESS|PENDING)(\s*[-–—:]\s*\1)?$/i', $cleanRwMsg)) {
-            if (empty($rawRwStatus)) {
-                $rawRwStatus = strtoupper(preg_replace('/[^A-Za-z ]/', '', explode('-', $cleanRwMsg)[0]));
-            }
-            $cleanRwMsg = '';
-        } elseif (!empty($rawRwStatus)) {
-            $cleanRwMsg = trim(preg_replace('/^' . preg_quote($rawRwStatus, '/') . '\s*[-–—:]\s*/i', '', $cleanRwMsg));
-            if (strtoupper($cleanRwMsg) === strtoupper($rawRwStatus) || in_array(strtoupper($cleanRwMsg), ['N/A', 'NONE', 'NO', 'YES'])) {
-                $cleanRwMsg = '';
+        $rwFilesFormatted = [];
+        if ($savedForCase && !empty($savedForCase->report_witness_statement_files)) {
+            foreach ($savedForCase->report_witness_statement_files as $fPath) {
+                if (!empty($fPath)) {
+                    $rawName = basename($fPath);
+                    $cleanName = preg_replace('/^\d+_[a-z0-9]+_report_witness_/i', '', $rawName);
+                    $cleanName = preg_replace('/^\d+_report_witness_/i', '', $cleanName);
+                    $cleanName = preg_replace('/^report_witness_/i', '', $cleanName);
+                    $ext = strtoupper(pathinfo($fPath, PATHINFO_EXTENSION));
+                    $url = (str_starts_with($fPath, 'http://') || str_starts_with($fPath, 'https://')) ? $fPath : asset($fPath);
+                    $rwFilesFormatted[] = [
+                        'path'     => $fPath,
+                        'name'     => $cleanName ?: $rawName,
+                        'raw_name' => $rawName,
+                        'ext'      => $ext ?: 'DOC',
+                        'url'      => $url,
+                    ];
+                }
             }
         }
-
-        $rawOngExtMsg = $savedForCase ? ($savedForCase->report_data['ongoing_extraction_analysis_notes'] ?? '') : '';
-        $rawOngExtStatus = $savedForCase ? ($savedForCase->report_data['ongoing_extraction_analysis_status'] ?? '') : '';
-
-        $isCourtGranted = $savedForCase && strtoupper(trim($savedForCase->court_order_granted ?? 'NO')) === 'YES';
-
-        $sInfo = $resolveSuspectInfo($cItem, $savedForCase);
 
         $caseMapData[$cNo] = [
             'location'                  => $loc,
             'devices'                   => $devicesStr,
             'qty'                       => $qtyStr,
             'description'               => $descStr,
-            'date'                      => $arrestDateVal,
+            'date'                      => $cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d'),
             'court_order_requested'     => $savedForCase ? $savedForCase->court_order_requested : 'NO',
             'court_order_granted'       => $savedForCase ? $savedForCase->court_order_granted : 'NO',
-            'extraction_status'         => $rawExtStatus ?: (!$isCourtGranted && $savedForCase && in_array(strtoupper($savedForCase->extraction_analysis_conducted ?? ''), ['YES', 'NO', 'IN PROGRESS', 'PENDING']) ? strtoupper($savedForCase->extraction_analysis_conducted) : 'NO'),
-            'extraction_notes'          => !$isCourtGranted ? $cleanExtMsg : '',
-            'ongoing_extraction_status' => $rawOngExtStatus ?: ($isCourtGranted && $savedForCase && in_array(strtoupper($savedForCase->extraction_analysis_conducted ?? ''), ['YES', 'NO', 'IN PROGRESS', 'PENDING']) ? strtoupper($savedForCase->extraction_analysis_conducted) : 'NO'),
-            'ongoing_extraction_notes'  => $rawOngExtMsg ?: ($isCourtGranted ? $cleanExtMsg : ''),
-            'report_witness_status'     => $rawRwStatus ?: ($savedForCase && in_array(strtoupper($savedForCase->report_witness_statement_sent ?? ''), ['YES', 'NO', 'PENDING']) ? strtoupper($savedForCase->report_witness_statement_sent) : 'NO'),
-            'report_witness_notes'      => $cleanRwMsg,
+            'court_order_files'         => $coFilesFormatted,
+            'extraction_status'         => $savedForCase ? ($savedForCase->extraction_analysis_conducted ?? 'NO') : 'NO',
+            'extraction_notes'          => '',
+            'ongoing_extraction_status' => 'NO',
+            'ongoing_extraction_notes'  => '',
+            'report_witness_status'     => $savedForCase ? ($savedForCase->report_witness_statement_sent ?? 'NO') : 'NO',
+            'report_witness_notes'      => '',
+            'report_witness_files'      => $rwFilesFormatted,
             'intel_shared'              => $savedForCase ? $savedForCase->intel_shared : 'NO',
             'remark'                    => $savedForCase ? $savedForCase->remark : '',
             'suspect_name'              => $sInfo['name'],
@@ -327,25 +728,70 @@
         ];
     }
 
-    foreach ($savedReports as $repItem) {
+    foreach ($directorySavedReports as $repItem) {
         $rCaseNo = $repItem->case_number ?? '';
         if (empty($rCaseNo) || isset($caseMapData[$rCaseNo])) continue;
         $matchedCase = $allCasesByNum->get($rCaseNo);
         $sInfo = $resolveSuspectInfo($matchedCase, $repItem);
+
+        $coFilesFormatted = [];
+        if (!empty($repItem->court_order_files)) {
+            foreach ($repItem->court_order_files as $fPath) {
+                if (!empty($fPath)) {
+                    $rawName = basename($fPath);
+                    $cleanName = preg_replace('/^\d+_[a-z0-9]+_court_order_/i', '', $rawName);
+                    $cleanName = preg_replace('/^\d+_court_order_/i', '', $cleanName);
+                    $cleanName = preg_replace('/^court_order_/i', '', $cleanName);
+                    $ext = strtoupper(pathinfo($fPath, PATHINFO_EXTENSION));
+                    $url = (str_starts_with($fPath, 'http://') || str_starts_with($fPath, 'https://')) ? $fPath : asset($fPath);
+                    $coFilesFormatted[] = [
+                        'path'     => $fPath,
+                        'name'     => $cleanName ?: $rawName,
+                        'raw_name' => $rawName,
+                        'ext'      => $ext ?: 'DOC',
+                        'url'      => $url,
+                    ];
+                }
+            }
+        }
+
+        $rwFilesFormatted = [];
+        if (!empty($repItem->report_witness_statement_files)) {
+            foreach ($repItem->report_witness_statement_files as $fPath) {
+                if (!empty($fPath)) {
+                    $rawName = basename($fPath);
+                    $cleanName = preg_replace('/^\d+_[a-z0-9]+_report_witness_/i', '', $rawName);
+                    $cleanName = preg_replace('/^\d+_report_witness_/i', '', $cleanName);
+                    $cleanName = preg_replace('/^report_witness_/i', '', $cleanName);
+                    $ext = strtoupper(pathinfo($fPath, PATHINFO_EXTENSION));
+                    $url = (str_starts_with($fPath, 'http://') || str_starts_with($fPath, 'https://')) ? $fPath : asset($fPath);
+                    $rwFilesFormatted[] = [
+                        'path'     => $fPath,
+                        'name'     => $cleanName ?: $rawName,
+                        'raw_name' => $rawName,
+                        'ext'      => $ext ?: 'DOC',
+                        'url'      => $url,
+                    ];
+                }
+            }
+        }
+
         $caseMapData[$rCaseNo] = [
             'location'                  => $repItem->location_post ?? 'Kotoka International Airport (Cargo Wing)',
-            'devices'                   => $repItem->devices_retrieved ?? 'Electronic Devices / Mobile Exhibits',
+            'devices'                   => $repItem->devices_retrieved ?? ($electronicCategory . ' / Mobile Exhibits'),
             'qty'                       => '1',
             'description'               => $repItem->brief_case_description ?? '',
             'date'                      => $repItem->investigation_date ? $repItem->investigation_date->format('Y-m-d') : ($repItem->created_at ? $repItem->created_at->format('Y-m-d') : date('Y-m-d')),
             'court_order_requested'     => $repItem->court_order_requested ?? 'NO',
             'court_order_granted'       => $repItem->court_order_granted ?? 'NO',
+            'court_order_files'         => $coFilesFormatted,
             'extraction_status'         => $repItem->extraction_analysis_conducted ?? 'NO',
             'extraction_notes'          => '',
             'ongoing_extraction_status' => 'NO',
             'ongoing_extraction_notes'  => '',
             'report_witness_status'     => $repItem->report_witness_statement_sent ?? 'NO',
             'report_witness_notes'      => '',
+            'report_witness_files'      => $rwFilesFormatted,
             'intel_shared'              => $repItem->intel_shared ?? 'NO',
             'remark'                    => $repItem->remark ?? '',
             'suspect_name'              => $sInfo['name'],
@@ -355,14 +801,20 @@
         ];
     }
 
-    $firstCaseNo = count($cases) > 0 ? ($cases[0]->case_number ?? '') : '';
-    $defaultLoc  = !empty($firstCaseNo) ? ($caseMapData[$firstCaseNo]['location'] ?? '') : '';
-    $defaultDev  = !empty($firstCaseNo) ? ($caseMapData[$firstCaseNo]['devices'] ?? '') : '';
-    $defaultQty  = !empty($firstCaseNo) ? ($caseMapData[$firstCaseNo]['qty'] ?? '') : '';
-    $defaultDesc = !empty($firstCaseNo) ? ($caseMapData[$firstCaseNo]['description'] ?? '') : '';
-    $defaultDate = !empty($firstCaseNo) ? ($caseMapData[$firstCaseNo]['date'] ?? '') : '';
+    $firstOpt    = count($dropdownOptions) > 0 ? $dropdownOptions[0] : null;
+    $firstOptVal = $firstOpt ? $firstOpt['value'] : '';
+    $firstCaseNo = $firstOpt ? $firstOpt['case_number'] : (count($directoryCases) > 0 ? ($directoryCases[0]->case_number ?? '') : '');
+    $lookupKey   = !empty($firstOptVal) && isset($caseMapData[$firstOptVal]) ? $firstOptVal : $firstCaseNo;
+    $defaultLoc  = !empty($lookupKey) ? ($caseMapData[$lookupKey]['location'] ?? '') : '';
+    $defaultDev  = !empty($lookupKey) ? ($caseMapData[$lookupKey]['devices'] ?? '') : '';
+    $defaultQty  = !empty($lookupKey) ? ($caseMapData[$lookupKey]['qty'] ?? '') : '';
+    $defaultDesc = !empty($lookupKey) ? ($caseMapData[$lookupKey]['description'] ?? '') : '';
+    $defaultDate = !empty($lookupKey) ? ($caseMapData[$lookupKey]['date'] ?? '') : '';
     $firstSaved  = !empty($firstCaseNo) ? $savedReports->firstWhere('case_number', $firstCaseNo) : null;
-    $defaultCourtGranted = $firstSaved ? $firstSaved->court_order_granted : 'NO';
+    $defaultCourtGranted = !empty($lookupKey) ? ($caseMapData[$lookupKey]['court_order_granted'] ?? 'NO') : ($firstSaved ? $firstSaved->court_order_granted : 'NO');
+    $defaultCourtOrderFiles = !empty($lookupKey) ? ($caseMapData[$lookupKey]['court_order_files'] ?? []) : [];
+    $defaultReportWitnessStatus = !empty($lookupKey) ? ($caseMapData[$lookupKey]['report_witness_status'] ?? 'NO') : ($firstSaved ? $firstSaved->report_witness_statement_sent : 'NO');
+    $defaultReportWitnessFiles = !empty($lookupKey) ? ($caseMapData[$lookupKey]['report_witness_files'] ?? []) : [];
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -482,19 +934,11 @@
                                     </label>
                                     <select id="statusCaseRef" name="case_number" onchange="onDigitalCaseRefChanged(this.value)" required class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
                                         <option value="">— Select Digital Case Reference —</option>
-                                        @foreach($cases as $idx => $c)
-                                            @php
-                                                $cNo = $c->case_number ?? ($c['case_number'] ?? '');
-                                                $sInfo = $resolveSuspectInfo($c);
-                                                $suspectLabel = $sInfo['name'];
-                                                if (!empty($sInfo['alias'])) {
-                                                    $suspectLabel .= ' (' . $sInfo['alias'] . ')';
-                                                }
-                                            @endphp
-                                            @if(!empty($cNo))
-                                                <option value="{{ $cNo }}" {{ $idx === 0 ? 'selected' : '' }}>{{ $cNo }} — {{ $suspectLabel }}</option>
-                                            @endif
-                                        @endforeach
+                                        @forelse($dropdownOptions as $idx => $opt)
+                                            <option value="{{ $opt['value'] }}" {{ $idx === 0 ? 'selected' : '' }}>{{ $opt['label'] }}</option>
+                                        @empty
+                                            <option value="" disabled>No electronic-devices suspects available for this selection</option>
+                                        @endforelse
                                     </select>
                                 </div>
 
@@ -566,7 +1010,8 @@
                                     </select>
 
                                     <!-- File Upload Section for Court Order Granted (maintains previous column width) -->
-                                    <div id="courtOrderFileWrapper" class="hidden pt-1.5">
+                                    <!-- File Upload Section for Court Order Granted (maintains previous column width) -->
+                                    <div id="courtOrderFileWrapper" class="{{ strtoupper(trim($defaultCourtGranted)) === 'YES' ? '' : 'hidden' }} pt-1.5">
                                         <div class="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-2.5 transition-all">
                                             <div class="flex items-center justify-between">
                                                 <span class="text-[10px] font-black text-emerald-800 font-mono-code uppercase tracking-wider flex items-center gap-1">
@@ -575,6 +1020,44 @@
                                                 </span>
                                                 <span id="courtOrderBadge" class="hidden text-[9px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full font-mono-code">ATTACHED</span>
                                             </div>
+
+                                            <!-- Saved Court Order Documents (Shown ONLY when documents have already been uploaded and saved) -->
+                                            <div id="courtOrderSavedFilesWrapper" class="{{ !empty($defaultCourtOrderFiles) ? '' : 'hidden' }} space-y-1.5 p-2.5 bg-white/95 border border-emerald-300/80 rounded-xl shadow-2xs">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-[9.5px] font-black text-emerald-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
+                                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        Saved Court Order Documents
+                                                    </span>
+                                                    <span id="courtOrderSavedBadge" class="text-[8.5px] font-bold text-emerald-700 font-mono-code bg-emerald-100 px-2 py-0.5 rounded-full">
+                                                        {{ count($defaultCourtOrderFiles) }} SAVED
+                                                    </span>
+                                                </div>
+                                                <div id="courtOrderSavedFilesList" class="space-y-1">
+                                                    @foreach($defaultCourtOrderFiles as $savedCoFile)
+                                                        @php
+                                                            $extBadgeBg = 'bg-emerald-700';
+                                                            if ($savedCoFile['ext'] === 'PDF') $extBadgeBg = 'bg-rose-600';
+                                                            elseif (in_array($savedCoFile['ext'], ['JPG', 'JPEG', 'PNG', 'WEBP'])) $extBadgeBg = 'bg-sky-600';
+                                                            elseif (in_array($savedCoFile['ext'], ['DOC', 'DOCX'])) $extBadgeBg = 'bg-indigo-600';
+                                                        @endphp
+                                                        <div class="flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200/90 rounded-lg hover:border-emerald-400 transition-all">
+                                                            <div class="flex items-center gap-2 min-w-0 pr-2">
+                                                                <span class="w-5 h-5 rounded {{ $extBadgeBg }} text-white flex items-center justify-center font-mono-code text-[8px] font-black shrink-0">
+                                                                    {{ $savedCoFile['ext'] ?: 'DOC' }}
+                                                                </span>
+                                                                <span class="text-[10px] font-bold text-slate-800 truncate" title="{{ $savedCoFile['name'] }}">
+                                                                    {{ $savedCoFile['name'] }}
+                                                                </span>
+                                                            </div>
+                                                            <a href="{{ $savedCoFile['url'] }}" target="_blank" rel="noopener noreferrer" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold font-mono-code flex items-center gap-1 transition-colors shrink-0 no-underline shadow-2xs">
+                                                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                                <span>View</span>
+                                                            </a>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+
                                             <div class="relative flex items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white rounded-xl p-2.5 transition-all cursor-pointer group">
                                                 <input type="file" id="courtOrderFileInput" name="court_order_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onclick="this.value = null;" oncancel="restoreFileInputFiles('court')" onchange="handleFileSelected(this, 'court')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                                                 <div class="flex items-center gap-2 text-center">
@@ -677,7 +1160,7 @@
                                     </div>
 
                                     <!-- File Upload Section for Report & Witness Statement Sent (maintains previous column width) -->
-                                    <div id="reportWitnessFileWrapper" class="hidden pt-1.5">
+                                    <div id="reportWitnessFileWrapper" class="{{ strtoupper(trim($defaultReportWitnessStatus)) === 'YES' ? '' : 'hidden' }} pt-1.5">
                                         <div class="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-2.5 transition-all">
                                             <div class="flex items-center justify-between">
                                                 <span class="text-[10px] font-black text-emerald-800 font-mono-code uppercase tracking-wider flex items-center gap-1">
@@ -686,6 +1169,44 @@
                                                 </span>
                                                 <span id="reportWitnessBadge" class="hidden text-[9px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full font-mono-code">ATTACHED</span>
                                             </div>
+
+                                            <!-- Saved Report & Witness Statement Documents (Shown ONLY when documents have already been uploaded and saved) -->
+                                            <div id="reportWitnessSavedFilesWrapper" class="{{ !empty($defaultReportWitnessFiles) ? '' : 'hidden' }} space-y-1.5 p-2.5 bg-white/95 border border-emerald-300/80 rounded-xl shadow-2xs">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-[9.5px] font-black text-emerald-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
+                                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                        Saved Report &amp; Statement Documents
+                                                    </span>
+                                                    <span id="reportWitnessSavedBadge" class="text-[8.5px] font-bold text-emerald-700 font-mono-code bg-emerald-100 px-2 py-0.5 rounded-full">
+                                                        {{ count($defaultReportWitnessFiles) }} SAVED
+                                                    </span>
+                                                </div>
+                                                <div id="reportWitnessSavedFilesList" class="space-y-1">
+                                                    @foreach($defaultReportWitnessFiles as $savedRwFile)
+                                                        @php
+                                                            $extBadgeBg = 'bg-emerald-700';
+                                                            if ($savedRwFile['ext'] === 'PDF') $extBadgeBg = 'bg-rose-600';
+                                                            elseif (in_array($savedRwFile['ext'], ['JPG', 'JPEG', 'PNG', 'WEBP'])) $extBadgeBg = 'bg-sky-600';
+                                                            elseif (in_array($savedRwFile['ext'], ['DOC', 'DOCX'])) $extBadgeBg = 'bg-indigo-600';
+                                                        @endphp
+                                                        <div class="flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200/90 rounded-lg hover:border-emerald-400 transition-all">
+                                                            <div class="flex items-center gap-2 min-w-0 pr-2">
+                                                                <span class="w-5 h-5 rounded {{ $extBadgeBg }} text-white flex items-center justify-center font-mono-code text-[8px] font-black shrink-0">
+                                                                    {{ $savedRwFile['ext'] ?: 'DOC' }}
+                                                                </span>
+                                                                <span class="text-[10px] font-bold text-slate-800 truncate" title="{{ $savedRwFile['name'] }}">
+                                                                    {{ $savedRwFile['name'] }}
+                                                                </span>
+                                                            </div>
+                                                            <a href="{{ $savedRwFile['url'] }}" target="_blank" rel="noopener noreferrer" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold font-mono-code flex items-center gap-1 transition-colors shrink-0 no-underline shadow-2xs">
+                                                                <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                                <span>View</span>
+                                                            </a>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+
                                             <div class="relative flex items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white rounded-xl p-2.5 transition-all cursor-pointer group">
                                                 <input type="file" id="reportWitnessFileInput" name="report_witness_statement_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onclick="this.value = null;" oncancel="restoreFileInputFiles('witness')" onchange="handleFileSelected(this, 'witness')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                                                 <div class="flex items-center gap-2 text-center">
@@ -756,7 +1277,7 @@
                                     Digital Forensic &amp; Investigation Directory
                                 </h3>
                                 <span id="directoryRowCountBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 font-mono-code">
-                                    Total: {{ count($savedReports) + count($cases->filter(fn($c) => !$savedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? '')))) }}
+                                    Total: {{ count($directorySavedReports) + count($directoryCases->filter(fn($c) => !$directorySavedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? '')))) }}
                                 </span>
                             </div>
                             <p class="text-[11px] text-slate-500 font-sans mt-0.5">Real-time case tracking, extraction status &amp; dossier archives</p>
@@ -848,7 +1369,7 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-mono-code" id="forensicTableBody">
-                                @foreach($savedReports as $rep)
+                                @foreach($directorySavedReports as $rep)
                                     @php
                                         $coFiles = $rep->court_order_files;
                                         $rwFiles = $rep->report_witness_statement_files;
@@ -856,13 +1377,27 @@
                                         $repTime = strtotime($rawRepDate);
                                         $repDateIso = ($repTime && $repTime > 0) ? date('Y-m-d', $repTime) : date('Y-m-d');
                                         $repDateDisplay = ($repTime && $repTime > 0) ? date('d M Y', $repTime) : date('d M Y');
-                                        $repLoc = $rep->location_post ?? ($caseMapData[$rep->case_number]['location'] ?? 'Kotoka International Airport (Cargo Wing)');
+                                        $candForCase = $candidatesByCase->get($rep->case_number)?->first();
+                                        $repLoc = $rep->location_post ?? ($caseMapData[$rep->case_number]['location'] ?? ($candForCase['location'] ?? 'Kotoka International Airport (Cargo Wing)'));
                                         $repCourt = strtoupper(trim($rep->court_order_granted ?? 'NO'));
-                                        $sInfo = $caseMapData[$rep->case_number] ?? $resolveSuspectInfo($allCasesByNum->get($rep->case_number), $rep);
-                                        $sName = $sInfo['suspect_name'] ?? ($sInfo['name'] ?? 'Unknown Suspect');
-                                        $sAlias = $sInfo['suspect_alias'] ?? ($sInfo['alias'] ?? null);
-                                        $sMug = $sInfo['suspect_mug'] ?? ($sInfo['mug'] ?? null);
-                                        $sCoCount = $sInfo['co_count'] ?? 0;
+                                        if ($candForCase) {
+                                            $sName = $candForCase['suspect_name'];
+                                            $sAlias = $candForCase['suspect_alias'];
+                                            $sMug = $candForCase['suspect_mug'];
+                                            $sCoCount = $candForCase['is_multi'] ? max(0, count($candForCase['multi_case']->suspects ?? []) - 1) : 0;
+                                        } else {
+                                            $sInfo = $caseMapData[$rep->case_number] ?? $resolveSuspectInfo($allCasesByNum->get($rep->case_number), $rep);
+                                            $sName = $sInfo['suspect_name'] ?? ($sInfo['name'] ?? 'Unknown Suspect');
+                                            $sAlias = $sInfo['suspect_alias'] ?? ($sInfo['alias'] ?? null);
+                                            $sMug = $sInfo['suspect_mug'] ?? ($sInfo['mug'] ?? null);
+                                            $sCoCount = $sInfo['co_count'] ?? 0;
+                                        }
+                                        if (!empty($sMug)) {
+                                            $sMug = trim((string)$sMug);
+                                            if (!str_starts_with($sMug, 'data:image') && !str_starts_with($sMug, 'http://') && !str_starts_with($sMug, 'https://') && !str_starts_with($sMug, '/')) {
+                                                $sMug = asset($sMug);
+                                            }
+                                        }
                                     @endphp
                                     @php
                                         $extRaw = trim($rep->extraction_analysis_message ?: ($rep->extraction_analysis_conducted ?: 'NO'));
@@ -1010,13 +1545,14 @@
                                     </tr>
                                 @endforeach
 
-                                @foreach($cases as $idx => $cItem)
+                                @foreach($directoryCases as $idx => $cItem)
                                     @php
-                                        $cRef = $cItem->case_number ?? ($cItem['case_number'] ?? ('NCC-2026-DF' . sprintf('%02d', $idx + 1)));
-                                        if ($savedReports->contains('case_number', $cRef)) continue;
-                                        $cLoc = $caseMapData[$cRef]['location'] ?? 'Kotoka International Airport (Cargo Wing)';
-                                        $cDev = $caseMapData[$cRef]['devices'] ?? 'Electronic Devices / Mobile Exhibits';
-                                        $cRawDate = $caseMapData[$cRef]['date'] ?? ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d'));
+                                        $cRef = $cItem->case_number ?? ($cItem['case_number'] ?? ('NCC-' . date('Y') . '-DF' . sprintf('%02d', $idx + 1)));
+                                        if ($directorySavedReports->contains('case_number', $cRef)) continue;
+                                        $candForCase = $candidatesByCase->get($cRef)?->first();
+                                        $cLoc = $caseMapData[$cRef]['location'] ?? ($candForCase['location'] ?? 'Kotoka International Airport (Cargo Wing)');
+                                        $cDev = $caseMapData[$cRef]['devices'] ?? ($candForCase['devices'] ?? ($electronicCategory . ' / Mobile Exhibits'));
+                                        $cRawDate = $caseMapData[$cRef]['date'] ?? ($candForCase['date'] ?? ($cItem->created_at ? $cItem->created_at->format('Y-m-d') : date('Y-m-d')));
                                         $cTime = strtotime((string)$cRawDate);
                                         $cDateIso = ($cTime && $cTime > 0) ? date('Y-m-d', $cTime) : date('Y-m-d');
                                         $cDateDisplay = ($cTime && $cTime > 0) ? date('d M Y', $cTime) : date('d M Y');
@@ -1024,11 +1560,24 @@
                                         $cExt = strtoupper(trim($caseMapData[$cRef]['extraction_status'] ?? 'NO'));
                                         $cRw = strtoupper(trim($caseMapData[$cRef]['report_witness_status'] ?? 'NO'));
                                         $cIntel = strtoupper(trim($caseMapData[$cRef]['intel_shared'] ?? 'NO'));
-                                        $sInfo = $caseMapData[$cRef] ?? $resolveSuspectInfo($cItem);
-                                        $sName = $sInfo['suspect_name'] ?? ($sInfo['name'] ?? 'Unknown Suspect');
-                                        $sAlias = $sInfo['suspect_alias'] ?? ($sInfo['alias'] ?? null);
-                                        $sMug = $sInfo['suspect_mug'] ?? ($sInfo['mug'] ?? null);
-                                        $sCoCount = $sInfo['co_count'] ?? 0;
+                                        if ($candForCase) {
+                                            $sName = $candForCase['suspect_name'];
+                                            $sAlias = $candForCase['suspect_alias'];
+                                            $sMug = $candForCase['suspect_mug'];
+                                            $sCoCount = $candForCase['is_multi'] ? max(0, count($candForCase['multi_case']->suspects ?? []) - 1) : 0;
+                                        } else {
+                                            $sInfo = $caseMapData[$cRef] ?? $resolveSuspectInfo($cItem);
+                                            $sName = $sInfo['suspect_name'] ?? ($sInfo['name'] ?? 'Unknown Suspect');
+                                            $sAlias = $sInfo['suspect_alias'] ?? ($sInfo['alias'] ?? null);
+                                            $sMug = $sInfo['suspect_mug'] ?? ($sInfo['mug'] ?? null);
+                                            $sCoCount = $sInfo['co_count'] ?? 0;
+                                        }
+                                        if (!empty($sMug)) {
+                                            $sMug = trim((string)$sMug);
+                                            if (!str_starts_with($sMug, 'data:image') && !str_starts_with($sMug, 'http://') && !str_starts_with($sMug, 'https://') && !str_starts_with($sMug, '/')) {
+                                                $sMug = asset($sMug);
+                                            }
+                                        }
                                     @endphp
                                     <tr class="hover:bg-emerald-50/40 transition-colors directory-row" 
                                         data-date="{{ $cDateIso }}"
@@ -1103,7 +1652,10 @@
                                     </tr>
                                 @endforeach
 
-                                <tr id="directoryNoRecordsRow" class="hidden">
+                                @php
+                                    $totalDirectoryRows = count($directorySavedReports) + count($directoryCases->filter(fn($c) => !$directorySavedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? ''))));
+                                @endphp
+                                <tr id="directoryNoRecordsRow" class="{{ $totalDirectoryRows > 0 ? 'hidden' : '' }}">
                                     <td colspan="8" class="p-8 text-center text-slate-400 font-sans">
                                         <div class="flex flex-col items-center justify-center">
                                             <svg class="w-8 h-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -1337,9 +1889,134 @@
             }
         }
 
+        function renderSavedCourtOrderFiles(files) {
+            const wrapper = document.getElementById('courtOrderSavedFilesWrapper');
+            const list = document.getElementById('courtOrderSavedFilesList');
+            const badge = document.getElementById('courtOrderSavedBadge');
+            if (!wrapper || !list) return;
+
+            list.innerHTML = '';
+            const safeFiles = Array.isArray(files) ? files : [];
+
+            if (safeFiles.length > 0) {
+                if (badge) {
+                    badge.innerText = safeFiles.length === 1 ? '1 SAVED' : safeFiles.length + ' SAVED';
+                }
+                safeFiles.forEach(file => {
+                    let rawPath = '';
+                    let cleanName = '';
+                    let ext = 'DOC';
+                    let url = '#';
+
+                    if (typeof file === 'string') {
+                        rawPath = file;
+                        const rawName = file.split('/').pop() || 'Court Order Document';
+                        cleanName = rawName.replace(/^\d+_[a-z0-9]+_court_order_/i, '').replace(/^\d+_court_order_/i, '').replace(/^court_order_/i, '');
+                        ext = (cleanName.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
+                        url = (file.startsWith('http://') || file.startsWith('https://')) ? file : ('/' + file.replace(/^\/+/, ''));
+                    } else if (file && typeof file === 'object') {
+                        rawPath = file.path || file.url || '';
+                        cleanName = file.name || file.raw_name || (rawPath.split('/').pop() || 'Court Order Document');
+                        cleanName = cleanName.replace(/^\d+_[a-z0-9]+_court_order_/i, '').replace(/^\d+_court_order_/i, '').replace(/^court_order_/i, '');
+                        ext = (file.ext || cleanName.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
+                        url = file.url || ((rawPath.startsWith('http://') || rawPath.startsWith('https://')) ? rawPath : ('/' + rawPath.replace(/^\/+/, '')));
+                    }
+
+                    let extBg = 'bg-emerald-700';
+                    if (ext === 'PDF') extBg = 'bg-rose-600';
+                    else if (['JPG', 'JPEG', 'PNG', 'WEBP'].includes(ext)) extBg = 'bg-sky-600';
+                    else if (['DOC', 'DOCX'].includes(ext)) extBg = 'bg-indigo-600';
+
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200/90 rounded-lg hover:border-emerald-400 transition-all';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0 pr-2">
+                            <span class="w-5 h-5 rounded ${extBg} text-white flex items-center justify-center font-mono-code text-[8px] font-black shrink-0">
+                                ${ext}
+                            </span>
+                            <span class="text-[10px] font-bold text-slate-800 truncate" title="${cleanName}">
+                                ${cleanName}
+                            </span>
+                        </div>
+                        <a href="${url}" target="_blank" rel="noopener noreferrer" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold font-mono-code flex items-center gap-1 transition-colors shrink-0 no-underline shadow-2xs">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            <span>View</span>
+                        </a>
+                    `;
+                    list.appendChild(item);
+                });
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        }
+
+        function renderSavedReportWitnessFiles(files) {
+            const wrapper = document.getElementById('reportWitnessSavedFilesWrapper');
+            const list = document.getElementById('reportWitnessSavedFilesList');
+            const badge = document.getElementById('reportWitnessSavedBadge');
+            if (!wrapper || !list) return;
+
+            list.innerHTML = '';
+            const safeFiles = Array.isArray(files) ? files : [];
+
+            if (safeFiles.length > 0) {
+                if (badge) {
+                    badge.innerText = safeFiles.length === 1 ? '1 SAVED' : safeFiles.length + ' SAVED';
+                }
+                safeFiles.forEach(file => {
+                    let rawPath = '';
+                    let cleanName = '';
+                    let ext = 'DOC';
+                    let url = '#';
+
+                    if (typeof file === 'string') {
+                        rawPath = file;
+                        const rawName = file.split('/').pop() || 'Statement / Report Document';
+                        cleanName = rawName.replace(/^\d+_[a-z0-9]+_report_witness_/i, '').replace(/^\d+_report_witness_/i, '').replace(/^report_witness_/i, '');
+                        ext = (cleanName.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
+                        url = (file.startsWith('http://') || file.startsWith('https://')) ? file : ('/' + file.replace(/^\/+/, ''));
+                    } else if (file && typeof file === 'object') {
+                        rawPath = file.path || file.url || '';
+                        cleanName = file.name || file.raw_name || (rawPath.split('/').pop() || 'Statement / Report Document');
+                        cleanName = cleanName.replace(/^\d+_[a-z0-9]+_report_witness_/i, '').replace(/^\d+_report_witness_/i, '').replace(/^report_witness_/i, '');
+                        ext = (file.ext || cleanName.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
+                        url = file.url || ((rawPath.startsWith('http://') || rawPath.startsWith('https://')) ? rawPath : ('/' + rawPath.replace(/^\/+/, '')));
+                    }
+
+                    let extBg = 'bg-emerald-700';
+                    if (ext === 'PDF') extBg = 'bg-rose-600';
+                    else if (['JPG', 'JPEG', 'PNG', 'WEBP'].includes(ext)) extBg = 'bg-sky-600';
+                    else if (['DOC', 'DOCX'].includes(ext)) extBg = 'bg-indigo-600';
+
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200/90 rounded-lg hover:border-emerald-400 transition-all';
+                    item.innerHTML = `
+                        <div class="flex items-center gap-2 min-w-0 pr-2">
+                            <span class="w-5 h-5 rounded ${extBg} text-white flex items-center justify-center font-mono-code text-[8px] font-black shrink-0">
+                                ${ext}
+                            </span>
+                            <span class="text-[10px] font-bold text-slate-800 truncate" title="${cleanName}">
+                                ${cleanName}
+                            </span>
+                        </div>
+                        <a href="${url}" target="_blank" rel="noopener noreferrer" class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold font-mono-code flex items-center gap-1 transition-colors shrink-0 no-underline shadow-2xs">
+                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                            <span>View</span>
+                        </a>
+                    `;
+                    list.appendChild(item);
+                });
+                wrapper.classList.remove('hidden');
+            } else {
+                wrapper.classList.add('hidden');
+            }
+        }
+
         function onDigitalCaseRefChanged(caseNo) {
-            if (!caseNo || !caseMapData[caseNo]) return;
-            const data = caseMapData[caseNo];
+            if (!caseNo) return;
+            const data = caseMapData[caseNo] || (caseNo.includes('|') ? caseMapData[caseNo.split('|')[0]] : null);
+            if (!data) return;
             const locInput = document.getElementById('statusLocation');
             const devInput = document.getElementById('statusDevicesRetrieved');
             const dateInput = document.getElementById('statusDate');
@@ -1386,6 +2063,9 @@
                     toggleCourtOrderFile('NO');
                 }
             }
+
+            // Render saved Court Order Documents if any exist for this suspect/case
+            renderSavedCourtOrderFiles(data.court_order_files || []);
             if (data.extraction_status !== undefined) {
                 const curStatus = document.getElementById('extractionAnalysisConducted');
                 if (curStatus) curStatus.value = data.extraction_status || 'NO';
@@ -1409,6 +2089,9 @@
                     toggleReportWitnessFile(rwStatus.value);
                 }
             }
+            // Render saved Report & Witness Statement Documents if any exist for this suspect/case
+            renderSavedReportWitnessFiles(data.report_witness_files || []);
+
             if (data.report_witness_notes !== undefined) {
                 const rwNotes = document.getElementById('reportWitnessNotes');
                 if (rwNotes) rwNotes.value = data.report_witness_notes;
@@ -1450,6 +2133,8 @@
                         const courtGrantedEl = document.getElementById('courtOrderGranted');
                         if (courtGrantedEl) toggleCourtOrderFile(courtGrantedEl.value);
                         if (reportWitnessEl) toggleReportWitnessFile(reportWitnessEl.value);
+                        renderSavedCourtOrderFiles([]);
+                        renderSavedReportWitnessFiles([]);
                     }, 50);
                 });
             }
@@ -1463,6 +2148,16 @@
             const alertMsg = document.getElementById('statusAlertMsg');
             const form = document.getElementById('forensicStatusForm');
             const formData = new FormData(form);
+
+            // Split composite case_number (case_number|suspect_id)
+            const rawCaseVal = (formData.get('case_number') || '').trim();
+            if (rawCaseVal.includes('|')) {
+                const parts = rawCaseVal.split('|');
+                formData.set('case_number', parts[0]);
+                if (parts[1]) {
+                    formData.set('suspect_id', parts[1]);
+                }
+            }
 
             // Ensure disabled or present select values are captured accurately
             const courtGrantedEl = document.getElementById('courtOrderGranted');
@@ -1599,6 +2294,58 @@
                     alertMsg.classList.add('flex');
                 }
 
+                // Sync updated court order files into caseMapData and saved files list
+                if (data.court_order_files && Array.isArray(data.court_order_files)) {
+                    const rawCaseVal = (formData.get('case_number') || '').trim();
+                    const targetKeys = [rawCaseVal];
+                    if (rawCaseVal.includes('|')) {
+                        targetKeys.push(rawCaseVal.split('|')[0]);
+                    }
+                    const formattedNewFiles = data.court_order_files.map(fPath => {
+                        const rawName = fPath.split('/').pop() || 'Court Order Document';
+                        const cleanName = rawName.replace(/^\d+_[a-z0-9]+_court_order_/i, '').replace(/^\d+_court_order_/i, '').replace(/^court_order_/i, '');
+                        const ext = (cleanName.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
+                        const url = (fPath.startsWith('http://') || fPath.startsWith('https://')) ? fPath : ('/' + fPath.replace(/^\/+/, ''));
+                        return { path: fPath, name: cleanName, raw_name: rawName, ext: ext, url: url };
+                    });
+                    targetKeys.forEach(k => {
+                        if (caseMapData[k]) {
+                            caseMapData[k].court_order_files = formattedNewFiles;
+                        }
+                    });
+                    courtOrderDataTransfer = new DataTransfer();
+                    const fileInput = document.getElementById('courtOrderFileInput');
+                    if (fileInput) fileInput.value = '';
+                    renderFileList('court');
+                    renderSavedCourtOrderFiles(formattedNewFiles);
+                }
+
+                // Sync updated report witness statement files into caseMapData and saved files list
+                if (data.report_witness_statement_files && Array.isArray(data.report_witness_statement_files)) {
+                    const rawCaseVal = (formData.get('case_number') || '').trim();
+                    const targetKeys = [rawCaseVal];
+                    if (rawCaseVal.includes('|')) {
+                        targetKeys.push(rawCaseVal.split('|')[0]);
+                    }
+                    const formattedNewRwFiles = data.report_witness_statement_files.map(fPath => {
+                        const rawName = fPath.split('/').pop() || 'Statement / Report Document';
+                        const cleanName = rawName.replace(/^\d+_[a-z0-9]+_report_witness_/i, '').replace(/^\d+_report_witness_/i, '').replace(/^report_witness_/i, '');
+                        const ext = (cleanName.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
+                        const url = (fPath.startsWith('http://') || fPath.startsWith('https://')) ? fPath : ('/' + fPath.replace(/^\/+/, ''));
+                        return { path: fPath, name: cleanName, raw_name: rawName, ext: ext, url: url };
+                    });
+                    targetKeys.forEach(k => {
+                        if (caseMapData[k]) {
+                            caseMapData[k].report_witness_files = formattedNewRwFiles;
+                        }
+                    });
+                    reportWitnessDataTransfer = new DataTransfer();
+                    const rwFileInput = document.getElementById('reportWitnessFileInput');
+                    if (rwFileInput) rwFileInput.value = '';
+                    renderFileList('witness');
+                    renderSavedReportWitnessFiles(formattedNewRwFiles);
+                }
+
                 const repData = data.data || data.report || {
                     case_number: formData.get('case_number'),
                     location_post: formData.get('location_post'),
@@ -1621,7 +2368,6 @@
                 openReportPreviewModal(repData);
             })
             .catch(err => {
-                console.error('Error saving status:', err);
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> <span>Save &amp; Log Investigation Status</span>';

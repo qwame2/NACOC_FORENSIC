@@ -471,8 +471,25 @@
             strtolower($authUser->role ?? '') === 'admin' ||
             (isset($authUser->unit) && str_contains(strtolower($authUser->unit), 'head')));
     $activeHandover = $case->getActiveHandover();
-    $allUnitHeads = \App\Models\User::where('is_head', true)->get();
     $currentCaseStatus = $case->case_status ?? 'Under Investigation';
+
+    // Case Creator resolution: strictly resolved from the user who created/logged the case
+    $caseCreatorName = $case->user?->fullname
+        ?? ($case->user?->username ?? ($docketData['created_by_name'] ?? 'Investigating Officer'));
+    $caseCreatorUnit = $case->user?->unit ?? ($case->unit_name ?? 'NACOC Forensic');
+    $caseCreatedAt = $case->created_at ? $case->created_at->format('d M Y, H:i') : null;
+
+    // Arresting Officer resolution
+    $arrestingOfficerName = $case->arresting_officer ?? ($case->submitting_officer ?? 'N/A');
+
+    // Case Status Updater resolution from AuditLog or docket_data
+    $statusAudit = \App\Models\AuditLog::where('case_number', $case->case_number)
+        ->whereIn('action', ['CASE_STATUS_CHANGED', 'CASE_STATUS_UPDATED'])
+        ->latest('id')
+        ->first();
+    $statusUpdatedBy = $statusAudit->user_name ?? ($docketData['case_status_updated_by'] ?? null);
+    $statusUpdatedByUnit = $statusAudit->user_unit ?? ($docketData['case_status_updated_by_unit'] ?? null);
+    $statusUpdatedAt = $statusAudit ? $statusAudit->created_at->format('d M Y, H:i') : ($docketData['case_status_updated_at'] ?? null);
 
     // GATHER ALL SUSPECTS IN THIS CASE TO RESOLVE THE SELECTED SUSPECT
     $allSuspectsInCase = [];
@@ -581,49 +598,24 @@
             $suspectHasDrug = true;
         }
 
-        if (str_contains($cat, 'electronic') || str_contains($cat, 'digital') || str_contains($cat, 'device')) {
+        if (str_contains($cat, 'electronic') || str_contains($cat, 'digital') || str_contains($cat, 'device')
+            || str_contains($type, 'electronic') || str_contains($type, 'phone') || str_contains($type, 'laptop')
+            || str_contains($sName, 'phone') || str_contains($sName, 'laptop') || str_contains($sName, 'sim')
+            || str_contains($sName, 'hard drive') || str_contains($sName, 'flash drive') || str_contains($sName, 'tablet')
+        ) {
             $suspectHasElectronic = true;
         }
 
-        if (str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'vehicle') || str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold')) {
+        if (str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'vehicle')
+            || str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold')
+            || str_contains($sName, 'weapon') || str_contains($sName, 'vehicle') || str_contains($sName, 'car') || str_contains($sName, 'cash')
+        ) {
             $suspectHasCrimeScene = true;
         }
     }
 
     $activeSuspectHasDrugExhibit = (bool) !empty($suspectHasDrug);
     $hasAnySpecialistUnit = $suspectHasCrimeScene || $suspectHasDrug || $suspectHasElectronic;
-
-    // DYNAMIC UNITS LIST DETERMINATION FOR SELECTED SUSPECT (Operational Units only; HOF is the Final Step card)
-    if (empty($suspectLinkedExhibits) || !$hasAnySpecialistUnit) {
-        $caseUnits = $case->getWorkflowUnits();
-        $unitsList = !empty($caseUnits)
-            ? $caseUnits
-            : ['Crime Scene Support', 'Lab Analysis', 'Digital & Physical Forensics', 'Evidence Management'];
-    } else {
-        // Requirement 3: Determine units strictly from actual exhibit category saved for selected suspect
-        $unitsList = [];
-
-        if ($suspectHasCrimeScene) {
-            $unitsList[] = 'Crime Scene Support';
-        }
-        if ($suspectHasDrug) {
-            $unitsList[] = 'Lab Analysis';
-        }
-        if (
-            $suspectHasElectronic ||
-            $isDigitalForensics ||
-            str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
-            str_contains(strtolower($case->unit_name ?? ''), 'physical')
-        ) {
-            $unitsList[] = 'Digital & Physical Forensics';
-        }
-
-        // Evidence Management is required for all exhibit cases
-        $unitsList[] = 'Evidence Management';
-
-        $unitsList = array_values(array_unique($unitsList));
-    }
-    $totalUnitsCount = count($unitsList);
 
     // CHECK IF VALID EXAMINATION INFORMATION HAS ACTUALLY BEEN SAVED FOR THIS SELECTED SUSPECT
     $suspectLabExamSaved = false;
@@ -635,6 +627,8 @@
                 ->where('has_saved', true)
                 ->get()
                 ->contains(function ($aRec) use ($activeSuspectNameLower) {
+                    if (empty($aRec->has_saved)) return false;
+                    if (empty($aRec->analyst) && empty($aRec->exam_reference) && empty($aRec->substance_identification) && empty($aRec->date_completed)) return false;
                     $aName = strtolower(trim($aRec->suspect_name ?? ''));
                     return !empty($aName) &&
                         ($aName === $activeSuspectNameLower ||
@@ -652,10 +646,17 @@
                     $q->where('single_suspect_case_id', $case->id);
                 }
             })
+                ->where('has_saved', true)
                 ->where(function ($q) {
-                    $q->where('has_saved', true)
-                        ->orWhereNotNull('substance_identification')
-                        ->orWhereNotNull('test_methods');
+                    $q->where(function ($sub) {
+                        $sub->whereNotNull('analyst')->where('analyst', '!=', '');
+                    })->orWhere(function ($sub) {
+                        $sub->whereNotNull('exam_reference')->where('exam_reference', '!=', '');
+                    })->orWhere(function ($sub) {
+                        $sub->whereNotNull('substance_identification')->where('substance_identification', '!=', '');
+                    })->orWhere(function ($sub) {
+                        $sub->whereNotNull('date_completed')->where('date_completed', '!=', '');
+                    });
                 })
                 ->exists();
         }
@@ -702,11 +703,7 @@
 
         // 5. Check primary lab_examination in docket_data
         if (!$suspectLabExamSaved && $isActiveSuspectPrimary && !empty($docketData['lab_examination'])) {
-            $hasLabData =
-                !empty($docketData['lab_examination']['has_saved']) ||
-                !empty($docketData['lab_examination']['substance_identification']) ||
-                !empty($docketData['lab_examination']['confirmatory_result']) ||
-                !empty($docketData['lab_examination']['presumptive_result']);
+            $hasLabData = !empty($docketData['lab_examination']['has_saved']);
             if ($hasLabData) {
                 $pOwner = strtolower(trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''));
                 if (
@@ -732,126 +729,343 @@
         }
     }
 
-    // Check if ANY suspect in the case has a completed lab examination
-    $caseHasAnySavedLab =
-        $suspectLabExamSaved ||
-        !empty($docketData['lab_examination']['has_saved']) ||
-        !empty($docketData['lab_examination']['substance_identification']) ||
-        !empty($docketData['lab_examination']['confirmatory_result']) ||
-        !empty($docketData['lab_examination']['presumptive_result']);
+    // STRICT: only accept records where Lab Analysis has explicitly marked has_saved.
+    // Do NOT trust case-model columns (confirmatory_test_result, presumptive_test_result,
+    // substance_identification) — those are exhibit-registration metadata, not lab output.
+    $caseHasAnySavedLab = (bool) (
+        $suspectLabExamSaved
+        || !empty($docketData['lab_examination']['has_saved'])
+        || (!empty($docketData['lab_examinations_list'])
+            && is_array($docketData['lab_examinations_list'])
+            && collect($docketData['lab_examinations_list'])->contains(fn ($l) => !empty($l['has_saved'])))
+        || (!empty($docketData['associate_lab_examinations'])
+            && is_array($docketData['associate_lab_examinations'])
+            && collect($docketData['associate_lab_examinations'])->contains(fn ($a) => !empty($a['has_saved'])))
+        || (!empty($docketData['seizures'])
+            && is_array($docketData['seizures'])
+            && collect($docketData['seizures'])->contains(fn ($s) => !empty($s['has_saved_lab'])))
+    );
+
+    // -------------------------------------------------------------------------
+    // DYNAMIC UNITS LIST DETERMINATION FOR SELECTED SUSPECT
+    // (Operational Units only; HOF is the dedicated Final Step card)
+    // -------------------------------------------------------------------------
+    // WHY: The NACOC Inter-Unit Workflow tracker should only display unit cards for
+    // directorates genuinely involved in the case, preventing clutter from idle or
+    // unreferenced units.
+    //
+    // THE TWO-CONDITION RULE:
+    // 1. Case Creator: The unit that originally logged the case must always appear (first).
+    // 2. Contributing Units: Any unit that subsequently made any add-on to the case
+    //    (added exhibits, submitted findings/examinations, or progressed the workflow)
+    //    must appear.
+    //
+    // TWO ALWAYS-VISIBLE DEFAULT CARDS:
+    // 1. Evidence Management: Required for all cases as the final operational stage
+    //    before directorate sign-off. Always appended at the end of $unitsList.
+    // 2. Head of Forensic Directorate: Final sign-off step, permanently visible as the
+    //    dedicated HOF node in the pipeline immediately following $unitsList.
+    //
+    // DEFINITION OF INVOLVEMENT:
+    // A unit is considered involved if any of the following 6 criteria are met:
+    // (1) Case creator: $case->unit_name matches that unit.
+    // (2) Non-pending status: docket_data['unit_progress'][unit]['status'] is not PENDING.
+    // (3) Recorded officer: docket_data['unit_progress'][unit]['officer'] is present.
+    // (4) Lab examination record: Saved lab examination result or docket lab entry exists.
+    // (5) Digital forensics record: Digital extraction/report or court order exists.
+    // (6) Exhibit association: An exhibit is linked to that unit's domain
+    //     (e.g., electronic exhibit -> Digital Forensics, drug exhibit -> Lab Analysis,
+    //      weapons/vehicles/currency/gold -> Crime Scene Support).
+    // -------------------------------------------------------------------------
+
+    // Read canonical unit names from enum (avoiding hardcoded strings)
+    $cssUnit = enum_exists(\App\Enums\UnitName::class)
+        ? \App\Enums\UnitName::CRIME_SCENE_SUPPORT->value
+        : 'Crime Scene Support';
+    $labUnit = enum_exists(\App\Enums\UnitName::class)
+        ? \App\Enums\UnitName::LAB_ANALYSIS->value
+        : 'Lab Analysis';
+    $dpfUnit = enum_exists(\App\Enums\UnitName::class)
+        ? \App\Enums\UnitName::DIGITAL_PHYSICAL_FORENSICS->value
+        : 'Digital & Physical Forensics';
+    $emUnit = enum_exists(\App\Enums\UnitName::class)
+        ? \App\Enums\UnitName::EVIDENCE_MANAGEMENT->value
+        : 'Evidence Management';
+
+    // 1. Determine case creator unit
+    $caseUnitRaw = trim($case->unit_name ?? ($case->unit?->name ?? ($case->user?->unit ?? ($docketData['created_by_unit'] ?? ''))));
+    $caseUnitLower = strtolower($caseUnitRaw);
+    $caseNumberUpper = strtoupper($case->case_number ?? '');
+
+    $isCreatorEvidence = ($caseUnitLower === strtolower($emUnit))
+        || str_contains($caseUnitLower, 'evidence')
+        || str_starts_with($caseNumberUpper, 'EM-')
+        || str_starts_with($caseNumberUpper, 'EVD-');
+
+    $isCreatorLab = ($caseUnitLower === strtolower($labUnit))
+        || str_contains($caseUnitLower, 'lab')
+        || str_starts_with($caseNumberUpper, 'LAB-')
+        || str_starts_with($caseNumberUpper, 'FSL-');
+
+    $isCreatorDpf = ($caseUnitLower === strtolower($dpfUnit))
+        || str_contains($caseUnitLower, 'digital')
+        || str_contains($caseUnitLower, 'physical')
+        || str_starts_with($caseNumberUpper, 'DPF-')
+        || str_starts_with($caseNumberUpper, 'DIG-');
+
+    $isCreatorCss = !$isCreatorEvidence && !$isCreatorLab && !$isCreatorDpf && (
+        ($caseUnitLower === strtolower($cssUnit))
+        || str_contains($caseUnitLower, 'crime')
+        || str_contains($caseUnitLower, 'scene')
+        || str_starts_with($caseNumberUpper, 'CSS-')
+        || empty($caseUnitLower)
+    );
+
+    // 2 & 3. Closures to inspect docket_data['unit_progress'] for active progress or recorded officer
+    $unitHasActiveProgress = function (string $unitKey) use ($docketData): bool {
+        if (empty($docketData['unit_progress'][$unitKey]['status'])) {
+            return false;
+        }
+        $st = strtoupper(trim((string) $docketData['unit_progress'][$unitKey]['status']));
+        return $st !== '' && $st !== 'PENDING';
+    };
+
+    $unitHasRecordedOfficer = function (string $unitKey) use ($docketData): bool {
+        return !empty($docketData['unit_progress'][$unitKey]['officer'])
+            && trim((string) $docketData['unit_progress'][$unitKey]['officer']) !== '';
+    };
+
+    // STRICT: only accept entries where has_saved is explicitly true.
+    $hasLabRecord = (bool) (
+        $suspectLabExamSaved
+        || !empty($docketData['lab_examination']['has_saved'])
+        || (!empty($docketData['lab_examinations_list'])
+            && is_array($docketData['lab_examinations_list'])
+            && collect($docketData['lab_examinations_list'])->contains(fn ($l) => !empty($l['has_saved'])))
+        || (!empty($docketData['associate_lab_examinations'])
+            && is_array($docketData['associate_lab_examinations'])
+            && collect($docketData['associate_lab_examinations'])->contains(fn ($a) => !empty($a['has_saved'])))
+    );
+
+    // 5. Digital Forensics Record exists for active suspect (Condition 5)
+    $suspectHasDigitalRecord = false;
+    $suspectDigitalSavedRecord = null;
+    if (!empty($docketData['digital_forensics']) && is_array($docketData['digital_forensics'])) {
+        if (isset($docketData['digital_forensics'][$activeSuspectNameLower]) && is_array($docketData['digital_forensics'][$activeSuspectNameLower])) {
+            $candidate = $docketData['digital_forensics'][$activeSuspectNameLower];
+            if (!empty($candidate['has_saved']) || !empty($candidate['analyst']) || !empty($candidate['report']) || !empty($candidate['extraction_data']) || !empty($candidate['forensic_status'])) {
+                $suspectHasDigitalRecord = true;
+                if (!empty($candidate['has_saved'])) {
+                    $suspectDigitalSavedRecord = $candidate;
+                }
+            }
+        }
+        if (!$suspectHasDigitalRecord) {
+            foreach ($docketData['digital_forensics'] as $dfK => $dfEntry) {
+                if (is_array($dfEntry)) {
+                    $dfSuspect = strtolower(trim((string)($dfEntry['suspect_name'] ?? ($dfEntry['owner_name'] ?? $dfK))));
+                    $isMatch = ($dfSuspect === $activeSuspectNameLower)
+                        || str_contains($dfSuspect, $activeSuspectNameLower)
+                        || str_contains($activeSuspectNameLower, $dfSuspect)
+                        || ($isActiveSuspectPrimary && in_array($dfSuspect, ['primary', 'primary suspect', '']));
+                    if ($isMatch && (!empty($dfEntry['has_saved']) || !empty($dfEntry['analyst']) || !empty($dfEntry['report']) || !empty($dfEntry['extraction_data']) || !empty($dfEntry['forensic_status']))) {
+                        $suspectHasDigitalRecord = true;
+                        if (!empty($dfEntry['has_saved'])) {
+                            $suspectDigitalSavedRecord = $dfEntry;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    if (!$suspectHasDigitalRecord && $isActiveSuspectPrimary && (!empty($docketData['digital_court_orders']) || !empty($docketData['digital_reports']))) {
+        $suspectHasDigitalRecord = true;
+    }
+
+    // 6. Exhibit associated with unit's domain — strictly scoped to active suspect (Condition 6)
+    $suspectHasDrugExhibit = (bool) ($suspectHasDrug || $activeSuspectHasDrugExhibit);
+    $suspectHasElectronicExhibit = (bool) $suspectHasElectronic;
+    $suspectHasCrimeSceneExhibit = (bool) $suspectHasCrimeScene;
+
+    // Evaluate involvement per unit — strictly suspect-scoped (Conditions 1 to 6)
+    $cssInvolved = $isCreatorCss
+        || $unitHasActiveProgress($cssUnit)
+        || $unitHasRecordedOfficer($cssUnit)
+        || $suspectHasCrimeSceneExhibit;
+
+    $labInvolved = $isCreatorLab
+        || $unitHasActiveProgress($labUnit)
+        || $unitHasRecordedOfficer($labUnit)
+        || $suspectLabExamSaved
+        || ($isActiveSuspectPrimary && $hasLabRecord)
+        || $suspectHasDrugExhibit;
+
+    $dpfInvolved = $isCreatorDpf
+        || $unitHasActiveProgress($dpfUnit)
+        || $unitHasRecordedOfficer($dpfUnit)
+        || $suspectHasDigitalRecord
+        || $suspectHasElectronicExhibit;
+
+    // =========================================================================
+    // THE TWO-CONDITION RULE FOR $unitsList ASSEMBLY
+    // Step 1 — Creator unit first.
+    // Step 2 — Other contributing units next, in canonical order (CSS, Lab Analysis, DPF),
+    //          skipping the creator unit and any unit where *Involved is false.
+    // Step 3 — Evidence Management is always appended last.
+    // Step 4 — Head of Forensic Directorate is never in $unitsList.
+    // =========================================================================
+
+    // Step 1: Creator unit first
+    $creatorUnit = null;
+    if ($isCreatorLab) {
+        $creatorUnit = $labUnit;
+        $labInvolved = true;
+    } elseif ($isCreatorDpf) {
+        $creatorUnit = $dpfUnit;
+        $dpfInvolved = true;
+    } elseif ($isCreatorEvidence) {
+        // Evidence Management is the case creator unit. It is appended in Step 3 as the final operational stage.
+        $creatorUnit = null;
+    } else {
+        $creatorUnit = $cssUnit;
+        $isCreatorCss = true;
+        $cssInvolved = true;
+    }
+
+    $unitsList = [];
+    if (!empty($creatorUnit)) {
+        $unitsList[] = $creatorUnit;
+    }
+
+    // Step 2: Contributing units in canonical order (CSS, Lab Analysis, DPF)
+    $canonicalOperationalUnits = [$cssUnit, $labUnit, $dpfUnit];
+    $involvedMap = [
+        $cssUnit => $cssInvolved,
+        $labUnit => $labInvolved,
+        $dpfUnit => $dpfInvolved,
+    ];
+
+    foreach ($canonicalOperationalUnits as $opUnit) {
+        if (!empty($involvedMap[$opUnit]) && !in_array($opUnit, $unitsList, true)) {
+            $unitsList[] = $opUnit;
+        }
+    }
+
+    // Step 3: Evidence Management always appended last
+    if (!in_array($emUnit, $unitsList, true)) {
+        $unitsList[] = $emUnit;
+    }
+
+    $unitsList = array_values(array_unique($unitsList));
+    $totalUnitsCount = count($unitsList);
 
     // BUILD UNIT PROGRESS STATUSES STRICTLY FOR SELECTED SUSPECT
     $unitProgress = [];
     foreach ($unitsList as $uKey) {
-        if (empty($suspectLinkedExhibits) || !$hasAnySpecialistUnit) {
-            // Rule 2: Only suspect biodata saved or no exhibit category specified yet -> ALL units PENDING
-            $unitProgress[$uKey] = [
-                'status' => 'PENDING',
-                'officer' => null,
-                'updated_at' => null,
-                'notes' => 'Awaiting exhibit registration and initial processing',
-            ];
-        } else {
-            if ($uKey === 'Lab Analysis') {
-                $isLabDone =
-                    ($suspectHasDrug && $suspectLabExamSaved) ||
-                    (!$suspectHasDrug && $caseHasAnySavedLab) ||
-                    (!$suspectHasDrug && !empty($docketData['seizures'])) ||
-                    $isEvidenceManagement;
+        if ($uKey === 'Lab Analysis') {
+            // Lab Analysis is COMPLETED iff a real saved examination exists for the active suspect
+            $isLabDone = (bool) $suspectLabExamSaved;
 
-                $labOfficerResolved = null;
-                if (!empty($docketData['lab_examination']['analyst'])) {
-                    $labOfficerResolved = $docketData['lab_examination']['analyst'];
-                } elseif (!empty($docketData['unit_progress']['Lab Analysis']['officer'])) {
-                    $labOfficerResolved = $docketData['unit_progress']['Lab Analysis']['officer'];
-                } elseif ($isEvidenceManagement) {
-                    $labOfficerResolved = $case->submitting_officer ?? ($authUser->fullname ?? 'N/A');
-                } elseif (!empty($labAnalyst)) {
-                    $labOfficerResolved = $labAnalyst;
-                } else {
-                    $labOfficerResolved = $case->submitting_officer ?? ($defaultLabHeadName ?? 'N/A');
-                }
-
-                $unitProgress[$uKey] = [
-                    'status' => $isLabDone ? 'COMPLETED' : 'PENDING',
-                    'officer' => $labOfficerResolved,
-                    'updated_at' => optional($case->updated_at)->toDateTimeString() ?? date('Y-m-d H:i:s'),
-                    'notes' => 'Laboratory Examination Information completed and signed off',
-                ];
-            } elseif ($uKey === 'Digital & Physical Forensics') {
-                $suspectDigitalSaved =
-                    !empty($docketData['digital_forensics'][$activeSuspectNameLower]['has_saved']) ||
-                    (!empty($docketData['unit_progress']['Digital & Physical Forensics']['status']) &&
-                        strtoupper($docketData['unit_progress']['Digital & Physical Forensics']['status']) ===
-                            'COMPLETED') ||
-                    str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
-                    str_contains(strtolower($case->unit_name ?? ''), 'physical');
-
-                $digitalOfficerResolved =
-                    $docketData['digital_forensics'][$activeSuspectNameLower]['analyst'] ??
-                    ($docketData['unit_progress']['Digital & Physical Forensics']['officer'] ??
-                        (str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
-                        str_contains(strtolower($case->unit_name ?? ''), 'physical')
-                            ? $case->submitting_officer ?? 'N/A'
-                            : 'N/A'));
-
-                $isDigDone =
-                    ($suspectHasElectronic && $suspectDigitalSaved) ||
-                    str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
-                    str_contains(strtolower($case->unit_name ?? ''), 'physical');
-
-                $unitProgress[$uKey] = [
-                    'status' => $isDigDone ? 'COMPLETED' : 'PENDING',
-                    'officer' => $digitalOfficerResolved,
-                    'updated_at' => $isDigDone
-                        ? optional($case->updated_at)->toDateTimeString() ?? date('Y-m-d H:i:s')
-                        : null,
-                    'notes' => $isDigDone
-                        ? 'Device extraction & digital forensic examination completed'
-                        : ($suspectHasElectronic
-                            ? 'Electronic device registered; awaiting digital forensic extraction'
-                            : 'Awaiting device extraction'),
-                ];
-            } elseif ($uKey === 'Crime Scene Support') {
-                $cssCompleted =
-                    !empty($docketData['unit_progress']['Crime Scene Support']['status']) &&
-                    strtoupper($docketData['unit_progress']['Crime Scene Support']['status']) === 'COMPLETED';
-                $caseSavedOfficer = $case->user?->fullname
-                    ?? ($case->user_id ? \App\Models\User::find($case->user_id)?->fullname : null)
-                    ?? $case->submitting_officer;
-                $unitProgress[$uKey] = [
-                    'status' => $cssCompleted || !empty($caseSavedOfficer) ? 'COMPLETED' : 'PENDING',
-                    'officer' => $caseSavedOfficer ?? null,
-                    'updated_at' => optional($case->created_at)->toDateTimeString(),
-                    'notes' => 'Submitted via Crime Scene Support & Field Operations Workspace',
-                ];
-            } elseif ($uKey === 'Evidence Management') {
-                $evCompleted =
-                    !empty($docketData['unit_progress']['Evidence Management']['status']) &&
-                    strtoupper($docketData['unit_progress']['Evidence Management']['status']) === 'COMPLETED';
-                $unitProgress[$uKey] = [
-                    'status' => $evCompleted ? 'COMPLETED' : 'PENDING',
-                    'officer' => $evCompleted
-                        ? $docketData['unit_progress']['Evidence Management']['officer'] ?? 'Vault Custodian'
-                        : null,
-                    'updated_at' => $evCompleted
-                        ? $docketData['unit_progress']['Evidence Management']['updated_at'] ?? null
-                        : null,
-                    'notes' => $evCompleted
-                        ? 'Processed via Evidence Management & Custody Vault Workspace'
-                        : 'Awaiting evidence receipt and vault custody intake',
-                ];
-            } elseif ($uKey === 'Head of Forensic Directorate') {
-                $hofCompleted = $case->status === 'Approved' || !empty($docketData['hof_approved']);
-                $unitProgress[$uKey] = [
-                    'status' => $hofCompleted ? 'COMPLETED' : 'PENDING',
-                    'officer' => $hofCompleted ? $case->approved_by ?? 'Head of Forensic Directorate' : null,
-                    'updated_at' => $hofCompleted ? optional($case->updated_at)->toDateTimeString() : null,
-                    'notes' => $hofCompleted
-                        ? 'Multi-Unit Directorate Docket Approved & Signed Off'
-                        : 'Awaiting final directorate approval sign-off',
-                ];
+            $labOfficerResolved = null;
+            if (!empty($docketData['lab_examination']['analyst'])) {
+                $labOfficerResolved = $docketData['lab_examination']['analyst'];
+            } elseif (!empty($docketData['unit_progress']['Lab Analysis']['officer'])) {
+                $labOfficerResolved = $docketData['unit_progress']['Lab Analysis']['officer'];
+            } elseif (!empty($labAnalyst)) {
+                $labOfficerResolved = $labAnalyst;
+            } else {
+                $labOfficerResolved = $case->submitting_officer ?? ($defaultLabHeadName ?? 'N/A');
             }
+
+            $unitProgress[$uKey] = [
+                'status' => $isLabDone ? 'COMPLETED' : 'PENDING',
+                'officer' => $labOfficerResolved,
+                'updated_at' => $isLabDone ? (optional($case->updated_at)->toDateTimeString() ?? date('Y-m-d H:i:s')) : null,
+                'notes' => $isLabDone
+                    ? 'Laboratory Examination Information completed and signed off'
+                    : ($suspectHasDrugExhibit
+                        ? 'Drug exhibit registered; awaiting Laboratory Examination Information entry'
+                        : 'Awaiting lab testing'),
+            ];
+        } elseif ($uKey === 'Digital & Physical Forensics') {
+            // Digital & Physical Forensics is COMPLETED iff a real saved digital forensics record exists
+            // for the active suspect (or case created by DPF and output saved, or workflow status COMPLETED)
+            $dpfWorkflowCompleted = !empty($docketData['unit_progress']['Digital & Physical Forensics']['status'])
+                && strtoupper($docketData['unit_progress']['Digital & Physical Forensics']['status']) === 'COMPLETED';
+
+            $dpfCreatorOutputSaved = $isCreatorDpf && (
+                !empty($suspectDigitalSavedRecord)
+                || !empty($docketData['digital_reports'])
+                || !empty($docketData['digital_court_orders'])
+                || $dpfWorkflowCompleted
+            );
+
+            $isDigDone = (!empty($suspectDigitalSavedRecord) && !empty($suspectDigitalSavedRecord['has_saved']))
+                || $dpfCreatorOutputSaved
+                || $dpfWorkflowCompleted;
+
+            $digitalOfficerResolved = $suspectDigitalSavedRecord['analyst'] ?? (
+                $docketData['digital_forensics'][$activeSuspectNameLower]['analyst'] ??
+                ($docketData['unit_progress']['Digital & Physical Forensics']['officer'] ??
+                    ($isCreatorDpf ? $case->submitting_officer ?? 'N/A' : 'N/A'))
+            );
+
+            $unitProgress[$uKey] = [
+                'status' => $isDigDone ? 'COMPLETED' : 'PENDING',
+                'officer' => $digitalOfficerResolved,
+                'updated_at' => $isDigDone
+                    ? (optional($case->updated_at)->toDateTimeString() ?? date('Y-m-d H:i:s'))
+                    : null,
+                'notes' => $isDigDone
+                    ? 'Device extraction & digital forensic examination completed'
+                    : ($suspectHasElectronicExhibit
+                        ? 'Electronic device registered; awaiting digital forensic extraction'
+                        : 'Awaiting device extraction'),
+            ];
+        } elseif ($uKey === 'Crime Scene Support') {
+            // Crime Scene Support is COMPLETED iff a persisted CSS record exists for this case
+            // (or unit_progress['Crime Scene Support']['status'] === 'COMPLETED').
+            $cssProgressStatus = strtoupper(trim((string) ($docketData['unit_progress']['Crime Scene Support']['status'] ?? '')));
+            $cssCompleted = ($cssProgressStatus === 'COMPLETED')
+                || ($isCreatorCss && empty($cssProgressStatus) && !empty($case->id));
+
+            $unitProgress[$uKey] = [
+                'status' => $cssCompleted ? 'COMPLETED' : 'PENDING',
+                'officer' => $docketData['unit_progress']['Crime Scene Support']['officer'] ?? ($case->user?->fullname ?? ($case->submitting_officer ?? null)),
+                'updated_at' => $cssCompleted ? (optional($case->created_at)->toDateTimeString() ?? date('Y-m-d H:i:s')) : null,
+                'notes' => $cssCompleted
+                    ? 'Submitted via Crime Scene Support & Field Operations Workspace'
+                    : 'Awaiting crime scene and field operations submission',
+            ];
+        } elseif ($uKey === 'Evidence Management') {
+            // Evidence Management is COMPLETED iff unit_progress['Evidence Management']['status'] === 'COMPLETED'
+            // or if Evidence Department is the creator unit that logged the case and evidence.
+            $evProgressStatus = strtoupper(trim((string) ($docketData['unit_progress']['Evidence Management']['status'] ?? '')));
+            $evCompleted = ($evProgressStatus === 'COMPLETED')
+                || ($isCreatorEvidence && !empty($case->id));
+
+            $unitProgress[$uKey] = [
+                'status' => $evCompleted ? 'COMPLETED' : 'PENDING',
+                'officer' => $docketData['unit_progress']['Evidence Management']['officer']
+                    ?? ($case->user?->fullname ?? ($case->submitting_officer ?? 'Evidence Custodian')),
+                'updated_at' => $evCompleted
+                    ? ($docketData['unit_progress']['Evidence Management']['updated_at'] ?? (optional($case->created_at)->toDateTimeString() ?? date('Y-m-d H:i:s')))
+                    : null,
+                'notes' => $evCompleted
+                    ? 'Processed via Evidence Management & Custody Vault Workspace'
+                    : 'Awaiting evidence receipt and vault custody intake',
+            ];
+        } elseif ($uKey === 'Head of Forensic Directorate') {
+            $hofCompleted = $case->status === 'Approved' || !empty($docketData['hof_approved']);
+            $unitProgress[$uKey] = [
+                'status' => $hofCompleted ? 'COMPLETED' : 'PENDING',
+                'officer' => $hofCompleted ? ($case->approved_by ?? 'Head of Forensic Directorate') : null,
+                'updated_at' => $hofCompleted ? optional($case->updated_at)->toDateTimeString() : null,
+                'notes' => $hofCompleted
+                    ? 'Multi-Unit Directorate Docket Approved & Signed Off'
+                    : 'Awaiting final directorate approval sign-off',
+            ];
         }
     }
 
@@ -892,20 +1106,20 @@
     $primaryAndCoNamesList = array_unique(array_merge($primarySuspectNamesList, $coSuspectNamesList));
 
     $labExam = $docketData['lab_examination'] ?? [];
-    if (empty($labExam['has_saved']) && empty($labExam['presumptive_result'])) {
+    if (empty($labExam['has_saved'])) {
         if (!empty($docketData['lab_examinations_list']) && is_array($docketData['lab_examinations_list'])) {
             foreach ($docketData['lab_examinations_list'] as $lItem) {
-                if (!empty($lItem['has_saved']) || !empty($lItem['presumptive_result'])) {
+                if (!empty($lItem['has_saved'])) {
                     $labExam = array_merge($labExam, $lItem);
                     break;
                 }
             }
         }
     }
-    if (empty($labExam['has_saved']) && empty($labExam['presumptive_result'])) {
+    if (empty($labExam['has_saved'])) {
         if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
             foreach ($docketData['seizures'] as $szItem) {
-                if (!empty($szItem['has_saved_lab']) || !empty($szItem['presumptive_result'])) {
+                if (!empty($szItem['has_saved_lab'])) {
                     $labExam = array_merge($labExam, [
                         'exhibit_owner_name' =>
                             $szItem['associated_person'] ??
@@ -953,18 +1167,6 @@
         : null;
 
     if (!$dbPrimaryLabExam && !empty($case->id)) {
-        $dbPrimaryLabExam = \App\Models\LaboratoryExaminationResult::where(function ($q) use ($case, $isMultiCase) {
-            if ($isMultiCase) {
-                $q->where('multiple_suspect_case_id', $case->id);
-            } else {
-                $q->where('single_suspect_case_id', $case->id);
-            }
-        })
-            ->latest('id')
-            ->first();
-    }
-
-    if (!$dbPrimaryLabExam && !empty($case->id)) {
         $dbPrimaryLabExam = \App\Models\AssociateLabExamination::where('case_id', $case->id)
             ->where('has_saved', true)
             ->get()
@@ -985,7 +1187,7 @@
             });
     }
 
-    if ($dbPrimaryLabExam) {
+    if ($dbPrimaryLabExam && $dbPrimaryLabExam->has_saved) {
         $labExam = array_merge($labExam, [
             'exhibit_owner_name' => $dbPrimaryLabExam->suspect_name,
             'laboratory_number' => $dbPrimaryLabExam->laboratory_number,
@@ -1034,8 +1236,7 @@
             }
         }
     }
-    $caseNumericId = sprintf('%03d', $case->id ?? 1);
-    $labExamRef = !empty($rawLabExamRef) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawLabExamRef) : 'NLR-FM-T35-F';
+    $labExamRef = !empty($rawLabExamRef) ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($rawLabExamRef) : app(\App\Services\CaseReferenceService::class)->resolveExamReference($case, $docketData);
 
     $labCaseRef = $case->case_number;
 
@@ -1052,19 +1253,15 @@
             }
         }
     }
+    $safeCaseNumId = $caseNumericId ?? ($case->id ?? 1);
     $labExhibitNo = !empty($rawLabExhibitNo)
         ? $rawLabExhibitNo
-        : 'EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . $caseNumericId;
+        : 'EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . $safeCaseNumId;
 
     $rawLabNumber = $case->laboratory_number ?? ($labExam['laboratory_number'] ?? ($labExam['lab_number'] ?? null));
     $labNumber = !empty($rawLabNumber)
         ? $rawLabNumber
-        : 'Lab No. ' .
-            rand(10, 99) .
-            '/FS' .
-            date('m', strtotime($case->created_at ?? 'now')) .
-            '/' .
-            date('Y', strtotime($case->created_at ?? 'now'));
+        : ($case->laboratory_number ?: 'Pending Assignment');
     $labUnit = !empty($labExam['lab_unit'])
         ? $labExam['lab_unit']
         : (!empty($unitProgress['Lab Analysis']['unit'])
@@ -1124,8 +1321,8 @@
         ? $labExam['confirmatory_result']
         : (!empty($case->confirmatory_test_result)
             ? $case->confirmatory_test_result
-            : 'YES');
-    $labConfirmatory = strtoupper(trim((string) $rawConfVal)) === 'NO' ? 'NO' : 'YES';
+            : null);
+    $labConfirmatory = !empty($rawConfVal) ? (strtoupper(trim((string) $rawConfVal)) === 'NO' ? 'NO' : 'YES') : null;
     $labSampleWeight = $labExam['sample_weight'] ?? [];
 
     // Extract top drug exhibits first
@@ -1297,46 +1494,82 @@
             : (!empty($case->laboratory_analytical_findings)
                 ? $case->laboratory_analytical_findings
                 : ''));
-    $savedLabExamRef = $labExamRef;
-    $savedLabExhibitNo = $labExhibitNo;
-    $savedLabCaseRef = $labCaseRef;
-    $savedLabNumber = $labNumber;
-    $savedLabUnit = $labUnit;
-    $savedLabAnalyst = $labAnalyst;
-    $savedLabDateReceived = $labDateReceived;
-    $savedLabDateStarted = $labDateStarted;
-    $savedLabDateCompleted = $labDateCompleted;
-    $savedLabPresumptive = $labPresumptive;
-    $savedLabConfirmatory = $labConfirmatory;
-    $savedLabExhibitDesc = !empty($labExam['exhibit_description'])
-        ? $labExam['exhibit_description']
-        : (!empty($labExam['description'])
-            ? $labExam['description']
-            : $initialLabDesc ?? '');
-    $savedLabSampleDesc = $labSampleDesc;
-    $savedLabSampleUnits = $labSampleUnits;
-    $savedLabSampleGross = $labSampleGross;
-    $savedLabSampleTaken = $labSampleTaken;
-    $savedLabSampleReserved = $labSampleReserved;
-    $savedLabSampleUnit = $labSampleUnit;
-    $savedLabSubstanceId = $labSubstanceId;
-    $savedLabDetectedSubstances = $labDetectedSubstances;
-    $savedLabTestMethods = $labTestMethods;
-    $savedLabSpecifications = $labSpecifications;
-    $savedLabRemark = $labRemark;
-    $savedLabFindings = $labFindings;
+    $hasAnySavedLabData = (bool) (
+        !empty($labExam['has_saved'])
+        || $suspectLabExamSaved
+        || !empty($docketData['lab_examination']['has_saved'])
+    );
 
-    if (empty($savedLabExhibitNo) || $savedLabExhibitNo === 'N/A') {
-        $savedLabExhibitNo = !empty($labExhibitNo) ? $labExhibitNo : ($case->exhibit_number ?: 'EXH-01');
-    }
-    if (empty($savedLabDateReceived) || $savedLabDateReceived === 'N/A') {
-        $savedLabDateReceived = !empty($labDateReceived) ? $labDateReceived : date('Y-m-d');
-    }
-    if (empty($savedLabDateStarted) || $savedLabDateStarted === 'N/A') {
-        $savedLabDateStarted = !empty($labDateStarted) ? $labDateStarted : $savedLabDateReceived;
-    }
-    if (empty($savedLabDateCompleted) || $savedLabDateCompleted === 'N/A') {
-        $savedLabDateCompleted = !empty($labDateCompleted) ? $labDateCompleted : $savedLabDateStarted;
+    if ($hasAnySavedLabData && !empty($labExam['has_saved'])) {
+        $savedLabExamRef = !empty($labExam['exam_reference']) ? $labExam['exam_reference'] : $labExamRef;
+        $savedLabExhibitNo = !empty($labExam['exhibit_number']) ? $labExam['exhibit_number'] : $labExhibitNo;
+        $savedLabCaseRef = $labCaseRef;
+        $savedLabNumber = !empty($labExam['laboratory_number']) ? $labExam['laboratory_number'] : null;
+        $savedLabUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : null;
+        $savedLabAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : 'N/A';
+        $savedLabPresumptive = !empty($labExam['presumptive_result']) ? $labExam['presumptive_result'] : 'N/A';
+        $caseIncReview = !empty($case->incident_date)
+            ? (is_object($case->incident_date) ? $case->incident_date->format('Y-m-d') : substr((string)$case->incident_date, 0, 10))
+            : null;
+        $caseCreReview = isset($case) && $case->created_at
+            ? (is_object($case->created_at) ? $case->created_at->format('Y-m-d') : substr((string)$case->created_at, 0, 10))
+            : date('Y-m-d');
+        $caseUpReview = isset($case) && $case->updated_at
+            ? (is_object($case->updated_at) ? $case->updated_at->format('Y-m-d') : substr((string)$case->updated_at, 0, 10))
+            : date('Y-m-d');
+
+        $savedLabDateReceived = !empty($labExam['date_received']) && $labExam['date_received'] !== 'N/A'
+            ? $labExam['date_received']
+            : ($caseIncReview ?: $caseCreReview);
+        $savedLabDateStarted = !empty($labExam['date_started']) && $labExam['date_started'] !== 'N/A'
+            ? $labExam['date_started']
+            : $savedLabDateReceived;
+        $savedLabDateCompleted = !empty($labExam['date_completed']) && $labExam['date_completed'] !== 'N/A'
+            ? $labExam['date_completed']
+            : ($caseUpReview ?: $savedLabDateStarted);
+        $savedLabConfirmatory = !empty($labExam['confirmatory_result']) ? (strtoupper(trim((string)$labExam['confirmatory_result'])) === 'NO' ? 'NO' : 'YES') : null;
+        $savedLabExhibitDesc = !empty($labExam['exhibit_description'])
+            ? $labExam['exhibit_description']
+            : (!empty($labExam['description'])
+                ? $labExam['description']
+                : null);
+        $savedLabSampleDesc = !empty($labExam['sample_weight']['description']) ? $labExam['sample_weight']['description'] : null;
+        $savedLabSampleUnits = !empty($labExam['sample_weight']['units_packaging']) ? $labExam['sample_weight']['units_packaging'] : null;
+        $savedLabSampleGross = !empty($labExam['sample_weight']['gross_weight']) ? $labExam['sample_weight']['gross_weight'] : null;
+        $savedLabSampleTaken = !empty($labExam['sample_weight']['sample_taken']) ? $labExam['sample_weight']['sample_taken'] : null;
+        $savedLabSampleReserved = !empty($labExam['sample_weight']['reserved_samples']) ? $labExam['sample_weight']['reserved_samples'] : null;
+        $savedLabSampleUnit = !empty($labSampleUnit) && $labSampleUnit !== 'Kilograms (kg)' ? $labSampleUnit : null;
+        $savedLabSubstanceId = !empty($labExam['substance_identification']) ? $labExam['substance_identification'] : null;
+        $savedLabDetectedSubstances = !empty($labExam['detected_substances']) ? $labExam['detected_substances'] : [];
+        $savedLabTestMethods = !empty($labExam['test_methods']) ? $labExam['test_methods'] : null;
+        $savedLabSpecifications = !empty($labExam['specifications']) ? $labExam['specifications'] : null;
+        $savedLabRemark = !empty($labExam['remark']) ? $labExam['remark'] : null;
+        $savedLabFindings = !empty($labExam['findings']) ? $labExam['findings'] : null;
+    } else {
+        $savedLabExamRef = 'N/A';
+        $savedLabExhibitNo = 'N/A';
+        $savedLabCaseRef = $case->case_number;
+        $savedLabNumber = 'N/A';
+        $savedLabUnit = 'N/A';
+        $savedLabAnalyst = 'N/A';
+        $savedLabDateReceived = 'N/A';
+        $savedLabDateStarted = 'N/A';
+        $savedLabDateCompleted = 'N/A';
+        $savedLabPresumptive = 'N/A';
+        $savedLabConfirmatory = 'N/A';
+        $savedLabExhibitDesc = 'N/A';
+        $savedLabSampleDesc = 'N/A';
+        $savedLabSampleUnits = 'N/A';
+        $savedLabSampleGross = 'N/A';
+        $savedLabSampleTaken = 'N/A';
+        $savedLabSampleReserved = 'N/A';
+        $savedLabSampleUnit = 'N/A';
+        $savedLabSubstanceId = 'N/A';
+        $savedLabDetectedSubstances = [];
+        $savedLabTestMethods = 'N/A';
+        $savedLabSpecifications = 'N/A';
+        $savedLabRemark = 'N/A';
+        $savedLabFindings = 'N/A';
     }
 
     $hasUnexaminedDrugExhibit = false;
@@ -1492,13 +1725,7 @@
     }
 
     if (isset($unitProgress['Lab Analysis'])) {
-        $activeSuspectLabStatus =
-            ($suspectHasDrug && $suspectLabExamSaved) ||
-            (!$suspectHasDrug && $caseHasAnySavedLab) ||
-            (!$suspectHasDrug && !empty($docketData['seizures'])) ||
-            $isEvidenceManagement
-                ? 'COMPLETED'
-                : 'PENDING';
+        $activeSuspectLabStatus = $suspectLabExamSaved ? 'COMPLETED' : 'PENDING';
         $unitProgress['Lab Analysis']['status'] = $activeSuspectLabStatus;
 
         $resolvedLabOfficer = $unitProgress['Lab Analysis']['officer'] ?? null;
@@ -1507,8 +1734,6 @@
                 $resolvedLabOfficer = $docketData['lab_examination']['analyst'];
             } elseif (!empty($docketData['unit_progress']['Lab Analysis']['officer'])) {
                 $resolvedLabOfficer = $docketData['unit_progress']['Lab Analysis']['officer'];
-            } elseif ($isEvidenceManagement) {
-                $resolvedLabOfficer = $case->submitting_officer ?? ($authUser->fullname ?? 'N/A');
             } elseif (!empty($labAnalyst)) {
                 $resolvedLabOfficer = $labAnalyst;
             } else {
@@ -1518,20 +1743,17 @@
 
         $unitProgress['Lab Analysis']['officer'] = $resolvedLabOfficer;
 
-        if ($activeSuspectLabStatus === 'COMPLETED' || $isEvidenceManagement) {
+        if ($activeSuspectLabStatus === 'COMPLETED') {
             $unitProgress['Lab Analysis']['notes'] = 'Laboratory Examination Information completed and signed off';
             if (empty($unitProgress['Lab Analysis']['updated_at'])) {
                 $unitProgress['Lab Analysis']['updated_at'] =
                     optional($case->updated_at)->toDateTimeString() ?? date('Y-m-d H:i:s');
             }
         } else {
-            $unitProgress['Lab Analysis']['notes'] = $isEvidenceManagement
-                ? 'Laboratory Examination Information completed and signed off'
-                : (empty($suspectLinkedExhibits) || !$hasAnySpecialistUnit
-                    ? 'Awaiting exhibit registration and initial processing'
-                    : ($suspectHasDrug
-                        ? 'Drug exhibit registered; awaiting Laboratory Examination Information entry'
-                        : 'Awaiting lab testing'));
+            $unitProgress['Lab Analysis']['notes'] =
+                $suspectHasDrugExhibit
+                    ? 'Drug exhibit registered; awaiting Laboratory Examination Information entry'
+                    : 'Awaiting lab testing';
         }
     }
 
@@ -1540,13 +1762,11 @@
             $unitProgress['Digital & Physical Forensics']['officer'] =
                 $docketData['digital_forensics'][$activeSuspectNameLower]['analyst'] ??
                 ($docketData['unit_progress']['Digital & Physical Forensics']['officer'] ??
-                    (str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
-                    str_contains(strtolower($case->unit_name ?? ''), 'physical')
-                        ? $case->submitting_officer ?? 'N/A'
-                        : 'N/A'));
+                    ($isCreatorDpf ? $case->submitting_officer ?? 'N/A' : 'N/A'));
         }
     }
 
+    $totalUnitsCount = count($unitsList);
     $completedUnitsCount = 0;
     foreach ($unitsList as $uKey) {
         if (isset($unitProgress[$uKey]['status']) && strtoupper($unitProgress[$uKey]['status']) === 'COMPLETED') {
@@ -1604,6 +1824,8 @@
     ];
     $unitBadgeColor = $unitColors[$case->unit_name] ?? 'text-blue-600 bg-blue-50 border-blue-200';
 @endphp
+
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
@@ -1853,7 +2075,8 @@
                                 'Pending',
                             ])->count();
                             $pendingUsersNotif = (int) \App\Models\User::where('is_approved', false)->count();
-                            $totalAlertsCount = $pendingCasesNotif + $pendingUsersNotif + 1;
+                            $pendingHandoversNotif = (int) \App\Models\CaseHandover::whereNull('acknowledged_at')->count();
+                            $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0) + ($pendingUsersNotif > 0 ? 1 : 0) + ($pendingHandoversNotif > 0 ? 1 : 0);
                         @endphp
                         <button type="button" id="notificationBellBtn" onclick="toggleNotificationDropdown()"
                             class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors relative border-none bg-transparent cursor-pointer">
@@ -1904,8 +2127,7 @@
                                             <span
                                                 class="text-[10px] font-extrabold font-mono-code text-amber-700 uppercase">Case
                                                 Approvals</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">JUST
-                                                NOW</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
                                             @if ($pendingCasesNotif > 0)
@@ -1941,7 +2163,7 @@
                                                 class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account
                                                 Control</span>
                                             <span
-                                                class="text-[9px] font-bold text-slate-400 font-mono-code">TODAY</span>
+                                                class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
                                             @if ($pendingUsersNotif > 0)
@@ -1976,13 +2198,22 @@
                                             <span
                                                 class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Evidence
                                                 Vault</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">3 MIN
-                                                AGO</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">4 Barcoded Exhibits
-                                            Transferred to Vault</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Inter-unit evidence
-                                            transfer received from Crime Scene Support Unit.</div>
+                                        <div class="text-xs font-bold text-slate-900 truncate">
+                                            @if ($pendingHandoversNotif > 0)
+                                                {{ $pendingHandoversNotif }} Pending Evidence Transfer(s)
+                                            @else
+                                                All Custody Transfers Acknowledged
+                                            @endif
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                            @if ($pendingHandoversNotif > 0)
+                                                Chain of custody handovers awaiting recipient acknowledgment.
+                                            @else
+                                                Evidence vault records and chain of custody are up to date.
+                                            @endif
+                                        </div>
                                     </div>
                                 </a>
 
@@ -2004,10 +2235,8 @@
                                             <span class="text-[9px] font-bold text-emerald-600 font-mono-code">SYSTEM
                                                 OK</span>
                                         </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">100% Tamper-Free Hash
-                                            Audit Verified</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">SHA-256 digital
-                                            hashes matched across all 4 forensic unit databases.</div>
+                                        <div class="text-xs font-bold text-slate-900 truncate">Chain of Custody Verified</div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Audit trail active and synchronized across forensic directorates.</div>
                                     </div>
                                 </div>
 
@@ -2415,22 +2644,49 @@
                                 @endif
                             </div>
 
-                            <!-- CONTROLLER BADGE -->
+                            <!-- CASE CREATED BY BADGE -->
                             <div
                                 class="flex items-center gap-2 text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-slate-700">
-                                <svg class="w-4 h-4 text-indigo-600 shrink-0" fill="none" stroke="currentColor"
+                                <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        d="M12 4v16m8-8H4" />
                                 </svg>
                                 <span
-                                    class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Controller:</span>
+                                    class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Created By:</span>
                                 <span
                                     class="font-black text-slate-900 font-mono-code text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-2xs">
-                                    {{ $controllerUser->fullname ?? 'Unit Head' }} <span
-                                        class="text-indigo-600 font-bold">({{ $controllerUser->unit ?? $case->unit_name }})</span>
+                                    {{ $caseCreatorName }} <span class="text-emerald-700 font-bold">({{ $caseCreatorUnit }})</span>
+                                    @if ($caseCreatedAt)
+                                        <span class="text-slate-400 font-normal text-[10px] ml-1">• {{ $caseCreatedAt }}</span>
+                                    @endif
                                 </span>
                             </div>
+
+                            <!-- CASE STATUS UPDATED BY BADGE -->
+                            <div
+                                class="flex items-center gap-2 text-xs bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-slate-700">
+                                <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span
+                                    class="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Status Updated By:</span>
+                                <span
+                                    class="font-black text-slate-900 font-mono-code text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                                    @if (!empty($statusUpdatedBy))
+                                        {{ $statusUpdatedBy }} <span class="text-amber-700 font-bold">({{ $statusUpdatedByUnit ?: 'Unit Head' }})</span>
+                                        @if ($statusUpdatedAt)
+                                            <span class="text-slate-400 font-normal text-[10px] ml-1">• {{ $statusUpdatedAt }}</span>
+                                        @endif
+                                    @else
+                                        <span class="text-slate-500 font-normal italic">Initial ({{ $caseCreatorName }})</span>
+                                    @endif
+                                </span>
+                            </div>
+
+                            
                         </div>
 
                         <!-- UNIT HEAD STATUS ACCESS AUTHORIZATION BADGE -->
@@ -2456,30 +2712,27 @@
 
                     {{-- ── ALL COMPLETE BANNER ── --}}
                     <div id="completedUnitsBanner"
-                        class="mx-6 mb-6 p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-500
-                            {{ $completedUnitsCount < $totalUnitsCount ? 'hidden' : '' }}"
-                        style="background:linear-gradient(135deg,#0f172a,#1e293b);border-color:#334155;">
+                        class="mx-6 mb-6 p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-500
+                            {{ $completedUnitsCount < $totalUnitsCount ? 'hidden' : '' }}">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shrink-0"
-                                style="background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg shrink-0 bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-2xs">
                                 ✓
                             </div>
                             <div>
-                                <h4 class="text-xs font-black text-white uppercase tracking-wider font-mono-code">
-                                    Multi-Unit Directorate Processing Complete
+                                <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider font-mono-code">
+                                    Multi-Unit Processing Complete
                                     <span
-                                        class="ml-1 text-emerald-400">({{ $completedUnitsCount }}/{{ $totalUnitsCount }}
+                                        class="ml-1 text-emerald-600">({{ $completedUnitsCount }}/{{ $totalUnitsCount }}
                                         Units)</span>
                                 </h4>
-                                <p class="text-[11px] text-slate-400 mt-0.5">
+                                <p class="text-[11px] text-slate-600 mt-0.5">
                                     All {{ $totalUnitsCount }} specialized units have completed and saved their
                                     findings. Docket is submitted for HOF executive sign-off.
                                 </p>
                             </div>
                         </div>
                         <span
-                            class="px-3 py-1.5 rounded-full text-[10px] font-mono-code font-extrabold uppercase tracking-wider shrink-0"
-                            style="background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">
+                            class="px-3 py-1.5 rounded-full text-[10px] font-mono-code font-extrabold uppercase tracking-wider shrink-0 bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
                             AWAITING HOF SIGN-OFF
                         </span>
                     </div>
@@ -3523,37 +3776,33 @@
                             @endif
                         </div>
 
-                        @if ($isClearedDisp)
-                            <div
-                                class="p-4 bg-emerald-50/90 border-2 border-emerald-300 rounded-xl space-y-1.5 font-sans">
-                                <div class="flex items-center justify-between text-xs font-black text-emerald-950">
-                                    <span class="flex items-center gap-2">
-                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        SUSPECT DISPOSITION STATUS: {{ strtoupper($sDisp) }}
-                                    </span>
-                                    @if (!empty($sItem['disposition_updated_at']))
-                                        <span
-                                            class="text-[10px] font-mono-code font-extrabold text-emerald-700">UPDATED:
-                                            {{ $sItem['disposition_updated_at'] }}</span>
-                                    @endif
-                                </div>
-                                <div class="text-xs text-emerald-900 font-medium leading-relaxed">
-                                    <strong>Official Clearance Justification / Remark:</strong>
-                                    "{{ $sItem['disposition_reason'] ?? 'No further investigative action required for this suspect.' }}"
-                                </div>
-                                <div
-                                    class="text-[10px] font-mono-code text-emerald-700 flex items-center justify-between pt-1 border-t border-emerald-200/60">
-                                    <span>Authorized By:
-                                        <strong>{{ $sItem['disposition_updated_by'] ?? ($controllerUser->fullname ?? 'Authorized Unit Head') }}</strong></span>
-                                    <span class="italic text-slate-500">Historical records, exhibits &amp; lab results
-                                        remain preserved for audit.</span>
-                                </div>
+                        <!-- CASE CREATION & STATUS AUDIT TRACKING -->
+                        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Case Created By:</span>
+                                <span class="font-bold text-slate-900 font-mono-code">{{ $caseCreatorName }} <span class="text-emerald-700 font-bold">({{ $caseCreatorUnit }})</span></span>
+                                @if ($caseCreatedAt)
+                                    <span class="text-slate-400 text-[10px] font-mono-code">• {{ $caseCreatedAt }}</span>
+                                @endif
                             </div>
-                        @endif
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Arresting Officer:</span>
+                                <span class="font-bold text-slate-900 font-mono-code bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">{{ $arrestingOfficerName }}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Status Updated By:</span>
+                                @if (!empty($statusUpdatedBy))
+                                    <span class="font-bold text-slate-900 font-mono-code bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                                        {{ $statusUpdatedBy }} <span class="text-amber-700 font-bold">({{ $statusUpdatedByUnit ?: 'Unit Head' }})</span>
+                                    </span>
+                                    @if ($statusUpdatedAt)
+                                        <span class="text-slate-400 text-[10px] font-mono-code">• {{ $statusUpdatedAt }}</span>
+                                    @endif
+                                @else
+                                    <span class="italic text-slate-400 font-mono-code">Initial ({{ $caseCreatorName }})</span>
+                                @endif
+                            </div>
+                        </div>
 
                         <!-- Legal Identity & Origin -->
                         <div class="space-y-3">
@@ -4913,32 +5162,14 @@
                                         $primaryExhibits = $directEx;
                                     }
                                 }
-                            @endphp
-                            @php
-                                $primarySoleExhibits = [];
                                 if (!empty($primaryExhibits) && is_array($primaryExhibits)) {
                                     foreach ($primaryExhibits as $pEx) {
                                         if ($isJointExhibitCheck($pEx)) {
                                             $capturedJointExhibits[] = $pEx;
-                                        } else {
-                                            $primarySoleExhibits[] = $pEx;
                                         }
                                     }
                                 }
                             @endphp
-
-                            @if (!empty($primarySoleExhibits) && count($primarySoleExhibits) > 0)
-                                @include('partials.exhibit_dossier_card', [
-                                    'dossierBadgeText' => 'PRIMARY EXHIBIT DOSSIER',
-                                    'dossierHeadingText' => "Primary Exhibits — {$sName}",
-                                    'dossierHeadingName' => $sName,
-                                    'dossierExhibits' => $primarySoleExhibits,
-                                    'formatPhotoUrlHelper' => $formatPhotoUrlHelper,
-                                    'extractAllPhotosHelper' => $extractAllPhotosHelper,
-                                    'case' => $case,
-                                    'docketData' => $docketData,
-                                ])
-                            @endif
                         @endif
 
 
@@ -4964,9 +5195,8 @@
                             }
                         @endphp
                         @if (
-                            !$isAssociate &&
                             $currSuspectHasDrug && 
-                            ($sDossierHasSavedLab || !empty($sDossierLabExam)))
+                            $sDossierHasSavedLab)
                             @php
                                 $sDossierIsJointLab = false;
                                 if (!empty($sDossierLabExam)) {
@@ -4975,20 +5205,20 @@
                                         $sDossierIsJointLab = true;
                                     }
                                 }
-                                if (!$sDossierIsJointLab && $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)) {
+                                if (!$isAssociate && !$sDossierIsJointLab && $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)) {
                                     $sDossierIsJointLab = true;
                                 }
-                                if (!$sDossierIsJointLab && !empty($capturedJointExhibits)) {
+                                if (!$isAssociate && !$sDossierIsJointLab && !empty($capturedJointExhibits)) {
                                     $sDossierIsJointLab = true;
                                 }
                                 $labExamHeadingName = $sDossierIsJointLab && !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : $sName;
-                                if ($sDossierIsJointLab) {
+                                if ($sDossierIsJointLab && $sDossierHasSavedLab) {
                                     $savedJointLabExam = $sDossierLabExam;
                                     $savedJointLabHeadingName = $labExamHeadingName;
                                 }
                             @endphp
 
-                            @if (!$sDossierIsJointLab)
+                            @if (!$sDossierIsJointLab && $sDossierHasSavedLab)
                                 @include('partials.lab_examination_result_card', [
                                     'labExam' => $sDossierLabExam,
                                     'labHeadingName' => $labExamHeadingName,
@@ -4996,33 +5226,31 @@
                                 ])
                             @endif
                         @endif
-                        {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT (ONLY WHEN NOT JOINT / CO-SUSPECT EXHIBIT CASE) --}}
-                        @if (!$isJointExhibitCase)
-                            @php
-                                $allGsaForReview = \App\Models\SuspectGsaReport::forCase(
-                                    $case->case_number ?? $case->id ?? null,
-                                    $case->id ?? null,
-                                );
-                                $allNlrForReview = \App\Models\SuspectNlrReport::forCase(
-                                    $case->case_number ?? $case->id ?? null,
-                                    $case->id ?? null,
-                                );
-                                $sGsaFiles = \App\Models\SuspectGsaReport::filterForSuspect(
-                                    $allGsaForReview,
+                        {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT --}}
+                        @php
+                            $allGsaForReview = \App\Models\SuspectGsaReport::forCase(
+                                $case->case_number ?? $case->id ?? null,
+                                $case->id ?? null,
+                            );
+                            $allNlrForReview = \App\Models\SuspectNlrReport::forCase(
+                                $case->case_number ?? $case->id ?? null,
+                                $case->id ?? null,
+                            );
+                            $sGsaFiles = \App\Models\SuspectGsaReport::filterForSuspect(
+                                $allGsaForReview,
+                                $sItem['id'] ?? null,
+                                $sName,
+                            )->merge(
+                                \App\Models\SuspectNlrReport::filterForSuspect(
+                                    $allNlrForReview,
                                     $sItem['id'] ?? null,
                                     $sName,
-                                )->merge(
-                                    \App\Models\SuspectNlrReport::filterForSuspect(
-                                        $allNlrForReview,
-                                        $sItem['id'] ?? null,
-                                        $sName,
-                                    )
-                                )->unique(function ($item) {
-                                    return get_class($item) . '_' . $item->id;
-                                })->values();
-                            @endphp
-                            @include('partials.gsa_report_files', ['gsaFiles' => $sGsaFiles, 'gsaForName' => $sName])
-                        @endif
+                                )
+                            )->unique(function ($item) {
+                                return get_class($item) . '_' . $item->id;
+                            })->values();
+                        @endphp
+                        @include('partials.gsa_report_files', ['gsaFiles' => $sGsaFiles, 'gsaForName' => $sName])
 
                         {{-- ATTACHED DRUG SCREENING RESULT FOR THIS SPECIFIC SUSPECT --}}
                         @php
@@ -5032,7 +5260,7 @@
                             'screening' => $sDrugScreening,
                             'suspectName' => $sName,
                             'suspectId' => $sItem['id'] ?? ($sId ?? null),
-                            'caseNumber' => $case->case_number ?? ($case->id ?? 'NCC-2026'),
+                            'caseNumber' => $case->case_number ?? ($case->id ?? ('NCC-' . date('Y'))),
                             'showEmpty' => (bool) $isLabContext,
                             'showActions' => (bool) $isLabContext,
                         ])
@@ -5254,15 +5482,41 @@
                             }
                         }
                     }
+                    if (empty($jointCaseExhibits) && !empty($allCaseExhibits)) {
+                        $jointCaseExhibits = $allCaseExhibits;
+                    }
                     $isJointExhibitCase = !empty($jointCaseExhibits);
-                    $jointDossierHeadingName = !empty($primarySuspectsCombinedNames) ? $primarySuspectsCombinedNames : 'Primary & Co-Suspect';
+                    $isMultiple = !empty($isMultiCase)
+                        || !empty($isMultipleCase)
+                        || !empty($hasCoSuspectsInCase)
+                        || !empty($case->is_multiple)
+                        || (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase)
+                        || (count($suspectsList ?? ($rawSuspects ?? [])) > 1);
+
+                    $jointDossierHeadingName = !empty($primarySuspectsCombinedNames)
+                        ? $primarySuspectsCombinedNames
+                        : ($isMultiple ? 'Primary & Co-Suspect' : ($case->suspect_name ?? 'Primary Suspect'));
+
+                    $dossierBadgeText = $isMultiple
+                        ? 'PRIMARY & CO-SUSPECT EXHIBIT DOSSIER'
+                        : 'PRIMARY EXHIBIT DOSSIER';
+
+                    $dossierHeadingPrefix = $isMultiple
+                        ? 'Primary & Co-Suspect Seizures & Exhibits'
+                        : 'Primary Suspect Seizures & Exhibits';
+
+                    $dossierHeadingText = !empty($jointDossierHeadingName) && $jointDossierHeadingName !== 'Primary Suspect' && $jointDossierHeadingName !== 'Primary & Co-Suspect'
+                        ? "{$dossierHeadingPrefix} — {$jointDossierHeadingName}"
+                        : ($isMultiple && $jointDossierHeadingName === 'Primary & Co-Suspect'
+                            ? "Primary & Co-Suspect Seizures & Exhibits — {$jointDossierHeadingName}"
+                            : "{$dossierHeadingPrefix}" . (!empty($jointDossierHeadingName) ? " — {$jointDossierHeadingName}" : ''));
                 @endphp
 
                 @if ($isJointExhibitCase)
-                    <!-- PRIMARY & CO-SUSPECT EXHIBIT DOSSIER (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) -->
+                    {{-- {{ $isMultiple ? 'PRIMARY & CO-SUSPECT' : 'PRIMARY' }} EXHIBIT DOSSIER ({{ $isMultiple ? 'JOINT OWNERSHIP SECTION' : 'PRIMARY SUSPECT SECTION' }} ON TOP OF SEIZURES INVENTORY) --}}
                     @include('partials.exhibit_dossier_card', [
-                        'dossierBadgeText' => 'PRIMARY & CO-SUSPECT EXHIBIT DOSSIER',
-                        'dossierHeadingText' => "Primary & Co-Suspect Seizures & Exhibits — {$jointDossierHeadingName}",
+                        'dossierBadgeText' => $dossierBadgeText,
+                        'dossierHeadingText' => $dossierHeadingText,
                         'dossierHeadingName' => $jointDossierHeadingName,
                         'dossierExhibits' => $jointCaseExhibits,
                         'dossierPhotos' => $allCaseExhibitPhotos,
@@ -5294,7 +5548,7 @@
                     @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
-                    @if (!empty($savedJointLabExam) && $activeSuspectHasDrugExhibit)
+                    @if (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']) && $activeSuspectHasDrugExhibit)
                         @include('partials.lab_examination_result_card', [
                             'labExam' => $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
@@ -5429,21 +5683,26 @@
                                                 {{ $szCat }}</td>
                                             <td class="py-2.5 px-4 font-extrabold text-slate-900">
                                                 <div>{{ $szNameVal }}</div>
-                                                @if(!empty($szItem['veh_reg_no']) || !empty($szItem['veh_vin']) || !empty($szItem['veh_condition']) || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage']) || !empty($szItem['veh_doc_ref']))
+                                                @if(!empty($szItem['veh_reg_no']) || !empty($szItem['veh_vin']) || !empty($szItem['veh_condition']) || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage']) || !empty($szItem['veh_doc_ref']) || !empty($szItem['veh_owner_contact']) || !empty($szItem['veh_mods']) || !empty($szItem['veh_features']))
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
                                                         @if(!empty($szItem['veh_reg_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">Reg: {{ $szItem['veh_reg_no'] }}</span> @endif
                                                         @if(!empty($szItem['veh_vin'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">VIN: {{ $szItem['veh_vin'] }}</span> @endif
                                                         @if(!empty($szItem['veh_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['veh_condition'] }}</span> @endif
                                                         @if(!empty($szItem['veh_doc_ref'])) <span class="bg-purple-100 text-purple-900 px-1.5 py-0.5 rounded">Doc: {{ $szItem['veh_doc_ref'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_owner_contact'])) <span class="bg-indigo-100 text-indigo-900 px-1.5 py-0.5 rounded">Contact: {{ $szItem['veh_owner_contact'] }}</span> @endif
                                                         @if(!empty($szItem['veh_fuel'])) <span class="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded">Fuel: {{ $szItem['veh_fuel'] }}</span> @endif
                                                         @if(!empty($szItem['veh_damage'])) <span class="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded">Dmg: {{ \Illuminate\Support\Str::limit($szItem['veh_damage'], 35) }}</span> @endif
+                                                        @if(!empty($szItem['veh_mods'])) <span class="bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded">Mods: {{ $szItem['veh_mods'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_features'])) <span class="bg-cyan-50 text-cyan-900 px-1.5 py-0.5 rounded">Features: {{ $szItem['veh_features'] }}</span> @endif
                                                     </div>
-                                                @elseif(!empty($szItem['wpn_serial_no']) || !empty($szItem['wpn_calibre']) || !empty($szItem['wpn_loaded_status']) || !empty($szItem['wpn_condition']))
+                                                @elseif(!empty($szItem['wpn_serial_no']) || !empty($szItem['wpn_calibre']) || !empty($szItem['wpn_loaded_status']) || !empty($szItem['wpn_condition']) || !empty($szItem['wpn_marks']) || !empty($szItem['wpn_location_found']))
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
                                                         @if(!empty($szItem['wpn_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['wpn_serial_no'] }}</span> @endif
                                                         @if(!empty($szItem['wpn_calibre'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">Cal: {{ $szItem['wpn_calibre'] }}</span> @endif
                                                         @if(!empty($szItem['wpn_loaded_status'])) <span class="bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">{{ $szItem['wpn_loaded_status'] }}</span> @endif
                                                         @if(!empty($szItem['wpn_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">{{ $szItem['wpn_condition'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_marks'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">Marks: {{ $szItem['wpn_marks'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_location_found'])) <span class="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">Loc: {{ $szItem['wpn_location_found'] }}</span> @endif
                                                     </div>
                                                 @elseif(!empty($szItem['dev_serial_no']) || !empty($szItem['dev_imei1']) || !empty($szItem['dev_storage']))
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
@@ -5454,6 +5713,12 @@
                                                 @elseif(!empty($szItem['other_exhibit_description']) || !empty($szItem['other_description']))
                                                     <div class="mt-1 text-[11px] text-slate-600 font-normal italic">
                                                         {{ \Illuminate\Support\Str::limit($szItem['other_exhibit_description'] ?? $szItem['other_description'], 60) }}
+                                                    </div>
+                                                @endif
+                                                @if(!empty($szItem['exhibit_remark']) || !empty($szItem['remark']))
+                                                    <div class="mt-1 text-[11px] text-slate-600 font-medium italic flex items-start gap-1">
+                                                        <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 uppercase not-italic">Remark:</span>
+                                                        <span>{{ $szItem['exhibit_remark'] ?? $szItem['remark'] }}</span>
                                                     </div>
                                                 @endif
                                             </td>
@@ -5512,9 +5777,7 @@
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
                 @if ($isLabAnalysis)
-                    <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl"
-                        id="section5LabExamination">
-                        @php
+                    @php
                             // GATHER ALL SUSPECTS IN THIS CASE FOR SUSPECT WORKSPACE SELECTOR TABS
                             $allSuspectsInCase = [];
                             if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
@@ -5646,7 +5909,7 @@
                                         ),
                                     );
                                     if (
-                                        (!empty($szItem['has_saved_lab']) || !empty($szItem['presumptive_result'])) &&
+                                        !empty($szItem['has_saved_lab']) &&
                                         ($szOwner === $activeSuspectNameLower ||
                                             str_contains($szOwner, $activeSuspectNameLower) ||
                                             str_contains($activeSuspectNameLower, $szOwner))
@@ -5690,7 +5953,7 @@
                                         'laboratory_number' =>
                                             $dbPrimaryLabExam->laboratory_number ?: $case->laboratory_number ?? null,
                                         'exam_reference' =>
-                                            (!empty($dbPrimaryLabExam->exam_reference) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $dbPrimaryLabExam->exam_reference) : 'NLR-FM-T35-F'),
+                                            (!empty($dbPrimaryLabExam->exam_reference) ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($dbPrimaryLabExam->exam_reference) : app(\App\Services\CaseReferenceService::class)->resolveExamReference($case, $docketData)),
                                         'exhibit_number' =>
                                             $dbPrimaryLabExam->exhibit_number ?:
                                             'EXH-' .
@@ -5751,10 +6014,7 @@
                                             $case->laboratory_analytical_findings ?? null,
                                         'has_saved' => true,
                                     ];
-                                } elseif (
-                                    !empty($docketData['lab_examination']['has_saved']) ||
-                                    !empty($docketData['lab_examination']['presumptive_result'])
-                                ) {
+                                } elseif (!empty($docketData['lab_examination']['has_saved'])) {
                                     $pOwner = strtolower(
                                         trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''),
                                     );
@@ -5772,10 +6032,7 @@
 
                             $activeSuspectHasSavedResult =
                                 !empty($activeSuspectLabExam) &&
-                                (!empty($activeSuspectLabExam['has_saved']) ||
-                                    !empty($activeSuspectLabExam['findings']) ||
-                                    !empty($activeSuspectLabExam['substance_identification']) ||
-                                    !empty($activeSuspectLabExam['presumptive_result']));
+                                !empty($activeSuspectLabExam['has_saved']);
 
                             // Verify active suspect actually has drug exhibits linked before showing saved lab result
                             $activeSuspectExhibits = $case->getExhibitsForSuspect(
@@ -5797,32 +6054,19 @@
 
                             if ($activeSuspectHasSavedResult && !empty($activeSuspectLabExam)) {
                                 $labOwnerName = $activeSuspectLabExam['exhibit_owner_name'] ?? $activeSuspectName;
-                                if (!empty($activeSuspectLabExam['exam_reference'])) {
-                                    $savedLabExamRef = $activeSuspectLabExam['exam_reference'];
-                                }
-                                if (!empty($activeSuspectLabExam['exhibit_number'])) {
-                                    $savedLabExhibitNo = $activeSuspectLabExam['exhibit_number'];
-                                }
-                                if (!empty($activeSuspectLabExam['laboratory_number'])) {
-                                    $savedLabNumber = $activeSuspectLabExam['laboratory_number'];
-                                }
-                                if (!empty($activeSuspectLabExam['analyst'])) {
-                                    $savedLabAnalyst = $activeSuspectLabExam['analyst'];
-                                }
-                                if (!empty($activeSuspectLabExam['date_received'])) {
-                                    $savedLabDateReceived = $activeSuspectLabExam['date_received'];
-                                }
-                                if (!empty($activeSuspectLabExam['date_started'])) {
-                                    $savedLabDateStarted = $activeSuspectLabExam['date_started'];
-                                }
-                                if (!empty($activeSuspectLabExam['date_completed'])) {
-                                    $savedLabDateCompleted = $activeSuspectLabExam['date_completed'];
-                                }
-                                if (!empty($activeSuspectLabExam['presumptive_result'])) {
-                                    $savedLabPresumptive = $activeSuspectLabExam['presumptive_result'];
-                                }
+                                $savedLabExamRef = !empty($activeSuspectLabExam['exam_reference']) ? $activeSuspectLabExam['exam_reference'] : ($savedLabExamRef ?? 'N/A');
+                                $savedLabExhibitNo = !empty($activeSuspectLabExam['exhibit_number']) ? $activeSuspectLabExam['exhibit_number'] : ($savedLabExhibitNo ?? 'N/A');
+                                $savedLabNumber = !empty($activeSuspectLabExam['laboratory_number']) ? $activeSuspectLabExam['laboratory_number'] : ($savedLabNumber ?? 'N/A');
+                                $savedLabAnalyst = !empty($activeSuspectLabExam['analyst']) ? $activeSuspectLabExam['analyst'] : ($savedLabAnalyst ?? 'N/A');
+                                $savedLabDateReceived = !empty($activeSuspectLabExam['date_received']) ? $activeSuspectLabExam['date_received'] : ($savedLabDateReceived ?? 'N/A');
+                                $savedLabDateStarted = !empty($activeSuspectLabExam['date_started']) ? $activeSuspectLabExam['date_started'] : ($savedLabDateStarted ?? 'N/A');
+                                $savedLabDateCompleted = !empty($activeSuspectLabExam['date_completed']) ? $activeSuspectLabExam['date_completed'] : ($savedLabDateCompleted ?? 'N/A');
+                                $savedLabPresumptive = !empty($activeSuspectLabExam['presumptive_result']) ? $activeSuspectLabExam['presumptive_result'] : ($savedLabPresumptive ?? 'N/A');
                                 if (!empty($activeSuspectLabExam['confirmatory_result'])) {
-                                    $savedLabConfirmatory = $activeSuspectLabExam['confirmatory_result'];
+                                    $cRes = strtoupper(trim((string) $activeSuspectLabExam['confirmatory_result']));
+                                    $savedLabConfirmatory = $cRes === 'NO' ? 'NO' : ($cRes === 'YES' ? 'YES' : null);
+                                } else {
+                                    $savedLabConfirmatory = $savedLabConfirmatory ?? 'N/A';
                                 }
 
                                 $swActive = $activeSuspectLabExam['sample_weight'] ?? [];
@@ -5889,26 +6133,30 @@
                                 if (!empty($activeSuspectLabExam['findings'])) {
                                     $savedLabFindings = $activeSuspectLabExam['findings'];
                                 }
-                            }
-
-                            if (empty($savedLabExhibitNo) || $savedLabExhibitNo === 'N/A') {
-                                $savedLabExhibitNo = !empty($labExhibitNo)
-                                    ? $labExhibitNo
-                                    : ($case->exhibit_number ?:
-                                    'EXH-01');
-                            }
-                            if (empty($savedLabDateReceived) || $savedLabDateReceived === 'N/A') {
-                                $savedLabDateReceived = !empty($labDateReceived) ? $labDateReceived : date('Y-m-d');
-                            }
-                            if (empty($savedLabDateStarted) || $savedLabDateStarted === 'N/A') {
-                                $savedLabDateStarted = !empty($labDateStarted)
-                                    ? $labDateStarted
-                                    : $savedLabDateReceived;
-                            }
-                            if (empty($savedLabDateCompleted) || $savedLabDateCompleted === 'N/A') {
-                                $savedLabDateCompleted = !empty($labDateCompleted)
-                                    ? $labDateCompleted
-                                    : $savedLabDateStarted;
+                            } else {
+                                $labOwnerName = $activeSuspectName;
+                                $savedLabExamRef = 'N/A';
+                                $savedLabExhibitNo = 'N/A';
+                                $savedLabNumber = 'N/A';
+                                $savedLabAnalyst = 'N/A';
+                                $savedLabDateReceived = 'N/A';
+                                $savedLabDateStarted = 'N/A';
+                                $savedLabDateCompleted = 'N/A';
+                                $savedLabPresumptive = 'N/A';
+                                $savedLabConfirmatory = 'N/A';
+                                $savedLabExhibitDesc = 'N/A';
+                                $savedLabSampleDesc = 'N/A';
+                                $savedLabSampleUnits = 'N/A';
+                                $savedLabSampleGross = 'N/A';
+                                $savedLabSampleTaken = 'N/A';
+                                $savedLabSampleReserved = 'N/A';
+                                $savedLabSampleUnit = 'N/A';
+                                $savedLabSubstanceId = 'N/A';
+                                $savedLabDetectedSubstances = [];
+                                $savedLabTestMethods = 'N/A';
+                                $savedLabSpecifications = 'N/A';
+                                $savedLabRemark = 'N/A';
+                                $savedLabFindings = 'N/A';
                             }
 
                             $checkIsDrugExhibitReview = $checkIsDrugExhibit;
@@ -5961,7 +6209,7 @@
                                             'confirmatory_result' =>
                                                 $sz['confirmatory_result'] ??
                                                 ($labDataFromDocket['confirmatory_result'] ??
-                                                    ($case->confirmatory_test_result ?? 'YES')),
+                                                    ($case->confirmatory_test_result ?? null)),
                                             'substance_identification' =>
                                                 $sz['substance_identification'] ??
                                                 ($labDataFromDocket['substance_identification'] ??
@@ -6016,7 +6264,7 @@
                                     'is_associate' => false,
                                     'has_saved_lab' => $activeSuspectHasSavedResult,
                                     'confirmatory_result' =>
-                                        $savedLabConfirmatory ?: ($case->confirmatory_test_result ?: 'YES'),
+                                        $savedLabConfirmatory ?: ($case->confirmatory_test_result ?: null),
                                     'substance_identification' =>
                                         $savedLabSubstanceId ?: ($case->confirmatory_substance_identification ?: null),
                                     'test_methods' =>
@@ -6073,7 +6321,7 @@
                                         'confirmatory_result' =>
                                             $sz['confirmatory_result'] ??
                                             ($labDataFromDocket['confirmatory_result'] ??
-                                                ($case->confirmatory_test_result ?? 'YES')),
+                                                ($case->confirmatory_test_result ?? null)),
                                         'substance_identification' =>
                                             $sz['substance_identification'] ??
                                             ($labDataFromDocket['substance_identification'] ??
@@ -6130,33 +6378,35 @@
                             }
 
                             $labIsAssoc = false;
-                            $savedLabOwnerName = $docketData['lab_examination']['exhibit_owner_name'] ?? null;
-                            $firstDrugExOwner = $allDrugExhibitsList[0]['owner'] ?? null;
-                            $isExOwnerJoint = !empty($firstDrugExOwner) && (
-                                str_contains(strtolower($firstDrugExOwner), ',') ||
-                                str_contains(strtolower($firstDrugExOwner), '&') ||
-                                str_contains(strtolower($firstDrugExOwner), 'all suspect') ||
-                                str_contains(strtolower($firstDrugExOwner), 'both')
-                            );
+                            if ($activeSuspectHasSavedResult && !empty($activeSuspectLabExam)) {
+                                $savedLabOwnerName = $activeSuspectLabExam['exhibit_owner_name'] ?? null;
+                                $firstDrugExOwner = $allDrugExhibitsList[0]['owner'] ?? null;
+                                $isExOwnerJoint = !empty($firstDrugExOwner) && (
+                                    str_contains(strtolower($firstDrugExOwner), ',') ||
+                                    str_contains(strtolower($firstDrugExOwner), '&') ||
+                                    str_contains(strtolower($firstDrugExOwner), 'all suspect') ||
+                                    str_contains(strtolower($firstDrugExOwner), 'both')
+                                );
 
-                            if ($isExOwnerJoint || (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1)) {
-                                $labOwnerName = !empty($primarySuspectsCombinedNames)
-                                    ? $primarySuspectsCombinedNames
-                                    : ($firstDrugExOwner ?: ($savedLabOwnerName ?: ($case->suspect_name ?? 'Primary Suspect')));
-                            } elseif (
-                                !empty($savedLabOwnerName) &&
-                                strtoupper(trim($savedLabOwnerName)) !== 'PRIMARY SUSPECT'
-                            ) {
-                                $labOwnerName = $savedLabOwnerName;
-                            } elseif (
-                                !empty($firstDrugExOwner) &&
-                                strtoupper(trim($firstDrugExOwner)) !== 'PRIMARY SUSPECT'
-                            ) {
-                                $labOwnerName = $firstDrugExOwner;
+                                if ($isExOwnerJoint || (!empty($primaryAndCoNamesList) && count($primaryAndCoNamesList) > 1)) {
+                                    $labOwnerName = !empty($primarySuspectsCombinedNames)
+                                        ? $primarySuspectsCombinedNames
+                                        : ($firstDrugExOwner ?: ($savedLabOwnerName ?: $activeSuspectName));
+                                } elseif (
+                                    !empty($savedLabOwnerName) &&
+                                    strtoupper(trim($savedLabOwnerName)) !== 'PRIMARY SUSPECT'
+                                ) {
+                                    $labOwnerName = $savedLabOwnerName;
+                                } elseif (
+                                    !empty($firstDrugExOwner) &&
+                                    strtoupper(trim($firstDrugExOwner)) !== 'PRIMARY SUSPECT'
+                                ) {
+                                    $labOwnerName = $firstDrugExOwner;
+                                } else {
+                                    $labOwnerName = $activeSuspectName;
+                                }
                             } else {
-                                $labOwnerName = !empty($primarySuspectsCombinedNames)
-                                    ? $primarySuspectsCombinedNames
-                                    : $case->suspect_name ?? 'Primary Suspect';
+                                $labOwnerName = $activeSuspectName;
                             }
 
                             $labOwnerLower = strtolower(trim($labOwnerName));
@@ -6187,9 +6437,15 @@
 
                         @endphp
 
+                    <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl"
+                        id="section5LabExamination">
+
                         <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
                         <div id="section5ReadOnlyDisplay"
-                            class="space-y-4 {{ !$activeSuspectHasDrugExhibit || !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
+                            data-has-any-saved-lab="{{ !empty($hasAnySavedLabData) ? '1' : '0' }}"
+                            data-active-has-drug="{{ !empty($activeSuspectHasDrugExhibit) ? '1' : '0' }}"
+                            data-active-has-saved-result="{{ !empty($activeSuspectHasSavedResult) ? '1' : '0' }}"
+                            class="space-y-4 {{ !$hasAnySavedLabData || !$activeSuspectHasDrugExhibit || !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
 
                             <!-- LABORATORY EXAMINATION HEADER -->
                             <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
@@ -6443,21 +6699,22 @@
                                             class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                                             Confirmatory Test:</td>
                                         @php
-                                            $isDisplayConfNo =
-                                                strtoupper(
-                                                    trim(
-                                                        (string) ($savedLabConfirmatory ?:
-                                                        ($case->confirmatory_test_result ?:
-                                                        'YES')),
-                                                    ),
-                                                ) === 'NO';
-                                            $displayConfText = $isDisplayConfNo ? 'NO' : 'YES';
+                                            $rawSavedConf = !empty($savedLabConfirmatory) && $savedLabConfirmatory !== 'N/A'
+                                                ? strtoupper(trim((string) $savedLabConfirmatory))
+                                                : null;
+                                            $displayConfText = $rawSavedConf === 'NO' ? 'NO' : ($rawSavedConf === 'YES' ? 'YES' : 'N/A');
+                                            $isDisplayConfNo = $displayConfText === 'NO';
                                         @endphp
-                                        <td class="p-3 font-black bg-white {{ !$isDisplayConfNo ? 'text-emerald-950' : 'text-red-950' }}"
+                                        <td class="p-3 font-black bg-white {{ $displayConfText === 'YES' ? 'text-emerald-950' : ($displayConfText === 'NO' ? 'text-red-950' : 'text-slate-600') }}"
                                             id="section5ConfirmatoryDisplay">
                                             <span class="inline-flex items-center space-x-1.5">
-                                                <span
-                                                    class="w-2.5 h-2.5 rounded-full {{ !$isDisplayConfNo ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
+                                                @if($displayConfText === 'YES')
+                                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                                                @elseif($displayConfText === 'NO')
+                                                    <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+                                                @else
+                                                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                                                @endif
                                                 <span class="font-extrabold">{{ $displayConfText }}</span>
                                             </span>
                                         </td>
@@ -6611,47 +6868,7 @@
                                                         }
                                                     }
                                                 }
-                                                if (empty($detList)) {
-                                                    $pText = $savedLabPresumptive ?? '';
-                                                    if (
-                                                        !empty($pText) &&
-                                                        (str_contains($pText, 'Presence of:') ||
-                                                            str_contains($pText, 'YES'))
-                                                    ) {
-                                                        $cleanP = preg_replace(
-                                                            '/^YES\s*\((.*)\)$/i',
-                                                            '$1',
-                                                            trim($pText),
-                                                        );
-                                                        $pSegs = explode(';', $cleanP);
-                                                        foreach ($pSegs as $pSeg) {
-                                                            $pSeg = trim($pSeg);
-                                                            $pName = '';
-                                                            $pPur = '';
-                                                            if (
-                                                                preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)
-                                                            ) {
-                                                                $pName = trim($mP[1]);
-                                                            }
-                                                            if (
-                                                                preg_match(
-                                                                    '/Purity\/Percentage:\s*([^\;\)]+)/i',
-                                                                    $pSeg,
-                                                                    $mPur,
-                                                                )
-                                                            ) {
-                                                                $pPur = trim($mPur[1]);
-                                                            }
-                                                            if (!empty($pName)) {
-                                                                $detList[] =
-                                                                    $pName .
-                                                                    (!empty($pPur)
-                                                                        ? ' (' . rtrim(trim($pPur), '%') . '%)'
-                                                                        : '');
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                                                // No synthesized detection from presumptive text in read-only display.
                                                 if (
                                                     empty($detList) &&
                                                     !empty($savedLabSubstanceId) &&
@@ -6721,9 +6938,49 @@
                     </div>
                 @endif
 
+                <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD (ALL 4 UNITS) -->
+                <div id="seizureItemActivationCard"
+                    class="mt-8 bg-white border border-slate-300/80 rounded-2xl p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-slate-400">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
+                                        Seizure Item Section
+                                    </h4>
+                                    <span id="seizureItemStatusBadge"
+                                        class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">
+                                        INACTIVE / HIDDEN
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">
+                                    Check the box to display and activate the Seizure Item section to record new exhibits or commodities for this case.
+                                </p>
+                            </div>
+                        </div>
+
+                        <label for="toggleSeizureItemSectionCheckbox"
+                            id="labelToggleSeizureItemSection"
+                            class="inline-flex items-center gap-3 cursor-pointer select-none bg-slate-50 hover:bg-slate-100/90 px-4 py-2.5 rounded-xl border border-slate-300 transition-all duration-150 shrink-0 shadow-2xs">
+                            <input type="checkbox" id="toggleSeizureItemSectionCheckbox"
+                                onchange="toggleSeizureItemSection(this.checked)"
+                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                            <span class="text-xs font-extrabold text-slate-800 tracking-wide">
+                                Add / Record Seizure Item
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- SECTION 4: SEIZURES (COMMODITIES & EXHIBITS) -->
                 <div id="section4Seizures"
-                    class="mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm">
+                    class="mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm hidden">
                     <form id="section4SeizuresForm"
                         onsubmit="event.preventDefault(); return false;"
                         onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); return false; }">
@@ -8546,6 +8803,29 @@
                                         </div>
                                     </div>
 
+                                    <!-- REMARKS / EXHIBIT REMARK -->
+                                    <div class="col-span-full pt-2 border-t border-slate-300/60">
+                                        <label
+                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                            <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                            <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
+                                        </label>
+                                        <div class="relative flex items-start group">
+                                            <span
+                                                class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                    viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                </svg>
+                                            </span>
+                                            <textarea id="newSeizureRemark" name="exhibit_remark" rows="2"
+                                                placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
+                                                class="seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                        </div>
+                                    </div>
+
                                     <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA -->
                                     <div class="col-span-full pt-2 border-t border-slate-300/60 space-y-3">
                                         <div class="flex items-center justify-between">
@@ -8608,7 +8888,7 @@
                         <!-- ACTION BUTTONS -->
                         <div id="section4ActionButtons" class="flex items-center justify-end space-x-3 pt-3 border-t border-slate-200 {{ $isLabAnalysis && !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
                             <button type="button"
-                                onclick="document.getElementById('section4Seizures').classList.add('hidden')"
+                                onclick="toggleSeizureItemSection(false, false)"
                                 class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl transition-all cursor-pointer border-none">
                                 Cancel
                             </button>
@@ -8621,6 +8901,223 @@
                         </div>
                     </form>
                 </div>
+
+                @if ($isLabAnalysis)
+                    <!-- SECTION 4 TO 5 ACTION & REPORT GENERATION NAVIGATION BAR -->
+                    <div class="mt-8 bg-slate-100/90 p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
+                                    Report &amp; Laboratory Examination Modules
+                                </h4>
+                                <p class="text-[11px] text-slate-500 font-medium">
+                                    Switch between uploading GSA Report Files and filling Section 5 Examination Information (NLR)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end shrink-0">
+                            <!-- UPLOAD GSA FILE BUTTON -->
+                            <button type="button" id="toggleGsaReportBtn" onclick="switchToGsaUploadSection()"
+                                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center space-x-2 cursor-pointer border-none">
+                                <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Upload GSA File</span>
+                            </button>
+
+                            <!-- EXAMINATION INFORMATION (NLR) BUTTON -->
+                            <button type="button" id="toggleNlrReportBtn" onclick="switchToNlrExamSection()"
+                                class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-2 cursor-pointer border-none ring-2 ring-emerald-400">
+                                <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                </svg>
+                                <span>Examination Information (NLR)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- GSA REPORT UPLOAD SECTION -->
+                    <div id="gsaUploadSection" class="hidden bg-white p-6 rounded-2xl border border-blue-200/90 shadow-sm space-y-6 relative z-20 mb-6">
+                        <!-- Section Header -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center shadow-md shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">GSA FILES</span>
+                                        <h3 class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight">GSA Report Upload</h3>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 font-mono-code mt-0.5">Attach scans, photos, or documents of the signed GSA Report Upload</p>
+                                    @if (!empty($activeSuspectName))
+                                        <p class="text-[11px] text-blue-700 font-mono-code font-bold mt-0.5">Target Suspect: {{ $activeSuspectName }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span id="gsaFileCount" class="hidden px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-full">0 files</span>
+                                <button type="button" onclick="clearAllGsaFiles()" id="gsaClearAllBtn" class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold rounded-lg border border-red-200 transition-colors cursor-pointer">Clear All</button>
+                                <button type="button" id="saveGsaFilesBtn" onclick="saveGsaReportFiles()"
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none">
+                                    <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                    </svg>
+                                    <span>Save &amp; Attach GSA Report</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- GSA DETAILS: Target Suspect, GSA Lab No., GSA Case Reference, GSA Status & Exhibit Types -->
+                        <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <!-- Target Suspect -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            Target Suspect
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Assign</span>
+                                    </label>
+                                    <select id="gsaSuspectSelect" name="gsa_suspect_name"
+                                        class="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-xs shadow-2xs">
+                                        @if (!empty($allSuspectsInCase) && count($allSuspectsInCase) > 1)
+                                            <option value="All Suspects" data-id="">All Suspects (Case Level / Joint)</option>
+                                        @endif
+                                        @if (!empty($allSuspectsInCase))
+                                            @foreach ($allSuspectsInCase as $sOpt)
+                                                <option value="{{ $sOpt['name'] }}" data-id="{{ $sOpt['id'] ?? '' }}"
+                                                    {{ strtolower(trim($sOpt['name'])) === strtolower(trim($activeSuspectName)) ? 'selected' : '' }}>
+                                                    {{ $sOpt['name'] }} ({{ $sOpt['role'] ?? 'Suspect' }})
+                                                </option>
+                                            @endforeach
+                                        @else
+                                            <option value="{{ $case->suspect_name ?? 'Primary Suspect' }}" selected>
+                                                {{ $case->suspect_name ?? 'Primary Suspect' }}
+                                            </option>
+                                        @endif
+                                    </select>
+                                </div>
+
+                                <!-- GSA Lab No. -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                            </svg>
+                                            GSA Lab No.
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Official No.</span>
+                                    </label>
+                                    <input type="text" id="gsaLabNumberInput" name="gsa_lab_number"
+                                        value="{{ $case->laboratory_number ?? '' }}"
+                                        placeholder="Enter GSA Lab No. (e.g. GSA/LAB/2026/0892)"
+                                        class="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-xs shadow-2xs">
+                                </div>
+
+                                <!-- GSA Case Reference -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            GSA Case Reference
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded font-bold uppercase">Reference</span>
+                                    </label>
+                                    <textarea id="gsaCaseReferenceInput" name="gsa_case_reference" rows="2"
+                                        placeholder="Enter GSA Case Reference details..."
+                                        class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none">{{ $case->case_number ?? '' }}</textarea>
+                                </div>
+
+                                <!-- GSA Status -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span class="flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            GSA Status
+                                        </span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Status</span>
+                                    </label>
+                                    <textarea id="gsaStatusInput" name="gsa_status" rows="2"
+                                        placeholder="Enter GSA Status (e.g. Analysis Complete, Certified...)"
+                                        class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Exhibit Types Container -->
+                            <div class="pt-3 border-t border-blue-200/60 space-y-2" id="gsaExhibitTypesSection">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                        </svg>
+                                        <span>Exhibit Type</span>
+                                    </label>
+                                    <button type="button" onclick="addGsaExhibitTypeInput()" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono-code font-bold uppercase text-blue-700 bg-blue-100 hover:bg-blue-200 active:scale-95 rounded-lg border border-blue-200 transition-all cursor-pointer">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        <span>Add Exhibit Type</span>
+                                    </button>
+                                </div>
+                                <div id="gsaExhibitTypeList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DROP ZONE -->
+                        <div id="gsaDropZone" ondragover="gsaDragOver(event)" ondragleave="gsaDragLeave(event)" ondrop="gsaHandleDrop(event)" class="relative w-full border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:border-blue-400 transition-all overflow-hidden">
+                            <!-- FILE LIST (inside the zone) -->
+                            <div id="gsaFileGrid" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 p-3"></div>
+
+                            <!-- FULL PROMPT — shown when no files -->
+                            <div id="gsaFullPrompt" onclick="document.getElementById('gsaReportImageInput').click()" class="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center cursor-pointer group hover:bg-blue-50/60 transition-all">
+                                <div class="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center group-hover:bg-blue-50 group-hover:border-blue-300 transition-all">
+                                    <svg class="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-600 group-hover:text-blue-800">Click to add files or drag &amp; drop</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5 font-mono-code">JPG &middot; PNG &middot; WEBP &middot; PDF &middot; DOCX &middot; CSV &nbsp;|&nbsp; Max 10 MB each</p>
+                                </div>
+                            </div>
+
+                            <!-- COMPACT ADD-MORE STRIP — shown when files exist -->
+                            <div id="gsaAddMoreStrip" onclick="document.getElementById('gsaReportImageInput').click()" class="hidden items-center justify-center gap-2 py-2.5 px-4 border-t border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/60 hover:border-blue-400 transition-all cursor-pointer group">
+                                <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-[11px] font-bold text-slate-500 group-hover:text-blue-800 font-mono-code">Click to add more files or drag &amp; drop</span>
+                            </div>
+
+                            <!-- Hidden file input -->
+                            <input type="file" id="gsaReportImageInput" name="gsa_report_images[]" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,.csv,.docx" multiple class="hidden" onchange="gsaHandleFileSelect(this)">
+                        </div>
+                    </div>
+                @endif
 
                 <!-- EXAMINATION INFORMATION CONTAINER (HANDLED BY DEDICATED FUNCTION EXCLUSIVELY FOR LAB ANALYSIS SHOW_REVIEW) -->
                 {!! renderExaminationInformationForm($isLabAnalysis, get_defined_vars()) !!}
@@ -8931,8 +9428,8 @@ $assocExamRef =
                 ? $assocLabExam['exam_reference']
                 : (!empty($firstAssocEx['exam_reference'])
                     ? $firstAssocEx['exam_reference']
-                    : (!empty($case->lab_exam_reference) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $case->lab_exam_reference) :
-                    'NLR-FM-T35-F'))));
+                    : (!empty($case->lab_exam_reference) ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($case->lab_exam_reference) :
+                    app(\App\Services\CaseReferenceService::class)->generateExamReference('Lab Analysis')))));
 
 $assocExhibitNo =
     $dbAssocExam && !empty($dbAssocExam->exhibit_number)
@@ -9203,42 +9700,25 @@ if (!empty($assocExhibitsList)) {
         }
     }
 }
-if (!$hasThisAssocSavedLab && $hasThisAssocDrug) {
-    if ($isDrugCase || $activeSuspectHasDrugExhibit) {
-        $hasThisAssocSavedLab = true;
-        if (empty($assocPresumptiveText)) {
-            $assocPresumptiveText = 'N/A';
-        }
-        if (empty($assocSubstanceId)) {
-            $assocSubstanceId = 'N/A';
-        }
-        if (empty($assocExamRef)) {
-            $assocExamRef = 'NLR-FM-T35-F';
-        }
-        if (empty($assocExhibitNo)) {
-            $assocExhibitNo = !empty($assocExhibitsList[0]['exhibit_number'])
-                ? $assocExhibitsList[0]['exhibit_number']
-                : 'EXH-01';
-        }
-        if (empty($assocLabNumber)) {
-            $assocLabNumber = $case->laboratory_number ?: 'Lab No. 12/FS05/2025';
-        }
-        if (empty($assocAnalyst)) {
-            $assocAnalyst = $case->submitting_officer ?: 'Lab Analyst';
-        }
-        if (empty($assocDateReceived)) {
-            $assocDateReceived = date('Y-m-d');
-        }
-        if (empty($assocDateStarted)) {
-            $assocDateStarted = date('Y-m-d');
-        }
-        if (empty($assocDateCompleted)) {
-            $assocDateCompleted = date('Y-m-d');
-        }
-    } else {
-        $hasThisAssocSavedLab = false;
-    }
-} elseif (!$hasThisAssocDrug) {
+// Authoritative: only render the associate LAB card if a real AssociateLabExamination
+// record with has_saved = true exists in the DB for this exact suspect.
+$assocHasRealLabRecord = !empty($case->id)
+    && \App\Models\AssociateLabExamination::where('case_id', $case->id)
+        ->where('has_saved', true)
+        ->get()
+        ->contains(function ($aRec) use ($aSpName) {
+            $aName = strtolower(trim($aRec->suspect_name ?? ''));
+            $target = strtolower(trim($aSpName));
+            return !empty($aName) && (
+                $aName === $target
+                || str_contains($aName, $target)
+                || str_contains($target, $aName)
+            );
+        });
+
+$hasThisAssocSavedLab = $assocHasRealLabRecord;
+
+if (!$hasThisAssocDrug) {
     $hasThisAssocSavedLab = false;
 }
 $secondaryBadge = $isCoSuspect ? 'CO-SUSPECT DOSSIER' : 'ASSOCIATE DOSSIER';
@@ -9646,12 +10126,16 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 if (readOnlyView) readOnlyView.classList.remove('hidden');
                 if (formContainer) formContainer.classList.add('hidden');
                 if (form) form.classList.add('hidden');
+                if (typeof emptySection5FormFields === 'function') {
+                    emptySection5FormFields();
+                }
+                return;
             } else {
                 if (readOnlyView) readOnlyView.classList.add('hidden');
                 if (formContainer) formContainer.classList.remove('hidden');
                 if (form) form.classList.remove('hidden');
             }
-            const savedConfirmatory = opt.getAttribute('data-confirmatory') || 'YES';
+            const savedConfirmatory = opt.getAttribute('data-confirmatory') || '';
             const savedSubstanceId = opt.getAttribute('data-substance-id') || nameVal;
             const savedTestMethods = opt.getAttribute('data-test-methods') || '';
             const savedSpecifications = opt.getAttribute('data-specifications') || '';
@@ -9714,7 +10198,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 if (confSpecs) confSpecs.value = savedSpecifications;
                 if (confRemark) confRemark.value = savedRemark;
                 if (typeof toggleConfirmatoryTestReview === 'function') {
-                    toggleConfirmatoryTestReview(savedConfirmatory === 'NO' ? 'NO' : 'YES');
+                    toggleConfirmatoryTestReview(savedConfirmatory === 'NO' ? 'NO' : (savedConfirmatory === 'YES' ? 'YES' : 'NEUTRAL'));
                 }
             } else {
                 if (takenInput) takenInput.value = '';
@@ -9764,7 +10248,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 }
 
                 if (typeof toggleConfirmatoryTestReview === 'function') {
-                    toggleConfirmatoryTestReview('YES');
+                    toggleConfirmatoryTestReview('NEUTRAL');
                 }
 
                 // Reset Lab Status Badges
@@ -9834,7 +10318,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     showToast(`❌ Error approving case: ${data.message || 'Server error'}`);
                 }
             } catch (e) {
-                console.error(e);
                 showToast(`❌ Error connecting to server.`);
             }
         }
@@ -9872,7 +10355,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     showToast(`❌ Error declining case: ${data.message || 'Server error'}`);
                 }
             } catch (e) {
-                console.error(e);
                 showToast(`❌ Error connecting to server.`);
             }
         }
@@ -10108,7 +10590,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                                 `<span class="status-badge bg-white text-slate-900 border border-slate-300">Awaiting Sign-off</span>`;
                         }
                         showToast(
-                            `✔ Multi-Unit Directorate Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`
+                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`
                         );
                     } else {
                         showToast(
@@ -10123,7 +10605,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
                 }
             } catch (err) {
-                console.error(err);
                 showToast(`❌ Connection error updating unit progress.`);
             } finally {
                 if (submitBtn) submitBtn.disabled = false;
@@ -10219,9 +10700,9 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 if (radYes) radYes.checked = true;
                 if (radNo) radNo.checked = false;
                 if (lblYes) lblYes.className =
-                    'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20';
+                    'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20';
                 if (lblNo) lblNo.className =
-                    'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
+                    'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
                 if (container) container.classList.remove('hidden');
 
                 if (descInput && (!descInput.value || descInput.value.startsWith('e.g.'))) {
@@ -10238,13 +10719,21 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     if (uMatch) unitAddon.textContent = uMatch[1];
                 }
                 if (typeof updateReservedWeightReview === 'function') updateReservedWeightReview();
-            } else {
+            } else if (val === 'NO') {
                 if (radYes) radYes.checked = false;
                 if (radNo) radNo.checked = true;
                 if (lblYes) lblYes.className =
-                    'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
+                    'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
                 if (lblNo) lblNo.className =
-                    'relative inline-flex items-center px-4 py-2 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-red-500 bg-red-50/80 ring-2 ring-red-500/20';
+                    'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-red-500 bg-red-50/80 ring-2 ring-red-500/20';
+                if (container) container.classList.add('hidden');
+            } else {
+                if (radYes) radYes.checked = false;
+                if (radNo) radNo.checked = false;
+                if (lblYes) lblYes.className =
+                    'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
+                if (lblNo) lblNo.className =
+                    'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
                 if (container) container.classList.add('hidden');
             }
         }
@@ -10369,7 +10858,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             if (results.length > 0) {
                 inputEl.value = `YES (${results.join('; ')})`;
             } else {
-                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+                inputEl.value = '';
             }
         }
 
@@ -10445,10 +10934,10 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             const saveBtn = document.getElementById('saveSection5LabBtn');
             if (saveBtn) saveBtn.disabled = true;
 
-            // Auto-set Date Examination Completed to today's date when clicking the save button
+            // Auto-set Date Examination Completed to today's date if not already filled
             const todayStr = new Date().toISOString().split('T')[0];
             const dateCompletedInput = document.getElementById('labDateCompletedInput');
-            if (dateCompletedInput) {
+            if (dateCompletedInput && !dateCompletedInput.value) {
                 dateCompletedInput.value = todayStr;
             }
 
@@ -10458,18 +10947,62 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
 
             const labUnit = document.getElementById('formLabUnit')?.value || 'Chemistry & Narcotics Unit';
             const analyst = document.getElementById('formLabAnalyst')?.value || @json($labAnalyst ?? $defaultLabHeadName);
+            // ── Presumptive Reaction validation (no mock default) ──
             const checkedRadio = document.querySelector('input[name="form_presumptive_radio"]:checked');
-            let presumptive = 'YES (Positive Colorimetric Reaction)';
-            if (checkedRadio && checkedRadio.value === 'NO') {
-                presumptive = 'NO (Negative Reaction)';
-            } else {
-                const customInput = document.getElementById('presumptiveReactionResultInputReview')?.value;
-                presumptive = customInput && customInput.trim() !== '' ? customInput.trim() :
-                    'YES (Positive Colorimetric Reaction)';
+            if (!checkedRadio) {
+                alert('Please select a Presumptive Reaction result (YES or NO) before saving the examination.');
+                if (saveBtn) saveBtn.disabled = false;
+                return;
             }
 
+            let presumptive;
+            if (checkedRadio.value === 'NO') {
+                presumptive = 'NO (Negative Reaction)';
+            } else {
+                const rows = document.querySelectorAll(
+                    '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
+                const validDetails = [];
+
+                rows.forEach((row) => {
+                    const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
+                    const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
+                    if (presence && percent) {
+                        validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${percent}%`);
+                    }
+                });
+
+                if (validDetails.length === 0) {
+                    alert(
+                        'Please enter both "Presence of" and "Percentage (%)" for at least one presumptive test result before saving.'
+                    );
+                    if (saveBtn) saveBtn.disabled = false;
+                    return;
+                }
+
+                const hasPartialRow = Array.from(rows).some((row) => {
+                    const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
+                    const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
+                    return (presence && !percent) || (!presence && percent);
+                });
+                if (hasPartialRow) {
+                    alert('One or more presumptive test rows have only "Presence of" or only "Percentage (%)" filled. Please complete both fields or clear the row.');
+                    if (saveBtn) saveBtn.disabled = false;
+                    return;
+                }
+
+                presumptive = validDetails.length > 1
+                    ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
+                    : `YES (${validDetails[0]})`;
+            }
+
+            // ── Confirmatory Test validation (no mock default) ──
             const confirmatoryChecked = document.querySelector('input[name="form_confirmatory_radio"]:checked');
-            const confirmatory = (confirmatoryChecked && confirmatoryChecked.value === 'YES') ? 'YES' : 'NO';
+            if (!confirmatoryChecked) {
+                alert('Please select a Confirmatory Test result (YES or NO) before saving the examination.');
+                if (saveBtn) saveBtn.disabled = false;
+                return;
+            }
+            const confirmatory = confirmatoryChecked.value === 'YES' ? 'YES' : 'NO';
 
             const notes = document.getElementById('formLabNotes')?.value || '';
 
@@ -10538,7 +11071,10 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             ?.value || '',
                         lab_date_received: dateReceived,
                         lab_date_started: dateStarted,
-                        lab_date_completed: dateCompleted
+                        lab_date_completed: dateCompleted,
+                        date_received: dateReceived,
+                        date_started: dateStarted,
+                        date_completed: dateCompleted
                     })
                 });
                 const data = await res.json();
@@ -10550,6 +11086,12 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     if (uUnitEl) uUnitEl.textContent = labUnit;
                     const uAnalystEl = document.getElementById('section5AnalystDisplay');
                     if (uAnalystEl) uAnalystEl.textContent = analyst;
+                    const uDateRecEl = document.getElementById('section5DateReceivedDisplay');
+                    if (uDateRecEl) uDateRecEl.textContent = dateReceived;
+                    const uDateStartEl = document.getElementById('section5DateStartedDisplay');
+                    if (uDateStartEl) uDateStartEl.textContent = dateStarted;
+                    const uDateCompEl = document.getElementById('section5DateCompletedDisplay');
+                    if (uDateCompEl) uDateCompEl.textContent = dateCompleted;
                     const uPresumptiveEl = document.getElementById('section5PresumptiveDisplay');
                     if (uPresumptiveEl) {
                         const str = String(presumptive || '').trim();
@@ -10677,6 +11219,13 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     if (uFindingsEl) uFindingsEl.textContent = notes ||
                         'No specific laboratory analytical findings logged yet.';
 
+                    const uRecEl = document.getElementById('section5DateReceivedDisplay');
+                    if (uRecEl) uRecEl.textContent = dateReceived;
+                    const uStartEl = document.getElementById('section5DateStartedDisplay');
+                    if (uStartEl) uStartEl.textContent = dateStarted;
+                    const uCompEl = document.getElementById('section5DateCompletedDisplay');
+                    if (uCompEl) uCompEl.textContent = dateCompleted;
+
                     const badgeStatus = document.getElementById('section5BadgeStatus');
                     if (badgeStatus) {
                         if (status === 'COMPLETED' || window.activeSuspectHasSavedLabResult) {
@@ -10747,8 +11296,11 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     resetSection5Form();
                     showSaveSuccessPopover();
                     showToast(
-                        `✔ Laboratory Examination saved for ${exhibitOwnerName || 'Suspect'}! Section reset for next entry.`
+                        `✔ Laboratory Examination saved for ${exhibitOwnerName || 'Suspect'}!`
                     );
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
                 } else {
                     if (data.unexamined_suspects && data.unexamined_suspects.length > 0) {
                         showUnexaminedSuspectsAlert(data.unexamined_suspects, data.message);
@@ -10757,7 +11309,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
                 }
             } catch (err) {
-                console.error(err);
                 showToast(`❌ Connection error saving lab examination.`);
             } finally {
                 if (saveBtn && !document.getElementById('section5LabForm')?.disabled) {
@@ -10786,10 +11337,15 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
 
             try {
                 // 1. Save Section 4 Seizure Items
+                const s4Checkbox = document.getElementById('toggleSeizureItemSectionCheckbox');
+                const s4Container = document.getElementById('section4Seizures');
+                const isS4Active = s4Checkbox ? s4Checkbox.checked : (s4Container && !s4Container.classList.contains('hidden'));
+
                 const blocks = document.querySelectorAll('#seizuresListContainer .seizure-block');
                 const exhibits = [];
 
-                blocks.forEach((block) => {
+                if (isS4Active) {
+                    blocks.forEach((block) => {
                     const assocPerson = block.querySelector('.seizure-associated-person-select')?.value ||
                         @json($activeSuspectName);
                     const category = block.querySelector('#newSeizureCategory')?.value || block.querySelector(
@@ -10876,6 +11432,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     const ammoPackageReferenceNumberVal = block.querySelector('#ammoPackageReferenceNumber')?.value || '';
                     const ammoConditionWhenReceivedVal = block.querySelector('#ammoConditionWhenReceived')?.value || '';
                     const otherExhibitDescription = block.querySelector('#newOtherExhibitDescription')?.value || block.querySelector('.other-exhibit-description-input')?.value || '';
+                    const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
 
                     const isAmmoCat = category === 'Ammunition' || (typeof category === 'string' && (category.toLowerCase().includes('ammo') || category.toLowerCase().includes('ammunition')));
                     const isOtherCat = category === 'Other Exhibits' || category === 'Other' || category === 'Other Exhibit' || (typeof category === 'string' && category.toLowerCase().includes('other'));
@@ -10934,6 +11491,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             seizure_time: timeSeized,
                             seizure_location: location,
                             source_of_exhibits: sourceOfExhibits,
+                            exhibit_remark: exhibitRemark,
                             seizure_officer: seizingOfficer,
                             dev_model: devModel,
                             dev_serial_no: devSerialNo,
@@ -11039,6 +11597,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         });
                     }
                 });
+                }
 
                 // Check Section 5 validity
                 const section5Container = document.getElementById('section5FormContainer');
@@ -11047,7 +11606,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 const selectedOpt = exhibitSelect ? exhibitSelect.options[exhibitSelect.selectedIndex] : null;
                 const exhibitId = document.getElementById('labFormExhibitId')?.value || (selectedOpt ? (selectedOpt.getAttribute('data-ex-id') || selectedOpt.value) : '');
 
-                const hasSection4Data = exhibits.length > 0;
+                const hasSection4Data = isS4Active && exhibits.length > 0;
                 const hasSection5Data = section5IsVisible && Boolean(exhibitId && exhibitId !== '');
 
                 if (!hasSection4Data && !hasSection5Data) {
@@ -11075,8 +11634,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     const data4 = await res4.json();
                     if (res4.ok && data4.success) {
                         section4Saved = true;
-                    } else {
-                        console.warn('Section 4 save note:', data4.message);
                     }
                 }
 
@@ -11084,7 +11641,9 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 if (hasSection5Data) {
                     const todayStr = new Date().toISOString().split('T')[0];
                     const dateCompletedInput = document.getElementById('labDateCompletedInput');
-                    if (dateCompletedInput) dateCompletedInput.value = todayStr;
+                    if (dateCompletedInput && !dateCompletedInput.value) {
+                        dateCompletedInput.value = todayStr;
+                    }
 
                     const dateReceived = document.getElementById('labDateReceivedInput')?.value || todayStr;
                     const dateStarted = document.getElementById('labDateStartedInput')?.value || todayStr;
@@ -11092,39 +11651,37 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
 
                     const labUnit = document.getElementById('formLabUnit')?.value || 'Chemistry & Narcotics Unit';
                     const analyst = document.getElementById('formLabAnalyst')?.value || @json($labAnalyst ?? $defaultLabHeadName);
+                    // ── Presumptive Reaction validation (no mock default) ──
                     const checkedRadio = document.querySelector('input[name="form_presumptive_radio"]:checked');
-                    let presumptive = 'YES (Positive Colorimetric Reaction)';
+                    if (!checkedRadio) {
+                        alert('Please select a Presumptive Reaction result (YES or NO) before saving the examination.');
+                        if (saveBtn4) saveBtn4.disabled = false;
+                        if (saveBtn5) saveBtn5.disabled = false;
+                        if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
+                        if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
+                        return;
+                    }
 
-                    if (checkedRadio && checkedRadio.value === 'NO') {
+                    let presumptive;
+                    if (checkedRadio.value === 'NO') {
                         presumptive = 'NO (Negative Reaction)';
                     } else {
-                        // Validate that at least ONE presence + percentage pair was filled when YES is selected
                         const rows = document.querySelectorAll(
                             '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
-                        let validDetails = [];
-                        let hasInvalid = false;
+                        const validDetails = [];
 
                         rows.forEach((row) => {
-                            const presence = row.querySelector('.presumptive-presence-input-review')?.value
-                                ?.trim() || '';
-                            const percent = row.querySelector('.presumptive-percentage-input-review')?.value
-                                ?.trim() || '';
+                            const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
+                            const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
                             if (presence && percent) {
                                 validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${percent}%`);
-                            } else if (presence || percent) {
-                                hasInvalid = true;
                             }
                         });
 
                         if (validDetails.length === 0) {
                             alert(
                                 'Please enter both "Presence of" and "Percentage (%)" for at least one presumptive test result before saving.'
-                                );
-                            // Re-enable buttons so the user can retry
-                            const saveBtn4 = document.getElementById('saveSection4SeizureBtn');
-                            const saveBtn5 = document.getElementById('saveSection5LabBtn');
-                            const saveBtnText4 = document.getElementById('saveSection4SeizureBtnText');
-                            const saveBtnText5 = document.getElementById('saveSection5LabBtnText');
+                            );
                             if (saveBtn4) saveBtn4.disabled = false;
                             if (saveBtn5) saveBtn5.disabled = false;
                             if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
@@ -11132,16 +11689,36 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             return;
                         }
 
-                        // If multiple rows, number them
-                        if (validDetails.length > 1) {
-                            presumptive = `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`;
-                        } else {
-                            presumptive = `YES (${validDetails[0]})`;
+                        const hasPartialRow = Array.from(rows).some((row) => {
+                            const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
+                            const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
+                            return (presence && !percent) || (!presence && percent);
+                        });
+                        if (hasPartialRow) {
+                            alert('One or more presumptive test rows have only "Presence of" or only "Percentage (%)" filled. Please complete both fields or clear the row.');
+                            if (saveBtn4) saveBtn4.disabled = false;
+                            if (saveBtn5) saveBtn5.disabled = false;
+                            if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
+                            if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
+                            return;
                         }
+
+                        presumptive = validDetails.length > 1
+                            ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
+                            : `YES (${validDetails[0]})`;
                     }
 
+                    // ── Confirmatory Test validation (no mock default) ──
                     const confirmatoryChecked = document.querySelector('input[name="form_confirmatory_radio"]:checked');
-                    const confirmatory = (confirmatoryChecked && confirmatoryChecked.value === 'YES') ? 'YES' : 'NO';
+                    if (!confirmatoryChecked) {
+                        alert('Please select a Confirmatory Test result (YES or NO) before saving the examination.');
+                        if (saveBtn4) saveBtn4.disabled = false;
+                        if (saveBtn5) saveBtn5.disabled = false;
+                        if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
+                        if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
+                        return;
+                    }
+                    const confirmatory = confirmatoryChecked.value === 'YES' ? 'YES' : 'NO';
 
                     const notes = document.getElementById('formLabNotes')?.value || '';
                     const exhibitOwnerName = selectedOpt ? selectedOpt.getAttribute('data-owner') || '' : '';
@@ -11205,7 +11782,10 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                                 ?.value || '',
                             lab_date_received: dateReceived,
                             lab_date_started: dateStarted,
-                            lab_date_completed: dateCompleted
+                            lab_date_completed: dateCompleted,
+                            date_received: dateReceived,
+                            date_started: dateStarted,
+                            date_completed: dateCompleted
                         })
                     });
 
@@ -11234,7 +11814,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 }
 
             } catch (err) {
-                console.error('Error saving combined seizure and lab exam:', err);
                 alert('An error occurred while saving. Please check network connection and try again.');
                 if (saveBtn4) saveBtn4.disabled = false;
                 if (saveBtn5) saveBtn5.disabled = false;
@@ -11243,8 +11822,17 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             }
         }
 
-        function resetSection5Form() {
+        function emptySection5FormFields() {
             const formInputs = [
+                'labExamReferenceInput',
+                'labCaseReferenceInput',
+                'labExhibitNumberInput',
+                'labExhibitDescriptionInput',
+                'formLabNumber',
+                'formLabAnalyst',
+                'labDateReceivedInput',
+                'labDateStartedInput',
+                'labDateCompletedInput',
                 'sampleWeightDescriptionReview',
                 'sampleWeightUnitsReview',
                 'sampleWeightGrossReview',
@@ -11255,14 +11843,16 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 'confirmatorySpecificationsReview',
                 'confirmatoryRemarkReview',
                 'formLabNotes',
-                'presumptiveReactionResultInputReview',
-                'formLabNumber'
+                'presumptiveReactionResultInputReview'
             ];
 
             formInputs.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
+
+            const unitAddon = document.getElementById('sampleWeightTakenUnitAddonReview');
+            if (unitAddon) unitAddon.textContent = '';
 
             const errorMsgReviewEl = document.getElementById('sampleWeightTakenErrorReview');
             if (errorMsgReviewEl) errorMsgReviewEl.classList.add('hidden');
@@ -11272,14 +11862,19 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 takenReview.classList.add('border-slate-300');
             }
 
-            const presYes = document.querySelector('input[name="form_presumptive_radio"][value="YES"]');
-            if (presYes) presYes.checked = true;
+            // Uncheck presumptive radios and hide details
+            const presRadios = document.querySelectorAll('input[name="form_presumptive_radio"]');
+            presRadios.forEach(r => r.checked = false);
 
-            const confYes = document.querySelector('input[name="form_confirmatory_radio"][value="YES"]');
-            if (confYes) confYes.checked = true;
+            const lblPresYes = document.getElementById('labelPresumptiveYes');
+            const lblPresNo = document.getElementById('labelPresumptiveNo');
+            if (lblPresYes) lblPresYes.className =
+                'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
+            if (lblPresNo) lblPresNo.className =
+                'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
 
-            const detectedContainer = document.getElementById('detectedSubstancesListContainerReview');
-            if (detectedContainer) detectedContainer.innerHTML = '';
+            const presDetailsContainer = document.getElementById('presumptiveReactionDetailsContainerReview');
+            if (presDetailsContainer) presDetailsContainer.classList.add('hidden');
 
             const presContainer = document.getElementById('presumptiveTestRowsContainerReview');
             if (presContainer) {
@@ -11295,6 +11890,27 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
                 });
             }
+
+            // Uncheck confirmatory radios and hide sample weight container
+            const confRadios = document.querySelectorAll('input[name="form_confirmatory_radio"]');
+            confRadios.forEach(r => r.checked = false);
+
+            const lblConfYes = document.getElementById('labelConfirmatoryYesReview');
+            const lblConfNo = document.getElementById('labelConfirmatoryNoReview');
+            if (lblConfYes) lblConfYes.className =
+                'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
+            if (lblConfNo) lblConfNo.className =
+                'relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 border-slate-200 bg-slate-50';
+
+            const sampleWeightContainer = document.getElementById('sampleWeightContainerReview');
+            if (sampleWeightContainer) sampleWeightContainer.classList.add('hidden');
+
+            const detectedContainer = document.getElementById('detectedSubstancesListContainerReview');
+            if (detectedContainer) detectedContainer.innerHTML = '';
+        }
+
+        function resetSection5Form(findNext = false) {
+            emptySection5FormFields();
 
             const form = document.getElementById('section5LabForm');
             if (form) {
@@ -11320,15 +11936,17 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 if (textSpan) textSpan.innerHTML = 'Save Seizure Item & Examination Information';
             }
 
-            const exhibitSelect = document.getElementById('labExhibitSelect');
-            if (exhibitSelect && exhibitSelect.options.length > 1) {
-                const options = Array.from(exhibitSelect.options);
-                const nextUnexamined = options.find(opt => opt.getAttribute('data-has-saved') !== 'true' && opt
-                    .getAttribute('data-has-saved') !== '1');
-                if (nextUnexamined) {
-                    exhibitSelect.value = nextUnexamined.value;
-                    if (typeof onReviewLabExhibitChange === 'function') {
-                        onReviewLabExhibitChange(exhibitSelect);
+            if (findNext) {
+                const exhibitSelect = document.getElementById('labExhibitSelect');
+                if (exhibitSelect && exhibitSelect.options.length > 1) {
+                    const options = Array.from(exhibitSelect.options);
+                    const nextUnexamined = options.find(opt => opt.getAttribute('data-has-saved') !== 'true' && opt
+                        .getAttribute('data-has-saved') !== '1');
+                    if (nextUnexamined) {
+                        exhibitSelect.value = nextUnexamined.value;
+                        if (typeof onReviewLabExhibitChange === 'function') {
+                            onReviewLabExhibitChange(exhibitSelect);
+                        }
                     }
                 }
             }
@@ -11643,6 +12261,10 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 form.classList.add('hidden');
             }
 
+            if (typeof emptySection5FormFields === 'function') {
+                emptySection5FormFields();
+            }
+
             if (!form) return;
 
             const elements = form.querySelectorAll('input, select, textarea, button');
@@ -11690,6 +12312,28 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            window.toggleSection5LabForm = function() {
+                const formContainer = document.getElementById('section5FormContainer');
+                const form = document.getElementById('section5LabForm');
+                if (formContainer) formContainer.classList.remove('hidden');
+                if (form) {
+                    form.classList.remove('hidden');
+                    form.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            };
+
+            const isAlreadyCompleted = @json($activeSuspectHasSavedResult) || window.activeSuspectHasSavedLabResult;
+            if (isAlreadyCompleted) {
+                if (typeof emptySection5FormFields === 'function') {
+                    emptySection5FormFields();
+                }
+                lockSection5Form();
+                return;
+            }
+
             const initDetContainer = document.getElementById('detectedSubstancesListContainerReview');
             if (initDetContainer && initDetContainer.children.length === 0) {
                 if (typeof addDetectedSubstanceRowReview === 'function') {
@@ -11726,7 +12370,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             }
 
             const existingPresumptive = @json($labPresumptive);
-            if (existingPresumptive) {
+            if (existingPresumptive && existingPresumptive !== 'N/A') {
                 const isNo = existingPresumptive.toUpperCase().includes('NO (');
                 const radioYes = document.querySelector('input[name="form_presumptive_radio"][value="YES"]');
                 const radioNo = document.querySelector('input[name="form_presumptive_radio"][value="NO"]');
@@ -11790,7 +12434,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             }
 
             // Lock form if already completed
-            const isAlreadyCompleted = @json($activeSuspectHasSavedResult);
             if (isAlreadyCompleted) {
                 lockSection5Form();
             }
@@ -11834,8 +12477,9 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
 
         function updateCaseStatus(newStatus) {
             if (!newStatus) return;
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-            const caseId = @json($case->case_number);
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                '{{ csrf_token() }}';
+            const caseId = @json($case->case_number) || @json($case->id);
 
             fetch(`/cases/${encodeURIComponent(caseId)}/case-status`, {
                     method: 'POST',
@@ -11848,21 +12492,34 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         case_status: newStatus
                     })
                 })
-                .then(response => response.json().then(data => ({
-                    status: response.status,
-                    body: data
-                })))
+                .then(response => {
+                    return response.json().then(data => ({
+                        status: response.status,
+                        body: data
+                    })).catch(() => ({
+                        status: response.status,
+                        body: { message: `Server error (HTTP ${response.status})` }
+                    }));
+                })
                 .then(res => {
-                    if (res.status === 200 && res.body.success) {
-                        alert(res.body.message || 'Case status updated successfully.');
-                        fetchAuditTrail();
+                    if (res.status === 200 && res.body && res.body.success) {
+                        const msg = res.body.message || 'Case status updated successfully.';
+                        alert(msg);
+                        if (typeof fetchAuditTrail === 'function') {
+                            try {
+                                fetchAuditTrail();
+                            } catch (e) {
+                                // Audit trail update skipped
+                            }
+                        }
+                        window.location.reload();
                     } else {
-                        alert(res.body.message || 'Failed to update case status.');
+                        const errMsg = (res.body && res.body.message) || 'Failed to update case status.';
+                        alert(errMsg);
                         window.location.reload();
                     }
                 })
                 .catch(err => {
-                    console.error('Error updating case status:', err);
                     alert('An unexpected error occurred while updating case status.');
                 });
         }
@@ -12189,7 +12846,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
                 })
                 .catch(err => {
-                    console.error('Error updating suspect disposition:', err);
                     if (btn) {
                         btn.disabled = false;
                         btn.innerHTML = '<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Suspect Disposition';
@@ -12204,14 +12860,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
         }
 
         function toggleAndScrollToSeizureSection() {
-            const section = document.getElementById('section4Seizures');
-            if (section) {
-                section.classList.remove('hidden');
-                section.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
+            toggleSeizureItemSection(true, true);
         }
 
         window.activeSuspectName = @json($activeSuspectName ?? '');
@@ -12317,7 +12966,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     opt.setAttribute('data-description', dEx.description || '');
                     opt.setAttribute('data-is-associate', dEx.is_associate ? '1' : '0');
                     opt.setAttribute('data-has-saved', dEx.has_saved_lab ? 'true' : 'false');
-                    opt.setAttribute('data-confirmatory', dEx.confirmatory_result || 'YES');
+                    opt.setAttribute('data-confirmatory', dEx.confirmatory_result || '');
                     opt.setAttribute('data-substance-id', dEx.substance_identification || dEx.name || '');
                     opt.setAttribute('data-test-methods', dEx.test_methods || '');
                     opt.setAttribute('data-specifications', dEx.specifications || '');
@@ -12378,6 +13027,21 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
         }
 
         function syncSection4ToSection5InReview() {
+            const s4Checkbox = document.getElementById('toggleSeizureItemSectionCheckbox');
+            if (s4Checkbox && !s4Checkbox.checked) {
+                return;
+            }
+            if (@json($activeSuspectHasSavedResult) || window.activeSuspectHasSavedLabResult) {
+                return;
+            }
+            const labExhibitSelect = document.getElementById('labExhibitSelect');
+            if (labExhibitSelect) {
+                const opt = labExhibitSelect.options[labExhibitSelect.selectedIndex];
+                if (opt && (opt.getAttribute('data-has-saved') === 'true' || opt.getAttribute('data-has-saved') === '1')) {
+                    return;
+                }
+            }
+
             const block = document.querySelector('.seizure-block');
             if (!block) return;
 
@@ -12428,10 +13092,13 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             if (!formContainer && !noDrugNotice && !readOnlyView) return;
 
             // If active suspect already has a saved lab examination result, show read-only view
-            if (window.activeSuspectHasSavedLabResult && readOnlyView) {
+            if ((window.activeSuspectHasSavedLabResult || @json($activeSuspectHasSavedResult)) && readOnlyView) {
                 readOnlyView.classList.remove('hidden');
                 if (formContainer) formContainer.classList.add('hidden');
                 if (noDrugNotice) noDrugNotice.classList.add('hidden');
+                if (typeof emptySection5FormFields === 'function') {
+                    emptySection5FormFields();
+                }
                 return;
             }
 
@@ -13489,7 +14156,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
                 } catch (err) {
                     tempDiv.remove();
-                    console.error('Error uploading photo:', err);
                     alert(`Network error uploading ${file.name}`);
                 }
             }
@@ -13727,6 +14393,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
 
                 const exhibitType = block.querySelector('.exhibit-type-select')?.value || (category === 'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit');
                 const drugClassification = block.querySelector('.drug-classification-select')?.value || (category === 'Drugs' ? 'Class A' : 'N/A');
+                const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
 
                 if (seizureName.trim()) {
                     const photoInputs = block.querySelectorAll('.seizure-photo-url-input');
@@ -13764,6 +14431,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         seizure_time: timeSeized,
                         seizure_location: location,
                         source_of_exhibits: sourceOfExhibits,
+                        exhibit_remark: exhibitRemark,
                         seizure_officer: seizingOfficer,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
@@ -13902,7 +14570,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     if (saveBtnText) saveBtnText.innerText = 'Save Seizure / Exhibit';
                 }
             } catch (err) {
-                console.error('Error saving seizure exhibit:', err);
                 alert('An error occurred while saving the exhibit. Please check network connection and try again.');
                 if (saveBtn) saveBtn.disabled = false;
                 if (saveBtnText) saveBtnText.innerText = 'Save Seizure / Exhibit';
@@ -13936,18 +14603,63 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             }
         }
 
-        function toggleSection4() {
+        function toggleSeizureItemSection(isActive, shouldScroll = true) {
             const s4 = document.getElementById('section4Seizures');
+            const chk = document.getElementById('toggleSeizureItemSectionCheckbox');
+            const badge = document.getElementById('seizureItemStatusBadge');
+            const label = document.getElementById('labelToggleSeizureItemSection');
             const s4Texts = document.querySelectorAll('.s4ToggleTextSpan');
+
+            if (chk && chk.checked !== isActive) {
+                chk.checked = isActive;
+            }
+
             if (s4) {
-                if (s4.classList.contains('hidden')) {
+                if (isActive) {
                     s4.classList.remove('hidden');
+                    // Activate all inputs inside section 4 to receive data
+                    const formElements = s4.querySelectorAll('input:not([type="hidden"]), select, textarea, button');
+                    formElements.forEach(el => el.disabled = false);
+
+                    if (badge) {
+                        badge.className = 'text-[9px] font-mono-code font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 uppercase';
+                        badge.textContent = 'ACTIVE / VISIBLE';
+                    }
+                    if (label) {
+                        label.classList.remove('bg-slate-50', 'border-slate-300');
+                        label.classList.add('bg-emerald-50/80', 'border-emerald-300', 'ring-1', 'ring-emerald-400/40');
+                    }
                     s4Texts.forEach(el => el.innerText = 'Hide Section 4');
+
+                    if (shouldScroll) {
+                        s4.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
                 } else {
                     s4.classList.add('hidden');
+                    // Deactivate all inputs inside section 4
+                    const formElements = s4.querySelectorAll('input:not([type="hidden"]), select, textarea, button');
+                    formElements.forEach(el => el.disabled = true);
+
+                    if (badge) {
+                        badge.className = 'text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase';
+                        badge.textContent = 'INACTIVE / HIDDEN';
+                    }
+                    if (label) {
+                        label.classList.remove('bg-emerald-50/80', 'border-emerald-300', 'ring-1', 'ring-emerald-400/40');
+                        label.classList.add('bg-slate-50', 'border-slate-300');
+                    }
                     s4Texts.forEach(el => el.innerText = 'Show Section 4');
                 }
             }
+        }
+
+        function toggleSection4() {
+            const chk = document.getElementById('toggleSeizureItemSectionCheckbox');
+            const targetState = chk ? !chk.checked : true;
+            toggleSeizureItemSection(targetState, targetState);
         }
 
         function toggleSection5() {
@@ -13967,7 +14679,377 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             }
         }
 
+        /* ── Report & Laboratory Examination Module Switcher (GSA File Upload vs Section 5 NLR Examination) ── */
+        function switchToGsaUploadSection() {
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('section5LabExamination');
+            const nlrForm = document.getElementById('section5FormContainer');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (gsaSec) gsaSec.classList.remove('hidden');
+            if (nlrSec) nlrSec.classList.add('hidden');
+            if (nlrForm) nlrForm.classList.add('hidden');
+
+            if (gsaBtn) {
+                gsaBtn.classList.add('ring-2', 'ring-blue-400');
+            }
+            if (nlrBtn) {
+                nlrBtn.classList.remove('ring-2', 'ring-emerald-400');
+            }
+
+            const examRefInput = document.getElementById('labExamReferenceInput');
+            if (examRefInput && examRefInput.value.startsWith('NLR-')) {
+                examRefInput.value = examRefInput.value.replace(/^NLR-/, 'GSA-');
+            }
+
+            if (gsaSec) {
+                gsaSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        window.showGsaReportUploadSection = switchToGsaUploadSection;
+
+        function switchToNlrExamSection() {
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('section5LabExamination');
+            const nlrForm = document.getElementById('section5FormContainer');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (nlrSec) nlrSec.classList.remove('hidden');
+            if (nlrForm) nlrForm.classList.remove('hidden');
+            if (gsaSec) gsaSec.classList.add('hidden');
+
+            if (nlrBtn) {
+                nlrBtn.classList.add('ring-2', 'ring-emerald-400');
+            }
+            if (gsaBtn) {
+                gsaBtn.classList.remove('ring-2', 'ring-blue-400');
+            }
+
+            const isLabCompletedNow = window.activeSuspectHasSavedLabResult || @json($activeSuspectHasSavedResult);
+            if (isLabCompletedNow) {
+                if (typeof emptySection5FormFields === 'function') {
+                    emptySection5FormFields();
+                }
+            } else {
+                const examRefInput = document.getElementById('labExamReferenceInput');
+                if (examRefInput) {
+                    if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
+                        const randNum = Math.floor(1000 + Math.random() * 9000);
+                        examRefInput.value = `NLA-FM-T${randNum}-F`;
+                    } else if (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-')) {
+                        examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
+                    }
+                }
+            }
+
+            const targetSec = nlrForm || nlrSec;
+            if (targetSec) {
+                targetSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        /* ── GSA Report multi-file upload helpers for show_review.blade.php ── */
+        let gsaFilesMap = {}; // id -> {file, dataUrl}
+        let gsaFileIdCounter = 0;
+
+        function gsaDragOver(e) {
+            e.preventDefault();
+            const zone = document.getElementById('gsaDropZone');
+            if (zone) {
+                zone.classList.add('border-blue-500', 'bg-blue-50/80');
+                zone.classList.remove('border-slate-300', 'bg-slate-50');
+            }
+        }
+
+        function gsaDragLeave(e) {
+            const zone = document.getElementById('gsaDropZone');
+            if (zone) {
+                zone.classList.remove('border-blue-500', 'bg-blue-50/80');
+                zone.classList.add('border-slate-300', 'bg-slate-50');
+            }
+        }
+
+        function gsaHandleDrop(e) {
+            e.preventDefault();
+            gsaDragLeave(e);
+            Array.from(e.dataTransfer.files).forEach(f => gsaAddFile(f));
+        }
+
+        function gsaHandleFileSelect(input) {
+            Array.from(input.files).forEach(f => gsaAddFile(f));
+            input.value = '';
+        }
+
+        function gsaAddFile(file) {
+            const maxMB = 10;
+            if (file.size > maxMB * 1024 * 1024) {
+                alert('"' + file.name + '" exceeds ' + maxMB + ' MB limit and was skipped.');
+                return;
+            }
+            const id = 'gsa_' + (++gsaFileIdCounter);
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            gsaFilesMap[id] = { file };
+
+            const grid = document.getElementById('gsaFileGrid');
+            if (grid) {
+                const card = document.createElement('div');
+                card.id = 'gsaCard_' + id;
+                card.className = 'relative bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group/card';
+                card.innerHTML = gsaBuildCardInner(id, file.name, file.size, ext, null);
+                grid.appendChild(card);
+
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const thumbWrapper = document.getElementById('gsaThumb_' + id);
+                        if (thumbWrapper) {
+                            thumbWrapper.innerHTML = '<img src="' + ev.target.result + '" class="w-full h-24 object-cover" alt="preview">';
+                        }
+                        gsaFilesMap[id].dataUrl = ev.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+            gsaUpdateCount();
+        }
+
+        function gsaBuildCardInner(id, name, size, ext, dataUrl) {
+            const sizeStr = (size / 1024).toFixed(0) + ' KB';
+            const shortName = name.length > 16 ? name.substring(0, 13) + '...' : name;
+            const cfg = gsaIconConfig(ext);
+
+            let thumbHtml;
+            if (dataUrl) {
+                thumbHtml = '<img src="' + dataUrl + '" class="w-full h-24 object-cover" alt="preview">';
+            } else {
+                thumbHtml = '<div class="w-full h-24 flex flex-col items-center justify-center gap-1 ' + cfg.bg + '">' +
+                    '<svg class="w-7 h-7 ' + cfg.color + '" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="' + cfg.path + '"/></svg>' +
+                    '<span class="text-[10px] font-extrabold ' + cfg.color + ' font-mono-code tracking-wider">' + ext.toUpperCase() + '</span>' +
+                    '</div>';
+            }
+
+            const thumb = '<div id="gsaThumb_' + id + '" class="overflow-hidden">' + thumbHtml + '</div>';
+            const badge = '<span class="absolute top-1.5 left-1.5 w-5 h-5 ' + cfg.badgeBg + ' text-white rounded-full flex items-center justify-center text-[9px] shadow">✓</span>';
+            const removeBtn = '<button type="button" onclick="gsaRemoveFile(\'' + id + '\', event)" ' +
+                'class="absolute top-1.5 right-1.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full ' +
+                'flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity cursor-pointer shadow">' +
+                '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>' +
+                '</button>';
+
+            const info = '<div class="px-2 py-1.5">' +
+                '<p class="text-[11px] font-bold text-slate-800 font-mono-code truncate leading-tight" title="' + name + '">' + shortName + '</p>' +
+                '<p class="text-[10px] text-slate-400 font-mono-code">' + sizeStr + '</p>' +
+                '</div>';
+
+            return thumb + badge + removeBtn + info;
+        }
+
+        function gsaIconConfig(ext) {
+            if (ext === 'pdf') return { bg: 'bg-red-50', border: 'border-red-300', color: 'text-red-600', badgeBg: 'bg-red-600', path: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' };
+            if (ext === 'docx') return { bg: 'bg-blue-50', border: 'border-blue-300', color: 'text-blue-600', badgeBg: 'bg-blue-600', path: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' };
+            if (ext === 'csv') return { bg: 'bg-emerald-50', border: 'border-emerald-300', color: 'text-emerald-700', badgeBg: 'bg-emerald-600', path: 'M3 10h18M3 14h18M10 3v18M6 3h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z' };
+            return { bg: 'bg-emerald-50', border: 'border-emerald-300', color: 'text-emerald-700', badgeBg: 'bg-emerald-600', path: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z' };
+        }
+
+        function gsaRemoveFile(id, e) {
+            if (e) e.stopPropagation();
+            delete gsaFilesMap[id];
+            const card = document.getElementById('gsaCard_' + id);
+            if (card) card.remove();
+            gsaUpdateCount();
+        }
+
+        function addGsaExhibitTypeInput() {
+            const list = document.getElementById('gsaExhibitTypeList');
+            if (!list) return;
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-1.5 gsa-exhibit-type-row';
+            row.innerHTML = `
+                <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                    class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                <button type="button" onclick="removeGsaExhibitTypeInput(this)" class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl border border-red-200 transition-all shrink-0 cursor-pointer" title="Remove">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            list.appendChild(row);
+            const input = row.querySelector('input');
+            if (input) input.focus();
+        }
+
+        function removeGsaExhibitTypeInput(btn) {
+            const row = btn?.closest('.gsa-exhibit-type-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
+        function clearAllGsaFiles() {
+            gsaFilesMap = {};
+            const grid = document.getElementById('gsaFileGrid');
+            if (grid) grid.innerHTML = '';
+            const input = document.getElementById('gsaReportImageInput');
+            if (input) input.value = '';
+            const gsaLabInput = document.getElementById('gsaLabNumberInput');
+            if (gsaLabInput) gsaLabInput.value = '';
+            const gsaCaseRef = document.getElementById('gsaCaseReferenceInput');
+            if (gsaCaseRef) gsaCaseRef.value = '';
+            const gsaStatus = document.getElementById('gsaStatusInput');
+            if (gsaStatus) gsaStatus.value = '';
+            const exhibitList = document.getElementById('gsaExhibitTypeList');
+            if (exhibitList) {
+                exhibitList.innerHTML = `
+                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                    </div>`;
+            }
+            gsaUpdateCount();
+        }
+
+        function gsaUpdateCount() {
+            const count = Object.keys(gsaFilesMap).length;
+            const badge = document.getElementById('gsaFileCount');
+            const clearBtn = document.getElementById('gsaClearAllBtn');
+            const prompt = document.getElementById('gsaFullPrompt');
+            const strip = document.getElementById('gsaAddMoreStrip');
+            if (badge) {
+                badge.textContent = count + (count === 1 ? ' file' : ' files');
+                badge.classList.toggle('hidden', count === 0);
+            }
+            if (clearBtn) clearBtn.classList.toggle('hidden', count === 0);
+            if (prompt) prompt.classList.toggle('hidden', count > 0);
+            if (strip) {
+                strip.classList.toggle('hidden', count === 0);
+                strip.classList.toggle('flex', count > 0);
+            }
+        }
+
+        async function saveGsaReportFiles() {
+            const fileKeys = Object.keys(gsaFilesMap);
+            const fileInput = document.getElementById('gsaReportImageInput');
+            const hasInputFiles = fileInput && fileInput.files && fileInput.files.length > 0;
+
+            if (fileKeys.length === 0 && !hasInputFiles) {
+                alert('Please select or drop at least one GSA report file before saving.');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveGsaFilesBtn');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            }
+
+            const formData = new FormData();
+            const caseNumber = '{{ $case->case_number ?? '' }}';
+            const caseId = '{{ $case->id ?? '' }}';
+            const isMultipleCase = {{ ($case->underlyingRecord instanceof \App\Models\MultipleSuspectCase) || !empty($case->is_multiple) ? 'true' : 'false' }};
+
+            const gsaSuspectSelect = document.getElementById('gsaSuspectSelect');
+            let targetSuspectName = '{{ $activeSuspectName ?? ($case->suspect_name ?? '') }}';
+            let targetSuspectId = '{{ $activeSuspectItem['id'] ?? '' }}';
+
+            if (gsaSuspectSelect && gsaSuspectSelect.options && gsaSuspectSelect.selectedIndex >= 0) {
+                const opt = gsaSuspectSelect.options[gsaSuspectSelect.selectedIndex];
+                targetSuspectName = opt.value;
+                targetSuspectId = opt.getAttribute('data-id') || '';
+            }
+
+            const gsaLabNoVal = document.getElementById('gsaLabNumberInput')?.value?.trim() || '';
+            const gsaCaseRefVal = document.getElementById('gsaCaseReferenceInput')?.value?.trim() || '';
+            const gsaStatusVal = document.getElementById('gsaStatusInput')?.value?.trim() || '';
+
+            formData.append('case_number', caseNumber);
+            if (caseId) {
+                if (isMultipleCase) {
+                    formData.append('multiple_suspect_case_id', caseId);
+                } else {
+                    formData.append('single_suspect_case_id', caseId);
+                }
+                formData.append('case_id', caseId);
+            }
+            if (targetSuspectName && targetSuspectName !== 'All Suspects') {
+                formData.append('suspect_name', targetSuspectName);
+            }
+            if (targetSuspectId) {
+                formData.append('case_suspect_id', targetSuspectId);
+            }
+            if (gsaLabNoVal) {
+                formData.append('gsa_lab_number', gsaLabNoVal);
+                formData.append('lab_number', gsaLabNoVal);
+            }
+            if (gsaCaseRefVal) {
+                formData.append('gsa_case_reference', gsaCaseRefVal);
+            }
+            if (gsaStatusVal) {
+                formData.append('gsa_status', gsaStatusVal);
+            }
+
+            const exhibitInputs = document.querySelectorAll('#gsaExhibitTypeList .gsa-exhibit-type-input');
+            exhibitInputs.forEach(input => {
+                const val = input.value?.trim();
+                if (val) {
+                    formData.append('exhibit_type[]', val);
+                }
+            });
+
+            formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}');
+
+            if (fileKeys.length > 0) {
+                fileKeys.forEach(k => {
+                    if (gsaFilesMap[k] && gsaFilesMap[k].file) {
+                        formData.append('gsa_report_images[]', gsaFilesMap[k].file);
+                    }
+                });
+            } else if (hasInputFiles) {
+                Array.from(fileInput.files).forEach(f => {
+                    formData.append('gsa_report_images[]', f);
+                });
+            }
+
+            const targetUrl = caseNumber ? `/cases/${encodeURIComponent(caseNumber)}/upload-gsa-report` : '/Lab_Analysis/gsa-reports/store';
+
+            try {
+                const res = await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+                const result = await res.json().catch(() => ({}));
+                if (res.ok && result.success) {
+                    alert(result.message || 'GSA Report uploaded and attached successfully.');
+                    clearAllGsaFiles();
+                    window.location.reload();
+                } else {
+                    alert(result.message || 'Failed to upload GSA Report files. Please check file formats and try again.');
+                    if (saveBtn) {
+                        saveBtn.disabled = false;
+                        saveBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                }
+            } catch (err) {
+                alert('An error occurred while uploading GSA Report files. Please check network connection and try again.');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Default Seizure Item section to unchecked, inactive, and hidden
+            if (typeof toggleSeizureItemSection === 'function') {
+                toggleSeizureItemSection(false, false);
+            }
+
             if (@json($isDigitalForensics)) {
                 const catInput = document.getElementById('newSeizureCategory');
                 const searchInput = document.getElementById('exhibitSearchInput');
@@ -13994,6 +15076,55 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         onReviewLabExhibitChange(labSel);
                     }
                 }
+            }
+        });
+
+        window.NACOC_DEBUG = localStorage.getItem('NACOC_DEBUG') === '1' || {{ config('app.debug') ? 'true' : 'false' }};
+
+        if (window.NACOC_DEBUG) {
+            console.log('[NACOC DEBUG] Boot flag:', window.NACOC_DEBUG);
+            console.log('[NACOC DEBUG] Case ID:', @json($case->id));
+            console.log('[NACOC DEBUG] Case Number:', @json($case->case_number));
+            console.log('[NACOC DEBUG] Active suspect:', @json($activeSuspectName ?? null));
+            console.log('[NACOC DEBUG] Active suspect has drug exhibit:', {{ !empty($activeSuspectHasDrugExhibit) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] Active suspect has saved lab result:', {{ !empty($activeSuspectHasSavedResult) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] suspectLabExamSaved:', {{ !empty($suspectLabExamSaved) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] hasAnySavedLabData:', {{ !empty($hasAnySavedLabData) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] caseHasAnySavedLab:', {{ !empty($caseHasAnySavedLab) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] Lab Analysis unit status:', @json($unitProgress['Lab Analysis']['status'] ?? null));
+            console.log('[NACOC DEBUG] Unit progress map:', @json($unitProgress));
+            console.log('[NACOC DEBUG] Suspect-linked exhibits count:', @json(count($suspectLinkedExhibits ?? [])));
+            @php
+                $activeSuspectDossierExam = $case->resolveLabExamForSuspect($activeSuspectName ?? null);
+                $activeSuspectDossierHasSaved = !empty($activeSuspectDossierExam['has_saved']);
+            @endphp
+            console.log('[NACOC DEBUG] sDossierLabExam (active):', @json($activeSuspectDossierExam ?? null));
+            console.log('[NACOC DEBUG] sDossierHasSavedLab (active):', {{ !empty($activeSuspectDossierHasSaved) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] savedJointLabExam:', @json($savedJointLabExam ?? null));
+            console.log('[NACOC DEBUG] $isLabAnalysis:', {{ !empty($isLabAnalysis) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] $isLabContext:', {{ !empty($isLabContext) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] $isEvidenceManagement:', {{ !empty($isEvidenceManagement) ? 'true' : 'false' }});
+            console.log('[NACOC DEBUG] $isDigitalForensics:', {{ !empty($isDigitalForensics) ? 'true' : 'false' }});
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!window.NACOC_DEBUG) return;
+            const readOnly = document.getElementById('section5ReadOnlyDisplay');
+            const labCardBadges = document.querySelectorAll('[id^="labCard-"], [data-lab-card]');
+            console.log('[NACOC DEBUG] #section5ReadOnlyDisplay exists:', !!readOnly);
+            console.log('[NACOC DEBUG] #section5ReadOnlyDisplay hidden:', readOnly ? readOnly.classList.contains('hidden') : 'N/A');
+            console.log('[NACOC DEBUG] Read-only display text sample:', readOnly ? readOnly.innerText.slice(0, 200) : 'N/A');
+            console.log('[NACOC DEBUG] Rendered LAB cards on page:', labCardBadges.length);
+            const labProgEl = document.getElementById('unitCard-labanalysis') || document.getElementById('unitBadge-labanalysis');
+            console.log('[NACOC DEBUG] Lab progress DOM element:', labProgEl ? labProgEl.innerText : 'N/A');
+
+            const ro = document.getElementById('section5ReadOnlyDisplay');
+            if (ro) {
+                console.log('[NACOC DEBUG] Read-only display gates:', {
+                    hasAnySavedLab: ro.dataset.hasAnySavedLab,
+                    activeHasDrug: ro.dataset.activeHasDrug,
+                    activeHasSavedResult: ro.dataset.activeHasSavedResult,
+                });
             }
         });
     </script>

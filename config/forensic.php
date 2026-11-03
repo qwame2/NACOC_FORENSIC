@@ -29,4 +29,25 @@ return [
         'hashish', 'thc', 'codeine', 'amphetamine', 'mdma', 'ecstasy',
         'morphine', 'opium', 'diacetylmorphine', 'brown sugar', 'fentanyl',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Canonical Exhibit Categories
+    |--------------------------------------------------------------------------
+    |
+    | Authoritative exhibit categories across all NACOC directorates and units.
+    | Reading these from config avoids hardcoded strings throughout queries and views.
+    |
+    */
+    'exhibit_categories' => [
+        'electronic_devices' => 'Electronic Devices',
+        'drugs'              => 'Drugs',
+        'weapons'            => 'Weapons',
+        'money'              => 'Money',
+        'vehicles'           => 'Vehicles',
+        'ammunition'         => 'Ammunition',
+        'gold'               => 'Gold',
+        'other'              => 'Other Exhibits',
+    ],
 ];
+

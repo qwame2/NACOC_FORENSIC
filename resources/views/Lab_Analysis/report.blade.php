@@ -9,7 +9,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Laboratory Analysis Unit | Situational Report &amp; Drug Suspect Register | NACOC Forensic</title>
+    <title>Laboratory Analysis Unit | Forensic Drug Report &amp; Suspect Register | NACOC Forensic</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -135,11 +135,11 @@
                                 Laboratory Analysis Report &bull; LABORATORY ANALYSIS UNIT
                             </h1>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold font-mono-code bg-emerald-100 text-emerald-800">
-                                SITREP &amp; Suspect Register
+                                Forensic Drug &amp; Suspect Register
                             </span>
                         </div>
                         <p class="text-[11px] text-slate-500 font-medium">
-                            Generate laboratory analysis reports, situational reports, and suspect registers.
+                            Generate laboratory analysis reports, forensic drug reports, and suspect registers.
                         </p>
                     </div>
                 </div>
@@ -245,17 +245,17 @@
 
                         <!-- PERIOD PRESET BUTTONS -->
                         <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold font-mono-code">
-                            <button type="button" onclick="setConsolePeriod('weekly')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ ($rawPeriod ?? 'weekly') === 'weekly' ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="weekly">
-                                Weekly SITREP
+                            <button type="button" onclick="setConsolePeriod('weekly')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ in_array($rawPeriod ?? '', ['weekly', 'week']) ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="weekly">
+                                Weekly
                             </button>
-                            <button type="button" onclick="setConsolePeriod('monthly')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ ($rawPeriod ?? '') === 'monthly' ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="monthly">
+                            <button type="button" onclick="setConsolePeriod('monthly')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ in_array($rawPeriod ?? '', ['monthly', 'month']) ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="monthly">
                                 Monthly
                             </button>
-                            <button type="button" onclick="setConsolePeriod('annual')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ in_array($rawPeriod ?? '', ['annual', 'annually']) ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="annual">
+                            <button type="button" onclick="setConsolePeriod('annual')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ in_array($rawPeriod ?? '', ['annual', 'annually', 'yearly', 'year']) ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="annual">
                                 Annual
                             </button>
-                            <button type="button" onclick="setConsolePeriod('all')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ ($rawPeriod ?? '') === 'all' ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="all">
-                                All Cases
+                            <button type="button" onclick="setConsolePeriod('general')" class="console-period-btn px-3 py-1 rounded-lg transition-all {{ in_array($rawPeriod ?? '', ['all', 'general']) ? 'bg-white text-emerald-800 shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-period="general">
+                                General
                             </button>
                         </div>
                     </div>
@@ -374,14 +374,10 @@
                             <table class="w-full text-left border-collapse text-xs" id="directorySuspectTable">
                                 <thead>
                                     <tr class="bg-slate-100/90 border-b border-slate-200 text-slate-800 font-bold uppercase tracking-wider font-mono-code text-[10px]">
-                                        <th class="py-3 px-3 w-10 text-center">
-                                            <input type="checkbox" id="checkAllRows" onchange="toggleCheckAll(this.checked)" class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-                                        </th>
                                         <th class="py-3 px-4">Drug Seizures &amp; Suspects</th>
                                         <th class="py-3 px-3">Date &amp; Source</th>
                                         <th class="py-3 px-3">Exhibit Information</th>
                                         <th class="py-3 px-3">Quantity &amp; Weight</th>
-                                        <th class="py-3 px-3 text-right">Generate Report</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800" id="seizuresTableBody">
@@ -400,11 +396,6 @@
                                             data-remarks="{{ strtolower($item['status_remarks']) }}"
                                             data-suspects-count="{{ count($item['suspects']) }}">
                                             
-                                            <!-- CHECKBOX -->
-                                            <td class="py-3 px-3 text-center align-top">
-                                                <input type="checkbox" class="row-checkbox rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer" value="{{ $firstSuspect }}" onchange="onRowCheckChange()">
-                                            </td>
-
                                             <!-- DRUG SEIZURES & SUSPECTS (SINGLE & MULTIPLE CASE SUSPECTS: OVERLAPPING IMAGES & NAMES) -->
                                             <td class="py-3 px-4 align-top">
                                                 @php
@@ -496,29 +487,10 @@
                                                 </div>
                                             </td>
 
-                                            <!-- GENERATE DOSSIER REPORT BUTTON -->
-                                            <td class="py-3 px-3 align-top text-right whitespace-nowrap">
-                                                <div class="flex flex-col items-end gap-1.5">
-                                                    <button type="button" onclick="generateSingleSuspectPdf('{{ addslashes($firstSuspect) }}')" class="px-3 py-1.5 bg-slate-900 hover:bg-emerald-600 active:scale-95 text-white rounded-xl text-[10px] font-bold font-mono-code transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                                        <span>Generate Dossier</span>
-                                                    </button>
-                                                    @if(count($item['suspects']) > 1)
-                                                        <div class="flex items-center gap-1 flex-wrap justify-end">
-                                                            <span class="text-[8px] text-slate-400 font-mono-code font-semibold">Suspects:</span>
-                                                            @foreach($item['suspects'] as $s)
-                                                                <button type="button" onclick="generateSingleSuspectPdf('{{ addslashes($s['name']) }}')" class="px-1.5 py-0.5 bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 rounded text-[8px] font-bold font-mono-code border border-slate-200 transition-colors cursor-pointer" title="Generate Dossier for {{ $s['name'] }}">
-                                                                    {{ explode(' ', $s['name'])[0] }}
-                                                                </button>
-                                                            @endforeach
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                            </td>
                                         </tr>
                                     @empty
                                         <tr id="emptyDirectoryRow">
-                                            <td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs">
+                                            <td colspan="4" class="py-12 text-center text-slate-500 font-mono-code text-xs">
                                                 <div class="flex flex-col items-center justify-center space-y-2">
                                                     <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L5.6 15.12a2 2 0 00-1.18.125l-.26.104a2 2 0 00-1.16 1.861v1.895a2 2 0 002 2h14a2 2 0 002-2v-1.895a2 2 0 00-1.16-1.861l-.412-.165z"/></svg>
                                                     <p class="font-bold text-slate-700">No drug cases or exhibits found</p>
@@ -561,7 +533,6 @@
                                         <th class="py-2.5 px-4">Purpose</th>
                                         <th class="py-2.5 px-4 text-center">Results</th>
                                         <th class="py-2.5 px-4">Toxicology Notes</th>
-                                        <th class="py-2.5 px-3 text-right">Generate Report</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800">
@@ -607,11 +578,7 @@
                                             <td class="py-3 px-4 text-slate-600 text-[11px] leading-relaxed">
                                                 {{ str_ireplace(['No substance(s) found', 'No substances found'], 'No drug(s) detected', $ds['notes']) }}
                                             </td>
-                                            <td class="py-3 px-3 text-right whitespace-nowrap">
-                                                <button type="button" onclick="generateSingleSuspectPdf('{{ addslashes($ds['suspect_name']) }}')" class="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded-xl text-[10px] font-bold font-mono-code transition-all cursor-pointer">
-                                                    Generate Report
-                                                </button>
-                                            </td>
+
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -653,15 +620,13 @@
                                                 {{ $gsa['gsa_case_reference'] ?? ($gsa['case_reference'] ?? 'N/A') }}
                                             </td>
                                             <td class="py-3 px-4 text-slate-800 font-semibold">
-                                                {{ $gsa['exhibit_type'] }}
+                                                {{ !empty($gsa['exhibit_type']) ? $gsa['exhibit_type'] : 'N/A' }}
                                             </td>
                                             <td class="py-3 px-4 text-center font-mono-code font-bold text-indigo-900">
                                                 {{ $gsa['gsa_lab_number'] ?? ($gsa['gsa_lab_no'] ?? 'N/A') }}
                                             </td>
-                                            <td class="py-3 px-4">
-                                                <span class="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300">
-                                                    {{ $gsa['gsa_status'] ?? ($gsa['status'] ?? 'Pending') }}
-                                                </span>
+                                            <td class="py-3 px-4 font-bold uppercase text-slate-800 text-[10px]">
+                                                {{ $gsa['gsa_status'] ?? ($gsa['status'] ?? 'Pending') }}
                                             </td>
                                         </tr>
                                     @empty
@@ -730,12 +695,12 @@
                 const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                 fromInput.value = formatYmd(firstDay);
                 toInput.value = formatYmd(lastDay);
-            } else if (preset === 'annual') {
+            } else if (preset === 'annual' || preset === 'annually') {
                 const firstYear = new Date(now.getFullYear(), 0, 1);
                 const lastYear = new Date(now.getFullYear(), 11, 31);
                 fromInput.value = formatYmd(firstYear);
                 toInput.value = formatYmd(lastYear);
-            } else if (preset === 'all') {
+            } else if (preset === 'all' || preset === 'general') {
                 fromInput.value = '';
                 toInput.value = '';
             }
@@ -834,6 +799,7 @@
 
         function toggleCheckAll(checked) {
             const boxes = document.querySelectorAll('.row-checkbox');
+            if (!boxes.length) return;
             boxes.forEach(b => b.checked = checked);
             onRowCheckChange();
         }
@@ -843,7 +809,8 @@
             const btnLabel = document.getElementById('generateBtnLabel');
             if (checkedBoxes.length === 1) {
                 const sName = checkedBoxes[0].value;
-                document.getElementById('consoleSuspectSelect').value = sName;
+                const selectEl = document.getElementById('consoleSuspectSelect');
+                if (selectEl) selectEl.value = sName;
                 if (btnLabel) btnLabel.textContent = 'Generate Report: ' + sName;
             } else if (checkedBoxes.length > 1) {
                 if (btnLabel) btnLabel.textContent = 'Generate Report for Selected (' + checkedBoxes.length + ') Suspects';

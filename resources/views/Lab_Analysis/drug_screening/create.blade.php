@@ -253,7 +253,7 @@
                                         </div>
                                     </div>
                                     <div class="text-right shrink-0">
-                                        <div id="previewCaseNo" class="text-xs font-mono-code font-extrabold text-slate-900">NCC-2026</div>
+                                        <div id="previewCaseNo" class="text-xs font-mono-code font-extrabold text-slate-900">NCC-{{ date('Y') }}</div>
                                         <span id="previewReasonBadge" class="mt-1 inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-teal-100 text-teal-800 border border-teal-200">
                                             Eligible Profile
                                         </span>

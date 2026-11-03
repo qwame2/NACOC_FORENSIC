@@ -1,46 +1,313 @@
 @php
     $authUser = auth()->user();
 
-    // WHY: Server-side pagination chunks the data into fixed-size pages so
-    // the browser never has to paginate. This removes the O(n^2) JS paginator
-    // and lifts the ~60-page ceiling entirely.
-    $rowsPerPage = 25; // Tune this to fit one A4 page. Increase until it just fits.
+    // Data collections
+    $seizuresList   = collect($filteredSeizures ?? []);
+    $screeningList  = collect($drugScreeningRecords ?? []);
+    $gsaList        = collect($gsaSubmissions ?? []);
 
-    $seizureChunks   = collect($filteredSeizures ?? [])->chunk($rowsPerPage);
-    $screeningChunks = collect($drugScreeningRecords ?? [])->chunk($rowsPerPage);
-    $gsaChunks       = collect($gsaSubmissions ?? [])->chunk($rowsPerPage);
+    // Calibrated printable height budget for A4 portrait (in millimeters)
+    // A4 height = 297mm. Padding = 10mm top + 10mm bottom = 20mm. Usable page: 277mm.
+    // Page 2 header: running (10mm) + title block (16mm) + intro paragraph (9mm) + gap (4mm) = 39mm.
+    // Continuation header: running (10mm) + gap (4mm) = 14mm.
+    // Page footer: 8mm.
+    // Margin/spacing buffer: 15mm.
+    $firstPageBudget        = 215.0; // mm available for content on Page 2
+    $continuationPageBudget = 240.0; // mm available for content on Page 3+
 
-    // Total dossier pages = 1 cover + the max chunk count across all three sections.
-    $maxChunks = max(
-        $seizureChunks->count(),
-        $screeningChunks->count(),
-        $gsaChunks->count(),
-        1
-    );
-    $totalDossierPages = 1 + $maxChunks;
+    // Section overheads and component weights (in millimeters)
+    $sec01HeaderH       = 22.0;  // Section 01 badge + title + counter + thead
+    $sec01ContinuationH = 19.0;  // Continuation title + thead
+    $sec02HeaderH       = 26.0;  // Section 02 badge + title + intro + thead
+    $sec02ContinuationH = 18.0;  // Continuation title + thead
+    $sec03HeaderH       = 26.0;  // Section 03 badge + title + intro + thead
+    $sec03ContinuationH = 18.0;  // Continuation title + thead
+    $sec03EmptyRowH     = 11.0;  // Empty GSA message row
+    $sectionGapH        = 5.0;   // Vertical space between consecutive sections
+    $signaturesH        = 42.0;  // Dual official signature block
 
-    $johnSig = $labHeadSignature ?? null;
-    if (!empty($johnSig)) {
-        $johnSig = trim((string)$johnSig);
-        if (!str_starts_with($johnSig, 'data:image') && !str_starts_with($johnSig, 'http://') && !str_starts_with($johnSig, 'https://') && !str_starts_with($johnSig, '/')) {
-            $johnSig = asset($johnSig);
+    // Dynamic row height estimators based on text volume
+    $calcSeizureRowH = function($item) {
+        $remarks = (!empty($item['exhibit_remark']) && $item['exhibit_remark'] !== 'Unspecified') ? trim((string)$item['exhibit_remark']) : null;
+        if (empty($remarks) && !empty($item['exhibit_id'])) {
+            $remarks = \App\Models\Exhibit::where('id', $item['exhibit_id'])->whereNotNull('exhibit_remark')->where('exhibit_remark', '!=', '')->value('exhibit_remark');
         }
+        $remarks = (string)($remarks ?: 'Unspecified');
+        $suspects = $item['suspects'] ?? [];
+        $suspectNames = $item['suspects_display'] ?? '';
+        if (empty($suspectNames) && !empty($suspects)) {
+            $names = array_map(fn($s) => trim($s['name'] ?? ($s['suspect_name'] ?? '')), $suspects);
+            $suspectNames = implode(', ', array_filter($names));
+        }
+
+        $remLen = mb_strlen($remarks);
+        $remLines = max(1, (int)ceil($remLen / 28));
+
+        $suspLen = mb_strlen($suspectNames);
+        $suspLines = max(1, (int)ceil($suspLen / 18));
+
+        $exLen = mb_strlen((string)($item['exhibit_type'] ?? ''));
+        $exLines = max(1, (int)ceil($exLen / 18));
+
+        $maxLines = max($remLines, $suspLines, $exLines, 1);
+        return 6.0 + ($maxLines * 3.8);
+    };
+
+    $calcScreeningRowH = function($item) {
+        $sub = (string)($item['substances_found'] ?? '');
+        $name = (string)($item['suspect_name'] ?? '');
+        $purpose = (string)($item['purpose'] ?? '');
+        $h = 12.0;
+        if (mb_strlen($sub) > 30 || mb_strlen($name) > 30 || mb_strlen($purpose) > 25) {
+            $h += 4.0;
+        }
+        return $h;
+    };
+
+    $calcGsaRowH = function($item) {
+        $exType = (string)($item['exhibit_type'] ?? '');
+        $caseRef = (string)($item['gsa_case_reference'] ?? ($item['case_reference'] ?? ''));
+        if (mb_strlen($exType) > 35 || mb_strlen($caseRef) > 25) {
+            return 14.0;
+        }
+        return 10.5;
+    };
+
+    $remainingSeizures    = $seizuresList->values();
+    $remainingScreenings  = $screeningList->values();
+    $remainingGsa         = $gsaList->values();
+    $hasGsaEmptyNotice    = $gsaList->isEmpty();
+
+    $sec01Started         = false;
+    $sec01Finished        = false;
+    $sec02Started         = false;
+    $sec02Finished        = $screeningList->isEmpty();
+    $sec03Started         = false;
+    $sec03Finished        = false;
+    $signaturesPlaced     = false;
+
+    $dossierPages         = [];
+    $isFirst              = true;
+
+    while (!$signaturesPlaced) {
+        $pageLimit           = $isFirst ? $firstPageBudget : $continuationPageBudget;
+        $currentUsed         = 0.0;
+
+        $pageSeizures        = collect();
+        $isSec01Cont         = false;
+
+        $pageScreenings      = collect();
+        $isSec02Cont         = false;
+        $showSec02Intro      = false;
+
+        $pageGsa             = collect();
+        $isSec03Cont         = false;
+        $showSec03Intro      = false;
+        $showGsaEmpty        = false;
+
+        $pageSignatures      = false;
+        $hasAnyContentOnPage = false;
+
+        // 1. Pack Section 01 if not finished
+        if (!$sec01Finished) {
+            if ($seizuresList->isEmpty()) {
+                $emptyRowH = 12.0;
+                $needed = $sec01HeaderH + $emptyRowH;
+                if (($pageLimit - $currentUsed >= $needed) || !$hasAnyContentOnPage) {
+                    $currentUsed += $needed;
+                    $sec01Finished = true;
+                    $hasAnyContentOnPage = true;
+                }
+            } else {
+                $isSec01Cont = $sec01Started;
+                $headerH     = $isSec01Cont ? $sec01ContinuationH : $sec01HeaderH;
+                $gap         = $hasAnyContentOnPage ? $sectionGapH : 0.0;
+                $firstRowH   = $remainingSeizures->isNotEmpty() ? $calcSeizureRowH($remainingSeizures->first()) : 11.5;
+                $minNeeded   = $gap + $headerH + $firstRowH;
+
+                if (($pageLimit - $currentUsed >= $minNeeded) || !$hasAnyContentOnPage) {
+                    $currentUsed += ($gap + $headerH);
+                    $sec01Started = true;
+                    $hasAnyContentOnPage = true;
+
+                    while ($remainingSeizures->isNotEmpty()) {
+                        $nextItem = $remainingSeizures->first();
+                        $rowH = $calcSeizureRowH($nextItem);
+
+                        if (($currentUsed + $rowH > $pageLimit) && $pageSeizures->isNotEmpty()) {
+                            break;
+                        }
+
+                        $pageSeizures->push($remainingSeizures->shift());
+                        $currentUsed += $rowH;
+                    }
+
+                    if ($remainingSeizures->isEmpty()) {
+                        $sec01Finished = true;
+                    }
+                }
+            }
+        }
+
+        // 2. Pack Section 02 if not finished
+        if ($sec01Finished && !$sec02Finished) {
+            $isSec02Cont = $sec02Started;
+            $headerH     = $isSec02Cont ? $sec02ContinuationH : $sec02HeaderH;
+            $gap         = $hasAnyContentOnPage ? $sectionGapH : 0.0;
+            $firstRowH   = $remainingScreenings->isNotEmpty() ? $calcScreeningRowH($remainingScreenings->first()) : 10.5;
+            $minNeeded   = $gap + $headerH + $firstRowH;
+
+            if (($pageLimit - $currentUsed >= $minNeeded) || !$hasAnyContentOnPage) {
+                $currentUsed += ($gap + $headerH);
+                $showSec02Intro = !$sec02Started;
+                $sec02Started = true;
+                $hasAnyContentOnPage = true;
+
+                while ($remainingScreenings->isNotEmpty()) {
+                    $nextItem = $remainingScreenings->first();
+                    $rowH = $calcScreeningRowH($nextItem);
+
+                    if (($currentUsed + $rowH > $pageLimit) && $pageScreenings->isNotEmpty()) {
+                        break;
+                    }
+
+                    $pageScreenings->push($remainingScreenings->shift());
+                    $currentUsed += $rowH;
+                }
+
+                if ($remainingScreenings->isEmpty()) {
+                    $sec02Finished = true;
+                }
+            }
+        }
+
+        // 3. Pack Section 03 if not finished
+        if ($sec01Finished && $sec02Finished && !$sec03Finished) {
+            $gap = $hasAnyContentOnPage ? $sectionGapH : 0.0;
+
+            if ($hasGsaEmptyNotice) {
+                // Section 03 has no records - 1-row empty notice
+                $needed = $gap + $sec03HeaderH + $sec03EmptyRowH;
+
+                // Check if both Section 03 empty notice AND Signatures can fit together
+                $bothFitWithSignatures = ($currentUsed + $needed + $sectionGapH + $signaturesH <= $pageLimit);
+
+                // If they don't both fit, and the page already has content, defer Section 03
+                // to the next page so the next page has Section 03 + Signatures together,
+                // rather than having a page with ONLY signatures.
+                $deferForSignatures = (!$bothFitWithSignatures && $hasAnyContentOnPage);
+
+                if (!$deferForSignatures && (($pageLimit - $currentUsed >= $needed) || !$hasAnyContentOnPage)) {
+                    $currentUsed += $needed;
+                    $showGsaEmpty   = true;
+                    $showSec03Intro = true;
+                    $sec03Started   = true;
+                    $sec03Finished  = true;
+                    $hasAnyContentOnPage = true;
+                }
+            } else {
+                // Section 03 has actual GSA submission records
+                $isSec03Cont = $sec03Started;
+                $headerH     = $isSec03Cont ? $sec03ContinuationH : $sec03HeaderH;
+                $firstRowH   = $remainingGsa->isNotEmpty() ? $calcGsaRowH($remainingGsa->first()) : 10.5;
+                $minNeeded   = $gap + $headerH + $firstRowH;
+
+                // Anti-orphan check: If Section 03 has not started yet, and there is only 1 GSA item,
+                // and the current page already has content, check if Section 03 + Signatures can fit together.
+                // If not, defer Section 03 to the next page so the next page has Section 03 + Signatures together.
+                $deferSec03 = (!$sec03Started && $remainingGsa->count() === 1 && $hasAnyContentOnPage && ($currentUsed + $minNeeded + $sectionGapH + $signaturesH > $pageLimit));
+
+                if (!$deferSec03 && (($pageLimit - $currentUsed >= $minNeeded) || !$hasAnyContentOnPage)) {
+                    $currentUsed += ($gap + $headerH);
+                    $showSec03Intro = !$sec03Started;
+                    $sec03Started   = true;
+                    $hasAnyContentOnPage = true;
+
+                    while ($remainingGsa->isNotEmpty()) {
+                        $nextItem = $remainingGsa->first();
+                        $rowH = $calcGsaRowH($nextItem);
+
+                        // If adding this row exceeds page limit, and we have at least 1 row on this page, stop
+                        if (($currentUsed + $rowH > $pageLimit) && $pageGsa->isNotEmpty()) {
+                            break;
+                        }
+
+                        // Anti-orphan check: If this is the LAST item in remaining GSA,
+                        // check whether Signatures will also be able to fit on this page.
+                        // If Signatures cannot fit, and we already have at least 1 row on this page,
+                        // keep this last row for the next page so the next page has content + signatures!
+                        if ($remainingGsa->count() === 1 && $pageGsa->isNotEmpty()) {
+                            $canFitSignaturesToo = ($currentUsed + $rowH + $sectionGapH + $signaturesH <= $pageLimit);
+                            if (!$canFitSignaturesToo) {
+                                break;
+                            }
+                        }
+
+                        $pageGsa->push($remainingGsa->shift());
+                        $currentUsed += $rowH;
+                    }
+
+                    if ($remainingGsa->isEmpty()) {
+                        $sec03Finished = true;
+                    }
+                }
+            }
+        }
+
+        // 4. Pack Signatures if all sections are finished
+        if ($sec01Finished && $sec02Finished && $sec03Finished) {
+            $gap = $hasAnyContentOnPage ? $sectionGapH : 0.0;
+            $needed = $gap + $signaturesH;
+
+            if (($pageLimit - $currentUsed >= $needed) || !$hasAnyContentOnPage) {
+                $currentUsed += $needed;
+                $pageSignatures   = true;
+                $signaturesPlaced = true;
+            }
+        }
+
+        // Build dossier page configuration
+        $dossierPages[] = [
+            'isFirst'               => $isFirst,
+            'isLast'                => false, // Updated after loop finishes
+            'seizures'              => $pageSeizures,
+            'isSection01Continued'  => $isSec01Cont,
+            'screenings'            => $pageScreenings,
+            'isSection02Continued'  => $isSec02Cont,
+            'showSection02Intro'    => $showSec02Intro,
+            'gsa'                   => $pageGsa,
+            'isSection03Continued'  => $isSec03Cont,
+            'showSection03Intro'    => $showSec03Intro,
+            'showGsaEmpty'          => $showGsaEmpty,
+            'signatures'            => $pageSignatures,
+        ];
+
+        $isFirst = false;
     }
 
-    $anitaSig = $deptHeadSignature ?? null;
-    if (!empty($anitaSig)) {
-        $anitaSig = trim((string)$anitaSig);
-        if (!str_starts_with($anitaSig, 'data:image') && !str_starts_with($anitaSig, 'http://') && !str_starts_with($anitaSig, 'https://') && !str_starts_with($anitaSig, '/')) {
-            $anitaSig = asset($anitaSig);
+    // Ensure only the final dossier page is designated as the last page with signatures
+    if (!empty($dossierPages)) {
+        $lastIdx = count($dossierPages) - 1;
+        for ($i = 0; $i < $lastIdx; $i++) {
+            $dossierPages[$i]['isLast'] = false;
+            $dossierPages[$i]['signatures'] = false;
         }
+        $dossierPages[$lastIdx]['isLast'] = true;
+        $dossierPages[$lastIdx]['signatures'] = true;
     }
+
+    // Total dossier pages = 1 cover page + count of dossier pages
+    $totalDossierPages = 1 + count($dossierPages);
+
+    $intelDirectorName = $intelDirectorName ?? null;
+    $reportGeneratedDate = $generatedDate ?? date('d F Y');
 @endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NACOC Laboratory Analysis Unit &bull; Situational Report (SITREP)</title>
+    <title>NACOC Laboratory Analysis Unit &bull; Forensic Drug Report</title>
     
     <!-- Scripts & Styles -->
     <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
@@ -83,6 +350,8 @@
 
         .a4-page {
             width: 210mm;
+            height: 297mm;
+            max-height: 297mm;
             min-height: 297mm;
             padding: 10mm 12mm 10mm 12mm;
             margin: 0 auto 24px auto;
@@ -111,6 +380,7 @@
             flex-direction: column;
             justify-content: space-between;
             background: #ffffff;
+            box-sizing: border-box;
         }
 
         /* Dynamic Dossier Pages */
@@ -118,16 +388,72 @@
             width: 210mm;
             height: 297mm;
             max-height: 297mm;
+            min-height: 297mm;
             padding: 10mm 12mm 10mm 12mm;
             box-sizing: border-box;
             position: relative;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            overflow: hidden;
             background: #ffffff;
+            overflow: hidden;
             page-break-after: always;
             break-after: page;
+        }
+
+        /* Full page height stretching inner wrapper */
+        .page-content-wrapper {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            min-height: 100%;
+            max-height: 100%;
+            width: 100%;
+            flex: 1 1 0%;
+            box-sizing: border-box;
+        }
+
+        .page-header-block {
+            flex-shrink: 0;
+            width: 100%;
+        }
+
+        .report-flow-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .section-signatures {
+            flex-shrink: 0;
+            width: 100%;
+            margin-top: auto;
+            margin-bottom: 6px;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        .page-footer-block {
+            flex-shrink: 0;
+            margin-top: auto;
+            width: 100%;
+        }
+
+        .section-signatures + .page-footer-block {
+            margin-top: 0 !important;
+        }
+
+        .section-header-block {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
         }
 
         .page-break {
@@ -190,8 +516,30 @@
                 display: none !important;
             }
 
+            .a4-page {
+                box-shadow: none !important;
+                border: none !important;
+                margin: 0 !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
+                min-height: 297mm !important;
+                padding: 10mm 12mm 10mm 12mm !important;
+                overflow: hidden !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                background: #ffffff !important;
+            }
+
             .cover-page {
                 box-shadow: none !important;
+                border: none !important;
                 margin: 0 !important;
                 width: 210mm !important;
                 height: 297mm !important;
@@ -207,15 +555,18 @@
                 flex-direction: column !important;
                 justify-content: space-between !important;
                 background: #ffffff !important;
+                box-sizing: border-box !important;
             }
 
             .dynamic-dossier-page {
                 box-shadow: none !important;
+                border: none !important;
                 margin: 0 !important;
                 padding: 10mm 12mm 10mm 12mm !important;
                 width: 210mm !important;
                 height: 297mm !important;
                 max-height: 297mm !important;
+                min-height: 297mm !important;
                 overflow: hidden !important;
                 background: #ffffff !important;
                 display: flex !important;
@@ -223,6 +574,54 @@
                 justify-content: space-between !important;
                 page-break-after: always !important;
                 break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                box-sizing: border-box !important;
+            }
+
+            .page-content-wrapper {
+                height: 100% !important;
+                min-height: 100% !important;
+                max-height: 100% !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                flex: 1 1 0% !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+            }
+
+            .page-header-block {
+                flex-shrink: 0 !important;
+                width: 100% !important;
+            }
+
+            .report-flow-body {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: flex-start !important;
+                width: 100% !important;
+            }
+
+            .section-signatures {
+                flex-shrink: 0 !important;
+                width: 100% !important;
+                margin-top: auto !important;
+                margin-bottom: 6px !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .page-footer-block {
+                flex-shrink: 0 !important;
+                margin-top: auto !important;
+                width: 100% !important;
+            }
+
+            .section-signatures + .page-footer-block {
+                margin-top: 0 !important;
             }
 
             /* WHY: Keep the per-page watermark visible in print on every page.
@@ -312,17 +711,17 @@
             <div class="flex items-center justify-between gap-2.5 sm:gap-4 overflow-x-auto min-w-0 flex-nowrap">
                 <!-- PERIOD PRESETS -->
                 <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
-                    <button type="button" onclick="setPeriodFilter('weekly')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ ($rawPeriod ?? 'weekly') === 'weekly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="weekly">
-                        Weekly (SITREP)
+                    <button type="button" onclick="setPeriodFilter('weekly')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ in_array($rawPeriod ?? '', ['weekly', 'week']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="weekly">
+                        Weekly
                     </button>
-                    <button type="button" onclick="setPeriodFilter('monthly')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ ($rawPeriod ?? '') === 'monthly' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="monthly">
+                    <button type="button" onclick="setPeriodFilter('monthly')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ in_array($rawPeriod ?? '', ['monthly', 'month']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="monthly">
                         Monthly
                     </button>
-                    <button type="button" onclick="setPeriodFilter('annual')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ in_array($rawPeriod ?? '', ['annual', 'annually']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="annual">
+                    <button type="button" onclick="setPeriodFilter('annual')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ in_array($rawPeriod ?? '', ['annual', 'annually', 'yearly', 'year']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="annual">
                         Annual
                     </button>
-                    <button type="button" onclick="setPeriodFilter('all')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ ($rawPeriod ?? '') === 'all' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="all">
-                        All Records
+                    <button type="button" onclick="setPeriodFilter('general')" class="preset-btn px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap {{ in_array($rawPeriod ?? '', ['general', 'all']) ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900' }}" data-preset="general">
+                        General
                     </button>
                 </div>
 
@@ -350,7 +749,7 @@
                 <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
             </div>
 
-            <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+            <div class="page-content-wrapper relative z-10 flex flex-col justify-between h-full min-h-0 flex-1 w-full">
 
                 <!-- TOP BADGES -->
                 <div class="pt-2 flex items-center justify-between text-[8px] font-mono-code select-none">
@@ -361,7 +760,7 @@
                     <div class="text-right">
                         <p class="font-bold uppercase tracking-wider text-slate-900">Confidential</p>
                         <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800" id="page1HeaderBadge">
-                            DOSSIER COVER &bull; Page 1 of <span class="doc-total-pages">{{ $totalDossierPages }}</span>
+                            SITREP COVER &bull; Page 1 of <span class="doc-total-pages">{{ $totalDossierPages }}</span>
                         </p>
                     </div>
                 </div>
@@ -390,27 +789,27 @@
                     <!-- CASE FILE & REPORT TITLE -->
                     <div>
                         <p class="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-900">
-                            OFFICIAL FORENSIC DRUG ANALYSIS &amp; CHEMICAL REGISTER
+                            OFFICIAL FORENSIC DRUG ANALYSIS &amp; SITUATION REPORT
                         </p>
                         <h2 class="mt-2 text-2xl font-bold uppercase tracking-wide text-slate-950 font-serif-header">
                             LABORATORY ANALYSIS UNIT
                         </h2>
                         <p class="mt-1 text-sm font-semibold uppercase tracking-[0.14em] text-slate-700">
-                              Preliminary Forensic Examination &amp; Drug Testing Log
+                              Preliminary Forensic Examination &amp; Drug Testing Report
                         </p>
                         <div class="mx-auto mt-4 h-[2px] w-20 bg-emerald-700"></div>
                         <p class="mt-5 text-base font-extrabold uppercase tracking-wider text-emerald-800" id="coverReportTypeTitle">
-                            {{ $reportTypeLabel ?? 'WEEKLY SITUATIONAL REPORT (SITREP)' }}
+                            {{ $reportTypeLabel ?? 'FORENSIC DRUG ANALYSIS REPORT' }}
                         </p>
                         <p class="mt-2 text-[13px] font-extrabold uppercase tracking-wider font-times text-emerald-900" id="coverPeriodDisplay">
-                            {{ $periodLabel ?? 'Period: 20 September – 27 September 2026' }}
+                            {{ $periodLabel ?? 'Not Specified' }}
                         </p>
                         @if(!empty($selectedSuspect) && strtolower($selectedSuspect) !== 'all')
                             <p class="mt-2 text-[13px] font-black uppercase tracking-wider text-slate-900 font-serif-header">
                                 REPUBLIC VS {{ strtoupper($selectedSuspect) }}
                             </p>
                             <p class="mt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700 font-mono-code">
-                                INDIVIDUAL SUSPECT CHEMICAL DOSSIER
+                                INDIVIDUAL SUSPECT CASE REPORT
                             </p>
                         @else
                             <p class="mt-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-700 font-mono-code">
@@ -426,7 +825,7 @@
                                 CONFIDENTIAL &amp; PROPRIETARY LAW ENFORCEMENT RECORD
                             </p>
                             <p class="leading-relaxed">
-                                This official situational dossier contains classified forensic chemistry observations, drug screening results, and chain-of-custody intelligence. Unauthorized copying or redistribution is strictly prohibited. Detailed suspect examination records follow.
+                                This official situational report contains laboratory analysis, drug screening results, and chain-of-custody intelligence. 
                             </p>
                         </div>
                     </div>
@@ -448,7 +847,7 @@
                 </div>
 
                 <!-- COVER PAGE FOOTER -->
-                <div class="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none footer">
+                <div class="page-footer-block mt-auto pt-3 border-t border-slate-200 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none footer">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-slate-700 tracking-wider">NACOC / LAU UNIT</span>
                         <span>&bull;</span>
@@ -466,17 +865,17 @@
 
 
         <!-- ============================================================
-             PAGE 2+: EXECUTIVE FORENSIC DOSSIER & SITUATIONAL LOG
+             PAGE 2+: EXECUTIVE FORENSIC DOSSIER & LOG
              ============================================================ -->
-        @for ($pageIdx = 0; $pageIdx < $maxChunks; $pageIdx++)
+        @foreach ($dossierPages as $pageIdx => $p)
             @php
                 $pageNumber = $pageIdx + 2;
-                $isFirstDossierPage = ($pageIdx === 0);
-                $isLastDossierPage = ($pageIdx === $maxChunks - 1);
+                $isFirstDossierPage = $p['isFirst'];
+                $isLastDossierPage = $p['isLast'];
 
-                $seizureChunk   = $seizureChunks->get($pageIdx, collect());
-                $screeningChunk = $screeningChunks->get($pageIdx, collect());
-                $gsaChunk       = $gsaChunks->get($pageIdx, collect());
+                $seizureChunk   = $p['seizures'];
+                $screeningChunk = $p['screenings'];
+                $gsaChunk       = $p['gsa'];
             @endphp
         <div class="a4-page dynamic-dossier-page page-break relative text-slate-900">
 
@@ -485,7 +884,7 @@
                 <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
             </div>
 
-            <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+            <div class="page-content-wrapper relative z-10 flex flex-col justify-between h-full min-h-0 flex-1 w-full">
 
                 <!-- DOSSIER HEADER -->
                 <div class="page-header-block shrink-0">
@@ -513,7 +912,7 @@
                             FORENSIC DEPARTMENT &bull; LABORATORY ANALYSIS UNIT
                         </p>
                         <h2 class="mt-0.5 text-base font-bold uppercase tracking-wide text-slate-950 font-serif-header" id="dossierHeadingText">
-                            {{ $reportTypeLabel ?? 'WEEKLY SITUATIONAL REPORT' }}
+                            {{ $reportTypeLabel ?? 'WEEKLY DRUG FORENSIC REPORT' }}
                         </h2>
                         <p class="mt-0.5 text-xs font-bold uppercase tracking-wider text-emerald-900 font-times" id="dossierPeriodText">
                             {{ $periodLabel ?? 'Period: 20 September – 27 September 2026' }}
@@ -530,7 +929,7 @@
                 </div>
 
                 <!-- MAIN DOSSIER FLOW CONTENT -->
-                <div class="report-flow-body flex-1 mt-3 min-h-0 flex flex-col justify-between">
+                <div class="report-flow-body flex-1 mt-3 min-h-0 flex flex-col justify-start">
                     <div class="flow-sections-container space-y-4">
 
                     @if ($seizureChunk->isNotEmpty() || ($isFirstDossierPage && count($filteredSeizures ?? []) === 0))
@@ -538,14 +937,12 @@
                          SECTION 01: PRELIMINARY FORENSIC EXAMINATION & TESTING
                          (ALL DRUG CASES & SUSPECTS WITH MODERN EXECUTIVE DESIGN)
                          ======================================================== -->
-                    <div class="section-01 avoid-break">
-                        <div class="flex items-center justify-between pb-1 mt-4 mb-2 border-b-2 border-emerald-700">
+                    <div class="section-01">
+                        <div class="section-header-block flex items-center justify-between pb-1 mt-3 mb-2 border-b-2 border-emerald-700">
                             <div class="flex items-center gap-1.5">
-                                <span class="flex h-5 w-5 items-center justify-center rounded bg-emerald-600 text-white text-[8.5px] font-bold font-mono-code">
-                                    01
-                                </span>
+                                
                                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-950 font-serif-header">
-                                    Preliminary Forensic Examination &amp; Drug Testing Log @if (!$isFirstDossierPage) (Continued) @endif
+                                    Preliminary Forensic Examination &amp; Drug Testing Log{{ !empty($p['isSection01Continued']) ? ' (Continued)' : '' }}
                                 </h3>
                             </div>
                             <span class="text-[8px] font-mono-code text-slate-600 font-bold uppercase">
@@ -572,39 +969,27 @@
                                         @php
                                             $isEven = $index % 2 === 0;
 
-                                            // Fetch exhibit_remark directly from the exhibit table in database
-                                            $exRemark = null;
-                                            $dbExhibit = null;
-                                            if (!empty($item['exhibit_id'])) {
-                                                $dbExhibit = \App\Models\Exhibit::find($item['exhibit_id']);
+                                            $statusText = (!empty($item['exhibit_remark']) && $item['exhibit_remark'] !== 'Unspecified') ? trim((string)$item['exhibit_remark']) : null;
+                                            if (empty($statusText) && !empty($item['exhibit_id'])) {
+                                                $statusText = \App\Models\Exhibit::where('id', $item['exhibit_id'])->whereNotNull('exhibit_remark')->where('exhibit_remark', '!=', '')->value('exhibit_remark');
                                             }
-                                            if (!$dbExhibit && !empty($item['case_reference'])) {
+                                            if (empty($statusText) && !empty($item['real_case_id'])) {
+                                                $rId = $item['real_case_id'];
+                                                $statusText = \App\Models\Exhibit::where(function($q) use ($rId) {
+                                                    $q->where('single_suspect_case_id', $rId)
+                                                      ->orWhere('multiple_suspect_case_id', $rId);
+                                                })->whereNotNull('exhibit_remark')->where('exhibit_remark', '!=', '')->latest('id')->value('exhibit_remark');
+                                            }
+                                            if (empty($statusText) && !empty($item['case_reference'])) {
                                                 $cRef = $item['case_reference'];
-                                                $isMulti = !empty($item['is_multiple']) || (isset($item['case_type']) && strtoupper($item['case_type']) === 'MULTIPLE');
-                                                $cleanId = !empty($item['id']) ? preg_replace('/[^0-9]/', '', (string)$item['id']) : null;
-
-                                                $dbExhibit = \App\Models\Exhibit::where(function($q) use ($isMulti, $cRef, $cleanId) {
-                                                    if ($isMulti) {
-                                                        $q->whereHas('multipleCase', fn($mq) => $mq->where('case_number', $cRef));
-                                                        if ($cleanId) {
-                                                            $q->orWhere('multiple_suspect_case_id', $cleanId);
-                                                        }
-                                                    } else {
-                                                        $q->whereHas('singleCase', fn($sq) => $sq->where('case_number', $cRef));
-                                                        if ($cleanId) {
-                                                            $q->orWhere('single_suspect_case_id', $cleanId);
-                                                        }
-                                                    }
-                                                })->whereNotNull('exhibit_remark')->where('exhibit_remark', '!=', '')->latest()->first();
+                                                $statusText = \App\Models\Exhibit::where(function($q) use ($cRef) {
+                                                    $q->whereHas('singleCase', fn($sq) => $sq->where('case_number', $cRef))
+                                                      ->orWhereHas('multipleCase', fn($mq) => $mq->where('case_number', $cRef));
+                                                })->whereNotNull('exhibit_remark')->where('exhibit_remark', '!=', '')->latest('id')->value('exhibit_remark');
                                             }
-
-                                            if ($dbExhibit && !empty(trim((string)$dbExhibit->exhibit_remark))) {
-                                                $exRemark = trim((string)$dbExhibit->exhibit_remark);
-                                            } elseif (!empty($item['exhibit_remark'])) {
-                                                $exRemark = trim((string)$item['exhibit_remark']);
+                                            if (empty($statusText)) {
+                                                $statusText = 'Unspecified';
                                             }
-
-                                            $statusText = $exRemark ?: ($item['status_remarks'] ?? 'Preliminary examination conducted; sample secured for confirmatory assay.');
 
                                             $isMultipleCasePdf = !empty($item['is_multiple']) || count($item['suspects']) > 1;
                                         @endphp
@@ -697,24 +1082,26 @@
                     <!-- ========================================================
                          SECTION 02: DRUG SCREENING OF SUSPECTS
                          ======================================================== -->
-                    <div class="section-02 avoid-break pt-1">
-                        <div class="flex items-center justify-between pb-1 mt-5 mb-3 border-b-2 border-teal-600">
-                            <div class="flex items-center gap-2">
-                                <span class="flex h-6 w-6 items-center justify-center rounded-md bg-teal-600 text-white text-[10.5px] font-bold font-mono-code">
-                                    02
+                    <div class="section-02 pt-1">
+                        <div class="section-header-block">
+                            <div class="flex items-center justify-between pb-1 mt-4 mb-2 border-b-2 border-teal-600">
+                                <div class="flex items-center gap-1.5">
+                                 
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-950 font-serif-header">
+                                        Drug Screening of Suspect(s){{ !empty($p['isSection02Continued']) ? ' (Continued)' : '' }}
+                                    </h3>
+                                </div>
+                                <span class="text-[8px] font-mono-code text-slate-600 font-bold uppercase">
+                                    Toxicological Urinalysis Register
                                 </span>
-                                <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-950 font-serif-header">
-                                    Drug Screening of Suspect(s) @if (!$isFirstDossierPage) (Continued) @endif
-                                </h3>
                             </div>
-                            <span class="text-[9.5px] font-mono-code text-slate-600 font-bold uppercase">
-                                Toxicological Urinalysis Register
-                            </span>
-                        </div>
 
-                        <p class="text-[10.5px] text-slate-700 mb-2.5 italic">
-                            One (1) or more suspects were subjected to rapid urine multi-panel drug testing during the period under review:
-                        </p>
+                            @if (!empty($p['showSection02Intro']))
+                            <p class="text-[9.5px] text-slate-700 mb-2 italic">
+                                One (1) or more suspects were subjected to rapid urine multi-panel drug testing during the period under review:
+                            </p>
+                            @endif
+                        </div>
 
                         <div class="table-responsive-wrapper overflow-x-auto border border-slate-300 rounded-xl shadow-xs bg-white">
                             <table class="w-full table-fixed text-left border-collapse text-[10px]">
@@ -776,28 +1163,30 @@
                     @endif
 
 
-                    @if ($gsaChunk->isNotEmpty() || ($isFirstDossierPage && count($gsaSubmissions ?? []) === 0))
+                    @if ($gsaChunk->isNotEmpty() || (!empty($p['showGsaEmpty'])))
                     <!-- ========================================================
                          SECTION 03: GHANA STANDARDS AUTHORITY (GSA) SUBMISSIONS
                          ======================================================== -->
-                    <div class="section-03 avoid-break pt-1">
-                        <div class="flex items-center justify-between pb-1 mt-5 mb-3 border-b-2 border-indigo-700">
-                            <div class="flex items-center gap-2">
-                                <span class="flex h-6 w-6 items-center justify-center rounded-md bg-teal-600 text-white text-[10.5px] font-bold font-mono-code">
-                                    03
+                    <div class="section-03 pt-1">
+                        <div class="section-header-block">
+                            <div class="flex items-center justify-between pb-1 mt-4 mb-2 border-b-2 border-indigo-700">
+                                <div class="flex items-center gap-1.5">
+                                    
+                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-950 font-serif-header">
+                                        Ghana Standards Authority (GSA) Submissions{{ !empty($p['isSection03Continued']) ? ' (Continued)' : '' }}
+                                    </h3>
+                                </div>
+                                <span class="text-[8px] font-mono-code text-slate-600 font-bold uppercase">
+                                    External Confirmatory Testing
                                 </span>
-                                <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-950 font-serif-header">
-                                    Ghana Standards Authority (GSA) Submissions @if (!$isFirstDossierPage) (Continued) @endif
-                                </h3>
                             </div>
-                            <span class="text-[9.5px] font-mono-code text-slate-600 font-bold uppercase">
-                                External Confirmatory Testing
-                            </span>
-                        </div>
 
-                        <p class="text-[10.5px] text-slate-700 mb-2.5 italic">
-                            The details of exhibits and seized case samples submitted to Ghana Standards Authority (GSA) for laboratory examination and reporting:
-                        </p>
+                            @if (!empty($p['showSection03Intro']))
+                            <p class="text-[9.5px] text-slate-700 mb-2 italic">
+                                The details of exhibits and seized case samples submitted to Ghana Standards Authority (GSA) for laboratory examination and reporting:
+                            </p>
+                            @endif
+                        </div>
 
                         <div class="table-responsive-wrapper overflow-x-auto border border-slate-300 rounded-xl shadow-xs bg-white">
                             <table class="w-full table-fixed text-left border-collapse text-[10px]">
@@ -820,15 +1209,13 @@
                                                 {{ $gsa['gsa_case_reference'] ?? ($gsa['case_reference'] ?? 'N/A') }}
                                             </td>
                                             <td class="py-2 px-2.5 border-r border-slate-200 text-slate-800 font-semibold align-top text-[10px] break-words">
-                                                {{ $gsa['exhibit_type'] }}
+                                                {{ !empty($gsa['exhibit_type']) ? $gsa['exhibit_type'] : 'N/A' }}
                                             </td>
                                             <td class="py-2 px-2 border-r border-slate-200 text-center font-mono-code font-bold text-indigo-900 align-top text-[9.5px] break-words">
                                                 {{ $gsa['gsa_lab_number'] ?? ($gsa['gsa_lab_no'] ?? 'N/A') }}
                                             </td>
-                                            <td class="py-2 px-2.5 align-top text-center break-words">
-                                                <span class="inline-block px-2 py-0.5 rounded text-[8.5px] font-bold uppercase bg-amber-100 text-amber-900 border border-amber-300 break-words max-w-full">
-                                                    {{ $gsa['gsa_status'] ?? 'N/A' }}
-                                                </span>
+                                            <td class="py-2 px-2.5 align-top text-center break-words font-bold uppercase text-slate-800 text-[9.5px]">
+                                                {{ $gsa['gsa_status'] ?? 'N/A' }}
                                             </td>
                                         </tr>
                                     @empty
@@ -845,55 +1232,73 @@
                     @endif
 
                     </div>
+                </div>
 
-                    @if ($isLastDossierPage)
-                    <!-- ========================================================
-                         SECTION 05: DUAL OFFICIAL SIGN-OFF & CERTIFICATION
-                         (IN-PERSON PHYSICAL SIGN-OFF)
-                         ======================================================== -->
-                    <div class="section-signatures avoid-break mt-7 pt-3 border-t-2 border-slate-300">
-                        <div class="grid grid-cols-2 gap-8">
-                            <!-- LEFT: HEAD OF LABORATORY ANALYSIS -->
-                            <div class="flex flex-col">
-                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-700 font-mono-code">Head of Laboratory Analysis Unit</p>
-                                
-                                <!-- Space for in-person physical signature -->
-                                <div class="h-14"></div>
+                @if (!empty($p['signatures']))
+                <!-- ========================================================
+                     SECTION 05: OFFICIAL TRI-LEVEL SIGN-OFF & CERTIFICATION
+                     (IN-PERSON PHYSICAL SIGN-OFF)
+                     ======================================================== -->
+                <div class="section-signatures avoid-break shrink-0 w-full mt-auto pt-2 pb-1.5 border-t-2 border-slate-300">
+                    <div class="grid grid-cols-3 gap-6">
+                        <!-- LEFT: HEAD OF LABORATORY ANALYSIS -->
+                        <div class="flex flex-col">
+                            <p class="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">Head of Laboratory Analysis Unit</p>
+                            
+                            <!-- Space for in-person physical signature -->
+                            <div class="h-10"></div>
 
-                                <div class="border-b border-slate-700 pb-0.5"></div>
-                                <div class="mt-1">
-                                    <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight">{{ $labHeadName }}</p>
-                                    <p class="text-[9.5px] text-slate-700 leading-tight">Head of Laboratory Analysis Unit, NACOC</p>
-                                    <p class="text-[9.5px] text-slate-500 font-mono-code pt-0.5">Signature &amp; Date: ________________________</p>
-                                </div>
+                            <div class="border-b border-slate-700 pb-0.5"></div>
+                            <div class="mt-1">
+                                <p class="text-[10px] font-extrabold text-slate-900 leading-tight truncate">{{ $labHeadName }}</p>
+                                <p class="text-[8px] text-slate-700 leading-tight">Head of Laboratory Analysis Unit, NACOC</p>
+                                <p class="text-[8px] text-slate-600 font-mono-code pt-0.5">Date: <span class="font-bold text-slate-800">{{ $reportGeneratedDate }}</span></p>
                             </div>
+                        </div>
 
-                            <!-- RIGHT: HEAD OF FORENSIC DEPARTMENT -->
-                            <div class="flex flex-col">
-                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-700 font-mono-code">Head of Forensic Department</p>
-                                
-                                <!-- Space for in-person physical signature -->
-                                <div class="h-14"></div>
+                        <!-- MIDDLE: HEAD OF FORENSIC DEPARTMENT -->
+                        <div class="flex flex-col">
+                            <p class="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">Head of Forensic Department</p>
+                            
+                            <!-- Space for in-person physical signature -->
+                            <div class="h-10"></div>
 
-                                <div class="border-b border-slate-700 pb-0.5"></div>
-                                <div class="mt-1">
-                                    <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight">{{ $deptHeadName }}</p>
-                                    <p class="text-[9.5px] text-slate-700 leading-tight">Head of Forensic Department, NACOC</p>
-                                    <p class="text-[9.5px] text-slate-500 font-mono-code pt-0.5">Signature &amp; Date: ________________________</p>
-                                </div>
+                            <div class="border-b border-slate-700 pb-0.5"></div>
+                            <div class="mt-1">
+                                <p class="text-[10px] font-extrabold text-slate-900 leading-tight truncate">{{ $deptHeadName }}</p>
+                                <p class="text-[8px] text-slate-700 leading-tight">Head of Forensic Department, NACOC</p>
+                                <p class="text-[8px] text-slate-600 font-mono-code pt-0.5">Date: <span class="font-bold text-slate-800">{{ $reportGeneratedDate }}</span></p>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT: DIRECTOR OF INTELLIGENCE AND INVESTIGATION -->
+                        <div class="flex flex-col">
+                            <p class="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">Director of Intel &amp; Investigation</p>
+                            
+                            <!-- Space for in-person physical signature -->
+                            <div class="h-10"></div>
+
+                            <div class="border-b border-slate-700 pb-0.5"></div>
+                            <div class="mt-1">
+                                @if(!empty($intelDirectorName) && $intelDirectorName !== 'N/A')
+                                    <p class="text-[10px] font-extrabold text-slate-900 leading-tight truncate">{{ $intelDirectorName }}</p>
+                                @else
+                                    <p class="text-[9px] font-bold text-slate-900 leading-tight font-mono-code">Name: ____________________</p>
+                                @endif
+                                <p class="text-[8px] text-slate-700 leading-tight">Director of Intelligence &amp; Investigation, NACOC</p>
+                                <p class="text-[8px] text-slate-600 font-mono-code pt-0.5">Date: <span class="font-bold text-slate-800">{{ $reportGeneratedDate }}</span></p>
                             </div>
                         </div>
                     </div>
-                    @endif
-
                 </div>
+                @endif
 
                 <!-- DOSSIER FOOTER -->
-                <div class="page-footer-block mt-auto pt-2 border-t border-slate-200 flex items-center justify-between text-[9.5px] text-slate-500 font-mono-code select-none footer">
+                <div class="page-footer-block {{ empty($p['signatures']) ? 'mt-auto' : '' }} pt-2 border-t border-slate-200 flex items-center justify-between text-[9.5px] text-slate-500 font-mono-code select-none footer">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-slate-700 tracking-wider">NACOC / LABORATORY ANALYSIS UNIT</span>
                         <span>&bull;</span>
-                        <span>Official Situational Dossier</span>
+                        <span>Official Forensic Dossier</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <span>STRICTLY CONFIDENTIAL</span>
@@ -904,7 +1309,7 @@
 
             </div>
         </div>
-        @endfor
+        @endforeach
 
     </div>
 
@@ -943,12 +1348,12 @@
                 const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                 url.searchParams.set('from', formatYmd(firstDay));
                 url.searchParams.set('to', formatYmd(lastDay));
-            } else if (preset === 'annual') {
+            } else if (preset === 'annual' || preset === 'annually') {
                 const firstYear = new Date(now.getFullYear(), 0, 1);
                 const lastYear = new Date(now.getFullYear(), 11, 31);
                 url.searchParams.set('from', formatYmd(firstYear));
                 url.searchParams.set('to', formatYmd(lastYear));
-            } else if (preset === 'all') {
+            } else if (preset === 'all' || preset === 'general') {
                 url.searchParams.delete('from');
                 url.searchParams.delete('to');
             }

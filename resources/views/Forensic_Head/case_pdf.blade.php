@@ -5,6 +5,7 @@
 
     $status = $case->status ?? 'Approved';
     $priority = strtoupper($case->priority ?? 'HIGH');
+    $caseNumericId = $case->id ?? 1;
     
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     
@@ -492,8 +493,9 @@
             }
         }
     }
-    $caseNumericId = sprintf('%03d', $case->id ?? 1);
-    $labExamRef = !empty($rawLabExamRef) ? str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawLabExamRef) : 'NLR-FM-T35-F';
+    $labExamRef = !empty($rawLabExamRef)
+        ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($rawLabExamRef)
+        : app(\App\Services\CaseReferenceService::class)->resolveExamReference($case, $docketData);
 
     $labCaseRef = $case->case_number;
 
@@ -509,10 +511,10 @@
             }
         }
     }
-    $labExhibitNo = !empty($rawLabExhibitNo) ? $rawLabExhibitNo : ('EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . $caseNumericId);
+    $labExhibitNo = !empty($rawLabExhibitNo) ? $rawLabExhibitNo : ('EXH-' . date('Y', strtotime($case->created_at ?? 'now')) . '-' . ($caseNumericId ?? ($case->id ?? 1)));
 
     $rawLabNumber = $case->laboratory_number ?? ($labExam['laboratory_number'] ?? ($labExam['lab_number'] ?? null));
-    $labNumber = !empty($rawLabNumber) ? $rawLabNumber : ('Lab No. ' . rand(10, 99) . '/FS' . date('m', strtotime($case->created_at ?? 'now')) . '/' . date('Y', strtotime($case->created_at ?? 'now')));
+    $labNumber = !empty($rawLabNumber) ? $rawLabNumber : 'Pending Assignment';
     $labUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : (!empty($unitProgress['Lab Analysis']['unit']) ? $unitProgress['Lab Analysis']['unit'] : 'Chemistry & Narcotics Unit');
     $currentLoggedInName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? '');
     $labAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : (!empty($unitProgress['Lab Analysis']['officer']) ? $unitProgress['Lab Analysis']['officer'] : (!empty($currentLoggedInName) ? $currentLoggedInName : ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
@@ -2212,8 +2214,8 @@
                         $hasThisAssocSavedLabPdf = true;
                     }
 
-                    $assocExamRefRaw = $dbAssocExamPdf ? $dbAssocExamPdf->exam_reference : (!empty($docketAssocExamPdf['exam_reference']) ? $docketAssocExamPdf['exam_reference'] : (!empty($firstAssocEx['exam_reference']) ? $firstAssocEx['exam_reference'] : (!empty($assocLabExamPdf['exam_reference']) ? $assocLabExamPdf['exam_reference'] : 'NLR-FM-T35-F')));
-                    $assocExamRef = str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $assocExamRefRaw ?: 'NLR-FM-T35-F');
+                    $assocExamRefRaw = $dbAssocExamPdf ? $dbAssocExamPdf->exam_reference : (!empty($docketAssocExamPdf['exam_reference']) ? $docketAssocExamPdf['exam_reference'] : (!empty($firstAssocEx['exam_reference']) ? $firstAssocEx['exam_reference'] : (!empty($assocLabExamPdf['exam_reference']) ? $assocLabExamPdf['exam_reference'] : null)));
+                    $assocExamRef = !empty($assocExamRefRaw) ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($assocExamRefRaw) : app(\App\Services\CaseReferenceService::class)->generateExamReference('Lab Analysis');
 
                     $assocExhibitNo = $dbAssocExamPdf ? $dbAssocExamPdf->exhibit_number : (!empty($docketAssocExamPdf['exhibit_number']) ? $docketAssocExamPdf['exhibit_number'] : (!empty($firstAssocEx['exhibit_number']) ? $firstAssocEx['exhibit_number'] : (!empty($assocLabExamPdf['exhibit_number']) ? $assocLabExamPdf['exhibit_number'] : 'N/A')));
 

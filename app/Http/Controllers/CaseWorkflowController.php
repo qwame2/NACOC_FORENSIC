@@ -111,13 +111,13 @@ class CaseWorkflowController extends Controller
             abort(401, 'Authentication required.');
         }
 
-        // Fix Issue 30: Tighten updateCaseStatus authorization
-        $isUnitMatch = (!empty($case->unit_id) && !empty($user->unit_id) && (int)$case->unit_id === (int)$user->unit_id)
-            || (!empty($user->unit) && !empty($case->unit_name) && strtolower(trim($user->unit)) === strtolower(trim($case->unit_name)));
-        $isHeadOfThisCaseUnit = !empty($user->is_head) && $isUnitMatch;
-        $isAdmin = strtolower($user->role ?? '') === 'admin';
+        // Allow ANY Head of Unit, Admin, or assigned Case Controller to update the case status
+        $isHead = !empty($user->is_head) || (isset($user->unit) && str_contains(strtolower($user->unit), 'head'));
+        $isAdmin = strtolower($user->role ?? '') === 'admin' || !empty($user->is_admin);
+        $isController = (!empty($case->controller_user_id) && (int)$case->controller_user_id === (int)$user->id)
+            || (!empty($case->user_id) && (int)$case->user_id === (int)$user->id);
 
-        if (!$isAdmin && !$isHeadOfThisCaseUnit) {
+        if (!$isAdmin && !$isHead && !$isController) {
             // Hardening A: Audit unauthorized attempt
             AuditLogger::log('UNAUTHORIZED_ATTEMPT', 'Blocked unauthorized status update on case ' . ($case->case_number ?? 'unknown'), [
                 'user'   => $user,
@@ -126,7 +126,7 @@ class CaseWorkflowController extends Controller
                 'params' => request()->except(['password', 'token']),
             ]);
             return response()->json([
-                'message' => 'Unauthorized: Only the head of this case\'s unit or an admin can change the case status.'
+                'message' => 'Unauthorized: Only a Head of Unit or Admin can change the case status.'
             ], 403);
         }
 

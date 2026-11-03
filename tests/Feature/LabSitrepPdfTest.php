@@ -66,6 +66,101 @@ class LabSitrepPdfTest extends TestCase
             'is_approved' => true,
         ]);
 
+        $case1 = MultipleSuspectCase::create([
+            'case_number' => 'POST-OFFICE-001',
+            'user_id' => $user->id,
+            'raid_location' => 'Post Office',
+        ]);
+        \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $case1->id,
+            'suspect_name' => 'Emmanuel Agyare',
+            'status' => 'At Large',
+            'role' => 'Primary Suspect',
+        ]);
+        \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $case1->id,
+            'suspect_name' => 'Heston Adjei',
+            'status' => 'At Large',
+            'role' => 'Co-Suspect',
+        ]);
+        \App\Models\Exhibit::create([
+            'case_type' => 'Multiple',
+            'multiple_suspect_case_id' => $case1->id,
+            'exhibit_number' => 'EX-PO-001',
+            'commodity_name' => 'Prohibited items',
+            'seizure_quantity' => '2 bottles',
+            'source_of_exhibits' => 'Post Office',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => 'Preliminary analysis was inconclusive',
+        ]);
+        \App\Models\LaboratoryExaminationResult::create([
+            'multiple_suspect_case_id' => $case1->id,
+            'findings' => 'Preliminary analysis was inconclusive',
+        ]);
+
+        $case2 = MultipleSuspectCase::create([
+            'case_number' => 'AV-DHL-002',
+            'user_id' => $user->id,
+            'raid_location' => 'Aviance (DHL)',
+        ]);
+        \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $case2->id,
+            'suspect_name' => 'George Ayisi',
+            'role' => 'Primary Suspect',
+        ]);
+        \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $case2->id,
+            'suspect_name' => 'Lois Ayisi',
+            'role' => 'Co-Suspect',
+        ]);
+        \App\Models\Exhibit::create([
+            'case_type' => 'Multiple',
+            'multiple_suspect_case_id' => $case2->id,
+            'exhibit_number' => 'EX-AV-002',
+            'commodity_name' => 'Suspected Hashish',
+            'source_of_exhibits' => 'Aviance (DHL)',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => 'detected the presence of THC',
+        ]);
+        \App\Models\LaboratoryExaminationResult::create([
+            'multiple_suspect_case_id' => $case2->id,
+            'findings' => 'detected the presence of THC',
+        ]);
+
+        $case3 = SingleSuspectCase::create([
+            'case_number' => 'SWISS-003',
+            'user_id' => $user->id,
+            'suspect_name' => 'Swissport Suspect',
+            'raid_location' => 'Swissport',
+        ]);
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $case3->id,
+            'exhibit_number' => 'EX-SW-003',
+            'commodity_name' => 'Suspected Apeta Trust Sirop',
+            'seizure_quantity' => '3 bottles',
+            'source_of_exhibits' => 'Swissport',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => 'detected the presence of Codeine in Tema Port Unit sample',
+        ]);
+        \App\Models\LaboratoryExaminationResult::create([
+            'single_suspect_case_id' => $case3->id,
+            'findings' => 'detected the presence of Codeine in Tema Port Unit sample',
+        ]);
+
+        $suspectScreen = \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $case1->id,
+            'suspect_name' => 'Hah tabulu',
+            'role' => 'Suspect',
+        ]);
+        \App\Models\DrugScreening::create([
+            'suspect_id' => $suspectScreen->id,
+            'screening_date' => now(),
+            'purpose' => 'Investigative',
+            'result' => 'Negative',
+            'substances_found' => 'No drug(s) detected',
+        ]);
+
         $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
         $response->assertStatus(200);
         $content = $response->getContent();
@@ -90,7 +185,6 @@ class LabSitrepPdfTest extends TestCase
         $this->assertStringContainsString('Suspected Apeta Trust Sirop', $content);
         $this->assertStringContainsString('3 bottles', $content);
 
-        $this->assertStringContainsString('Tema Port Unit', $content);
         $this->assertStringContainsString('detected the presence of Codeine', $content);
 
         // 2. Section 02: Drug Screening of Suspects
@@ -129,8 +223,13 @@ class LabSitrepPdfTest extends TestCase
         $this->assertStringContainsString('John Mensah', $content);
         $this->assertStringContainsString('Head of Forensic Department', $content);
         $this->assertStringContainsString('Anita Addo', $content);
-        $this->assertStringContainsString('Signature &amp; Date:', $content);
+        $this->assertStringContainsString('Director of Intel &amp; Investigation', $content);
+        $this->assertStringContainsString('Name: ____________________', $content);
+        $this->assertStringContainsString('Date:', $content);
+        $this->assertStringContainsString(now()->format('d F Y'), $content);
+        $this->assertStringNotContainsString('Signature &amp; Date:', $content);
         $this->assertStringNotContainsString('Electronically Signed &amp; Validated', $content);
+        $this->assertStringNotContainsString('alt="Signature"', $content);
     }
 
     public function test_general_report_url_routes_to_lab_report_for_lab_officer(): void
@@ -151,6 +250,34 @@ class LabSitrepPdfTest extends TestCase
         $user = User::factory()->create([
             'unit' => 'Lab Analysis',
             'is_approved' => true,
+        ]);
+
+        $case1 = SingleSuspectCase::create([
+            'case_number' => 'TEST/HASH/001',
+            'suspect_name' => 'Hashish Suspect',
+            'status' => 'In Custody',
+            'user_id' => $user->id,
+        ]);
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $case1->id,
+            'exhibit_number' => 'EX-HASH-001',
+            'commodity_name' => 'Suspected Hashish',
+            'exhibit_category' => 'Narcotic Drug',
+        ]);
+
+        $case2 = SingleSuspectCase::create([
+            'case_number' => 'TEST/APETA/002',
+            'suspect_name' => 'Apeta Suspect',
+            'status' => 'In Custody',
+            'user_id' => $user->id,
+        ]);
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $case2->id,
+            'exhibit_number' => 'EX-APETA-002',
+            'commodity_name' => 'Apeta Trust',
+            'exhibit_category' => 'Narcotic Drug',
         ]);
 
         // Search for 'Hashish'
@@ -230,9 +357,55 @@ class LabSitrepPdfTest extends TestCase
         $this->assertStringContainsString('GSA-DKT-9988', $content);
         $this->assertStringContainsString('GSA-LAB-7766', $content);
         $this->assertStringContainsString('Certified Analysis In-Progress', $content);
+        $this->assertStringNotContainsString('bg-amber-100', $content);
+        $this->assertStringNotContainsString('Heroin Sample Packet A', $content);
         $this->assertStringContainsString('Case Reference', $content);
         $this->assertStringNotContainsString('Case Reference / Docket', $content);
         $this->assertStringNotContainsString('Submission Date', $content);
+    }
+
+    public function test_gsa_submissions_renders_exhibit_type_column_from_database_and_not_original_filename(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $multiCase = MultipleSuspectCase::create([
+            'case_number' => 'MC-GSA-EXH-01',
+            'user_id' => $user->id,
+        ]);
+
+        $suspect = \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $multiCase->id,
+            'suspect_name' => 'GSA Exhibit Suspect',
+            'role' => 'Primary Suspect',
+        ]);
+
+        SuspectGsaReport::create([
+            'case_suspect_id'          => $suspect->id,
+            'multiple_suspect_case_id' => $multiCase->id,
+            'gsa_case_reference'       => 'GSA-DKT-1122',
+            'gsa_lab_number'           => 'GSA-LAB-3344',
+            'exhibit_type'             => 'Cocaine Hydrochloride and Heroin',
+            'original_filename'        => 'scanned_cert_file_1234.pdf',
+            'stored_filename'          => 'stored_1234.pdf',
+            'file_path'                => 'reports/stored_1234.pdf',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Cocaine Hydrochloride and Heroin', $content);
+        $this->assertStringNotContainsString('scanned_cert_file_1234.pdf', $content);
+
+        // Check report page also displays exhibit_type and no bg-amber-100 container for GSA status
+        $reportResponse = $this->actingAs($user)->get('/Lab_Analysis/report');
+        $reportResponse->assertStatus(200);
+        $reportContent = $reportResponse->getContent();
+        $this->assertStringContainsString('Cocaine Hydrochloride and Heroin', $reportContent);
+        $this->assertStringNotContainsString('bg-amber-100', $reportContent);
     }
 
     public function test_drug_screening_results_column_displays_negative_and_positive_without_border_container(): void
@@ -378,7 +551,10 @@ class LabSitrepPdfTest extends TestCase
 
         // 2. Footer
         $this->assertStringContainsString('NACOC / LABORATORY ANALYSIS UNIT', $content);
-        $this->assertStringContainsString('Official Situational Dossier', $content);
+        $this->assertTrue(
+            str_contains($content, 'Official Forensic Dossier') || str_contains($content, 'Official Situational Dossier'),
+            'Expected footer to contain Official Forensic Dossier'
+        );
         $this->assertStringContainsString('STRICTLY CONFIDENTIAL', $content);
         $this->assertStringContainsString('Page 2 of', $content);
 
@@ -388,6 +564,540 @@ class LabSitrepPdfTest extends TestCase
         $this->assertStringNotContainsString('sitrepPristineSnapshot', $content);
         $this->assertStringContainsString('window.print()', $content);
     }
+
+    public function test_lab_report_is_not_restricted_to_two_pages_when_content_expands(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // Create cases with exhibits to exceed single-page capacity
+        for ($i = 1; $i <= 18; $i++) {
+            $case = SingleSuspectCase::create([
+                'case_number' => "TEST/SITREP/MULTI/{$i}",
+                'suspect_name' => "Suspect {$i}",
+                'status' => 'In Custody',
+                'user_id' => $user->id,
+                'seizure_name_drug' => 'Suspected Narcotic',
+            ]);
+
+            \App\Models\Exhibit::create([
+                'case_type' => 'Single',
+                'single_suspect_case_id' => $case->id,
+                'exhibit_number' => "EX-MULTI-{$i}",
+                'commodity_name' => "Compressed Slab {$i}",
+                'seizure_quantity' => "{$i} slabs",
+                'source_of_exhibits' => 'Border Checkpoint',
+                'exhibit_category' => 'Narcotic Drug',
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // Must dynamically generate at least 3 pages (Page 1 Cover, Page 2 Seizures, Page 3+ Continuation/Screening/Signatures)
+        $this->assertStringContainsString('PAGE 3 OF', $content);
+        $this->assertStringContainsString('Page 3 of', $content);
+        $this->assertStringNotContainsString('PAGE 2 OF 2', $content);
+        $this->assertStringNotContainsString('Page 1 of 2', $content);
+    }
+
+    public function test_report_type_label_shows_period_type_without_situational(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // 1. Weekly report
+        $resWeekly = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf?period=weekly');
+        $resWeekly->assertStatus(200);
+        $this->assertStringContainsString('WEEKLY DRUG FORENSIC REPORT', $resWeekly->getContent());
+        $this->assertStringNotContainsString('SITUATIONAL DRUG FORENSIC REPORT', $resWeekly->getContent());
+
+        // 2. Monthly report
+        $resMonthly = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf?period=monthly');
+        $resMonthly->assertStatus(200);
+        $this->assertStringContainsString('MONTHLY DRUG FORENSIC REPORT', $resMonthly->getContent());
+        $this->assertStringNotContainsString('SITUATIONAL DRUG FORENSIC REPORT', $resMonthly->getContent());
+
+        // 3. Annual report
+        $resAnnual = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf?period=annual');
+        $resAnnual->assertStatus(200);
+        $this->assertStringContainsString('ANNUAL DRUG FORENSIC REPORT', $resAnnual->getContent());
+        $this->assertStringNotContainsString('ANNUAL SITUATIONAL REPORT', $resAnnual->getContent());
+
+        // 4. Annually report alias
+        $resAnnually = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf?period=annually');
+        $resAnnually->assertStatus(200);
+        $this->assertStringContainsString('ANNUAL DRUG FORENSIC REPORT', $resAnnually->getContent());
+
+        // 5. General report
+        $resGeneral = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf?period=general');
+        $resGeneral->assertStatus(200);
+        $this->assertStringContainsString('GENERAL DRUG FORENSIC REPORT', $resGeneral->getContent());
+        $this->assertStringNotContainsString('GENERAL SITUATIONAL FORENSIC REPORT', $resGeneral->getContent());
+
+        // 6. Default (no params) report shows general
+        $resDefault = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $resDefault->assertStatus(200);
+        $this->assertStringContainsString('GENERAL DRUG FORENSIC REPORT', $resDefault->getContent());
+        $this->assertStringNotContainsString('SITUATIONAL DRUG FORENSIC REPORT', $resDefault->getContent());
+    }
+
+    public function test_subsequent_sections_share_same_page_when_space_available(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // 2 Seizures
+        for ($i = 1; $i <= 2; $i++) {
+            $case = SingleSuspectCase::create([
+                'case_number' => "TEST/SHARED/{$i}",
+                'suspect_name' => "Shared Suspect {$i}",
+                'status' => 'In Custody',
+                'user_id' => $user->id,
+                'seizure_name_drug' => 'Suspected Narcotic',
+            ]);
+            \App\Models\Exhibit::create([
+                'case_type' => 'Single',
+                'single_suspect_case_id' => $case->id,
+                'exhibit_number' => "EX-SHARED-{$i}",
+                'commodity_name' => "Slab {$i}",
+                'seizure_quantity' => '1',
+                'source_of_exhibits' => 'Harbour',
+                'exhibit_category' => 'Narcotic Drug',
+            ]);
+        }
+
+        // 1 Drug Screening
+        $suspectScreen = \App\Models\CaseSuspect::create([
+            'case_type' => 'Single',
+            'case_id' => 9991,
+            'suspect_name' => 'Screened Suspect',
+            'role' => 'Suspect',
+        ]);
+        \App\Models\DrugScreening::create([
+            'suspect_id' => $suspectScreen->id,
+            'screening_date' => now(),
+            'purpose' => 'Investigative',
+            'result' => 'Negative',
+            'substances_found' => 'No drug(s) detected',
+        ]);
+
+        // 1 GSA submission
+        $multiCase = MultipleSuspectCase::create([
+            'case_number' => 'MC-SHARED-1',
+            'user_id' => $user->id,
+        ]);
+        $suspectGsa = \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $multiCase->id,
+            'suspect_name' => 'Kweku GSA',
+            'role' => 'Primary Suspect',
+        ]);
+        \App\Models\SuspectGsaReport::create([
+            'case_suspect_id' => $suspectGsa->id,
+            'multiple_suspect_case_id' => $multiCase->id,
+            'gsa_case_reference' => 'MC-SHARED-1',
+            'exhibit_type' => 'White Powder',
+            'gsa_lab_number' => 'GSA-LAB-999',
+            'gsa_status' => 'Testing in progress',
+            'original_filename' => 'gsa.pdf',
+            'stored_filename' => 'gsa.pdf',
+            'file_path' => 'reports/gsa.pdf',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // All 3 sections and signatures should comfortably fit on Page 2 (2 pages total: Cover + Dossier)
+        $this->assertStringContainsString('Page 1 of <span class="doc-total-pages">2</span>', $content);
+        $this->assertStringContainsString('PAGE 2 OF 2', $content);
+        $this->assertStringContainsString('Page 2 of 2', $content);
+        $this->assertStringContainsString('Preliminary Forensic Examination &amp; Drug Testing Log', $content);
+        $this->assertStringContainsString('Drug Screening of Suspect(s)', $content);
+        $this->assertStringContainsString('Ghana Standards Authority (GSA) Submissions', $content);
+        $this->assertStringContainsString('Head of Laboratory Analysis Unit', $content);
+        $this->assertStringContainsString('Head of Forensic Department', $content);
+
+        // Continuation headers should not appear because all fit on Page 2
+        $this->assertStringNotContainsString('(Continued)', $content);
+    }
+
+    public function test_table_continuation_repeats_headers_and_labels_across_pages(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // 25 Seizures with long remarks to force continuation onto subsequent pages
+        for ($i = 1; $i <= 25; $i++) {
+            $case = SingleSuspectCase::create([
+                'case_number' => "TEST/CONT/{$i}",
+                'suspect_name' => "Continuation Suspect {$i}",
+                'status' => 'In Custody',
+                'user_id' => $user->id,
+                'seizure_name_drug' => 'Suspected Cannabis',
+            ]);
+            \App\Models\Exhibit::create([
+                'case_type' => 'Single',
+                'single_suspect_case_id' => $case->id,
+                'exhibit_number' => "EX-CONT-{$i}",
+                'commodity_name' => "Compressed Cannabis Slab {$i}",
+                'seizure_quantity' => "{$i} packs",
+                'source_of_exhibits' => 'Border Point',
+                'exhibit_category' => 'Narcotic Drug',
+                'exhibit_remark' => "Detailed laboratory preliminary screening remark for record {$i} confirming positive chemical reaction.",
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // Verifies continuation label on subsequent page
+        $this->assertStringContainsString('Preliminary Forensic Examination &amp; Drug Testing Log (Continued)', $content);
+
+        // Verifies column headings repeat
+        $headerCount = substr_count($content, '<th class="py-2 px-2 w-[11%] border-r border-slate-200">Date Of Seizure</th>');
+        $this->assertGreaterThanOrEqual(2, $headerCount, 'Expected Date Of Seizure header to repeat on continuation pages');
+
+        // Total page count must be accurate (Cover + at least 2 dossier pages)
+        $this->assertStringContainsString('PAGE 3 OF', $content);
+        $this->assertStringContainsString('Page 3 of', $content);
+
+        // Signatures must appear on the final page
+        $this->assertStringContainsString('Head of Laboratory Analysis Unit', $content);
+        $this->assertStringContainsString('Head of Forensic Department', $content);
+    }
+
+    public function test_consistent_a4_dimensions_and_bottom_anchored_footer_across_all_pages(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // Create a single case with short content to test short content page
+        $case = SingleSuspectCase::create([
+            'case_number' => 'SITREP/SHORT/001',
+            'suspect_name' => 'Single Suspect',
+            'status' => 'In Custody',
+            'user_id' => $user->id,
+            'seizure_name_drug' => 'Heroin',
+        ]);
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_number' => 'EX-SHORT-001',
+            'commodity_name' => 'Brown Powder',
+            'seizure_quantity' => '1 sachet',
+            'source_of_exhibits' => 'Airport',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => 'Presumptive positive.',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // 1. Every page container enforces A4 portrait height
+        $this->assertStringContainsString('height: 297mm;', $content);
+        $this->assertStringContainsString('max-height: 297mm;', $content);
+        $this->assertStringContainsString('min-height: 297mm;', $content);
+        $this->assertStringContainsString('overflow: hidden;', $content);
+        $this->assertStringContainsString('box-sizing: border-box;', $content);
+
+        // 2. Full-height stretching inner wrapper
+        $this->assertStringContainsString('page-content-wrapper', $content);
+
+        // 3. Bottom-anchored footer with margin-top auto
+        $this->assertStringContainsString('page-footer-block', $content);
+        $this->assertStringContainsString('margin-top: auto', $content);
+
+        // 4. Print media rules enforce matching A4 297mm height & margin-top auto
+        $this->assertStringContainsString('@media print', $content);
+        $this->assertStringContainsString('height: 297mm !important;', $content);
+        $this->assertStringContainsString('max-height: 297mm !important;', $content);
+        $this->assertStringContainsString('margin-top: auto !important;', $content);
+    }
+
+    public function test_signatories_consistently_anchored_above_footer_on_final_page_with_stable_alignment(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // Scenario A: Short content (only 1 case)
+        $case = SingleSuspectCase::create([
+            'case_number' => 'SIG-TEST-001',
+            'user_id' => $user->id,
+            'suspect_name' => 'Kofi Boateng',
+            'status' => 'In Custody',
+            'exhibit_type' => 'Cannabis',
+            'quantity' => '1 slab',
+            'weight' => '500g',
+            'exhibit_remark' => 'Presumptive positive for THC.',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // 1. Signatories CSS: auto margin pushes to bottom, flex-shrink 0, avoid-break
+        $this->assertStringContainsString('.section-signatures {', $content);
+        $this->assertStringContainsString('margin-top: auto;', $content);
+        $this->assertStringContainsString('page-break-inside: avoid !important;', $content);
+        $this->assertStringContainsString('break-inside: avoid !important;', $content);
+
+        // 2. Proximity to footer: footer following signatures resets margin-top to 0 to maintain consistent distance
+        $this->assertStringContainsString('.section-signatures + .page-footer-block {', $content);
+        $this->assertStringContainsString('margin-top: 0 !important;', $content);
+
+        // 3. Print media rules also lock signatories above footer
+        $this->assertStringContainsString('.section-signatures {', $content);
+        $this->assertStringContainsString('margin-top: auto !important;', $content);
+
+        // 4. Complete signatory block details present
+        $this->assertStringContainsString('Head of Laboratory Analysis Unit', $content);
+        $this->assertStringContainsString('Head of Forensic Department', $content);
+        $this->assertStringContainsString('Director of Intel &amp; Investigation', $content);
+        $this->assertStringContainsString('Date:', $content);
+        $this->assertStringContainsString(now()->format('d F Y'), $content);
+        $this->assertStringNotContainsString('Signature &amp; Date:', $content);
+
+        // 5. Signatories only rendered once in document (on the final page)
+        $sigDivMatches = substr_count($content, '<div class="section-signatures');
+        $this->assertEquals(1, $sigDivMatches, 'Signatories HTML element should only be rendered once in the entire document');
+
+        // Scenario B: Larger dataset spanning multiple pages
+        for ($i = 2; $i <= 18; $i++) {
+            SingleSuspectCase::create([
+                'case_number' => "SIG-TEST-00{$i}",
+                'user_id' => $user->id,
+                'suspect_name' => "Suspect {$i}",
+                'status' => 'In Custody',
+                'exhibit_type' => 'Cocaine',
+                'quantity' => '2 packets',
+                'weight' => '200g',
+                'exhibit_remark' => 'Sample analyzed with FTIR spectroscopy.',
+            ]);
+        }
+
+        $multiResponse = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $multiResponse->assertStatus(200);
+        $multiContent = $multiResponse->getContent();
+
+        // Signatures still rendered exactly once on the multi-page report
+        $multiSigDivMatches = substr_count($multiContent, '<div class="section-signatures');
+        $this->assertEquals(1, $multiSigDivMatches, 'Multi-page document should still have signatories only once on the final page');
+    }
+
+    public function test_director_of_intelligence_and_investigation_signatory_rendered(): void
+    {
+        $labHead = User::factory()->create([
+            'fullname' => 'John Mensah',
+            'unit' => 'Lab Analysis',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $forensicHead = User::factory()->create([
+            'fullname' => 'Anita Addo',
+            'unit' => 'Forensic Directorate',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $intelDirector = User::factory()->create([
+            'fullname' => 'DCOP K. Osei-Bonsu',
+            'unit' => 'Intelligence & Investigation Directorate',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $response = $this->actingAs($labHead)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // 1. All 3 officials rendered in the 3-column signature block
+        $this->assertStringContainsString('grid-cols-3', $content);
+        $this->assertStringContainsString('Head of Laboratory Analysis Unit', $content);
+        $this->assertStringContainsString('John Mensah', $content);
+
+        $this->assertStringContainsString('Head of Forensic Department', $content);
+        $this->assertStringContainsString('Anita Addo', $content);
+
+        $this->assertStringContainsString('Director of Intel &amp; Investigation', $content);
+        $this->assertStringContainsString('DCOP K. Osei-Bonsu', $content);
+        $this->assertStringContainsString('Director of Intelligence &amp; Investigation, NACOC', $content);
+        $this->assertStringNotContainsString('alt="Signature"', $content);
+    }
+
+    public function test_remarks_in_lab_sitrep_pdf_fetches_from_exhibit_remark_column_in_exhibits_table(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $singleCase = SingleSuspectCase::create([
+            'case_number' => 'EX-REMARK-TEST-001',
+            'user_id' => $user->id,
+            'suspect_name' => 'Kofi Boateng',
+            'raid_location' => 'Aflao Border Post',
+            'seizure_name_drug' => 'Suspected Heroin',
+        ]);
+
+        $customRemark = 'Secured in sealed evidence bag No. 4921; chemical colorimetry test positive for diamorphine.';
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $singleCase->id,
+            'exhibit_number' => 'EX-AF-001',
+            'commodity_name' => 'Suspected Heroin',
+            'seizure_quantity' => '5 packets',
+            'source_of_exhibits' => 'Aflao Border Post',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => $customRemark,
+        ]);
+
+        // Even with a separate laboratory exam result, the exhibit_remark from exhibits table should be fetched and shown
+        \App\Models\LaboratoryExaminationResult::create([
+            'single_suspect_case_id' => $singleCase->id,
+            'presumptive_result' => 'Other generic lab result',
+            'findings' => 'General lab finding',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // Verify the Remarks column displays the exact exhibit_remark from the exhibits table
+        $this->assertStringContainsString($customRemark, $content);
+        $this->assertStringContainsString('Kofi Boateng', $content);
+        $this->assertStringContainsString('Aflao Border Post', $content);
+    }
+
+    public function test_multiple_case_remarks_in_lab_sitrep_pdf_fetches_from_exhibit_remark_column(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $multiCase = MultipleSuspectCase::create([
+            'case_number' => 'EX-REMARK-MULTI-002',
+            'user_id' => $user->id,
+            'raid_location' => 'Kotoka International Airport',
+        ]);
+
+        \App\Models\CaseSuspect::create([
+            'multiple_suspect_case_id' => $multiCase->id,
+            'suspect_name' => 'Kwame Mensah',
+            'role' => 'Primary Suspect',
+        ]);
+
+        $customMultiRemark = 'Exhibit retrieved from false bottom suitcase; vacuum-sealed and logged in Evidence Vault.';
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'Multiple',
+            'multiple_suspect_case_id' => $multiCase->id,
+            'exhibit_number' => 'EX-KIA-002',
+            'commodity_name' => 'Compressed White Powder',
+            'seizure_quantity' => '10 slabs',
+            'source_of_exhibits' => 'Kotoka International Airport',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => $customMultiRemark,
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString($customMultiRemark, $content);
+        $this->assertStringContainsString('Kwame Mensah', $content);
+        $this->assertStringContainsString('Kotoka International Airport', $content);
+    }
+
+    public function test_lab_sitrep_pdf_with_weekly_filter_and_unloaded_exhibits_resolves_successfully(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $from = now()->subDays(7)->format('Y-m-d');
+        $to = now()->format('Y-m-d');
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'WEEKLY-FILTER-001',
+            'user_id' => $user->id,
+            'suspect_name' => 'Weekly Suspect',
+            'raid_location' => 'Tema Port',
+            'seizure_name_drug' => 'Suspected Cocaine',
+            'incident_date' => now()->subDays(3)->format('Y-m-d'),
+        ]);
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_number' => 'EX-TP-001',
+            'commodity_name' => 'Suspected Cocaine',
+            'source_of_exhibits' => 'Tema Port',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => 'Discovered inside container wall lining.',
+        ]);
+
+        $response = $this->actingAs($user)->get("/Lab_Analysis/lab_sitrep_pdf?period=weekly&from={$from}&to={$to}");
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Discovered inside container wall lining.', $content);
+        $this->assertStringContainsString('Weekly Suspect', $content);
+    }
+
+    public function test_remark_falls_back_to_unspecified_when_exhibit_has_no_remark(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'FALLBACK-UNSPECIFIED-001',
+            'user_id' => $user->id,
+            'suspect_name' => 'Yaw Mensah',
+            'raid_location' => 'Elubo Border',
+            'seizure_name_drug' => 'Suspected Cannabis',
+        ]);
+
+        \App\Models\Exhibit::create([
+            'case_type' => 'Single',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_number' => 'EX-EL-001',
+            'commodity_name' => 'Suspected Cannabis',
+            'source_of_exhibits' => 'Elubo Border',
+            'exhibit_category' => 'Narcotic Drug',
+            'exhibit_remark' => null,
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Unspecified', $content);
+        $this->assertStringNotContainsString('Preliminary examination conducted; sample secured for confirmatory assay.', $content);
+    }
 }
+
 
 

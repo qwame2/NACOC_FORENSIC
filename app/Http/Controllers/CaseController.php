@@ -132,12 +132,31 @@ class CaseController extends Controller
     /**
      * Display dedicated full page view for associating persons & exhibits to a case.
      */
-    public function showAssociate($id)
+    public function showAssociate($id, Request $request = null)
     {
         $case = $this->findCase($id);
         if (!$case) {
             return redirect('/cases')->with('error', "Case {$id} not found.");
         }
+
+        $request = $request ?? request();
+        $user = auth()->user();
+        $unitParam = $request->query('from') ?? $request->query('unit') ?? $request->route('from') ?? ($user->unit ?? (session('user_unit') ?? ''));
+        $unitLower = strtolower((string)$unitParam);
+
+        if (str_contains($unitLower, 'lab')) {
+            return view('Lab_Analysis.associate', compact('case'));
+        }
+        if (str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical')) {
+            return view('Digital_Forensics.associate', compact('case'));
+        }
+        if (str_contains($unitLower, 'crime') || str_contains($unitLower, 'field')) {
+            return view('Crime_Scene_Support.associate', compact('case'));
+        }
+        if (str_contains($unitLower, 'evidence')) {
+            return view('Evidence_Management.associate', compact('case'));
+        }
+
         return view('cases.associate', compact('case'));
     }
 
@@ -269,8 +288,8 @@ class CaseController extends Controller
         }
 
         $this->repairExhibitAssociations($case);
-        $gsaReports = SuspectGsaReport::forCase($case->case_number ?: $id, $case->underlyingRecord instanceof MultipleSuspectCase ? $case->id : null);
-        $nlrReports = SuspectNlrReport::forCase($case->case_number ?: $id, $case->underlyingRecord instanceof MultipleSuspectCase ? $case->id : null);
+        $gsaReports = SuspectGsaReport::forCase($case->case_number ?: $id, $case->id);
+        $nlrReports = SuspectNlrReport::forCase($case->case_number ?: $id, $case->id);
 
         return view('cases.show_review', compact('case', 'gsaReports', 'nlrReports'));
     }

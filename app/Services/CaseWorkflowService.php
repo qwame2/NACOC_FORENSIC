@@ -280,11 +280,27 @@ class CaseWorkflowService
                     ->update(['suspect_disposition' => $newStatus]);
             }
 
+            // Persist status updater information in docket_data if supported
+            if (SchemaCache::hasColumn($underlying->getTable(), 'docket_data')) {
+                $dData = is_array($underlying->docket_data) ? $underlying->docket_data : (json_decode($underlying->docket_data ?? '[]', true) ?: []);
+                $dData['case_status_updated_by'] = $user ? $user->fullname : 'Unit Head';
+                $dData['case_status_updated_by_unit'] = $user ? ($user->unit ?? '') : '';
+                $dData['case_status_updated_at'] = now()->format('d M Y, H:i');
+                $underlying->docket_data = $dData;
+            }
+            if (isset($case->docket_data)) {
+                $cData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+                $cData['case_status_updated_by'] = $user ? $user->fullname : 'Unit Head';
+                $cData['case_status_updated_by_unit'] = $user ? ($user->unit ?? '') : '';
+                $cData['case_status_updated_at'] = now()->format('d M Y, H:i');
+                $case->docket_data = $cData;
+            }
+
             $underlying->save();
 
             if ($user) {
                 AuditLogger::log(
-                    'CASE_STATUS_UPDATED',
+                    'CASE_STATUS_CHANGED',
                     "Case {$case->case_number} legal status updated from '{$oldStatus}' to '{$newStatus}' by " . $user->fullname,
                     [
                         'case_number'    => $case->case_number,

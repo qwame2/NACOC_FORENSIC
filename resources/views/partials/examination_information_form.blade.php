@@ -1,4 +1,7 @@
 <!-- EXAMINATION INFORMATION CONTAINER (ALWAYS VISIBLE AT LAB ANALYSIS STAGE WHEN UNSAVED) -->
+@php
+    $isLabCompleted = !empty($activeSuspectHasSavedResult) || (!empty($labStatus) && $labStatus === 'COMPLETED');
+@endphp
 <div id="section5FormContainer"
     class= "mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm space-y-6 {{ $activeSuspectHasSavedResult || !$isLabAnalysis ? 'hidden' : '' }}">
     <div
@@ -173,7 +176,7 @@
                     <span
                         class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
                 </label>
-                <input type="text" id="labExamReferenceInput" value="{{ $labExamRef }}"
+                <input type="text" id="labExamReferenceInput" value="{{ $isLabCompleted ? '' : $labExamRef }}"
                     readonly
                     class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
             </div>
@@ -186,7 +189,7 @@
                     <span
                         class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
                 </label>
-                <input type="text" id="labCaseReferenceInput" value="{{ $labCaseRef }}"
+                <input type="text" id="labCaseReferenceInput" value="{{ $isLabCompleted ? '' : $labCaseRef }}"
                     readonly
                     class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
             </div>
@@ -199,7 +202,7 @@
                     <span
                         class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
                 </label>
-                <input type="text" id="labExhibitNumberInput" value="{{ $labExhibitNo }}"
+                <input type="text" id="labExhibitNumberInput" value="{{ $isLabCompleted ? '' : $labExhibitNo }}"
                     readonly
                     class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
             </div>
@@ -217,7 +220,7 @@
                         from Manifest</span>
                 </label>
                 <textarea id="labExhibitDescriptionInput" rows="3"
-                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">{{ $initialLabDesc ?? '' }}</textarea>
+                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">{{ $isLabCompleted ? '' : ($initialLabDesc ?? '') }}</textarea>
             </div>
 
             <!-- Laboratory Number -->
@@ -229,7 +232,7 @@
                         class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
                 </label>
                 <input type="text" id="formLabNumber" name="laboratory_number"
-                    value="{{ $labNumber }}" readonly
+                    value="{{ $isLabCompleted ? '' : $labNumber }}" readonly
                     class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
             </div>
 
@@ -256,7 +259,7 @@
                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                     Date Received <span class="text-red-600 font-bold">*</span>
                 </label>
-                <input type="date" id="labDateReceivedInput" value="{{ $labDateReceived }}"
+                <input type="date" id="labDateReceivedInput" value="{{ $isLabCompleted ? '' : $labDateReceived }}"
                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
             </div>
 
@@ -266,7 +269,7 @@
                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                     Date Examination Started <span class="text-red-600 font-bold">*</span>
                 </label>
-                <input type="date" id="labDateStartedInput" value="{{ $labDateStarted }}"
+                <input type="date" id="labDateStartedInput" value="{{ $isLabCompleted ? '' : $labDateStarted }}"
                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
             </div>
 
@@ -276,7 +279,7 @@
                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                     Date Examination Completed <span class="text-red-600 font-bold">*</span>
                 </label>
-                <input type="date" id="labDateCompletedInput" value="{{ $labDateCompleted }}"
+                <input type="date" id="labDateCompletedInput" value="{{ $isLabCompleted ? '' : $labDateCompleted }}"
                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
             </div>
         </div>
@@ -314,17 +317,23 @@
 
                 @php
                     $pIsYes =
+                        !$isLabCompleted &&
                         !empty($labPresumptive) &&
                         (str_starts_with(strtoupper($labPresumptive), 'YES') ||
                             str_starts_with(strtoupper($labPresumptive), 'POS'));
+                    $pIsNo =
+                        !$isLabCompleted &&
+                        !empty($initialHasSaved) &&
+                        !($pIsYes ?? false) &&
+                        ($labPresumptive ?? 'N/A') !== 'N/A';
                 @endphp
                 <div class="flex items-center space-x-3">
                     <!-- YES CHECKBOX -->
                     <label id="labelPresumptiveYes"
-                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ !empty($initialHasSaved) && ($pIsYes ?? false) ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
+                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $pIsYes ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
                         <input type="radio" id="presumptiveTestYesReview"
                             name="form_presumptive_radio" value="YES"
-                            {{ !empty($initialHasSaved) && ($pIsYes ?? false) ? 'checked' : '' }}
+                            {{ $pIsYes ? 'checked' : '' }}
                             onchange="onPresumptiveRadioChange('YES')"
                             class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer">
                         <div class="flex items-center space-x-1.5">
@@ -335,10 +344,10 @@
 
                     <!-- NO CHECKBOX -->
                     <label id="labelPresumptiveNo"
-                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ !empty($initialHasSaved) && !($pIsYes ?? false) && ($labPresumptive ?? 'N/A') !== 'N/A' ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
+                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $pIsNo ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
                         <input type="radio" id="presumptiveTestNoReview"
                             name="form_presumptive_radio" value="NO"
-                            {{ !empty($initialHasSaved) && !($pIsYes ?? false) && ($labPresumptive ?? 'N/A') !== 'N/A' ? 'checked' : '' }}
+                            {{ $pIsNo ? 'checked' : '' }}
                             onchange="onPresumptiveRadioChange('NO')"
                             class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer">
                         <div class="flex items-center space-x-1.5">
@@ -432,7 +441,7 @@
 
                     <!-- Hidden Presumptive Reaction Result for Form Submission -->
                     <input type="hidden" id="presumptiveReactionResultInputReview"
-                        value="{{ $labPresumptive }}">
+                        value="{{ (!$isLabCompleted && !empty($initialHasSaved) && ($labPresumptive ?? 'N/A') !== 'N/A') ? $labPresumptive : '' }}">
                 </div>
             </div>
         </div>
@@ -475,9 +484,9 @@
                             ? $labConfirmatory
                             : (!empty($case->confirmatory_test_result)
                                 ? $case->confirmatory_test_result
-                                : 'YES'));
-                    $isConfNo = strtoupper(trim((string) $rawCurConf)) === 'NO';
-                    $isConfYes = !$isConfNo;
+                                : null));
+                    $isConfNo = !$isLabCompleted && !empty($initialHasSaved) && !empty($rawCurConf) && strtoupper(trim((string) $rawCurConf)) === 'NO';
+                    $isConfYes = !$isLabCompleted && !empty($initialHasSaved) && !empty($rawCurConf) && strtoupper(trim((string) $rawCurConf)) === 'YES';
                 @endphp
                 <div class="flex items-center space-x-3">
                     <!-- YES RADIO -->
@@ -540,7 +549,7 @@
                                     class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                             </label>
                             <input type="text" id="sampleWeightDescriptionReview"
-                                name="sample_weight_description" value="{{ $labSampleDesc }}"
+                                name="sample_weight_description" value="{{ $isConfYes ? $labSampleDesc : '' }}"
                                 readonly placeholder="Fetched from drug manifest"
                                 class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed">
                         </div>
@@ -555,7 +564,7 @@
                                     class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                             </label>
                             <input type="text" id="sampleWeightUnitsReview"
-                                name="sample_weight_units" value="{{ $labSampleUnits }}" readonly
+                                name="sample_weight_units" value="{{ $isConfYes ? $labSampleUnits : '' }}" readonly
                                 placeholder="Fetched from drug manifest"
                                 class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
                         </div>
@@ -570,7 +579,7 @@
                                     class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
                             </label>
                             <input type="text" id="sampleWeightGrossReview"
-                                name="sample_weight_gross" value="{{ $labSampleGross }}" readonly
+                                name="sample_weight_gross" value="{{ $isConfYes ? $labSampleGross : '' }}" readonly
                                 placeholder="Fetched from drug manifest"
                                 class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
                         </div>
@@ -583,12 +592,12 @@
                             </label>
                             <div class="relative flex rounded-xl shadow-2xs">
                                 <input type="text" id="sampleWeightTakenReview"
-                                    name="sample_weight_taken" value="{{ $labSampleTaken }}"
+                                    name="sample_weight_taken" value="{{ $isConfYes ? $labSampleTaken : '' }}"
                                     placeholder="e.g. 10"
                                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0">
                                 <span id="sampleWeightTakenUnitAddonReview"
                                     class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0 transition-colors duration-200">
-                                    {{ $labSampleUnit }}
+                                    {{ $isConfYes ? $labSampleUnit : '' }}
                                 </span>
                             </div>
                             <p id="sampleWeightTakenErrorReview"
@@ -613,7 +622,7 @@
                                     class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
                             </label>
                             <input type="text" id="sampleWeightReservedReview"
-                                name="sample_weight_reserved" value="{{ $labSampleReserved }}"
+                                name="sample_weight_reserved" value="{{ $isConfYes ? $labSampleReserved : '' }}"
                                 readonly placeholder="Auto-calculated (Gross Weight - Sample Taken)"
                                 class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed">
                         </div>
@@ -651,7 +660,7 @@
                                     <input type="text"
                                         id="confirmatorySubstanceIdentificationReview"
                                         name="confirmatory_substance_identification"
-                                        value="{{ $savedLabSubstanceId ?: ($labSubstanceId ?: ($case->confirmatory_substance_identification ?: '')) }}"
+                                        value="{{ $isConfYes ? ($savedLabSubstanceId ?: ($labSubstanceId ?: ($case->confirmatory_substance_identification ?: ''))) : '' }}"
                                         placeholder="Enter substance identification (e.g. Heroin, Cocaine, Cannabis)"
                                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans">
                                 </div>
@@ -689,7 +698,7 @@
                                     </label>
                                     <input type="text" id="confirmatoryTestMethodsReview"
                                         name="confirmatory_test_methods"
-                                        value="{{ $savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: '')) }}"
+                                        value="{{ $isConfYes ? ($savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: ''))) : '' }}"
                                         placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
                                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
                                 </div>
@@ -703,7 +712,7 @@
                                     </label>
                                     <textarea id="confirmatorySpecificationsReview" name="confirmatory_specifications" rows="3"
                                         placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: '')) }}</textarea>
+                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isConfYes ? ($savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: ''))) : '' }}</textarea>
                                 </div>
 
                                 <!-- 5. REMARK TEXTAREA INPUT -->
@@ -715,7 +724,7 @@
                                     </label>
                                     <textarea id="confirmatoryRemarkReview" name="confirmatory_remark" rows="3"
                                         placeholder="Enter any additional remarks or observations regarding the confirmatory analysis..."
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: '')) }}</textarea>
+                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isConfYes ? ($savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: ''))) : '' }}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -732,7 +741,7 @@
             </label>
             <textarea id="formLabNotes" rows="3"
                 class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
-                placeholder="Enter chemical reaction results, purity percentage, spectrometry verification notes, etc.">{{ $labFindings }}</textarea>
+                placeholder="Enter chemical reaction results, purity percentage, spectrometry verification notes, etc.">{{ $isLabCompleted ? '' : $labFindings }}</textarea>
         </div>
 
         <!-- SUBMIT BUTTON -->

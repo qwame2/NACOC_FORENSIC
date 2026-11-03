@@ -17,9 +17,9 @@
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
         $officerName =
             auth()->user()->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
-        $examRefAuto = 'NLR-FM-T35-F';
-        $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
-        $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
+        $examRefAuto = app(\App\Services\CaseReferenceService::class)->generateExamReference('Lab Analysis');
+        $labNumberAuto = app(\App\Services\CaseReferenceService::class)->generateLabNumber();
+        $caseRefAuto = app(\App\Services\CaseNumberService::class)->generate();
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
         $isDrugCase = false;
@@ -92,6 +92,8 @@
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
     <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
+    <!-- QRCode JS Library -->
+    <script src="{{ asset('vendor/qrcode/qrcode.min.js') }}"></script>
 
     <style>
         body {
@@ -301,6 +303,7 @@
                 <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();"
                     onreset="setTimeout(clearDocketFormDraftAndReset, 50)" class="space-y-6 text-xs font-medium">
                     @csrf
+                    <input type="hidden" id="caseReferenceIdInput" value="{{ $case->case_number ?? $caseRefAuto }}">
 
                     <!-- SECTION 1: MASTER CASE TITLE & DOCKET CLASSIFICATION -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-50">
@@ -4873,6 +4876,29 @@
                                                 </div>
                                             </div>
 
+                                            <!-- REMARKS / EXHIBIT REMARK -->
+                                            <div class="col-span-full md:col-span-1">
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                                    <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
+                                                </label>
+                                                <div class="relative flex items-start group">
+                                                    <span
+                                                        class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                            viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                        </svg>
+                                                    </span>
+                                                    <textarea id="newSeizureRemark" name="exhibit_remark" rows="3"
+                                                        placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
+                                                        class="seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                                </div>
+                                            </div>
+
                                         </div>
 
                                         <!-- VEHICLE SPECIFIC FIELDS -->
@@ -5907,7 +5933,7 @@
             if (results.length > 0) {
                 inputEl.value = `YES (${results.join('; ')})`;
             } else {
-                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+                inputEl.value = '';
             }
         }
 
@@ -7413,7 +7439,6 @@
         function processNewArrested(confirmDuplicate = false) {
             // Check global lock immediately to prevent duplicate submissions on double-click
             if (isCaseSubmitting) {
-                console.warn('Case submission already in progress. Ignoring duplicate click.');
                 return;
             }
 
@@ -7458,7 +7483,7 @@
             const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
                 ? caseTitleInput.trim()
                 : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
-            const caseRef = 'NCC-2026-' + Math.floor(1000 + Math.random() * 9000);
+            const caseRef = document.getElementById('labCaseReferenceInput')?.value || ('NCC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000));
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
             const spousePhone = document.getElementById('newArrestedSpousePhone')?.value || '';
@@ -7494,6 +7519,9 @@
             const jointSuspectNamesLabel = allSuspectsForExhibits.map(s => s.suspect_name).filter(Boolean).join(', ');
 
             if (hasSeizures) {
+                if (typeof assignUniquePropertyIdsToBlocks === 'function') {
+                    assignUniquePropertyIdsToBlocks();
+                }
                 seizureBlocks.forEach((block, idx) => {
                     const itemNum = idx + 1;
                     const rawExhibitCat = block.querySelector('#newSeizureCategory')?.value || '';
@@ -7611,8 +7639,11 @@
                         finalAssocPerson = 'All Suspects';
                     }
 
+                    const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
+
                     seizuresList.push({
                         item_number: itemNum,
+                        property_id: block.getAttribute('data-property-id') || null,
                         exhibit_category: exhibitCat,
                         exhibit_type: block.querySelector('.exhibit-type-select')?.value || (exhibitCat ===
                             'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit'),
@@ -7639,6 +7670,7 @@
                         seizure_location: seizureLocation,
                         seizure_officer: seizureOfficer,
                         seizure_reason: seizureReason,
+                        exhibit_remark: exhibitRemark,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,
@@ -7774,15 +7806,14 @@
             const vehMods = primarySeizure.veh?.mods || '';
             const vehFeatures = primarySeizure.veh?.features || '';
 
-            let presumptiveVal = 'YES (Positive Colorimetric Reaction)';
+            let presumptiveVal = null;
             const yesBox = document.getElementById('presumptiveTestYes');
             const noBox = document.getElementById('presumptiveTestNo');
             if (noBox && noBox.checked) {
                 presumptiveVal = 'NO (Negative Reaction)';
             } else if (yesBox && yesBox.checked) {
                 const customResult = document.getElementById('presumptiveReactionResultInput')?.value;
-                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() :
-                    'YES (Positive Colorimetric Reaction)';
+                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : null;
             }
 
             // Collect all suspects (Suspect #1 + any additional)
@@ -7930,10 +7961,12 @@
                         seizure_location: primarySeizure.seizure_location || null,
                         seizure_officer: primarySeizure.seizure_officer || null,
                         seizure_reason: primarySeizure.seizure_reason || null,
+                        exhibit_remark: primarySeizure.exhibit_remark || null,
                         exhibit_type: primarySeizure.exhibit_type || null,
                         drug_classification: primarySeizure.drug_classification || null,
                         valuation: valuationText,
                         exhibits_summary: seizureSummary,
+                        seizures: seizuresList,
                         docket_data: docketPayload,
                         ammunition_details: primarySeizure.ammunition_details || null,
 
@@ -8001,6 +8034,7 @@
                         status: 'Under Multi-Unit Processing',
                         location: `${raidLocation} (${address})`,
                         description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
+                        arresting_officer: primarySeizure.seizure_officer || null,
                         submitting_officer: primarySeizure.seizure_officer || null,
                         confirm_duplicate: confirmDuplicate ? 1 : 0
                     })
@@ -8069,7 +8103,7 @@
                         </td>
                         <td class="py-4 px-5">
                             <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                Pending Directorate Approval
+                                Pending Approval
                             </span>
                         </td>
                         <td class="py-4 px-5 text-right space-x-2">
@@ -8085,7 +8119,6 @@
                 .catch(err => {
                     setSubmittingState(false);
                     if (err.message === 'DUPLICATE_CASE_INTERCEPTED' || err.message === 'SESSION_EXPIRED') return;
-                    console.error('Error saving case:', err);
                     const msg = err.message ||
                         'An error occurred while saving the case. Please enter all required suspect details.';
                     const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
@@ -8127,9 +8160,7 @@
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-            } catch (e) {
-                console.warn('Could not save docket draft:', e);
-            }
+            } catch (e) {}
         }
 
         function handleDraftAndContinueLater() {
@@ -8227,9 +8258,7 @@
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
                 }
-            } catch (e) {
-                console.error('Error restoring docket draft:', e);
-            }
+            } catch (e) {}
         }
 
         function clearDocketFormDraft() {
@@ -8271,10 +8300,19 @@
 
         function showSuccessPopover(ref) {
             clearDocketFormDraft();
+
+            const hasSeizures = document.getElementById('hasSeizuresCheckbox')?.checked;
+            const seizureBlocks = document.querySelectorAll('.seizure-block');
+
+            if (hasSeizures && seizureBlocks.length > 0) {
+                openSeizedPropertyQrDownloadModal(ref);
+                return;
+            }
+
             const modal = document.getElementById('successPopoverModal');
             const caseRefEl = document.getElementById('popoverCaseRef');
             if (caseRefEl) {
-                caseRefEl.textContent = ref || 'NCC-2026-4342';
+                caseRefEl.textContent = ref || '-';
             }
             if (modal) {
                 modal.classList.remove('hidden');
@@ -8809,6 +8847,9 @@
             if (chk && container) {
                 if (chk.checked) {
                     container.classList.remove('hidden');
+                    if (typeof initAllSeizureQRCodes === 'function') {
+                        setTimeout(initAllSeizureQRCodes, 60);
+                    }
                 } else {
                     container.classList.add('hidden');
                 }
@@ -8954,8 +8995,13 @@
             const commodityTextWrapper = clone.querySelector('#commodityTextWrapper');
             if (commodityTextWrapper) commodityTextWrapper.classList.remove('hidden');
 
+            // Clear cloned Property ID so it receives its own unique random ID when case is saved
+            clone.removeAttribute('data-property-id');
+            clone.removeAttribute('data-exhibit-unique-id');
+
             container.appendChild(clone);
             updateSeizureBlockNumbers();
+
             if (typeof syncSuspectDropdownsForExhibits === 'function') {
                 syncSuspectDropdownsForExhibits();
             }
@@ -8998,6 +9044,653 @@
                     }
                 }
             });
+        }
+
+        /* ════════════════════════════════════════════════════════════
+           EVIDENCE MANAGEMENT: SEIZED PROPERTY LIVE QR CODE & BADGE EXPORT
+           ════════════════════════════════════════════════════════════ */
+
+        function getActiveCaseReferenceId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fromUrl = urlParams.get('ref') || urlParams.get('case_number') || urlParams.get('id');
+            const inputVal = document.getElementById('caseReferenceIdInput')?.value || document.getElementById('labCaseReferenceInput')?.value;
+            const raidRef = document.getElementById('newArrestedRaidRef')?.value;
+            return (fromUrl || inputVal || raidRef || '{{ $caseRefAuto }}').trim();
+        }
+
+        function getCaseSuspectNamesSummary(block) {
+            // Check if this specific block has an associated person selected
+            const selectEl = block ? block.querySelector('.seizure-associated-person-select') : null;
+            const selectedSuspect = (selectEl?.value || '').trim();
+
+            // Gather all suspects entered in the form
+            const primaryName = (document.getElementById('newArrestedName')?.value || '').trim();
+            const allNames = [];
+            if (primaryName) allNames.push(primaryName);
+
+            document.querySelectorAll('.suspect-card-dynamic').forEach(card => {
+                const val = (card.querySelector('[data-field="suspect_name"]')?.value || '').trim();
+                if (val && !allNames.includes(val)) allNames.push(val);
+            });
+
+            if (selectedSuspect && selectedSuspect !== 'All Suspects' && selectedSuspect !== 'All Suspects (Joint Ownership)' && selectedSuspect !== 'Select Suspect') {
+                return selectedSuspect;
+            }
+
+            if (allNames.length > 0) {
+                return allNames.join(', ');
+            }
+
+            return primaryName || 'Unspecified';
+        }
+
+        let propertyIdPool = [];
+        let propertyIdPoolLoading = false;
+
+        function refillPropertyIdPool() {
+            if (propertyIdPoolLoading) return;
+            propertyIdPoolLoading = true;
+            fetch('/exhibit-property-ids?count=40', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+                .then(r => r.ok ? r.json() : { ids: [] })
+                .then(d => {
+                    (d.ids || []).forEach(id => {
+                        if (id && id !== 'NACOC/EMU/00241' && !propertyIdPool.includes(id)) {
+                            propertyIdPool.push(id);
+                        }
+                    });
+                })
+                .catch(() => {})
+                .finally(() => { propertyIdPoolLoading = false; });
+        }
+        refillPropertyIdPool();
+
+        function generateRandomPropertyId(existingSet) {
+            existingSet = existingSet || new Set();
+            // 1. First consume from preloaded server-verified pool
+            while (propertyIdPool.length > 0) {
+                const cand = propertyIdPool.shift();
+                if (cand && !existingSet.has(cand) && cand !== 'NACOC/EMU/00241' && /^NACOC\/EMU\/\d{5}$/.test(cand)) {
+                    if (propertyIdPool.length < 8) refillPropertyIdPool();
+                    return cand;
+                }
+            }
+            if (propertyIdPool.length < 8) refillPropertyIdPool();
+
+            // 2. Crypto-random fallback generating distinct 5-digit number (10000 - 99999), excluding 00241
+            let cand = '';
+            let attempts = 0;
+            do {
+                const rnd = (window.crypto && crypto.getRandomValues)
+                    ? crypto.getRandomValues(new Uint32Array(1))[0] % 90000
+                    : Math.floor(Math.random() * 90000);
+                const numStr = String(10000 + rnd);
+                cand = `NACOC/EMU/${numStr}`;
+                attempts++;
+            } while ((existingSet.has(cand) || cand === 'NACOC/EMU/00241') && attempts < 200);
+
+            return cand;
+        }
+
+        function assignUniquePropertyIdsToBlocks() {
+            const blocks = document.querySelectorAll('.seizure-block');
+            const usedIds = new Set();
+
+            // First pass: validate current IDs, purge 00241 or malformed or duplicates
+            blocks.forEach(block => {
+                let currentId = (block.getAttribute('data-property-id') || '').trim();
+                if (currentId === 'NACOC/EMU/00241' || !/^NACOC\/EMU\/\d{5}$/.test(currentId)) {
+                    currentId = '';
+                    block.removeAttribute('data-property-id');
+                }
+                if (currentId) {
+                    if (!usedIds.has(currentId)) {
+                        usedIds.add(currentId);
+                    } else {
+                        // Duplicate across exhibits on the form: clear it to reassign a fresh one
+                        block.removeAttribute('data-property-id');
+                    }
+                }
+            });
+
+            // Second pass: assign fresh random unique 5-digit IDs to any empty block
+            blocks.forEach(block => {
+                let currentId = (block.getAttribute('data-property-id') || '').trim();
+                if (!currentId || currentId === 'NACOC/EMU/00241' || !/^NACOC\/EMU\/\d{5}$/.test(currentId)) {
+                    const freshId = generateRandomPropertyId(usedIds);
+                    usedIds.add(freshId);
+                    block.setAttribute('data-property-id', freshId);
+                }
+            });
+        }
+
+        function getOrCreateExhibitUniqueId(block, index) {
+            if (!block) {
+                const rnd = Math.floor(10000 + Math.random() * 90000);
+                return 'NACOC-EXH-' + rnd + '-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            }
+            let uid = block.getAttribute('data-exhibit-unique-id');
+            if (!uid || uid.includes('00241')) {
+                const rnd = Math.floor(10000 + Math.random() * 90000);
+                const randToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+                uid = `NACOC-EXH-${rnd}-${randToken}`;
+                block.setAttribute('data-exhibit-unique-id', uid);
+            }
+            return uid;
+        }
+
+        function getSeizureBlockData(block) {
+            if (!block) return null;
+            const index = parseInt(block.getAttribute('data-seizure-index') || '1', 10);
+
+            let propId = block.getAttribute('data-property-id');
+            if (!propId || propId === 'NACOC/EMU/00241' || !/^NACOC\/EMU\/\d{5}$/.test(propId)) {
+                assignUniquePropertyIdsToBlocks();
+                propId = block.getAttribute('data-property-id');
+            }
+
+            const caseRefId = getActiveCaseReferenceId();
+            const suspectNames = getCaseSuspectNamesSummary(block);
+
+            const category = (block.querySelector('#newSeizureCategory')?.value || block.querySelector('#exhibitSearchInput')?.value || '').trim();
+            const drugName = (block.querySelector('#drugSelect')?.value || block.querySelector('#drugSearchInput')?.value || block.querySelector('#newSeizureNameDrug')?.value || '').trim();
+            const wpnName = (block.querySelector('#weaponSelect')?.value || block.querySelector('#weaponSearchInput')?.value || block.querySelector('#newSeizureNameWeapon')?.value || '').trim();
+            const currName = (block.querySelector('#currencySearchInput')?.value || block.querySelector('#newSeizureNameCurrency')?.value || '').trim();
+            const ammoName = (block.querySelector('#ammoSearchInput')?.value || block.querySelector('#newSeizureNameAmmo')?.value || '').trim();
+            const devName = (block.querySelector('#deviceSearchInput')?.value || block.querySelector('#newSeizureNameDevice')?.value || '').trim();
+            const genName = (block.querySelector('#newSeizureName')?.value || '').trim();
+
+            const commodityName = drugName || wpnName || currName || ammoName || devName || genName || '';
+
+            let exhibitName = '';
+            if (commodityName) {
+                if (category === 'Drugs' && !commodityName.toLowerCase().startsWith('suspected')) {
+                    exhibitName = `Suspected ${commodityName}`;
+                } else {
+                    exhibitName = commodityName;
+                }
+            } else {
+                if (category === 'Drugs' || !category) {
+                    exhibitName = 'Suspected Narcotic Substance';
+                } else {
+                    exhibitName = category;
+                }
+            }
+
+            const exhTypeSelect = block.querySelector('.exhibit-type-select');
+            let exhibitType = exhTypeSelect ? exhTypeSelect.value.trim() : '';
+            if (!exhibitType) {
+                exhibitType = (category === 'Drugs') ? 'Drug Exhibit' : (category ? 'Non-Drug Exhibit' : 'Unspecified');
+            }
+
+            const drugClsSelect = block.querySelector('.drug-classification-select');
+            const drugClassification = (drugClsSelect && drugClsSelect.value !== 'N/A') ? drugClsSelect.value.trim() : '';
+
+            const qty = (block.querySelector('#newSeizureQuantity')?.value || '').trim();
+            const packaging = (block.querySelector('#pkgSearchInput')?.value || block.querySelector('#newSeizurePackaging')?.value || '').trim();
+            const weight = (block.querySelector('#newSeizureWeight')?.value || '').trim();
+            const unit = (block.querySelector('#unitSearchInput')?.value || block.querySelector('#newSeizureUnit')?.value || '').trim();
+            const estValue = (block.querySelector('#newSeizureValue')?.value || '').trim();
+            const concealment = (block.querySelector('#newSeizureConcealment')?.value || '').trim();
+            const location = (block.querySelector('#newSeizureLocationFound')?.value || '').trim();
+            const seizureDate = (block.querySelector('#newSeizureDate')?.value || new Date().toISOString().slice(0, 10)).trim();
+            const seizureTime = (block.querySelector('#newSeizureTime')?.value || '').trim();
+            const officers = getSeizureOfficersFormatted(block);
+
+            const uniqueId = getOrCreateExhibitUniqueId(block, index);
+
+            return {
+                index: index,
+                caseRefId: caseRefId,
+                propertyId: propId,
+                uniqueId: uniqueId,
+                exhibitName: exhibitName,
+                enteredExhibitName: commodityName,
+                exhibitType: exhibitType,
+                category: category || 'General Exhibit',
+                drugClassification: drugClassification,
+                suspect: suspectNames,
+                quantity: qty,
+                packaging: packaging,
+                weight: weight,
+                unit: unit,
+                estValue: estValue,
+                concealment: concealment,
+                location: location,
+                seizureDate: seizureDate,
+                seizureTime: seizureTime,
+                officers: officers,
+                status: 'Seized'
+            };
+        }
+
+        function buildSeizureQrPayload(data) {
+            const clean = (v, max) => String(v == null ? '' : v)
+                .replace(/[^\x20-\x7E]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, max || 120);
+
+            let qtyStr = '';
+            if (data.quantity) qtyStr = clean(data.quantity, 40);
+            if (data.weight) qtyStr += (qtyStr ? ' | ' : '') + clean(data.weight + ' ' + (data.unit || ''), 40);
+            const officersStr = clean(data.officers || '', 200);
+
+            const lines = [
+                'SEIZED PROPERTY',
+                'NACOC - EVIDENCE MANAGEMENT',
+                '----------------------------------------',
+                `PROPERTY ID: ${data.propertyId}`,
+                `STATUS: ${data.status || 'Seized'}`,
+                data.caseRefId ? `CASE REF: ${clean(data.caseRefId, 60)}` : '',
+                data.enteredExhibitName ? `EXHIBIT: ${clean(data.enteredExhibitName, 80)}` : '',
+                data.category && data.category !== 'General Exhibit' ? `CATEGORY: ${clean(data.category, 60)}` : '',
+                data.drugClassification ? `CLASSIFICATION: ${clean(data.drugClassification, 60)}` : '',
+                data.suspect && data.suspect !== 'Unspecified' ? `SUSPECT(S): ${clean(data.suspect, 120)}` : '',
+                qtyStr ? `QUANTITY/WEIGHT: ${qtyStr}` : '',
+                data.packaging ? `PACKAGING: ${clean(data.packaging, 60)}` : '',
+                data.estValue ? `EST. VALUE: ${clean(data.estValue, 40)}` : '',
+                data.concealment ? `CONCEALMENT: ${clean(data.concealment, 100)}` : '',
+                data.location ? `LOCATION: ${clean(data.location, 100)}` : '',
+                officersStr ? `SEIZING OFFICER(S): ${officersStr}` : '',
+                data.seizureDate ? `DATE: ${clean(data.seizureDate + ' ' + (data.seizureTime || ''), 40)}` : ''
+            ];
+            return lines.filter(Boolean).join('\n');
+        }
+
+        const NACOC_LOGO_URL = '{{ asset("nacoc.jfif") }}';
+        let nacocPreloadedLogo = null;
+
+        function preloadNacocLogo(onReady) {
+            if (!nacocPreloadedLogo) {
+                nacocPreloadedLogo = new Image();
+                nacocPreloadedLogo.crossOrigin = 'anonymous';
+                nacocPreloadedLogo.src = NACOC_LOGO_URL;
+            }
+            if (onReady) {
+                if (nacocPreloadedLogo.complete && nacocPreloadedLogo.naturalWidth > 0) {
+                    onReady(nacocPreloadedLogo);
+                } else {
+                    nacocPreloadedLogo.addEventListener('load', () => onReady(nacocPreloadedLogo), { once: true });
+                }
+            }
+            return nacocPreloadedLogo;
+        }
+        preloadNacocLogo();
+
+        function renderNacocBrandedQRCode(qrContainer, qrPayload, size, onReady) {
+            if (!qrContainer) return;
+            qrContainer.innerHTML = '';
+            if (typeof QRCode === 'undefined') return;
+
+            size = size || 180;
+
+            try {
+                new QRCode(qrContainer, {
+                    text: qrPayload,
+                    width: size,
+                    height: size,
+                    colorDark: "#0B6B3A", // Rich NACOC Emerald Green matching sample qr.png
+                    colorLight: "#FFFFFF",
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+
+                const overlayLogo = (logoImg) => {
+                    const canvas = qrContainer.querySelector('canvas');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    const cx = w / 2;
+                    const cy = h / 2;
+
+                    const badgeDiameter = Math.round(w * 0.22);
+                    const radius = Math.round(badgeDiameter / 2);
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fill();
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = '#0B6B3A';
+                    ctx.stroke();
+
+                    if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, radius - 1, 0, Math.PI * 2);
+                        ctx.clip();
+
+                        const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
+                        let drawH = radius * 2 - 2;
+                        let drawW = drawH * logoAspect;
+                        ctx.drawImage(logoImg, cx - (drawW / 2), cy - (drawH / 2), drawW, drawH);
+                    }
+                    ctx.restore();
+
+                    const img = qrContainer.querySelector('img');
+                    if (img) {
+                        try {
+                            img.src = canvas.toDataURL('image/png');
+                            img.style.display = 'block';
+                            img.style.width = '100%';
+                            img.style.height = '100%';
+                        } catch (e) {}
+                        canvas.style.display = 'none';
+                    } else {
+                        canvas.style.display = 'block';
+                        canvas.style.width = '100%';
+                        canvas.style.height = '100%';
+                    }
+
+                    if (typeof onReady === 'function') onReady(canvas);
+                };
+
+                preloadNacocLogo(overlayLogo);
+            } catch (e) {
+                console.warn('QRCode generation primary attempt notice:', e);
+                try {
+                    qrContainer.innerHTML = '';
+                    const lines = (qrPayload || '').split('\n');
+                    const conciseLines = lines.filter(l => 
+                        l.startsWith('SEIZED') || 
+                        l.startsWith('NACOC') || 
+                        l.startsWith('PROPERTY ID') || 
+                        l.startsWith('STATUS') || 
+                        l.startsWith('CASE') || 
+                        l.startsWith('EXHIBIT') || 
+                        l.startsWith('QUANTITY') || 
+                        l.startsWith('DATE')
+                    );
+                    const conciseText = (conciseLines.length > 0 ? conciseLines.join('\n') : (qrPayload || '')).slice(0, 320);
+
+                    new QRCode(qrContainer, {
+                        text: conciseText,
+                        width: size,
+                        height: size,
+                        colorDark: "#0B6B3A",
+                        colorLight: "#FFFFFF",
+                        correctLevel: QRCode.CorrectLevel.L
+                    });
+                    const c = qrContainer.querySelector('canvas') || qrContainer.querySelector('img');
+                    if (typeof onReady === 'function') onReady(c);
+                } catch (err) {
+                    console.error('QRCode generation fallback error:', err);
+                    if (typeof onReady === 'function') onReady(null);
+                }
+            }
+        }
+
+        function createSeizedPropertyBadgeCanvas(data) {
+            const canvas = document.createElement('canvas');
+            const w = 780, h = 330;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            const sans = 'system-ui, -apple-system, "Inter", sans-serif';
+            const ls = (v) => { if ('letterSpacing' in ctx) ctx.letterSpacing = v; };
+
+            // Plain white background
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, w, h);
+
+            // Thin outer border
+            ctx.strokeStyle = '#CBD5E1';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, w - 2, h - 2);
+
+            // Header: Bookman Old Style red bold uppercase SEIZED PROPERTY
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#EF4444';
+            ctx.font = `900 26px 'Bookman Old Style', Bookman, 'URW Bookman', Georgia, serif`;
+            ls('4px');
+            ctx.fillText('SEIZED PROPERTY', w / 2, 52);
+
+            // Subtitle: NACOC – EVIDENCE MANAGEMENT
+            ctx.fillStyle = '#475569';
+            ctx.font = `600 13px ${sans}`;
+            ls('3px');
+            ctx.fillText('NACOC – EVIDENCE MANAGEMENT', w / 2, 78);
+            ls('0px');
+
+            const divider = (y) => {
+                ctx.strokeStyle = '#CBD5E1';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            };
+            divider(98);
+            divider(h - 52);
+
+            // Left details
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#64748B';
+            ctx.font = `700 12px ${sans}`;
+            ls('3px');
+            ctx.fillText('PROPERTY ID', 36, 146);
+            ls('0px');
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 30px "JetBrains Mono", monospace, system-ui';
+            ctx.fillText(data.propertyId || '', 36, 188);
+            ctx.fillStyle = '#475569';
+            ctx.font = `600 16px ${sans}`;
+            ctx.fillText('Status:', 36, 224);
+            const sw = ctx.measureText('Status: ').width;
+            ctx.fillStyle = '#000000';
+            ctx.font = `700 16px ${sans}`;
+            ctx.fillText(data.status || 'Seized', 36 + sw, 224);
+
+            // QR code on white badge without background container
+            if (data.qrSource) {
+                try {
+                    const q = 140;
+                    ctx.drawImage(data.qrSource, w - q - 40, 116, q, q);
+                } catch (e) {
+                    console.error('Error drawing QR onto canvas:', e);
+                }
+            }
+
+            // Footer
+            ctx.fillStyle = '#475569';
+            ctx.font = `700 12px ${sans}`;
+            ctx.textAlign = 'center';
+            ls('3px');
+            ctx.fillText('SCAN TO VIEW PROPERTY DETAILS', w / 2, h - 20);
+            ls('0px');
+
+            return canvas;
+        }
+
+        let seizedQrModalTimer = null;
+        window.activeModalBadges = [];
+
+        function uploadExhibitTags(caseRef) {
+            try {
+                const tags = [];
+                (window.activeModalBadges || []).forEach(item => {
+                    const slot = document.getElementById(item.slotId);
+                    const qrCanvas = slot ? slot.querySelector('canvas') : null;
+                    const qrImg = slot ? slot.querySelector('img') : null;
+                    const qrSource = (qrCanvas && qrCanvas.width > 0) ? qrCanvas : qrImg;
+                    const badgeCanvas = createSeizedPropertyBadgeCanvas({
+                        propertyId: item.data.propertyId,
+                        status: item.data.status,
+                        qrSource: qrSource
+                    });
+                    tags.push({
+                        property_id: item.data.propertyId,
+                        image: badgeCanvas.toDataURL('image/png')
+                    });
+                });
+                if (!tags.length) return;
+
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                fetch('/exhibit-tags', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': token || ''
+                    },
+                    body: JSON.stringify({ case_number: caseRef, tags: tags })
+                })
+                .then(r => r.json())
+                .then(res => console.log('Exhibit tags uploaded:', res))
+                .catch(e => console.error('Tag upload failed:', e));
+            } catch (e) {
+                console.error('Tag upload failed:', e);
+            }
+        }
+
+        function openSeizedPropertyQrDownloadModal(caseRef) {
+            const modal = document.getElementById('seizedPropertyQrDownloadModal');
+            const list = document.getElementById('seizedPropertyModalItemsList');
+            if (!modal || !list) return;
+
+            // Ensure every exhibit block has its own guaranteed unique random Property ID
+            assignUniquePropertyIdsToBlocks();
+
+            const blocks = document.querySelectorAll('.seizure-block');
+            list.innerHTML = '';
+            window.activeModalBadges = [];
+
+            blocks.forEach((block, idx) => {
+                const data = getSeizureBlockData(block);
+                if (!data) return;
+
+                const slotId = `modalQrSlot_${idx}`;
+                window.activeModalBadges.push({
+                    index: idx,
+                    data: data,
+                    slotId: slotId,
+                    block: block
+                });
+
+                const itemCard = document.createElement('div');
+                itemCard.className = 'space-y-3 p-4 bg-slate-50/70 rounded-2xl border border-slate-200';
+                itemCard.innerHTML = `
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-slate-700">Seized Item #${data.index}</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="downloadModalQrCode(${idx})"
+                                class="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-slate-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg shadow-2xs transition-all cursor-pointer"
+                                title="Download Standalone Branded QR Code (matches qr.png)">
+                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                Save QR (PNG)
+                            </button>
+                            <button type="button" onclick="downloadModalBadgeTag(${idx})"
+                                class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-lg shadow-xs transition-all cursor-pointer"
+                                title="Download Full Property Tag Badge">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Download Tag (PNG)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- EXACT BADGE FORMAT (MATCHING SPECIFICATION IMAGE) -->
+                    <div class="modal-badge-card w-full max-w-xl mx-auto bg-white border border-slate-300 rounded-xl overflow-hidden text-slate-900 shadow-sm">
+                        <div class="pt-4 pb-3 px-4 text-center bg-white">
+                            <h3 class="text-base sm:text-lg font-black text-red-500 tracking-[0.18em] uppercase" style="font-family: 'Bookman Old Style', Bookman, 'URW Bookman', 'Georgia', serif;">Seized Property</h3>
+                            <p class="text-[11px] font-semibold text-slate-600 tracking-[0.2em] uppercase mt-0.5">NACOC &ndash; Evidence Management</p>
+                        </div>
+                        <div class="border-b border-slate-300"></div>
+
+                        <div class="px-5 py-5 sm:px-6 flex items-center justify-between gap-5 bg-white">
+                            <div class="space-y-1.5 min-w-0 flex-1">
+                                <div class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Property ID</div>
+                                <div class="text-lg sm:text-2xl font-black text-black tracking-wide font-mono break-all">${data.propertyId}</div>
+                                <div class="text-xs sm:text-sm text-slate-700 pt-1"><span class="text-slate-500 font-semibold">Status:</span> <span class="font-bold text-black">${data.status}</span></div>
+                            </div>
+                            <div class="shrink-0 flex items-center justify-center">
+                                <div id="${slotId}" class="w-[120px] h-[120px] sm:w-[130px] sm:h-[130px] flex items-center justify-center overflow-hidden"></div>
+                            </div>
+                        </div>
+                        <div class="border-b border-slate-300"></div>
+
+                        <div class="py-2.5 px-4 text-center bg-white">
+                            <p class="text-[10px] sm:text-[11px] font-bold tracking-[0.2em] uppercase text-slate-600">Scan to view property details</p>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(itemCard);
+
+                // Render branded QR code into slot
+                const slot = document.getElementById(slotId);
+                const qrPayload = buildSeizureQrPayload(data);
+                renderNacocBrandedQRCode(slot, qrPayload, 180);
+            });
+
+            // Upload generated badge images to server
+            setTimeout(() => {
+                uploadExhibitTags(caseRef);
+            }, 300);
+
+            modal.classList.remove('hidden');
+
+            if (seizedQrModalTimer) clearTimeout(seizedQrModalTimer);
+            seizedQrModalTimer = setTimeout(() => {
+                closeSeizedPropertyQrModal();
+            }, 60000);
+        }
+
+        function downloadModalQrCode(idx) {
+            const item = (window.activeModalBadges || [])[idx];
+            if (!item) return;
+            const slot = document.getElementById(item.slotId);
+            const qrCanvas = slot ? slot.querySelector('canvas') : null;
+            const qrImg = slot ? slot.querySelector('img') : null;
+            const dataUrl = (qrCanvas && qrCanvas.width > 0) ? qrCanvas.toDataURL('image/png') : (qrImg ? qrImg.src : null);
+            if (!dataUrl) return;
+
+            const link = document.createElement('a');
+            link.download = `${item.data.propertyId.replace(/[\/\\]/g, '_')}_QRCode.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadModalBadgeTag(idx) {
+            const item = (window.activeModalBadges || [])[idx];
+            if (!item) return;
+            const slot = document.getElementById(item.slotId);
+            const qrCanvas = slot ? slot.querySelector('canvas') : null;
+            const qrImg = slot ? slot.querySelector('img') : null;
+            const qrSource = (qrCanvas && qrCanvas.width > 0) ? qrCanvas : qrImg;
+
+            const badgeCanvas = createSeizedPropertyBadgeCanvas({
+                propertyId: item.data.propertyId,
+                status: item.data.status,
+                qrSource: qrSource
+            });
+
+            const link = document.createElement('a');
+            link.download = `${item.data.propertyId.replace(/[\/\\]/g, '_')}_Property_Tag.png`;
+            link.href = badgeCanvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadAllModalBadges() {
+            (window.activeModalBadges || []).forEach((item, idx) => {
+                setTimeout(() => {
+                    downloadModalBadgeTag(idx);
+                }, idx * 350);
+            });
+        }
+
+        function closeSeizedPropertyQrModal() {
+            if (seizedQrModalTimer) {
+                clearTimeout(seizedQrModalTimer);
+                seizedQrModalTimer = null;
+            }
+            clearDocketFormDraft();
+            const modal = document.getElementById('seizedPropertyQrDownloadModal');
+            if (modal) modal.classList.add('hidden');
+            window.location.reload();
         }
 
         function toggleUnitDropdown(e) {
@@ -10037,6 +10730,9 @@
         // Auto-read URL query ref parameter & calculate initial age if DOB exists + Setup Drag & Drop & Draft Restoration
         document.addEventListener('DOMContentLoaded', function() {
             restoreDocketFormDraft();
+            if (typeof initAllSeizureQRCodes === 'function') {
+                initAllSeizureQRCodes();
+            }
 
             // Setup Case Title default "Republic vs " & cursor helper
             const caseTitleEl = document.getElementById('caseTitleInput');
@@ -10234,9 +10930,7 @@
                             hideSuspectDuplicateNoticeCard();
                         }
                     }
-                } catch (e) {
-                    console.warn('Suspect duplicate check error:', e);
-                }
+                } catch (e) {}
             }, 400);
         }
 
@@ -10289,7 +10983,7 @@
             const mCase = data.matched_case || {};
             currentMatchedCaseNumber = mCase.case_number || null;
 
-            if (cRef) cRef.innerText = mCase.case_number || 'NCC-2026-XXXX';
+            if (cRef) cRef.innerText = mCase.case_number || 'NCC-{{ date('Y') }}-XXXX';
             if (cTitle) cTitle.innerText = mCase.title || 'Republic Vs Suspect';
             if (sName) sName.innerText = mCase.suspect_name || mCase.docket_data?.full_name || 'N/A';
             if (gCard) gCard.innerText = mCase.ghana_card || mCase.docket_data?.id_card || 'N/A';
@@ -10537,6 +11231,9 @@
         }
 
         function syncSection4ExhibitsToLabSection() {
+            if (typeof updateAllSeizureQRCodes === 'function') {
+                updateAllSeizureQRCodes();
+            }
             const selectEl = document.getElementById('labExhibitSelect');
             const badgeEl = document.getElementById('labExhibitCountBadge');
             const descInput = document.getElementById('labExhibitDescriptionInput');
@@ -10715,8 +11412,9 @@
 
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
-            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-'))) {
-                examRefInput.value = 'NLR-FM-T35-F';
+            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-') || examRefInput.value.startsWith('NLR-'))) {
+                const randExam = Math.floor(1000 + Math.random() * 9000);
+                examRefInput.value = 'NLA-FM-T' + randExam + '-F';
             }
 
             const name = selectedOption.getAttribute('data-name') || '';
@@ -11223,6 +11921,10 @@
                     select.value = currentVal || 'All Suspects';
                 }
             });
+
+            if (typeof updateAllSeizureQRCodes === 'function') {
+                updateAllSeizureQRCodes();
+            }
         }
 
         function getLabFormElements() {
@@ -11307,6 +12009,58 @@
         };
     </script>
 
+    <!-- SEIZED PROPERTY QR CODE DOWNLOAD POPOVER MODAL -->
+    <div id="seizedPropertyQrDownloadModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
+        <div class="bg-white rounded-3xl border border-emerald-200 shadow-2xl max-w-2xl w-full p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in duration-200">
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-start space-x-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/30">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                            CASE LODGEMENT SAVED
+                        </span>
+                        <h3 class="text-lg font-extrabold text-slate-900 mt-1">
+                            Evidence Lodged Successfully!
+                        </h3>
+                        <p class="text-xs text-slate-600 font-medium">
+                            Official Seized Property Tag(s) generated. Would you like to download the evidence QR code badge for physical tagging?
+                        </p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeSeizedPropertyQrModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer" title="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Modal Content: Badge Container -->
+            <div id="seizedPropertyModalItemsList" class="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                <!-- Dynamically populated with the exact Seized Property Badge Format -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                <span class="text-[11px] text-slate-500 font-medium">Notice auto-closes in 1 min</span>
+                <div class="flex items-center space-x-2.5 w-full sm:w-auto">
+                    <button type="button" onclick="closeSeizedPropertyQrModal()"
+                        class="flex-1 sm:flex-none px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer border border-slate-200">
+                        Continue to Vault
+                    </button>
+                    <button type="button" id="modalDownloadAllBtn" onclick="downloadAllModalBadges()"
+                        class="flex-1 sm:flex-none px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-emerald-600/30 transition-all cursor-pointer inline-flex items-center justify-center gap-2 border-none">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download QR Badge (PNG)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- EXECUTIVE SUCCESS POPOVER MESSAGE CONTAINER -->
     <div id="successPopoverModal"
         class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
@@ -11339,7 +12093,7 @@
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
                         Official Suspect Arrested Docket <span id="popoverCaseRef"
-                            class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-2026-4342</span>
+                            class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-{{ date('Y') }}-XXXX</span>
                         has been saved. The other 3 forensic units can now access, build on, and submit their findings
                         before final HOF approval.
                     </p>
@@ -11465,7 +12219,7 @@
                         <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Matched Case
                             Number</span>
                         <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">
-                            NCC-2026-0000</div>
+                            NCC-{{ date('Y') }}-0000</div>
                     </div>
                     <span id="dupModalScore"
                         class="px-2.5 py-1 bg-amber-500 text-white font-mono-code font-bold text-[11px] rounded-full shadow-2xs">

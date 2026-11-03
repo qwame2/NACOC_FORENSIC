@@ -8,6 +8,7 @@ use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\CaseReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DrugScreeningController;
+use App\Http\Controllers\EvidenceManagementController;
 use App\Models\User;
 use App\Models\ForensicCase;
 use App\Http\Middleware\EnsureHeadOfficer;
@@ -23,6 +24,10 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
+
+// Permanent Live Exhibit Information & Tamper-Evident Verification Tag Route
+Route::get('/exhibits/tag/{token}', [EvidenceManagementController::class, 'showLiveTag'])->name('exhibits.live-tag');
+Route::get('/evidence/tag/{token}', [EvidenceManagementController::class, 'showLiveTag']);
 
 Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $request) {
     $loginId = trim($request->query('login_id', ''));
@@ -158,6 +163,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/cases/{id}/edit', [CaseController::class, 'showEdit'])->name('cases.edit');
     Route::get('/cases/{id}/pdf', [CaseController::class, 'showPdf'])->name('cases.pdf');
     Route::get('/cases/{id}/associate', [CaseController::class, 'showAssociate'])->name('cases.associate');
+    Route::get('/Lab_Analysis/cases/{id}/associate', function ($id) {
+        return redirect()->route('cases.associate', ['id' => $id, 'from' => 'Lab_Analysis']);
+    })->name('lab.cases.associate');
+    Route::get('/Digital_Forensics/cases/{id}/associate', function ($id) {
+        return redirect()->route('cases.associate', ['id' => $id, 'from' => 'Digital_Forensics']);
+    })->name('digital.cases.associate');
+    Route::get('/Crime_Scene_Support/cases/{id}/associate', function ($id) {
+        return redirect()->route('cases.associate', ['id' => $id, 'from' => 'Crime_Scene_Support']);
+    })->name('crime_scene.cases.associate');
+    Route::get('/Evidence_Management/cases/{id}/associate', function ($id) {
+        return redirect()->route('cases.associate', ['id' => $id, 'from' => 'Evidence_Management']);
+    })->name('evidence.cases.associate');
 
     // CASE CREATION & UNIT PROGRESS UPDATES
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
@@ -166,6 +183,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cases/{id}/associate', [CaseController::class, 'associate']);
     Route::post('/cases/upload-evidence-photos', [CaseDocumentController::class, 'uploadEvidencePhotos']);
     Route::post('/upload-evidence-photos', [CaseDocumentController::class, 'uploadEvidencePhotos']);
+    Route::post('/exhibit-tags', [EvidenceManagementController::class, 'storeExhibitTags'])->name('exhibit.tags.store');
+    Route::get('/exhibit-property-ids', [EvidenceManagementController::class, 'propertyIds'])->name('exhibit.property_ids');
     Route::post('/cases/{id}/reassign-exhibit', [CaseController::class, 'reassignExhibit']);
     Route::post('/cases/{id}/case-status', [CaseWorkflowController::class, 'updateCaseStatus']);
     Route::post('/cases/{id}/suspect-disposition', [CaseWorkflowController::class, 'updateSuspectDisposition']);
@@ -334,7 +353,7 @@ Route::middleware(['auth'])->group(function () {
         } elseif (str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical')) {
             return redirect()->to('/Digital_Forensics/multi_dpf_pdf');
         } elseif (str_contains($unitLower, 'evidence')) {
-            return redirect()->to('/Evidence_Management');
+            return redirect()->to('/Evidence_Management/report');
         }
 
         // Default to Lab Analysis Dedicated Report Page
@@ -389,6 +408,19 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/drug-screening/{id}', [DrugScreeningController::class, 'update']);
 
     // EVIDENCE MANAGEMENT UNIT DEDICATED ROUTES
+    Route::get('/Evidence_Management/report', [EvidenceManagementController::class, 'report'])->name('evidence_management.report');
+    Route::get('/evidence-management/report', [EvidenceManagementController::class, 'report']);
+    Route::get('/Evidence_Management/report_pdf', [EvidenceManagementController::class, 'reportPdf'])->name('evidence_management.report_pdf');
+    Route::get('/evidence-management/report_pdf', [EvidenceManagementController::class, 'reportPdf']);
+    Route::get('/Evidence_Management/vault', [EvidenceManagementController::class, 'vault'])->name('evidence_management.vault');
+    Route::get('/evidence-management/vault', [EvidenceManagementController::class, 'vault']);
+    Route::get('/exhibit-vault', [EvidenceManagementController::class, 'vault'])->name('exhibit.vault');
+    Route::post('/Evidence_Management/exhibits/{id}/update', [EvidenceManagementController::class, 'updateExhibit'])->name('evidence_management.exhibit.update');
+    Route::post('/evidence-management/exhibits/{id}/update', [EvidenceManagementController::class, 'updateExhibit']);
+    Route::post('/exhibits/{id}/vault-update', [EvidenceManagementController::class, 'updateExhibit'])->name('exhibits.vault.update');
+    Route::post('/Evidence_Management/exhibits/{id}/custodial-status', [EvidenceManagementController::class, 'updateCustodialStatus'])->name('evidence_management.exhibits.custodial_status');
+    Route::post('/exhibits/{id}/custodial-status', [EvidenceManagementController::class, 'updateCustodialStatus']);
+
     Route::get('/Evidence_Management', function () {
         return view('Evidence_Management.evidence_management');
     });
@@ -1149,7 +1181,9 @@ Route::middleware(['auth'])->group(function () {
             'report_witness_statement_file.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);
 
-        $cNo = $validated['case_number'];
+        $rawCNo = $validated['case_number'];
+        $cNo = str_contains($rawCNo, '|') ? explode('|', $rawCNo)[0] : $rawCNo;
+        $suspectIdFromVal = str_contains($rawCNo, '|') ? explode('|', $rawCNo)[1] : ($request->input('suspect_id') ?: null);
         $singleCase = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
         $multiCase = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
 
@@ -1322,7 +1356,7 @@ Route::middleware(['auth'])->group(function () {
 
         $dpfCode = ($existingReport && !empty($existingReport->dpf_code))
             ? $existingReport->dpf_code
-            : ('DF-STATUS-' . date('Y-md') . '-' . rand(100, 999));
+            : ('DF-STATUS-' . date('Y-md') . '-' . random_int(100, 999));
 
         $reportAttributes = [
             'dpf_code' => $dpfCode,
@@ -1330,6 +1364,7 @@ Route::middleware(['auth'])->group(function () {
             'laboratory_number' => $singleCase->laboratory_number ?? ($multiCase->laboratory_number ?? ($existingReport->laboratory_number ?? null)),
             'single_suspect_case_id' => $singleCase ? $singleCase->id : ($existingReport->single_suspect_case_id ?? null),
             'multiple_suspect_case_id' => $multiCase ? $multiCase->id : ($existingReport->multiple_suspect_case_id ?? null),
+            'suspect_id' => $suspectIdFromVal ?? ($existingReport->suspect_id ?? null),
             'user_id' => auth()->id() ?? ($existingReport->user_id ?? null),
             'location_post' => $validated['location_post'] ?? ($existingReport->location_post ?? null),
             'investigation_date' => $validated['investigation_date'] ?? ($existingReport->investigation_date ?? date('Y-m-d')),

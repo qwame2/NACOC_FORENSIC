@@ -10,7 +10,7 @@ class CaseSuspect extends Model
     use HasFactory;
 
     protected $attributes = [
-        'suspect_disposition' => 'Active â€” Under Investigation',
+        'suspect_disposition' => 'Active — Under Investigation',
     ];
 
     protected $fillable = [
@@ -19,6 +19,7 @@ class CaseSuspect extends Model
         'suspect_number',
         'role',
         'associate_id',
+        'status',
         'suspect_name',
         'suspect_alias',
         'ghana_card',
@@ -58,6 +59,19 @@ class CaseSuspect extends Model
         'disposition_updated_at',
         'disposition_updated_by',
     ];
+
+    public function setStatusAttribute($value)
+    {
+        if (in_array(strtolower(trim((string)$value)), ['approved', 'pending approval', 'under multi-unit processing', 'completed', 'awaiting sign-off', 'pending review'], true)) {
+            return;
+        }
+        $this->attributes['suspect_disposition'] = $value;
+    }
+
+    public function getStatusAttribute()
+    {
+        return $this->attributes['suspect_disposition'] ?? null;
+    }
 
     protected $casts = [
         'extra_mugshots' => 'array',

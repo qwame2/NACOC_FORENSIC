@@ -157,7 +157,8 @@
                         @php
                             $pendingCasesNotif = (int)(\App\Models\ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count());
                             $pendingUsersNotif = (int)(\App\Models\User::where('is_approved', false)->count());
-                            $totalAlertsCount = $pendingCasesNotif + $pendingUsersNotif + 1;
+                            $pendingHandoversNotif = (int)(\App\Models\CaseHandover::whereNull('acknowledged_at')->count());
+                            $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0) + ($pendingUsersNotif > 0 ? 1 : 0) + ($pendingHandoversNotif > 0 ? 1 : 0);
                         @endphp
                         <button type="button" id="notificationBellBtn" onclick="toggleNotificationDropdown()" class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors relative border-none bg-transparent cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,7 +193,7 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-[10px] font-extrabold font-mono-code text-amber-700 uppercase">Case Approvals</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">JUST NOW</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
                                             @if($pendingCasesNotif > 0)
@@ -219,7 +220,7 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account Control</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">TODAY</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
                                             @if($pendingUsersNotif > 0)
@@ -246,10 +247,22 @@
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Evidence Vault</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">3 MIN AGO</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
                                         </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">4 Barcoded Exhibits Transferred to Vault</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Inter-unit evidence transfer received from Crime Scene Support Unit.</div>
+                                        <div class="text-xs font-bold text-slate-900 truncate">
+                                            @if($pendingHandoversNotif > 0)
+                                                {{ $pendingHandoversNotif }} Pending Evidence Transfer(s)
+                                            @else
+                                                All Custody Transfers Acknowledged
+                                            @endif
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                            @if($pendingHandoversNotif > 0)
+                                                Chain of custody handovers awaiting recipient acknowledgment.
+                                            @else
+                                                Evidence vault records and chain of custody are up to date.
+                                            @endif
+                                        </div>
                                     </div>
                                 </a>
 
@@ -263,8 +276,8 @@
                                             <span class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Chain Integrity Audit</span>
                                             <span class="text-[9px] font-bold text-emerald-600 font-mono-code">SYSTEM OK</span>
                                         </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">100% Tamper-Free Hash Audit Verified</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">SHA-256 digital hashes matched across all 4 forensic unit databases.</div>
+                                        <div class="text-xs font-bold text-slate-900 truncate">Chain of Custody Verified</div>
+                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Audit trail active and synchronized across forensic directorates.</div>
                                     </div>
                                 </div>
 
@@ -787,7 +800,6 @@
                 showToast('Account Approved & Activated in Database', `Full system access enabled for ${officerName}.`);
             })
             .catch(err => {
-                console.error(err);
                 showToast('Database Update Error', 'Could not update user account in database.', true);
             });
         }
@@ -842,7 +854,6 @@
                 showToast('Account Deactivated in Database', `System access suspended for ${officerName}.`, true);
             })
             .catch(err => {
-                console.error(err);
                 showToast('Database Update Error', 'Could not deactivate user account in database.', true);
             });
         }
@@ -1035,7 +1046,7 @@
                     if (totUserCountEl) totUserCountEl.innerText = data.totalCount;
                 }
             } catch (e) {
-                console.warn('Approvals polling failed:', e);
+                // Background polling failure handled silently
             }
         }
         /* ── Notifications & Global Search ──────────── */

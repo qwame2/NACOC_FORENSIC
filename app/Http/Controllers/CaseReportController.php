@@ -66,7 +66,7 @@ class CaseReportController extends Controller
      */
     public function dashboardRealtime(Request $request)
     {
-        $data = app(CaseAnalyticsService::class)->buildDashboardRealtimeData($request);
+        $data = app(\App\Services\CaseAnalyticsService::class)->buildDashboardRealtimeData($request);
         return response()->json($data);
     }
 }

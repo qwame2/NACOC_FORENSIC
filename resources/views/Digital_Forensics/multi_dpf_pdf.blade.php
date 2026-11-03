@@ -1527,7 +1527,7 @@
 
                     basePage.remove();
                 } catch (err) {
-                    console.error('Failed to load PDF attachment: ', err);
+                    // Silently ignore PDF attachment render error
                 }
             }
             window.isPdfRendering = false;

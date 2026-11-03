@@ -767,7 +767,8 @@
                                     </div>
                                 </div>
                                 <input type="hidden" name="location" value="{{ $case->location }}">
-                                <input type="hidden" name="submitting_officer" value="{{ $case->submitting_officer }}">
+                                <input type="hidden" name="arresting_officer" value="{{ $case->arresting_officer ?? $case->submitting_officer }}">
+                                <input type="hidden" name="submitting_officer" value="{{ $case->arresting_officer ?? $case->submitting_officer }}">
                             </div>
                         </div>
 
@@ -2033,18 +2034,18 @@
                                     $canEditPresumptive = $canEditLab || $canEditCrimeScene;
 
                                     // 1. Presumptive Test Reaction Status
-                                    $presReactionVal = 'YES (Positive Colorimetric Reaction)';
-                                    $presDotClass = 'bg-emerald-500';
-                                    $presReactionLabel = 'YES — Positive Reaction';
+                                    $presReactionVal = '';
+                                    $presDotClass = 'bg-slate-300';
+                                    $presReactionLabel = 'Select Reaction Result...';
 
                                     if (str_contains($upperPres, 'NO') || str_contains($upperPres, 'NEGATIVE')) {
                                         $presReactionVal = 'NO (Negative Reaction)';
                                         $presDotClass = 'bg-slate-400';
                                         $presReactionLabel = 'NO — Negative Reaction';
-                                    } elseif (empty($rawPresumptive)) {
-                                        $presReactionVal = '';
-                                        $presDotClass = 'bg-slate-300';
-                                        $presReactionLabel = 'Select Reaction Result...';
+                                    } elseif (str_contains($upperPres, 'YES') || str_contains($upperPres, 'POSITIVE')) {
+                                        $presReactionVal = $rawPresumptive;
+                                        $presDotClass = 'bg-emerald-500';
+                                        $presReactionLabel = 'YES — Positive Reaction';
                                     }
 
                                     // 2. Parse Multiple Presumptive Test Specimen Rows
@@ -3124,7 +3125,7 @@
 
     function syncPresumptiveSummaryText() {
         const reactionInput = document.getElementById('presReactionSelect');
-        const reaction = reactionInput ? reactionInput.value : 'YES (Positive Colorimetric Reaction)';
+        const reaction = reactionInput ? reactionInput.value : '';
         const textarea = document.getElementById('presumptiveResultTextarea');
         const detailsContainer = document.getElementById('editPresumptiveDetailsContainer');
         
@@ -3167,7 +3168,7 @@
         if (results.length > 0) {
             textarea.value = `YES (${results.join('; ')})`;
         } else {
-            textarea.value = `YES (Positive Colorimetric Reaction)`;
+            textarea.value = '';
         }
     }
 
@@ -3899,8 +3900,10 @@
         const confRes = lab.confirmatory_test_result || 'YES';
         selectEditConfirmatoryStatus(confRes, (confRes === 'NO' ? 'NO — Negative / Unconfirmed' : 'YES — Confirmed Positive'), (confRes === 'NO' ? 'bg-slate-400' : 'bg-emerald-500'));
         
-        const presVal = lab.presumptive_reaction_val || 'YES (Positive Colorimetric Reaction)';
-        selectEditPresReaction(presVal, (presVal.startsWith('NO') ? 'NO — Negative Reaction' : 'YES — Positive Reaction'), (presVal.startsWith('NO') ? 'bg-slate-400' : 'bg-emerald-500'));
+        const presVal = lab.presumptive_reaction_val || lab.presumptive_result || '';
+        if (presVal) {
+            selectEditPresReaction(presVal, (presVal.startsWith('NO') ? 'NO — Negative Reaction' : 'YES — Positive Reaction'), (presVal.startsWith('NO') ? 'bg-slate-400' : 'bg-emerald-500'));
+        }
 
         if (document.getElementById('presumptiveResultTextarea')) document.getElementById('presumptiveResultTextarea').value = lab.presumptive_result || '';
         

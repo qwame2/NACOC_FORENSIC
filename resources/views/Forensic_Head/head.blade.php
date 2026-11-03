@@ -1992,7 +1992,7 @@
           applyRealtimeData(json);
         }
       } catch (err) {
-        console.warn('Realtime polling issue:', err);
+        // Background polling errors are caught silently to prevent console spam
       } finally {
         if (spinner) setTimeout(() => spinner.classList.remove('animate-spin'), 600);
       }
@@ -2002,22 +2002,22 @@
       if (data.metrics) {
         const m = data.metrics;
         const elOverdue = document.getElementById('metricOverdueAmount');
-        if (elOverdue) elOverdue.textContent = (m.pending_cases ? `${m.pending_cases} Dockets` : '14 Dockets');
+        if (elOverdue && m.pending_cases !== undefined) elOverdue.textContent = `${m.pending_cases} Dockets`;
         
         const elNextMonth = document.getElementById('metricNextMonthAmount');
-        if (elNextMonth) elNextMonth.textContent = (m.total_exhibits ? `${m.total_exhibits} Exhibits` : '142 Exhibits');
+        if (elNextMonth && m.total_exhibits !== undefined) elNextMonth.textContent = `${m.total_exhibits} Exhibits`;
 
         const elTurnaround = document.getElementById('metricTurnaroundDays');
-        if (elTurnaround) elTurnaround.textContent = m.turnaround_days || '4.2 days';
+        if (elTurnaround && m.turnaround_days && m.turnaround_days !== 'N/A') elTurnaround.textContent = m.turnaround_days;
 
         const elVault = document.getElementById('metricVaultAmount');
-        if (elVault) elVault.textContent = (m.total_exhibits ? `${m.total_exhibits * 12 + 140} Items` : '1,865 Items');
+        if (elVault && m.total_cases !== undefined) elVault.textContent = `${m.total_cases} Dockets Active`;
 
         const elCountActive = document.getElementById('tabCountActive');
-        if (elCountActive) elCountActive.textContent = m.total_cases || (data.cases ? data.cases.length : 4);
+        if (elCountActive && (m.total_cases !== undefined || (data.cases && data.cases.length))) elCountActive.textContent = m.total_cases ?? data.cases.length;
 
         const elCountAnalysis = document.getElementById('tabCountAnalysis');
-        if (elCountAnalysis) elCountAnalysis.textContent = m.pending_cases || 1;
+        if (elCountAnalysis && m.pending_cases !== undefined) elCountAnalysis.textContent = m.pending_cases;
       }
 
       if (data.chart_data && finnovaBarChart && data.chart_data.monthly_bars) {

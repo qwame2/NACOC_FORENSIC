@@ -421,20 +421,24 @@
             $detSubstances = is_string($labExamData['detected_substances']) ? (json_decode($labExamData['detected_substances'], true) ?: []) : $labExamData['detected_substances'];
         }
 
-        $rawExamRef = !empty($labExamData['exam_reference']) ? $labExamData['exam_reference'] : (!empty($labExamData['analysis_reference']) ? $labExamData['analysis_reference'] : (!empty($docketData['lab_examination']['exam_reference']) ? $docketData['lab_examination']['exam_reference'] : ($case->lab_exam_reference ?: 'NLR-FM-T35-F')));
-        $examRef = str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawExamRef ?: 'NLR-FM-T35-F');
+        $rawExamRef = !empty($labExamData['exam_reference']) ? $labExamData['exam_reference'] : (!empty($labExamData['analysis_reference']) ? $labExamData['analysis_reference'] : (!empty($docketData['lab_examination']['exam_reference']) ? $docketData['lab_examination']['exam_reference'] : ($case->lab_exam_reference ?? null)));
+        $examRef = !empty($rawExamRef) ? app(\App\Services\CaseReferenceService::class)->normalizeExamReference($rawExamRef) : app(\App\Services\CaseReferenceService::class)->resolveExamReference($case, $docketData);
         $exhibitNo = $labExamData['exhibit_number'] ?? ('EXH-0' . ($idx + 1));
         $lNo = $labExamData['laboratory_number'] ?? $labNo;
-        $analyst = $labExamData['analyst'] ?? $analystName;
-        $dateRec = $labExamData['date_received'] ?? date('Y-m-d');
-        $dateStart = $labExamData['date_started'] ?? date('Y-m-d');
-        $dateComp = $labExamData['date_completed'] ?? date('Y-m-d');
+        $rawRecCert = $labExamData['date_received'] ?? null;
+        $dateRec = (!empty($rawRecCert) && $rawRecCert !== 'N/A') ? $rawRecCert : (!empty($case->incident_date) ? date('Y-m-d', strtotime($case->incident_date)) : ($case->created_at ? $case->created_at->format('Y-m-d') : date('Y-m-d')));
+        $rawStartCert = $labExamData['date_started'] ?? null;
+        $dateStart = (!empty($rawStartCert) && $rawStartCert !== 'N/A') ? $rawStartCert : $dateRec;
+        $rawCompCert = $labExamData['date_completed'] ?? null;
+        $dateComp = (!empty($rawCompCert) && $rawCompCert !== 'N/A') ? $rawCompCert : ($case->updated_at ? $case->updated_at->format('Y-m-d') : date('Y-m-d'));
         $presumptiveText = $labExamData['presumptive_result'] ?? ('YES (Presence of: ' . $drugName . ' - Purity/Percentage: 85%)');
         $confirmatoryVal = strtoupper(trim((string)($labExamData['confirmatory_result'] ?? ($labExamData['confirmatory_test_result'] ?? 'YES'))));
         $substanceId = $labExamData['substance_identification'] ?? $drugName;
         $specificationsText = $labExamData['specifications'] ?? 'High-Purity Narcotic Salt (Schedule II, Act 1019)';
         $remarkText = $labExamData['remark'] ?? ($labExamData['remarks'] ?? null);
         $findingsText = $labExamData['findings'] ?? null;
+
+        $analyst = !empty($labExamData['analyst']) ? $labExamData['analyst'] : $analystName;
 
         $suspectLabResults[] = [
             'suspect_info' => $s,

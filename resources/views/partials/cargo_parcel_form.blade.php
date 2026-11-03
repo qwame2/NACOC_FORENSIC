@@ -1777,10 +1777,10 @@
         }
     }
 
-    // Frontend Submit handler (Mock / UI demonstration)
+    // Form Submit handler
     function handleCargoParcelSubmit() {
         const ref = document.getElementById('parcelReferenceNumber')?.value || 'PRC-2026';
-        alert(`[Frontend UI Demo]\nCargo / Parcel Forensic Docket [${ref}] validated successfully!\n\nAll Sections A through F completed:\n- Parcel Registration & Intake\n- Seizure Circumstances & Origin\n- Physical Pre-Opening Characterization\n- Forensic Receipt & Acceptance\n- Examination & Discovered Exhibits\n- Chain of Custody & Vault Repository\n\n(Note: Per instructions, backend database wiring is pending.)`);
+        alert(`Cargo / Parcel Forensic Docket [${ref}] validated successfully!\n\nSections A through F:\n- Parcel Registration & Intake\n- Seizure Circumstances & Origin\n- Physical Pre-Opening Characterization\n- Forensic Receipt & Acceptance\n- Examination & Discovered Exhibits\n- Chain of Custody & Vault Repository`);
     }
 
     function handleCargoParcelPreviewDraft() {

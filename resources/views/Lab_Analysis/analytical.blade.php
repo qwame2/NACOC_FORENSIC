@@ -1126,7 +1126,7 @@
                                         'screening' => $gDrugScreening,
                                         'suspectName' => $gMemName,
                                         'suspectId' => $gMemId,
-                                        'caseNumber' => $caseNo ?? ($case->case_number ?? 'NCC-2026'),
+                                        'caseNumber' => $caseNo ?? ($case->case_number ?? ('NCC-' . date('Y'))),
                                         'showEmpty' => false,
                                         'showActions' => true,
                                     ])
@@ -1219,6 +1219,28 @@
                         </div>
                     </div>
 
+                    <!-- GSA DETAILS: Exhibit Type -->
+                    <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-2" id="gsaExhibitTypesSection">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                                <span>Exhibit Type</span>
+                            </label>
+                            <button type="button" onclick="addGsaExhibitTypeInput()" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono-code font-bold uppercase text-blue-700 bg-blue-100 hover:bg-blue-200 active:scale-95 rounded-lg border border-blue-200 transition-all cursor-pointer">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                <span>Add Exhibit Type</span>
+                            </button>
+                        </div>
+                        <div id="gsaExhibitTypeList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                            <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                                <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                                    class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- DROP ZONE — files render inside this container -->
                     <div id="gsaDropZone" ondragover="gsaDragOver(event)" ondragleave="gsaDragLeave(event)"
                         ondrop="gsaHandleDrop(event)"
@@ -1305,6 +1327,13 @@
                                                     {{ $gsaF->file_size_label }} &bull;
                                                     {{ $gsaF->created_at ? $gsaF->created_at->format('M d, Y H:i') : 'Attached' }}
                                                 </div>
+                                                @if (!empty($gsaF->exhibit_type))
+                                                    <div class="mt-0.5 flex items-center gap-1">
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-200 truncate max-w-full" title="Exhibit Type: {{ $gsaF->exhibit_type }}">
+                                                            Exhibit Type: {{ $gsaF->exhibit_type }}
+                                                        </span>
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
                                         <a href="{{ $gsaF->url }}" target="_blank"
@@ -1776,12 +1805,44 @@
             gsaUpdateCount();
         }
 
+        function addGsaExhibitTypeInput() {
+            const list = document.getElementById('gsaExhibitTypeList');
+            if (!list) return;
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-1.5 gsa-exhibit-type-row';
+            row.innerHTML = `
+                <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                    class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                <button type="button" onclick="removeGsaExhibitTypeInput(this)" class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl border border-red-200 transition-all shrink-0 cursor-pointer" title="Remove">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            list.appendChild(row);
+            const input = row.querySelector('input');
+            if (input) input.focus();
+        }
+
+        function removeGsaExhibitTypeInput(btn) {
+            const row = btn?.closest('.gsa-exhibit-type-row');
+            if (row) {
+                row.remove();
+            }
+        }
+
         function clearAllGsaFiles() {
             gsaFilesMap = {};
             const grid = document.getElementById('gsaFileGrid');
             if (grid) grid.innerHTML = '';
             const input = document.getElementById('gsaReportImageInput');
             if (input) input.value = '';
+            const exhibitList = document.getElementById('gsaExhibitTypeList');
+            if (exhibitList) {
+                exhibitList.innerHTML = `
+                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                    </div>`;
+            }
             gsaUpdateCount();
         }
 
@@ -1831,6 +1892,15 @@
             if (gsaActiveSuspect.name) {
                 formData.append('suspect_name', gsaActiveSuspect.name);
             }
+
+            const exhibitInputs = document.querySelectorAll('#gsaExhibitTypeList .gsa-exhibit-type-input');
+            exhibitInputs.forEach(input => {
+                const val = input.value?.trim();
+                if (val) {
+                    formData.append('exhibit_type[]', val);
+                }
+            });
+
             formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
                 '{{ csrf_token() }}');
 
@@ -1884,7 +1954,6 @@
                     }
                 })
                 .catch(err => {
-                    console.error('Error uploading GSA report files:', err);
                     if (btn) {
                         btn.disabled = false;
                         btn.innerHTML =
@@ -1983,8 +2052,8 @@
             }
 
             if (labData) {
-                const rawNlrRef = labData.nlr_code || labData.exam_reference || '';
-                const nlrCode = rawNlrRef ? (rawNlrRef.startsWith('GSA-') ? rawNlrRef.replace(/^GSA-/, 'NLR-').replace('T28', 'T35') : rawNlrRef.replace('T28', 'T35').replace('T51', 'T35')) : 'NLR-FM-T35-F';
+                const fallbackNlrRef = @json(app(\App\Services\CaseReferenceService::class)->resolveExamReference($case ?? null, is_array($case->docket_data ?? null) ? $case->docket_data : []));
+                const nlrCode = rawNlrRef ? rawNlrRef.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-') : fallbackNlrRef;
                 if (document.getElementById('nlrExamRef')) document.getElementById('nlrExamRef').innerText = nlrCode;
                 if (document.getElementById('nlrExamRefBadge')) document.getElementById('nlrExamRefBadge').innerText = 'Ref: ' + nlrCode;
                 if (document.getElementById('nlrDocNo')) document.getElementById('nlrDocNo').innerText = nlrCode;

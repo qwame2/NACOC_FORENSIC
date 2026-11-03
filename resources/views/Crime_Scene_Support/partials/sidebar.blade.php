@@ -78,7 +78,7 @@
     } elseif ($isDigitalContext) {
         $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*') && !request()->is('*cases*') && !request()->is('*case-register*') && !request()->is('Digital_Forensics/head');
     } elseif ($isEvidenceContext) {
-        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*');
+        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*') && !request()->is('*vault*');
     } else {
         $isHeadDashboardActive = (request()->is('Crime_Scene_Support') || request()->is('Crime_Scene_Support/head') || request()->is('crime-scene-support') || request()->is('Forensic_Head') || request()->is('Forensic_Head/')) && !request()->is('*create*') && !request()->is('*arrest*') && !request()->is('cases*');
     }
@@ -139,6 +139,28 @@
                     <span class="text-xs">Case Directory</span>
                 </a>
 
+                @if($isEvidenceContext)
+                <!-- EXHIBIT VAULT (EVIDENCE MANAGEMENT UNIT ONLY) -->
+                @php
+                    $isVaultActive = request()->is('Evidence_Management/vault*') || 
+                                     request()->is('evidence-management/vault*') || 
+                                     request()->is('*exhibit-vault*') || 
+                                     request()->is('vault*');
+                @endphp
+                <a href="{{ url('/Evidence_Management/vault') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isVaultActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isVaultActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    <span class="text-xs flex-1">Exhibit Vault</span>
+                    @php
+                        $vaultExhibitsBadge = \App\Models\Exhibit::countPendingQrOrClassification();
+                    @endphp
+                    <span class="ml-auto {{ $isVaultActive ? 'bg-white/20 text-white' : ($vaultExhibitsBadge > 0 ? 'bg-amber-500/15 text-amber-800 border border-amber-300/60' : 'bg-emerald-500/15 text-emerald-800') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold" title="{{ $vaultExhibitsBadge }} exhibit(s) pending QR code or classification">
+                        {{ $vaultExhibitsBadge }}
+                    </span>
+                </a>
+                @endif
+
                 @if($isLabContext)
                 <!-- LAB ANALYSIS RESULT (LAB ANALYSIS UNIT ONLY) -->
                 <a href="{{ url('/Lab_Analysis/lab-result') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
@@ -187,13 +209,15 @@
                     } elseif ($isDigitalContext) {
                         $sidebarReportUrl = url('/Digital_Forensics/multi_dpf_pdf');
                     } elseif ($isEvidenceContext) {
-                        $sidebarReportUrl = url('/Report?unit=Evidence+Management');
+                        $sidebarReportUrl = url('/Evidence_Management/report');
                     } else {
                         $sidebarReportUrl = url('/Report');
                     }
                     $isReportActive = request()->is('Report*') || 
                                       request()->is('Lab_Analysis/report*') || 
                                       request()->is('lab-analysis/report*') || 
+                                      request()->is('Evidence_Management/report*') || 
+                                      request()->is('evidence-management/report*') || 
                                       request()->is('Lab_Analysis/lab_sitrep_pdf*');
                 @endphp
                 <a href="{{ $sidebarReportUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isReportActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
@@ -293,7 +317,7 @@
                         window.location.href = '{{ $headDashboardUrl }}';
                     }
                 }
-            }, true);
+            });
         });
     })();
 </script>

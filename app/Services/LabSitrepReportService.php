@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DrugScreening;
+use App\Models\Exhibit;
 use App\Models\ForensicCase;
 use App\Models\LaboratoryExaminationResult;
 use App\Models\MultipleSuspectCase;
@@ -429,8 +430,17 @@ class LabSitrepReportService
         $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : 'Head of Forensic Directorate';
         $deptHeadSignature = $dbDeptHead ? $dbDeptHead->signature : null;
 
+        $dbIntelDirector = User::where(function($q) {
+            $q->where('unit', 'LIKE', '%Intel%')
+              ->orWhere('unit', 'LIKE', '%Investigation%');
+        })->where('is_head', true)->first()
+        ?? User::where('unit', 'LIKE', '%Intel%')->first()
+        ?? User::where('unit', 'LIKE', '%Investigation%')->first();
+        $intelDirectorName = $dbIntelDirector ? $dbIntelDirector->fullname : null;
+        $intelDirectorSignature = $dbIntelDirector ? $dbIntelDirector->signature : null;
+
         // 2. Filter parameters
-        $rawPeriod = strtolower(trim((string)($request->query('period') ?: ($request->query('preset') ?: 'weekly'))));
+        $rawPeriod = strtolower(trim((string)($request->query('period') ?: ($request->query('preset') ?: 'all'))));
         $fromDate = trim((string)$request->query('from', ''));
         $toDate = trim((string)$request->query('to', ''));
         $searchQuery = strtolower(trim((string)$request->query('search', '')));
@@ -604,7 +614,13 @@ class LabSitrepReportService
             } else {
                 $sList = array_map(function($s, $sIdx) {
                     $name = $s['suspect_name'] ?? ($s['name'] ?? 'Suspect');
-                    $disp = $s['suspect_disposition'] ?? ($s['status'] ?? 'In Custody');
+                    $rawStatus = $s['status'] ?? null;
+                    $rawDisp = $s['suspect_disposition'] ?? null;
+                    if (!empty($rawStatus) && (empty($rawDisp) || str_contains($rawDisp, 'Active'))) {
+                        $disp = $rawStatus;
+                    } else {
+                        $disp = $rawDisp ?? ($rawStatus ?? 'In Custody');
+                    }
                     $role = $s['role'] ?? ($sIdx === 0 ? 'Primary Suspect' : 'Co-Suspect');
                     $isAssoc = !empty($s['is_associate']) || str_contains(strtolower($role), 'associate') || str_contains(strtolower($role), 'co-suspect') || ($sIdx > 0);
                     return [
@@ -633,28 +649,56 @@ class LabSitrepReportService
             }, $sList);
             $sDisplay = implode(' & ', $suspectNames);
 
-            $exName = $dCase->seizure_name_drug ?? ($dCase->commodity_name ?? ($dCase->seizure_name ?? 'Suspected Narcotic Exhibit'));
-            $exQty = $dCase->seizure_quantity ?? '1 Package';
-            $exWeight = $dCase->sample_weight_gross ?? ($dCase->weight ?? ($dCase->seizure_weight ?? 'N/A'));
-            $exSource = $dCase->raid_location ?? ($dCase->seizure_location ?? ($dCase->location ?? 'NACOC Command Station'));
+            $isMulti = !empty($dCase->is_multiple) || (isset($dCase->case_type) && strtoupper($dCase->case_type) === 'MULTIPLE');
+            $realId = $dCase->underlyingRecord?->id ?? $dCase->id;
 
-            // Fetch laboratory examination findings
-            $examResult = LaboratoryExaminationResult::where('single_suspect_case_id', $dCase->id)
-                ->orWhere('multiple_suspect_case_id', $dCase->id)
-                ->orWhere('exam_reference', $cNo)
-                ->latest()
-                ->first();
-
-            $remarks = 'Preliminary examination conducted; sample secured for confirmatory assay.';
-            $statusTag = 'detected';
-            if ($examResult) {
-                if (!empty($examResult->presumptive_result) || !empty($examResult->remark)) {
-                    $remarks = $examResult->presumptive_result ?: $examResult->remark;
-                }
-                if ($examResult->findings) {
-                    $remarks .= ' - ' . $examResult->findings;
-                }
+            // Fetch exhibits associated with this case
+            $caseExhibits = collect();
+            if (!empty($dCase->exhibits) && is_iterable($dCase->exhibits) && count($dCase->exhibits) > 0) {
+                $caseExhibits = collect($dCase->exhibits);
+            } elseif ($dCase->underlyingRecord && isset($dCase->underlyingRecord->exhibits) && is_iterable($dCase->underlyingRecord->exhibits) && count($dCase->underlyingRecord->exhibits) > 0) {
+                $caseExhibits = collect($dCase->underlyingRecord->exhibits);
             }
+
+            if ($caseExhibits->isEmpty()) {
+                $caseExhibits = Exhibit::where(function($q) use ($isMulti, $realId, $cNo) {
+                    if ($isMulti) {
+                        $q->where('multiple_suspect_case_id', $realId);
+                    } else {
+                        $q->where('single_suspect_case_id', $realId);
+                    }
+                    if (!empty($cNo)) {
+                        $q->orWhere(function($subQ) use ($isMulti, $cNo) {
+                            if ($isMulti) {
+                                $subQ->whereHas('multipleCase', fn($mq) => $mq->where('case_number', $cNo));
+                            } else {
+                                $subQ->whereHas('singleCase', fn($sq) => $sq->where('case_number', $cNo));
+                            }
+                        });
+                    }
+                })->get();
+            }
+
+            // Find an exhibit that has exhibit_remark populated, or fall back to the first exhibit
+            $remarkExhibit = $caseExhibits->first(function($ex) {
+                return !empty(trim((string)($ex->exhibit_remark ?? '')));
+            });
+            $firstExhibit = $remarkExhibit ?: $caseExhibits->first();
+
+            $exName = $firstExhibit?->commodity_name ?? ($dCase->seizure_name_drug ?? ($dCase->commodity_name ?? ($dCase->seizure_name ?? 'Suspected Narcotic Exhibit')));
+            
+            $resolvedQty = null;
+            if ($firstExhibit && !empty($firstExhibit->seizure_quantity)) {
+                $resolvedQty = trim($firstExhibit->seizure_quantity . ' ' . ($firstExhibit->seizure_packaging ?? ''));
+            }
+            $exQty = $resolvedQty ?: ($dCase->seizure_quantity ?? '1 Package');
+            $exWeight = $firstExhibit?->gross_weight ?? ($firstExhibit?->net_weight ?? ($dCase->sample_weight_gross ?? ($dCase->weight ?? ($dCase->seizure_weight ?? 'N/A'))));
+            $exSource = $firstExhibit?->source_of_exhibits ?? ($dCase->raid_location ?? ($dCase->seizure_location ?? ($dCase->location ?? 'NACOC Command Station')));
+
+            // Remarks in lab sitrep must strictly fetch from exhibit_remark in exhibits table, fallback to 'Unspecified'
+            $resolvedExhibitRemark = !empty(trim((string)($firstExhibit?->exhibit_remark ?? ''))) ? trim((string)$firstExhibit->exhibit_remark) : null;
+            $statusTag = 'detected';
+            $remarks = $resolvedExhibitRemark ?: 'Unspecified';
 
             $caseDateTime = $dCase->incident_date 
                 ? Carbon::parse($dCase->incident_date) 
@@ -664,6 +708,8 @@ class LabSitrepReportService
 
             $seizuresList[] = [
                 'id'               => 'DB-' . ($dCase->id ?? $cNo),
+                'case_id'          => $dCase->id,
+                'real_case_id'     => $realId,
                 'date'             => $cDate,
                 'date_display'     => $cDateDisplay,
                 'source'           => $exSource,
@@ -682,6 +728,8 @@ class LabSitrepReportService
                 'weight'           => $exWeight,
                 'status_remarks'   => $remarks,
                 'status_tag'       => $statusTag,
+                'exhibit_id'       => $firstExhibit?->id,
+                'exhibit_remark'   => $resolvedExhibitRemark,
                 'lab_number'       => $dCase->laboratory_number ?? ('LAU/' . date('Y') . '/' . ($dCase->id ?? '001')),
             ];
         }
@@ -711,6 +759,7 @@ class LabSitrepReportService
                 'purpose'        => $ds->purpose ?: 'Investigative & Intake',
                 'result'         => $res,
                 'result_badge'   => $resBadge,
+                'substances_found' => $ds->substances_found,
                 'notes'          => $ds->notes ?: ($ds->substances_found ? 'Substances: ' . $ds->substances_found : 'Point-of-care drug screen registered.'),
             ];
         }
@@ -724,25 +773,31 @@ class LabSitrepReportService
         foreach ($dbGsaReports as $gReport) {
             $subDate = $gReport->created_at ? Carbon::parse($gReport->created_at) : now();
 
+            $rawExType = trim((string)($gReport->exhibit_type ?? ''));
+            $exhibitType = $rawExType !== '' ? $rawExType : 'N/A';
+
             $gsaSubmissions[] = [
-                'sn'              => $gsaCounter++,
-                'case_reference'  => $gReport->case_number ?: ($gReport->gsa_case_reference ?: 'GSA-REF-' . $gReport->id),
-                'exhibit_type'    => $gReport->original_filename ?: 'Chemical Exhibit Specimen',
-                'gsa_lab_no'      => $gReport->gsa_lab_number ?: ($gReport->lab_number ?: 'GSA/LAB/' . date('Y')),
-                'submission_date' => $subDate->format('d F Y'),
-                'status'          => $gReport->gsa_status ?: ($gReport->status ?: 'Exhibits duly submitted awaiting laboratory report.'),
-                'status_badge'    => 'pending',
-                'notes'           => $gReport->notes ?: 'Transferred for external confirmatory laboratory testing.',
+                'sn'                  => $gsaCounter++,
+                'case_reference'      => $gReport->gsa_case_reference ?: ($gReport->case_number ?: 'GSA-REF-' . $gReport->id),
+                'gsa_case_reference'  => $gReport->gsa_case_reference ?: ($gReport->case_number ?: 'GSA-REF-' . $gReport->id),
+                'exhibit_type'        => $exhibitType,
+                'gsa_lab_no'          => $gReport->gsa_lab_number ?: ($gReport->lab_number ?: 'GSA/LAB/' . date('Y')),
+                'gsa_lab_number'      => $gReport->gsa_lab_number ?: ($gReport->lab_number ?: 'GSA/LAB/' . date('Y')),
+                'submission_date'     => $subDate->format('d F Y'),
+                'status'              => $gReport->gsa_status ?: ($gReport->status ?: 'Exhibits duly submitted awaiting laboratory report.'),
+                'gsa_status'          => $gReport->gsa_status ?: ($gReport->status ?: 'Exhibits duly submitted awaiting laboratory report.'),
+                'status_badge'        => 'pending',
+                'notes'               => $gReport->notes ?: 'Transferred for external confirmatory laboratory testing.',
             ];
         }
 
         // WHY Fix Issue 7b: Removed fabricated fallback GSA submissions. Return empty state when empty.
 
         // 6. Dynamic Period Range Bounds & Presets
-        if ($rawPeriod === 'weekly' && empty($fromDate) && empty($toDate)) {
+        if (in_array($rawPeriod, ['weekly', 'week']) && empty($fromDate) && empty($toDate)) {
             $fromDate = now()->subDays(7)->format('Y-m-d');
             $toDate   = now()->format('Y-m-d');
-        } elseif ($rawPeriod === 'monthly' && empty($fromDate) && empty($toDate)) {
+        } elseif (in_array($rawPeriod, ['monthly', 'month']) && empty($fromDate) && empty($toDate)) {
             $fromDate = now()->startOfMonth()->format('Y-m-d');
             $toDate   = now()->endOfMonth()->format('Y-m-d');
         } elseif (in_array($rawPeriod, ['annual', 'annually', 'yearly', 'year']) && empty($fromDate) && empty($toDate)) {
@@ -751,22 +806,38 @@ class LabSitrepReportService
         }
 
         // 7. Dynamic Report Headings and Period Description
+        $hasCustomRange = (!empty($fromDate) || !empty($toDate)) && !in_array($rawPeriod, ['weekly', 'week', 'monthly', 'month', 'annual', 'annually', 'yearly', 'year', 'all', 'general']);
+
         if (!empty($selectedSuspect) && strtolower($selectedSuspect) !== 'all') {
             $reportTypeLabel = 'INDIVIDUAL SUSPECT FORENSIC DRUG REPORT';
             $periodLabel = !empty($fromDate) && !empty($toDate)
                 ? 'Period: ' . date('d F', strtotime($fromDate)) . ' – ' . date('d F Y', strtotime($toDate))
                 : 'Suspect: ' . $selectedSuspect;
             $reportScopeDisplay = 'Target Suspect Dossier';
+        } elseif (in_array($rawPeriod, ['weekly', 'week'])) {
+            $reportTypeLabel = 'WEEKLY DRUG FORENSIC REPORT';
+            $periodLabel = !empty($fromDate) && !empty($toDate)
+                ? 'Period: ' . date('d F', strtotime($fromDate)) . ' – ' . date('d F Y', strtotime($toDate))
+                : 'Period: Past 7 Days (' . now()->subDays(7)->format('d F') . ' – ' . now()->format('d F Y') . ')';
+            $reportScopeDisplay = 'Weekly Operations Review';
+        } elseif (in_array($rawPeriod, ['monthly', 'month'])) {
+            $reportTypeLabel = 'MONTHLY DRUG FORENSIC REPORT';
+            $periodLabel = !empty($fromDate) && !empty($toDate)
+                ? 'Period: ' . date('d F', strtotime($fromDate)) . ' – ' . date('d F Y', strtotime($toDate))
+                : 'Period: Month of ' . now()->format('F Y');
+            $reportScopeDisplay = 'Monthly Operations Review';
         } elseif (in_array($rawPeriod, ['annual', 'annually', 'yearly', 'year'])) {
-            $reportTypeLabel = 'ANNUAL SITUATIONAL REPORT';
-            $periodLabel = 'Period: Calendar Year ' . now()->format('Y');
+            $reportTypeLabel = 'ANNUAL DRUG FORENSIC REPORT';
+            $periodLabel = !empty($fromDate) && !empty($toDate)
+                ? 'Period: ' . date('d F Y', strtotime($fromDate)) . ' – ' . date('d F Y', strtotime($toDate))
+                : 'Period: Calendar Year ' . now()->format('Y');
             $reportScopeDisplay = 'Annual Directory Register';
-        } elseif (!empty($fromDate) || !empty($toDate) || in_array($rawPeriod, ['custom', 'date_range', 'range'])) {
-            $reportTypeLabel = 'SITUATIONAL DRUG FORENSIC REPORT';
+        } elseif ($hasCustomRange || in_array($rawPeriod, ['custom', 'date_range', 'range'])) {
+            $reportTypeLabel = 'CUSTOM DRUG FORENSIC REPORT';
             $periodLabel = 'Period: ' . ($fromDate ?: 'Start') . ' to ' . ($toDate ?: 'Present');
             $reportScopeDisplay = 'Custom Date Filter';
         } else {
-            $reportTypeLabel = 'GENERAL SITUATIONAL FORENSIC REPORT';
+            $reportTypeLabel = 'GENERAL DRUG FORENSIC REPORT';
             $periodLabel = 'Period: All Registered Cases (Cumulative)';
             $reportScopeDisplay = 'All Cases Cumulative Review';
         }
@@ -879,6 +950,10 @@ class LabSitrepReportService
         $totalScreeningsCount = count($filteredScreenings);
         $totalGsaCount = count($gsaSubmissions);
 
+        // Resolve exhibit remarks in batch to eliminate N+1 queries in views
+        $filteredSeizures = $this->resolveExhibitRemarks($filteredSeizures);
+        $seizuresList     = $this->resolveExhibitRemarks($seizuresList);
+
         // Fix Issue 20: 'allScreeningRecords' removed as it is never referenced in views
         return [
             'filteredSeizures'      => collect($filteredSeizures),
@@ -909,6 +984,199 @@ class LabSitrepReportService
             'labHeadSignature'      => $labHeadSignature,
             'deptHeadName'          => $deptHeadName,
             'deptHeadSignature'     => $deptHeadSignature,
+            'intelDirectorName'      => $intelDirectorName,
+            'intelDirectorSignature' => $intelDirectorSignature,
+            'generatedDate'         => now()->format('d F Y'),
         ];
+    }
+
+    /**
+     * Resolve and attach exhibit remarks in batch to eliminate N+1 queries.
+     *
+     * Batching Strategy:
+     * - Query 1 (Direct IDs): Gathers all non-empty 'exhibit_id's from seizures and fetches
+     *   exhibit records in a single batched `Exhibit::whereIn('id', $ids)` query.
+     * - Query 2 (Grouped Case Fallback): For any remaining items lacking a remark, collects
+     *   the case references and case IDs to query exhibits via `whereHas('singleCase')`
+     *   and `whereHas('multipleCase')` or matching foreign keys in one batched query.
+     * - Merged in PHP: Remarks are mapped in-memory by ID / case reference and attached
+     *   to each `$item['exhibit_remark']` before view rendering.
+     *
+     * @param array|\Illuminate\Support\Collection $seizures
+     * @return array
+     */
+    public function resolveExhibitRemarks($seizures): array
+    {
+        $items = $seizures instanceof Collection ? $seizures->all() : (array)$seizures;
+        if (empty($items)) {
+            return [];
+        }
+
+        // 1. Collect direct exhibit IDs and identify unresolved items
+        $exhibitIds = [];
+        $unresolvedIndexes = [];
+
+        foreach ($items as $idx => $item) {
+            if (!empty($item['exhibit_remark']) && $item['exhibit_remark'] !== 'Unspecified') {
+                continue;
+            }
+            if (!empty($item['exhibit_id'])) {
+                $exhibitIds[] = $item['exhibit_id'];
+            }
+            $unresolvedIndexes[] = $idx;
+        }
+
+        // Query 1: Direct Exhibit ID lookup
+        $exhibitsById = collect();
+        if (!empty($exhibitIds)) {
+            $exhibitsById = \App\Models\Exhibit::whereIn('id', array_unique($exhibitIds))
+                ->whereNotNull('exhibit_remark')
+                ->where('exhibit_remark', '!=', '')
+                ->get()
+                ->keyBy('id');
+        }
+
+        // 2. Map direct exhibits and collect pending cases for fallback lookup
+        $pendingIndexes = [];
+        $singleCaseRefs = [];
+        $singleCaseIds = [];
+        $multiCaseRefs = [];
+        $multiCaseIds = [];
+
+        foreach ($unresolvedIndexes as $idx) {
+            $item = $items[$idx];
+            $exId = $item['exhibit_id'] ?? null;
+
+            if ($exId && isset($exhibitsById[$exId])) {
+                $rem = trim((string)$exhibitsById[$exId]->exhibit_remark);
+                $items[$idx]['exhibit_remark'] = $rem;
+                $items[$idx]['status_remarks'] = $rem;
+                continue;
+            }
+
+            $cRef = $item['case_reference'] ?? null;
+            $realCaseId = $item['real_case_id'] ?? ($item['case_id'] ?? null);
+            if (empty($realCaseId) && !empty($item['id'])) {
+                $rawId = str_replace('DB-', '', (string)$item['id']);
+                if (is_numeric($rawId)) {
+                    $realCaseId = (int)$rawId;
+                }
+            }
+            $cleanId = !empty($item['id']) ? preg_replace('/[^0-9]/', '', (string)$item['id']) : null;
+            $isMulti = !empty($item['is_multiple']) || (isset($item['case_type']) && strtoupper($item['case_type']) === 'MULTIPLE');
+
+            if ($isMulti) {
+                if (!empty($cRef)) $multiCaseRefs[] = $cRef;
+                if (!empty($realCaseId)) $multiCaseIds[] = $realCaseId;
+                elseif (!empty($cleanId)) $multiCaseIds[] = $cleanId;
+            } else {
+                if (!empty($cRef)) $singleCaseRefs[] = $cRef;
+                if (!empty($realCaseId)) $singleCaseIds[] = $realCaseId;
+                elseif (!empty($cleanId)) $singleCaseIds[] = $cleanId;
+            }
+
+            $pendingIndexes[] = $idx;
+        }
+
+        // Query 2: Batched fallback query for remaining unresolved items
+        if (!empty($pendingIndexes)) {
+            $fallbackSingle = collect();
+            $fallbackMulti = collect();
+
+            if (!empty($singleCaseRefs) || !empty($singleCaseIds)) {
+                $fallbackSingle = \App\Models\Exhibit::where(function ($q) use ($singleCaseRefs, $singleCaseIds) {
+                    if (!empty($singleCaseRefs)) {
+                        $q->whereHas('singleCase', fn($sq) => $sq->whereIn('case_number', array_unique($singleCaseRefs)));
+                    }
+                    if (!empty($singleCaseIds)) {
+                        $q->orWhereIn('single_suspect_case_id', array_unique($singleCaseIds));
+                    }
+                })
+                ->whereNotNull('exhibit_remark')
+                ->where('exhibit_remark', '!=', '')
+                ->with('singleCase:id,case_number')
+                ->latest('id')
+                ->get();
+            }
+
+            if (!empty($multiCaseRefs) || !empty($multiCaseIds)) {
+                $fallbackMulti = \App\Models\Exhibit::where(function ($q) use ($multiCaseRefs, $multiCaseIds) {
+                    if (!empty($multiCaseRefs)) {
+                        $q->whereHas('multipleCase', fn($mq) => $mq->whereIn('case_number', array_unique($multiCaseRefs)));
+                    }
+                    if (!empty($multiCaseIds)) {
+                        $q->orWhereIn('multiple_suspect_case_id', array_unique($multiCaseIds));
+                    }
+                })
+                ->whereNotNull('exhibit_remark')
+                ->where('exhibit_remark', '!=', '')
+                ->with('multipleCase:id,case_number')
+                ->latest('id')
+                ->get();
+            }
+
+            $singleMap = [];
+            foreach ($fallbackSingle as $ex) {
+                $remark = trim((string)$ex->exhibit_remark);
+                if (empty($remark)) continue;
+                if (!empty($ex->single_suspect_case_id) && !isset($singleMap['id_' . $ex->single_suspect_case_id])) {
+                    $singleMap['id_' . $ex->single_suspect_case_id] = $remark;
+                }
+                if ($ex->singleCase && !empty($ex->singleCase->case_number) && !isset($singleMap['ref_' . $ex->singleCase->case_number])) {
+                    $singleMap['ref_' . $ex->singleCase->case_number] = $remark;
+                }
+            }
+
+            $multiMap = [];
+            foreach ($fallbackMulti as $ex) {
+                $remark = trim((string)$ex->exhibit_remark);
+                if (empty($remark)) continue;
+                if (!empty($ex->multiple_suspect_case_id) && !isset($multiMap['id_' . $ex->multiple_suspect_case_id])) {
+                    $multiMap['id_' . $ex->multiple_suspect_case_id] = $remark;
+                }
+                if ($ex->multipleCase && !empty($ex->multipleCase->case_number) && !isset($multiMap['ref_' . $ex->multipleCase->case_number])) {
+                    $multiMap['ref_' . $ex->multipleCase->case_number] = $remark;
+                }
+            }
+
+            // In-memory merge fallback remarks
+            foreach ($pendingIndexes as $idx) {
+                $item = $items[$idx];
+                $cRef = $item['case_reference'] ?? null;
+                $realCaseId = $item['real_case_id'] ?? ($item['case_id'] ?? null);
+                if (empty($realCaseId) && !empty($item['id'])) {
+                    $rawId = str_replace('DB-', '', (string)$item['id']);
+                    if (is_numeric($rawId)) {
+                        $realCaseId = (int)$rawId;
+                    }
+                }
+                $cleanId = !empty($item['id']) ? preg_replace('/[^0-9]/', '', (string)$item['id']) : null;
+                $isMulti = !empty($item['is_multiple']) || (isset($item['case_type']) && strtoupper($item['case_type']) === 'MULTIPLE');
+
+                $map = $isMulti ? $multiMap : $singleMap;
+                $foundRem = null;
+                if ($realCaseId && isset($map['id_' . $realCaseId])) {
+                    $foundRem = $map['id_' . $realCaseId];
+                } elseif ($cleanId && isset($map['id_' . $cleanId])) {
+                    $foundRem = $map['id_' . $cleanId];
+                } elseif ($cRef && isset($map['ref_' . $cRef])) {
+                    $foundRem = $map['ref_' . $cRef];
+                }
+
+                if ($foundRem) {
+                    $items[$idx]['exhibit_remark'] = $foundRem;
+                    $items[$idx]['status_remarks'] = $foundRem;
+                }
+            }
+        }
+
+        foreach ($items as $idx => $item) {
+            if (empty($items[$idx]['exhibit_remark'])) {
+                $items[$idx]['exhibit_remark'] = 'Unspecified';
+                $items[$idx]['status_remarks'] = 'Unspecified';
+            }
+        }
+
+        return $items;
     }
 }

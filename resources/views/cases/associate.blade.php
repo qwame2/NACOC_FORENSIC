@@ -10,7 +10,68 @@
 <head>
     @php
         $authUser = auth()->user();
-        $isLabAnalysis = request()->is('Lab_Analysis*') || request()->is('lab-analysis*') || request()->query('from') === 'lab' || request()->query('unit') === 'Lab Analysis';
+
+        // Resolve active unit context
+        $unitParam = $unitContext ?? request()->query('from') ?? request()->query('unit') ?? ($authUser->unit ?? '');
+        $unitLower = strtolower((string)$unitParam);
+
+        $isLabAnalysis = str_contains($unitLower, 'lab');
+        $isDigitalForensics = str_contains($unitLower, 'digital') || str_contains($unitLower, 'physical');
+        $isCrimeScene = str_contains($unitLower, 'crime') || str_contains($unitLower, 'field');
+        $isEvidenceMgmt = str_contains($unitLower, 'evidence');
+        $isDirectorate = str_contains($unitLower, 'directorate') || str_contains($unitLower, 'head') || (!empty($authUser->is_head) && !$isLabAnalysis && !$isDigitalForensics && !$isCrimeScene && !$isEvidenceMgmt);
+
+        // Fallback to user's unit if unitParam was empty
+        if (!$isLabAnalysis && !$isDigitalForensics && !$isCrimeScene && !$isEvidenceMgmt && !$isDirectorate) {
+            $userUnitLower = strtolower((string)($authUser->unit ?? ''));
+            if (str_contains($userUnitLower, 'lab')) $isLabAnalysis = true;
+            elseif (str_contains($userUnitLower, 'digital') || str_contains($userUnitLower, 'physical')) $isDigitalForensics = true;
+            elseif (str_contains($userUnitLower, 'evidence')) $isEvidenceMgmt = true;
+            else $isCrimeScene = true;
+        }
+
+        if ($isLabAnalysis) {
+            $activeUnitKey = 'lab';
+            $activeUnitName = 'Laboratory Analysis Unit (LAU)';
+            $activeUnitBadge = 'LABORATORY ANALYSIS';
+            $activeUnitTheme = 'emerald';
+            $activeUnitBackUrl = '/Lab_Analysis';
+            $allowedCategories = $allowedCategories ?? ['Drugs'];
+            $defaultCategory = $defaultCategory ?? 'Drugs';
+        } elseif ($isDigitalForensics) {
+            $activeUnitKey = 'digital';
+            $activeUnitName = 'Digital & Physical Forensics Unit (DPFU)';
+            $activeUnitBadge = 'DIGITAL & PHYSICAL FORENSICS';
+            $activeUnitTheme = 'blue';
+            $activeUnitBackUrl = '/Digital_Forensics';
+            $allowedCategories = $allowedCategories ?? ['Electronic Devices'];
+            $defaultCategory = $defaultCategory ?? 'Electronic Devices';
+        } elseif ($isCrimeScene) {
+            $activeUnitKey = 'crime';
+            $activeUnitName = 'Crime Scene Support Unit (CSSU)';
+            $activeUnitBadge = 'CRIME SCENE SUPPORT';
+            $activeUnitTheme = 'slate';
+            $activeUnitBackUrl = '/Crime_Scene_Support';
+            $allowedCategories = $allowedCategories ?? ['Weapons', 'Ammunition', 'Vehicles', 'Other Exhibits', 'Drugs'];
+            $defaultCategory = $defaultCategory ?? 'Weapons';
+        } elseif ($isEvidenceMgmt) {
+            $activeUnitKey = 'evidence';
+            $activeUnitName = 'Evidence Management Unit (EMU)';
+            $activeUnitBadge = 'EVIDENCE MANAGEMENT';
+            $activeUnitTheme = 'amber';
+            $activeUnitBackUrl = '/Evidence_Management';
+            $allowedCategories = $allowedCategories ?? ['Drugs', 'Money', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
+            $defaultCategory = $defaultCategory ?? 'Drugs';
+        } else {
+            $activeUnitKey = 'all';
+            $activeUnitName = 'Forensic Directorate Case Operations';
+            $activeUnitBadge = 'FORENSIC DIRECTORATE';
+            $activeUnitTheme = 'indigo';
+            $activeUnitBackUrl = '/cases';
+            $allowedCategories = $allowedCategories ?? ['Drugs', 'Money', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
+            $defaultCategory = $defaultCategory ?? '';
+        }
+
         $todayDate = date('Y-m-d');
         $caseNumClean = preg_replace('/[^A-Za-z0-9]/', '', $case->case_number ?? 'CASE-001');
 
@@ -24,7 +85,7 @@
         // reference generation across the application.
         $caseRefService = app(\App\Services\CaseReferenceService::class);
         $examRefAuto    = $caseRefService->resolveExamReference($case ?? null, $dData ?? []);
-        $caseRefAuto    = $case->case_number ?? ('CR-' . date('Y') . '/0098');
+        $caseRefAuto    = $case->case_number ?? app(\App\Services\CaseNumberService::class)->generate();
         $labNumberAuto  = $case->laboratory_number ?? $caseRefService->generateLabNumber();
 
         $existingSeizures = (isset($dData['seizures']) && is_array($dData['seizures']) && count($dData['seizures']) > 0)
@@ -54,9 +115,15 @@
                 : (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase
                    || ($case instanceof \App\Models\MultipleSuspectCase));
 
-            $activeExhibit = $case->exhibits()
-                ->latest('id')
-                ->first(); // active exhibit = most recently added
+            if (method_exists($case, 'exhibits')) {
+                $activeExhibit = $case->exhibits()->latest('id')->first();
+            } elseif (isset($case->underlyingRecord) && method_exists($case->underlyingRecord, 'exhibits')) {
+                $activeExhibit = $case->underlyingRecord->exhibits()->latest('id')->first();
+            } else {
+                $activeExhibit = \App\Models\Exhibit::where($isMultiCase ? 'multiple_suspect_case_id' : 'single_suspect_case_id', $case->id)
+                    ->latest('id')
+                    ->first();
+            }
 
             if ($activeExhibit) {
                 $activeSuspectHasSavedResult = \App\Models\LaboratoryExaminationResult::where('exhibit_id', $activeExhibit->id)->exists();
@@ -156,7 +223,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Associate Case Data - Suspect Docket Portal | NACOC Forensic</title>
+    <title>{{ $activeUnitName }} — Associate Case Data | NACOC Forensic</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -337,17 +404,17 @@
             <!-- TOP WORKSPACE NAVBAR -->
             <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-2xs">
                 <div class="flex items-center space-x-3">
-                    <span class="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-mono-code font-bold rounded-lg uppercase tracking-wider">
-                        CASE ASSOCIATION PORTAL
+                    <span class="px-2.5 py-1 bg-{{ $activeUnitTheme }}-100 text-{{ $activeUnitTheme }}-800 text-[10px] font-mono-code font-bold rounded-lg uppercase tracking-wider">
+                        {{ $activeUnitBadge }} PORTAL
                     </span>
                     <span class="text-sm font-extrabold text-slate-900 font-mono-code">
                         REF: {{ $case->case_number }}
                     </span>
                 </div>
                 <div class="flex items-center space-x-3">
-                    <a href="{{ url('/cases') . ($isLabAnalysis ? '?unit=Lab+Analysis' : '') }}" class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5 cursor-pointer">
+                    <a href="{{ url($activeUnitBackUrl) }}" class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5 cursor-pointer">
                         <span>&larr;</span>
-                        <span>Back to Case Directory</span>
+                        <span>Back to {{ $activeUnitBadge }}</span>
                     </a>
                 </div>
             </header>
@@ -361,12 +428,12 @@
                 <div class="bg-slate-100 p-6 rounded-2xl border-none shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">CASE ASSOCIATIONS</span>
+                            <span class="px-2.5 py-0.5 bg-{{ $activeUnitTheme }}-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">{{ $activeUnitBadge }}</span>
                             <span class="text-xs text-slate-400">&bull;</span>
-                            <span class="text-xs font-bold text-slate-700 font-mono-code">NACOC FORENSIC DIRECTORATE</span>
+                            <span class="text-xs font-bold text-slate-700 font-mono-code">{{ strtoupper($activeUnitName) }}</span>
                         </div>
                         <h1 class="text-2xl font-black text-slate-900 tracking-tight">Associate Case Data &amp; Suspect Docket Portal</h1>
-                        <p class="text-xs text-slate-600 mt-1 font-medium">Link new accomplices, co-suspects, informants, or seized exhibits to Case <strong class="text-blue-600 font-mono-code">{{ $case->case_number }}</strong> ({{ $case->title }})</p>
+                        <p class="text-xs text-slate-600 mt-1 font-medium">Link new accomplices, co-suspects, or unit exhibits to Case <strong class="text-blue-600 font-mono-code">{{ $case->case_number }}</strong> ({{ $case->title }})</p>
                     </div>
                     <div class="flex items-center space-x-2 shrink-0">
                         <span class="px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-mono-code font-bold text-slate-700 shadow-2xs">
@@ -378,7 +445,7 @@
                 <!-- MAIN FORM WRAPPER -->
                 <form id="associateDocketForm" action="/cases/{{ $case->case_number }}/associate" method="POST" autocomplete="off" class="space-y-6 text-xs font-medium">
                     @csrf
-                    <input type="hidden" name="from_unit" value="{{ $isLabAnalysis ? 'Lab Analysis' : (request()->query('unit') ?? request()->query('from') ?? '') }}">
+                    <input type="hidden" name="from_unit" value="{{ $activeUnitName }}">
 
                     <!-- SECTION 1: SAVED CASE INFORMATION & SUSPECT BIO DATA (READ-ONLY) -->
                     <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 relative">
@@ -409,8 +476,8 @@
                                 <input type="text" value="{{ $case->title }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
                             </div>
                             <div>
-                                <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Submitting Officer</label>
-                                <input type="text" value="{{ $case->submitting_officer ?? 'Handling Officer' }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
+                                <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Arresting Officer</label>
+                                <input type="text" value="{{ $case->arresting_officer ?? ($case->submitting_officer ?? 'Handling Officer') }}" readonly class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 cursor-not-allowed">
                             </div>
                             <div>
                                 <label class="block text-slate-900 font-extrabold text-[11px] font-mono-code uppercase text-black mb-1">Seizing Officer(s)</label>
@@ -760,21 +827,21 @@
                     </div>
 
                     <!-- SECTION 3: ADD NEW ASSOCIATED EXHIBITS & COMMODITIES -->
-                    <div class="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-5 relative">
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5 relative">
                         
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center space-x-3">
-                                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                <div class="w-9 h-9 rounded-xl bg-{{ $activeUnitTheme }}-600 text-white flex items-center justify-center font-bold shadow-md shadow-{{ $activeUnitTheme }}-600/30">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 </div>
                                 <div>
-                                    <h3 class="font-black text-slate-900 text-base">Section 3: Add Associated Seizures &amp; Exhibits</h3>
-                                    <p class="text-xs text-slate-500">Record illicit substance types, weight/quantity, packaging, street valuation, or property linked to this investigation</p>
+                                    <h3 class="font-black text-slate-900 text-base">Section 3: Add Associated {{ $isLabAnalysis ? 'Drug Exhibits & Commodities' : ($isDigitalForensics ? 'Electronic Devices & Digital Evidence' : ($isCrimeScene ? 'Weapons, Vehicles & Scene Exhibits' : 'Seizures & Exhibits')) }}</h3>
+                                    <p class="text-xs text-slate-500">{{ $isLabAnalysis ? 'Record illicit substance types, gross weight, sample taken, packaging, or street valuation linked to this investigation' : ($isDigitalForensics ? 'Record seized electronic devices (phones, laptops, storage drives, IMEI, MAC address, serials) for this investigation' : 'Record illicit substance types, weapons, vehicles, electronic devices, or property linked to this investigation') }}</p>
                                 </div>
                             </div>
-                            <button type="button" onclick="addAssociateSeizureBlock()" data-testid="add-seizure-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
+                            <button type="button" onclick="addAssociateSeizureBlock()" data-testid="add-seizure-btn" class="px-4 py-2 bg-{{ $activeUnitTheme }}-600 hover:bg-{{ $activeUnitTheme }}-700 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center space-x-1.5 cursor-pointer border-none">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                <span>+ Add Seizure Block</span>
+                                <span>+ Add {{ $isLabAnalysis ? 'Drug Exhibit' : ($isDigitalForensics ? 'Electronic Device' : 'Exhibit Item') }}</span>
                             </button>
                         </div>
 
@@ -786,7 +853,7 @@
                     </div>
 
                     <!-- SECTION 4: FORENSIC EXAMINATION & LABORATORY ANALYSIS (LAB ANALYSIS EXCLUSIVE) -->
-                    @if($isLabAnalysis && !empty($isDrugCase))
+                    @if($isLabAnalysis)
                     <div class="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-6 relative">
                         
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -985,7 +1052,7 @@
                                         <span class="text-[10px] text-slate-500 font-medium italic">Click to log additional chemical/substance reaction test results</span>
                                     </div>
 
-                                    <input type="hidden" id="presumptiveReactionResultInput" name="presumptive_reaction_result_input" value="YES (Positive Colorimetric Reaction)">
+                                    <input type="hidden" id="presumptiveReactionResultInput" name="presumptive_reaction_result_input" value="">
                                 </div>
                             </div>
                         </div>
@@ -1265,7 +1332,7 @@
     <script>
         let personCounter = 0;
 
-                // WHY: Nationalities loaded from config via @json() — see config/nationalities.php.
+        // WHY: Nationalities loaded from config via json directive — see config/nationalities.php.
         // Reduces Blade page weight by ~6 KB and centralizes the list.
         const worldNationalitiesList = @json(config('nationalities.list', []));
 
@@ -2055,9 +2122,9 @@
         function openPkgListPanel(el) { openSeizurePanel(el, '.pkg-list-panel'); }
         function openUnitListPanel(el) { openSeizurePanel(el, '.unit-list-panel'); }
 
-        function selectExhibitCategory(val, e) {
+        function selectExhibitCategory(val, e, targetBlock = null) {
             if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
+            const root = targetBlock || (e ? getSeizureBlockFromEvent(e) : null) || document.querySelector('.seizure-block') || document;
             const input   = root.querySelector('.new-seizure-category');
             const display = root.querySelector('.exhibit-search-input');
             const panel   = root.querySelector('.exhibit-list-panel');
@@ -2218,6 +2285,7 @@
             } else if (category === 'Electronic Devices') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
+                if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
                 if (deviceSearch)  { deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
             } else {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
@@ -2573,10 +2641,42 @@
                 });
             });
         }, true);
-function addAssociateSeizureBlock() {
+        const UNIT_ALLOWED_CATEGORIES = @json($allowedCategories);
+        const UNIT_DEFAULT_CATEGORY = @json($defaultCategory);
+        const ACTIVE_UNIT_KEY = @json($activeUnitKey);
+
+        const ALL_EXHIBIT_CATEGORIES_META = {
+            'Drugs': { name: 'Drugs', desc: 'Narcotics, Synthetics, Opioids', code: 'DRG', cls: 'bg-emerald-50 text-emerald-800' },
+            'Electronic Devices': { name: 'Electronic Devices', desc: 'Phones, Encrypted Laptops, Drives', code: 'ELEC', cls: 'bg-blue-50 text-blue-700' },
+            'Weapons': { name: 'Weapons', desc: 'Firearms, Handguns, Blades', code: 'WPN', cls: 'bg-red-50 text-red-700' },
+            'Ammunition': { name: 'Ammunition', desc: 'Bullets, Cartridges, Explosives', code: 'AMMO', cls: 'bg-orange-50 text-orange-700' },
+            'Vehicles': { name: 'Vehicles', desc: 'Automobiles, Vessels, Trucks', code: 'VEH', cls: 'bg-emerald-50 text-emerald-800' },
+            'Money': { name: 'Money', desc: 'Cash, Foreign Currencies, Laundering', code: 'CASH', cls: 'bg-emerald-50 text-emerald-800' },
+            'Gold': { name: 'Gold', desc: 'Bullion, Bars, Smuggled Metals', code: 'MET', cls: 'bg-amber-50 text-amber-800' },
+            'Other Exhibits': { name: 'Other Exhibits', desc: 'Hardware, Miscellaneous Devices', code: 'MISC', cls: 'bg-slate-200 text-slate-700' }
+        };
+
+        function addAssociateSeizureBlock() {
             seizureCounter++;
             const container = document.getElementById('seizuresListContainer');
             if (!container) return;
+
+            let allowedCats = Array.isArray(UNIT_ALLOWED_CATEGORIES) && UNIT_ALLOWED_CATEGORIES.length > 0
+                ? UNIT_ALLOWED_CATEGORIES
+                : ['Drugs', 'Money', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
+
+            let categoryListHtml = '';
+            allowedCats.forEach(cName => {
+                const cMeta = ALL_EXHIBIT_CATEGORIES_META[cName] || { name: cName, desc: 'Exhibit Item', code: 'EX', cls: 'bg-slate-100 text-slate-700' };
+                categoryListHtml += `
+                    <li class="exhibit-item" onclick="selectExhibitCategory('${cMeta.name}', event)">
+                        <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
+                            <div><div class="font-extrabold text-slate-900">${cMeta.name}</div><div class="text-[10px] text-slate-500 font-normal">${cMeta.desc}</div></div>
+                            <span class="text-[10px] font-mono-code ${cMeta.cls} px-2 py-0.5 rounded font-bold">${cMeta.code}</span>
+                        </button>
+                    </li>
+                `;
+            });
 
             const card = document.createElement('div');
             card.id = `seizureBlock-${seizureCounter}`;
@@ -2610,7 +2710,7 @@ function addAssociateSeizureBlock() {
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
-                            <input type="text" class="exhibit-search-input w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text shadow-xs placeholder:text-slate-400" placeholder="Select or type exhibit category..." autocomplete="off" onclick="openExhibitListPanel(this)" oninput="filterExhibitList(this)" onfocus="openExhibitListPanel(this)">
+                            <input type="text" class="exhibit-search-input w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-text shadow-xs placeholder:text-slate-400" placeholder="${allowedCats.length === 1 ? allowedCats[0] : 'Select or type exhibit category...'}" autocomplete="off" onclick="openExhibitListPanel(this)" oninput="filterExhibitList(this)" onfocus="openExhibitListPanel(this)">
                             <input type="hidden" class="new-seizure-category" name="associated_exhibits[${seizureCounter}][category]" value="">
                         </div>
                         <div class="exhibit-list-panel hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2 z-[999999]" style="max-height: 280px; overflow-y: auto;">
@@ -2618,54 +2718,7 @@ function addAssociateSeizureBlock() {
                                 <input type="text" class="exhibit-search-inner w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-emerald-500 transition-colors" placeholder="Type to filter categories..." oninput="filterExhibitListInner(this)">
                             </div>
                             <ul class="exhibit-list max-h-48 overflow-y-auto space-y-1 text-xs py-1.5 px-1.5">
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Drugs', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Drugs</div><div class="text-[10px] text-slate-500 font-normal">Narcotics, Synthetics, Opioids</div></div>
-                                        <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">DRG</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Money', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Money</div><div class="text-[10px] text-slate-500 font-normal">Cash, Foreign Currencies, Laundering</div></div>
-                                        <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">CASH</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Gold', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Gold</div><div class="text-[10px] text-slate-500 font-normal">Bullion, Bars, Smuggled Metals</div></div>
-                                        <span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Vehicles', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Vehicles</div><div class="text-[10px] text-slate-500 font-normal">Automobiles, Vessels, Trucks</div></div>
-                                        <span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded font-bold">VEH</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Electronic Devices', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Electronic Devices</div><div class="text-[10px] text-slate-500 font-normal">Phones, Encrypted Laptops, Drives</div></div>
-                                        <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">ELEC</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Weapons', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Weapons</div><div class="text-[10px] text-slate-500 font-normal">Firearms, Handguns, Blades</div></div>
-                                        <span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">WPN</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Ammunition', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Ammunition</div><div class="text-[10px] text-slate-500 font-normal">Bullets, Cartridges, Explosives</div></div>
-                                        <span class="text-[10px] font-mono-code bg-orange-50 text-orange-700 px-2 py-0.5 rounded font-bold">AMMO</span>
-                                    </button>
-                                </li>
-                                <li class="exhibit-item" onclick="selectExhibitCategory('Other Exhibits', event)">
-                                    <button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 rounded-xl flex items-center justify-between transition-colors">
-                                        <div><div class="font-extrabold text-slate-900">Other Exhibits</div><div class="text-[10px] text-slate-500 font-normal">Hardware, Miscellaneous Devices</div></div>
-                                        <span class="text-[10px] font-mono-code bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">MISC</span>
-                                    </button>
-                                </li>
+                                ${categoryListHtml}
                             </ul>
                         </div>
                     </div>
@@ -3181,6 +3234,12 @@ function addAssociateSeizureBlock() {
             updateSeizureBlockNumbers();
             syncSection3SeizuresToSection4();
             setTimeout(syncSuspectNamesToExhibits, 50);
+
+            if (UNIT_DEFAULT_CATEGORY && allowedCats.includes(UNIT_DEFAULT_CATEGORY)) {
+                setTimeout(() => {
+                    selectExhibitCategory(UNIT_DEFAULT_CATEGORY, null, card);
+                }, 20);
+            }
         }
 
                 /**
@@ -3210,7 +3269,6 @@ function addAssociateSeizureBlock() {
                     alert(data.message || 'Photo upload failed.');
                 }
             } catch (err) {
-                console.error('Photo upload failed:', err);
                 alert('Photo upload failed — check your connection.');
             }
         }
@@ -3261,11 +3319,9 @@ function addAssociateSeizureBlock() {
          */
         function appendExhibitPhotoToGallery(seizureIdx, srcUrl) {
             if (!srcUrl || /^data:/i.test(srcUrl)) {
-                console.error('[security] Base64 photo refused — must upload via /upload-evidence-photos first.', { seizureIdx });
                 return;
             }
             if (!/^(https?:\/\/|\/)/i.test(srcUrl)) {
-                console.warn('Invalid photo URL scheme:', srcUrl);
                 return;
             }
 
@@ -3548,7 +3604,7 @@ function addAssociateSeizureBlock() {
             if (results.length > 0) {
                 inputEl.value = `YES (${results.join('; ')})`;
             } else {
-                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+                inputEl.value = '';
             }
         }
 

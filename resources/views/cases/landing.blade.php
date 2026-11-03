@@ -835,50 +835,6 @@
                             {{ $cases->links() }}
                         </div>
                     @endif
-
-                    <!-- PAGINATION FOOTER PANEL -->
-                    <div
-                        class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
-                        <div class="flex items-center space-x-3 text-slate-600">
-                            <div class="flex items-center space-x-1.5">
-                                <span class="text-slate-500 font-bold uppercase text-[10px]">Rows:</span>
-                                <select id="perPageSelect" onchange="changePerPage(this.value)"
-                                    class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-extrabold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs cursor-pointer">
-                                    <option value="10" selected>10</option>
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                </select>
-                            </div>
-                            <span class="text-slate-300">|</span>
-                            <div>
-                                Showing <span id="paginationRange" class="font-extrabold text-slate-900">0 - 0</span>
-                                of <span id="paginationTotal" class="font-extrabold text-slate-900">0</span> records
-                            </div>
-                        </div>
-
-                        <div class="flex items-center space-x-1.5" id="paginationControls">
-                            <button id="prevPageBtn" onclick="goToPage(currentPage - 1)"
-                                class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M15 19l-7-7 7-7" />
-                                </svg>
-                                <span>Prev</span>
-                            </button>
-
-                            <div id="pageNumbersContainer" class="flex items-center space-x-1"></div>
-
-                            <button id="nextPageBtn" onclick="goToPage(currentPage + 1)"
-                                class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
-                                <span>Next</span>
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
             </main>
@@ -929,8 +885,6 @@
     <!-- JAVASCRIPT LOGIC -->
     <script>
         let currentStatusFilter = 'ALL';
-        let currentPage = 1;
-        let itemsPerPage = 10;
 
         function updateClock() {
             const now = new Date();
@@ -945,7 +899,7 @@
             const searchInput = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
             const rows = Array.from(document.querySelectorAll('#casesTableBody .case-row'));
 
-            let matchingRows = [];
+            let visibleCount = 0;
             rows.forEach(row => {
                 const text = row.innerText.toLowerCase();
                 const status = row.getAttribute('data-status') || '';
@@ -954,38 +908,17 @@
                 const matchesStatus = (currentStatusFilter === 'ALL' || status === currentStatusFilter);
 
                 if (matchesSearch && matchesStatus) {
-                    matchingRows.push(row);
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            const totalMatching = matchingRows.length;
-            const totalPages = Math.max(1, Math.ceil(totalMatching / itemsPerPage));
-
-            if (currentPage > totalPages) currentPage = totalPages;
-            if (currentPage < 1) currentPage = 1;
-
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = Math.min(startIndex + itemsPerPage, totalMatching);
-
-            matchingRows.forEach((row, index) => {
-                if (index >= startIndex && index < endIndex) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                 }
             });
 
-            updatePaginationUI(startIndex, endIndex, totalMatching, totalPages);
-        }
-
-        function updatePaginationUI(startIndex, endIndex, totalMatching, totalPages) {
             const visibleCountEl = document.getElementById('visibleCaseCount');
-            if (visibleCountEl) visibleCountEl.innerText = totalMatching;
+            if (visibleCountEl) visibleCountEl.innerText = visibleCount;
 
             const badge = document.getElementById('activeFilterBadge');
-            const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
             if (badge) {
                 if (searchInput || currentStatusFilter !== 'ALL') {
                     badge.classList.remove('hidden');
@@ -993,57 +926,26 @@
                     badge.classList.add('hidden');
                 }
             }
-
-            const rangeEl = document.getElementById('paginationRange');
-            if (rangeEl) {
-                rangeEl.innerText = totalMatching > 0 ? `${startIndex + 1} - ${endIndex}` : '0 - 0';
-            }
-
-            const totalEl = document.getElementById('paginationTotal');
-            if (totalEl) totalEl.innerText = totalMatching;
-
-            const prevBtn = document.getElementById('prevPageBtn');
-            if (prevBtn) prevBtn.disabled = (currentPage <= 1);
-
-            const nextBtn = document.getElementById('nextPageBtn');
-            if (nextBtn) nextBtn.disabled = (currentPage >= totalPages || totalMatching === 0);
-
-            const pageContainer = document.getElementById('pageNumbersContainer');
-            if (pageContainer) {
-                let pagesHtml = '';
-                const maxVisibleButtons = 5;
-                let startPage = Math.max(1, currentPage - 2);
-                let endPage = Math.min(totalPages, startPage + maxVisibleButtons - 1);
-                if (endPage - startPage < maxVisibleButtons - 1) {
-                    startPage = Math.max(1, endPage - maxVisibleButtons + 1);
-                }
-
-                for (let i = startPage; i <= endPage; i++) {
-                    const isActive = (i === currentPage);
-                    pagesHtml +=
-                        `<button onclick="goToPage(${i})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}">${i}</button>`;
-                }
-                pageContainer.innerHTML = pagesHtml;
-            }
-        }
-
-        function goToPage(page) {
-            currentPage = page;
-            filterCases();
-        }
-
-        function changePerPage(val) {
-            itemsPerPage = parseInt(val, 10) || 10;
-            currentPage = 1;
-            filterCases();
         }
 
         function filterStatus(statusName, element) {
             currentStatusFilter = statusName;
-            currentPage = 1;
             document.querySelectorAll('.status-tab-btn').forEach(btn => btn.classList.remove('active-tab'));
             if (element) element.classList.add('active-tab');
             filterCases();
+        }
+
+        function goToPage(page) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', page);
+            window.location.href = url.toString();
+        }
+
+        function changePerPage(val) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', val);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
         }
 
         const isLabLanding = {{ $isLabLanding ? 'true' : 'false' }};
@@ -1071,7 +973,9 @@
                     (associateModal && !associateModal.classList.contains('hidden')) ||
                     activeActionMenu) return;
 
-                const res = await fetch('/api/cases', {
+                const currentSearch = window.location.search || '';
+                const apiEndpoint = currentSearch ? ('/api/cases' + currentSearch) : '/api/cases?per_page=15';
+                const res = await fetch(apiEndpoint, {
                     headers: {
                         'Accept': 'application/json'
                     }
@@ -1390,8 +1294,9 @@
 
                 tbody.innerHTML = html;
 
+                const totalCasesCount = (rawCasesData && rawCasesData.total !== undefined) ? rawCasesData.total : cases.length;
                 const totalEl = document.getElementById('statTotalCases');
-                if (totalEl) totalEl.innerText = cases.length;
+                if (totalEl) totalEl.innerText = totalCasesCount;
                 const labEl = document.getElementById('statPendingLab');
                 if (labEl) labEl.innerText = pendingLabCount;
                 const appEl = document.getElementById('statPendingApproval');
@@ -1402,11 +1307,11 @@
                 const visCountEl = document.getElementById('visibleCaseCount');
                 if (visCountEl && !searchInput && currentStatusFilter === 'ALL') visCountEl.innerText = cases.length;
                 const totCountEl = document.getElementById('totalCaseCount');
-                if (totCountEl) totCountEl.innerText = cases.length;
+                if (totCountEl) totCountEl.innerText = totalCasesCount;
 
                 filterCases();
             } catch (e) {
-                console.warn('Master cases polling failed:', e);
+                // Background polling failure handled silently
             }
         }
         setInterval(pollMasterCasesTable, 3000);

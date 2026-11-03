@@ -71,23 +71,18 @@
             <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-emerald-600 tracking-wider mb-2">Quick Filter by Unit</div>
             <nav class="space-y-1 text-xs font-semibold">
                 <button onclick="filterDeptHeadUnit('all', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-3 shrink-0"></span>
                     <span class="text-xs">All Units</span>
                 </button>
                 <button onclick="filterDeptHeadUnit('Crime Scene Support', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600 mr-3 shrink-0 shadow-xs shadow-blue-600/40"></span>
                     <span class="text-xs">Crime Scene Support</span>
                 </button>
                 <button onclick="filterDeptHeadUnit('Evidence Management', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 mr-3 shrink-0 shadow-xs shadow-indigo-600/40"></span>
                     <span class="text-xs">Evidence Management</span>
                 </button>
                 <button onclick="filterDeptHeadUnit('LAB Analysis', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-600 mr-3 shrink-0 shadow-xs shadow-emerald-600/40"></span>
                     <span class="text-xs">LAB Analysis</span>
                 </button>
                 <button onclick="filterDeptHeadUnit('Digital', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 mr-3 shrink-0 shadow-xs shadow-amber-500/40"></span>
                     <span class="text-xs">Digital &amp; Physical</span>
                 </button>
             </nav>
@@ -135,7 +130,7 @@
         $initials = count($nameParts) >= 2 
             ? strtoupper(substr($nameParts[0], 0, 1) . substr(end($nameParts), 0, 1))
             : strtoupper(substr($userName, 0, 2));
-        $userRole = ($authUser && $authUser->is_head) ? 'Forensic Head · NACOC' : 'Commanding Officer · NACOC';
+        $userRole = ($authUser && $authUser->is_head) ? 'Forensic Head - NACOC' : 'Commanding Officer - NACOC';
     @endphp
     <div class="p-3.5 bg-slate-200/60 space-y-2.5 border-t border-slate-200/80">
         <a href="{{ route('profile.settings') }}" class="flex items-center space-x-3 px-1 py-1 rounded-xl hover:bg-slate-300/50 transition-colors group text-decoration-none">

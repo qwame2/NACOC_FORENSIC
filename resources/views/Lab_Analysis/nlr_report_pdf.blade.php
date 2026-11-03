@@ -204,7 +204,7 @@
         <!-- TOP TOOLBAR -->
         <div class="bg-slate-900 text-white p-4 rounded-xl flex items-center justify-between shadow-lg">
             <div class="flex items-center gap-3">
-                <span class="px-2.5 py-1 bg-emerald-700 font-bold text-xs tracking-wider rounded">NACOC NLR REPORT</span>
+                <span class="px-2.5 py-1 bg-emerald-700 font-bold text-xs tracking-wider rounded">NACOC LAB RESULT (NLR REPORT)</span>
                 <span class="font-mono-code text-xs text-slate-300">Ref: {{ $caseNo }} &bull; {{ $labNo }}</span>
             </div>
             <div class="flex items-center gap-2.5">

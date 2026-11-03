@@ -2,7 +2,7 @@
     $exList = $dossierExhibits ?? ($primaryExhibits ?? []);
     $badgeText = $dossierBadgeText ?? 'PRIMARY EXHIBIT DOSSIER';
     $headingName = $dossierHeadingName ?? ($sName ?? 'Primary Suspect');
-    $headingText = $dossierHeadingText ?? "Primary Exhibits — {$headingName}";
+    $headingText = $dossierHeadingText ?? "Primary Suspect Seizures & Exhibits — {$headingName}";
 
     if (!isset($extractAllPhotosHelper) || !is_callable($extractAllPhotosHelper)) {
         $extractAllPhotosHelper = function ($item) {

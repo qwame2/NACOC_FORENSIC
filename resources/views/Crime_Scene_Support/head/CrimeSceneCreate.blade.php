@@ -13,9 +13,9 @@
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
         $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
         $officerName = auth()->user()->fullname ?? session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A'));
-        $examRefAuto = 'NLR-FM-T35-F';
-        $labNumberAuto = 'Lab No. ' . rand(10, 99) . '/FS' . date('m') . '/' . date('Y');
-        $caseRefAuto = 'NCC-' . date('Y') . '-' . rand(1000, 9999);
+        $examRefAuto = app(\App\Services\CaseReferenceService::class)->generateExamReference('Lab Analysis');
+        $labNumberAuto = app(\App\Services\CaseReferenceService::class)->generateLabNumber();
+        $caseRefAuto = app(\App\Services\CaseNumberService::class)->generate();
         $exhibitRefAuto = 'EXH-' . date('Y') . '-001-NFC';
         $todayDate = date('Y-m-d');
         $isDrugCase = false;
@@ -2344,6 +2344,24 @@
                                         </div>
                                     </div>
 
+                                    <!-- REMARKS / EXHIBIT REMARK -->
+                                    <div class="col-span-full md:col-span-1">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                            <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                            <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
+                                        </label>
+                                        <div class="relative flex items-start group">
+                                            <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                </svg>
+                                            </span>
+                                            <textarea id="newSeizureRemark" name="exhibit_remark" rows="3"
+                                                placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
+                                                class="seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                        </div>
+                                    </div>
+
                                 </div>
 
                                 <!-- VEHICLE SPECIFIC FIELDS -->
@@ -3012,7 +3030,7 @@
             if (results.length > 0) {
                 inputEl.value = `YES (${results.join('; ')})`;
             } else {
-                inputEl.value = `YES (Positive Colorimetric Reaction)`;
+                inputEl.value = '';
             }
         }
 
@@ -4465,7 +4483,6 @@
         function processNewArrested(confirmDuplicate = false) {
             // Check global lock immediately to prevent duplicate submissions on double-click
             if (isCaseSubmitting) {
-                console.warn('Case submission already in progress. Ignoring duplicate click.');
                 return;
             }
 
@@ -4506,7 +4523,7 @@
             const caseTitle = caseTitleInput && caseTitleInput.trim() !== '' && !/^republic\s+vs\.?$/i.test(caseTitleInput.trim())
                 ? caseTitleInput.trim()
                 : (name ? `Republic vs ${name}` : (caseTitleInput?.trim() || 'Republic vs'));
-            const caseRef = 'NCC-2026-' + Math.floor(1000 + Math.random() * 9000);
+            const caseRef = document.getElementById('labCaseReferenceInput')?.value || ('NCC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000));
 
             const spouseName = document.getElementById('newArrestedSpouseName')?.value || '';
             const spousePhone = document.getElementById('newArrestedSpousePhone')?.value || '';
@@ -4646,6 +4663,8 @@
                     finalAssocPerson = 'All Suspects';
                 }
 
+                const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
+
                 seizuresList.push({
                     item_number: itemNum,
                     exhibit_category: exhibitCat,
@@ -4671,6 +4690,7 @@
                     seizure_location: seizureLocation,
                     seizure_officer: seizureOfficer,
                     seizure_reason: seizureReason,
+                    exhibit_remark: exhibitRemark,
                     dev_model: devModel,
                     dev_serial_no: devSerialNo,
                     dev_imei1: devImei1,
@@ -4780,14 +4800,14 @@
             const vehMods = primarySeizure.veh?.mods || '';
             const vehFeatures = primarySeizure.veh?.features || '';
 
-            let presumptiveVal = 'YES (Positive Colorimetric Reaction)';
+            let presumptiveVal = null;
             const yesBox = document.getElementById('presumptiveTestYes');
             const noBox = document.getElementById('presumptiveTestNo');
             if (noBox && noBox.checked) {
                 presumptiveVal = 'NO (Negative Reaction)';
             } else if (yesBox && yesBox.checked) {
                 const customResult = document.getElementById('presumptiveReactionResultInput')?.value;
-                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES (Positive Colorimetric Reaction)';
+                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : null;
             }
 
             // Collect all suspects (Suspect #1 + any additional)
@@ -4930,10 +4950,12 @@
                     seizure_location: primarySeizure.seizure_location || null,
                     seizure_officer: primarySeizure.seizure_officer || null,
                     seizure_reason: primarySeizure.seizure_reason || null,
+                    exhibit_remark: primarySeizure.exhibit_remark || null,
                     exhibit_type: primarySeizure.exhibit_type || null,
                     drug_classification: primarySeizure.drug_classification || null,
                     valuation: valuationText,
                     exhibits_summary: seizureSummary,
+                    seizures: seizuresList,
                     docket_data: docketPayload,
                     ammunition_details: primarySeizure.ammunition_details || null,
 
@@ -4997,6 +5019,7 @@
                     status: 'Under Multi-Unit Processing',
                     location: `${raidLocation} (${address})`,
                     description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
+                    arresting_officer: primarySeizure.seizure_officer || null,
                     submitting_officer: primarySeizure.seizure_officer || null,
                     confirm_duplicate: confirmDuplicate ? 1 : 0
                 })
@@ -5080,7 +5103,6 @@
             .catch(err => {
                 setSubmittingState(false);
                 if (err.message === 'DUPLICATE_CASE_INTERCEPTED' || err.message === 'SESSION_EXPIRED') return;
-                console.error('Error saving case:', err);
                 const msg = err.message || 'An error occurred while saving the case. Please enter all required suspect details.';
                 const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
                 showValidationErrorPopover(errItems);
@@ -5120,9 +5142,7 @@
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-            } catch(e) {
-                console.warn('Could not save docket draft:', e);
-            }
+            } catch(e) {}
         }
 
         function handleDraftAndContinueLater() {
@@ -5218,9 +5238,7 @@
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
                 }
-            } catch(e) {
-                console.error('Error restoring docket draft:', e);
-            }
+            } catch(e) {}
         }
 
         function clearDocketFormDraft() {
@@ -5265,7 +5283,7 @@
             const modal = document.getElementById('successPopoverModal');
             const caseRefEl = document.getElementById('popoverCaseRef');
             if (caseRefEl) {
-                caseRefEl.textContent = ref || 'NCC-2026-4342';
+                caseRefEl.textContent = ref || '-';
             }
             if (modal) {
                 modal.classList.remove('hidden');
@@ -7106,9 +7124,7 @@
                             hideSuspectDuplicateNoticeCard();
                         }
                     }
-                } catch (e) {
-                    console.warn('Suspect duplicate check error:', e);
-                }
+                } catch (e) {}
             }, 400);
         }
 
@@ -7160,7 +7176,7 @@
             const mCase = data.matched_case || {};
             currentMatchedCaseNumber = mCase.case_number || null;
 
-            if (cRef) cRef.innerText = mCase.case_number || 'NCC-2026-XXXX';
+            if (cRef) cRef.innerText = mCase.case_number || 'NCC-{{ date('Y') }}-XXXX';
             if (cTitle) cTitle.innerText = mCase.title || 'Republic Vs Suspect';
             if (sName) sName.innerText = mCase.suspect_name || mCase.docket_data?.full_name || 'N/A';
             if (gCard) gCard.innerText = mCase.ghana_card || mCase.docket_data?.id_card || 'N/A';
@@ -7545,8 +7561,9 @@
 
             const currentYear = new Date().getFullYear();
             if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
-            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-'))) {
-                examRefInput.value = 'NLR-FM-T35-F';
+            if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-') || examRefInput.value.startsWith('NLR-'))) {
+                const randExam = Math.floor(1000 + Math.random() * 9000);
+                examRefInput.value = 'NLA-FM-T' + randExam + '-F';
             }
 
             const name = selectedOption.getAttribute('data-name') || '';
@@ -8107,7 +8124,7 @@
                         Crime Scene Data Saved Successfully!
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-2026-4342</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
+                        Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-{{ date('Y') }}-XXXX</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.
                     </p>
                 </div>
             </div>
@@ -8202,7 +8219,7 @@
                 <div class="flex items-center justify-between border-b border-amber-200/60 pb-2">
                     <div>
                         <span class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Matched Case Number</span>
-                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">NCC-2026-0000</div>
+                        <div id="dupModalCaseRef" class="font-extrabold font-mono-code text-sm text-slate-900">NCC-{{ date('Y') }}-0000</div>
                     </div>
                     <span id="dupModalScore" class="px-2.5 py-1 bg-amber-500 text-white font-mono-code font-bold text-[11px] rounded-full shadow-2xs">
                         95% Match

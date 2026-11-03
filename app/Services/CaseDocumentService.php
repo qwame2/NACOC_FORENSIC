@@ -10,6 +10,8 @@ use App\Models\NlrReport;
 use App\Models\SuspectNlrReport;
 use App\Models\SuspectGsaReport;
 use App\Models\LaboratoryExaminationResult;
+use App\Models\ReferenceRegistry;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -77,33 +79,54 @@ class CaseDocumentService
         if (empty($nlrCode) && $report && !empty($report->nlr_code)) {
             $nlrCode = $report->nlr_code;
         }
-        if (empty($nlrCode)) {
-            $nlrCode = 'NLR-' . strtoupper(substr(md5(uniqid()), 0, 8));
+
+        $isTakenByOther = !empty($nlrCode) && NlrReport::where('nlr_code', $nlrCode)
+            ->when($report, fn($q) => $q->where('id', '!=', $report->id))
+            ->exists();
+
+        if (empty($nlrCode) || $nlrCode === 'NLR-FM-T35-F' || $isTakenByOther) {
+            $nlrCode = app(CaseReferenceService::class)->generateExamReference('Forensic Laboratory');
         }
 
         $multiCase = $multipleId ? MultipleSuspectCase::find($multipleId) : null;
         $singleCase = $singleId ? SingleSuspectCase::find($singleId) : null;
 
-        if ($report) {
-            $report->update(array_filter([
-                'multiple_suspect_case_id'     => $multipleId ?: $report->multiple_suspect_case_id,
-                'single_suspect_case_id'       => $singleId ?: $report->single_suspect_case_id,
-                'case_number'                  => $caseNo ?: ($report->case_number ?: ($case ? $case->case_number : null)),
-                'laboratory_number'            => $labNo ?: $report->laboratory_number,
-                'detailed_exhibit_description' => $exhibitDesc,
-                'condition_of_reserved_sample' => $condition ?: $report->condition_of_reserved_sample,
-                'nlr_code'                     => $nlrCode,
-            ], fn($v) => !is_null($v)));
-        } else {
-            $report = NlrReport::create([
-                'multiple_suspect_case_id'     => $multipleId,
-                'single_suspect_case_id'       => $singleId,
-                'case_number'                  => $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null)),
-                'laboratory_number'            => $labNo,
-                'detailed_exhibit_description' => $exhibitDesc,
-                'condition_of_reserved_sample' => $condition,
-                'nlr_code'                     => $nlrCode,
-            ]);
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            try {
+                if ($report) {
+                    $report->update(array_filter([
+                        'multiple_suspect_case_id'     => $multipleId ?: $report->multiple_suspect_case_id,
+                        'single_suspect_case_id'       => $singleId ?: $report->single_suspect_case_id,
+                        'case_number'                  => $caseNo ?: ($report->case_number ?: ($case ? $case->case_number : null)),
+                        'laboratory_number'            => $labNo ?: $report->laboratory_number,
+                        'detailed_exhibit_description' => $exhibitDesc,
+                        'condition_of_reserved_sample' => $condition ?: $report->condition_of_reserved_sample,
+                        'nlr_code'                     => $nlrCode,
+                    ], fn($v) => !is_null($v)));
+                } else {
+                    $report = NlrReport::create([
+                        'multiple_suspect_case_id'     => $multipleId,
+                        'single_suspect_case_id'       => $singleId,
+                        'case_number'                  => $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null)),
+                        'laboratory_number'            => $labNo,
+                        'detailed_exhibit_description' => $exhibitDesc,
+                        'condition_of_reserved_sample' => $condition,
+                        'nlr_code'                     => $nlrCode,
+                    ]);
+                }
+
+                ReferenceRegistry::reserve($nlrCode, 'EXAM', NlrReport::class, $report->id);
+                break;
+            } catch (QueryException $e) {
+                $isUniqueViolation = str_contains(strtolower($e->getMessage()), 'duplicate')
+                    || str_contains(strtolower($e->getMessage()), 'unique')
+                    || ($e->errorInfo[1] ?? 0) === 1062;
+
+                if (!$isUniqueViolation || $attempt === 5) {
+                    throw $e;
+                }
+                $nlrCode = app(CaseReferenceService::class)->generateExamReference('Forensic Laboratory');
+            }
         }
 
         // Sync with Case docket data
@@ -121,15 +144,23 @@ class CaseDocumentService
                 $case->underlyingRecord->docket_data = $docketData;
                 $case->underlyingRecord->save();
             }
+
+            // Sync Section 5 full examination record & unit progress if provided
+            if ($request->filled('presumptive_result') || $request->filled('confirmatory_test_result') || $request->filled('confirmatory_substance_identification')) {
+                $suspectName = $request->input('suspect_name') ?: $request->input('exhibit_owner_name');
+                $officer = $request->input('analyst') ?: (auth()->user()?->fullname ?: 'Lab Analyst');
+                app(LaboratoryExamService::class)->saveExam($case, $request->all(), $suspectName, false, $officer);
+            }
         }
 
         // Attach NLR report files to suspects
         $this->attachNlrReportToSuspects($request, $case, $report, $multiCase, $singleCase, $singleId, $multipleId, $caseNo, $caseId);
 
         return [
-            'success' => true,
-            'message' => 'NLR Report details saved successfully.',
-            'report'  => $report,
+            'success'  => true,
+            'message'  => 'NLR Report details saved successfully.',
+            'report'   => $report,
+            'nlr_code' => $nlrCode,
         ];
     }
 
@@ -183,7 +214,7 @@ class CaseDocumentService
                 'case_number'              => $finalCaseNo,
                 'original_filename'        => $filename,
                 'file_path'                => $pdfUrlPath,
-                'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: 'NLR-FM-T35-F') . ')',
+                'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
                 'status'                   => 'active',
             ];
 
@@ -216,7 +247,7 @@ class CaseDocumentService
                     'case_number'              => $finalCaseNo,
                     'original_filename'        => $filename,
                     'file_path'                => $pdfUrlPath,
-                    'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: 'NLR-FM-T35-F') . ')',
+                    'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
                     'status'                   => 'active',
                 ];
 
@@ -250,19 +281,20 @@ class CaseDocumentService
         $multiId     = $request->input('multiple_suspect_case_id');
         $singleId    = $request->input('single_suspect_case_id');
 
-        $multiCase  = $multiId  ? MultipleSuspectCase::find($multiId)  : null;
-        $singleCase = $singleId ? SingleSuspectCase::find($singleId) : null;
+        $multiCase = null;
+        $singleCase = null;
 
-        if (!$multiCase && !$singleCase && $case) {
-            if ($case->underlyingRecord instanceof MultipleSuspectCase) {
-                $multiCase = $case->underlyingRecord;
-            } elseif ($case->underlyingRecord instanceof SingleSuspectCase) {
-                $singleCase = $case->underlyingRecord;
-            } elseif ($case->is_multiple) {
-                $multiCase = MultipleSuspectCase::find($case->id);
+        if ($case) {
+            if ($case->underlyingRecord instanceof MultipleSuspectCase || !empty($case->is_multiple)) {
+                $multiCase = $case->underlyingRecord instanceof MultipleSuspectCase ? $case->underlyingRecord : MultipleSuspectCase::find($case->id);
             } else {
-                $singleCase = SingleSuspectCase::find($case->id);
+                $singleCase = $case->underlyingRecord instanceof SingleSuspectCase ? $case->underlyingRecord : SingleSuspectCase::find($case->id);
             }
+        }
+
+        if (!$multiCase && !$singleCase) {
+            $singleCase = $singleId ? SingleSuspectCase::find($singleId) : null;
+            $multiCase  = (!$singleCase && $multiId) ? MultipleSuspectCase::find($multiId) : null;
         }
 
         $caseNumber = $request->input('case_number')
@@ -275,7 +307,7 @@ class CaseDocumentService
         }
 
         if (!$suspect && $multiCase) {
-            if ($suspectName) {
+            if ($suspectName && strtolower(trim($suspectName)) !== 'all suspects') {
                 $cleanName = strtolower(trim($suspectName));
                 $suspect = CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)
                     ->where(function ($q) use ($suspectName, $cleanName) {
@@ -284,7 +316,7 @@ class CaseDocumentService
                     })
                     ->first();
             }
-            if (!$suspect) {
+            if (!$suspect && strtolower(trim($suspectName ?? '')) !== 'all suspects') {
                 $suspect = CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)
                     ->where('role', 'Primary Suspect')
                     ->first()
@@ -292,7 +324,11 @@ class CaseDocumentService
             }
         }
 
-        if (!$suspect) {
+        if (!$suspect && $singleCase) {
+            $suspect = CaseSuspect::where('single_suspect_case_id', $singleCase->id)->first();
+        }
+
+        if (!$suspect && (empty($suspectName) || strtolower(trim($suspectName)) !== 'all suspects')) {
             $sName = $suspectName ?: ($singleCase ? $singleCase->suspect_name : ($case ? $case->suspect_name : 'Primary Suspect'));
             $suspect = CaseSuspect::create([
                 'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
@@ -310,6 +346,15 @@ class CaseDocumentService
 
         $gsaLabNumber = $request->input('gsa_lab_number');
         $gsaStatus    = $request->input('gsa_status', 'active');
+        $rawExhibitType = $request->input('exhibit_type');
+        $exhibitType  = null;
+        if (is_array($rawExhibitType)) {
+            $filtered = array_filter(array_map('trim', $rawExhibitType), fn($v) => $v !== '');
+            $exhibitType = !empty($filtered) ? implode(', ', $filtered) : null;
+        } elseif (!empty($rawExhibitType)) {
+            $exhibitType = trim((string)$rawExhibitType) ?: null;
+        }
+
         $folder       = 'gsa_reports/' . now()->format('Y/m');
         $saved        = [];
 
@@ -337,18 +382,23 @@ class CaseDocumentService
                 'lab_number'               => $gsaLabNumber,
                 'gsa_lab_number'           => $gsaLabNumber,
                 'gsa_case_reference'       => $request->input('gsa_case_reference'),
-                'gsa_status'               => $gsaStatus,
+                'gsa_status'               => $gsaStatus ?: 'active',
+                'exhibit_type'             => $exhibitType,
                 'case_number'              => $caseNumber,
-                'status'                   => $gsaStatus,
+                'status'                   => 'active',
             ]);
 
             if (!empty($gsaLabNumber)) {
                 $labQuery = $multiCase
                     ? LaboratoryExaminationResult::where('multiple_suspect_case_id', $multiCase->id)
-                    : LaboratoryExaminationResult::where('single_suspect_case_id', $singleCase->id);
-                $labQuery->where(function ($q) use ($suspect) {
-                    $q->where('suspect_id', $suspect->id)->orWhereNull('suspect_id');
-                })->update(['gsa_lab_number' => $gsaLabNumber]);
+                    : ($singleCase ? LaboratoryExaminationResult::where('single_suspect_case_id', $singleCase->id) : null);
+                if ($labQuery) {
+                    $labQuery->where(function ($q) use ($suspect) {
+                        if ($suspect) {
+                            $q->where('suspect_id', $suspect->id)->orWhereNull('suspect_id');
+                        }
+                    })->update(['gsa_lab_number' => $gsaLabNumber]);
+                }
             }
 
             $saved[] = [
@@ -360,6 +410,7 @@ class CaseDocumentService
                 'gsa_lab_number'     => $record->gsa_lab_number,
                 'gsa_case_reference' => $record->gsa_case_reference,
                 'gsa_status'         => $record->gsa_status,
+                'exhibit_type'       => $record->exhibit_type,
             ];
         }
 

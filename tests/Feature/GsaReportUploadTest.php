@@ -282,14 +282,14 @@ class GsaReportUploadTest extends TestCase
 
         $html = $response->getContent();
 
-        // Section 5 Analysis / Examination Reference input should have NLR format (NLR-FM-T...-F) and NOT GSA format
-        $this->assertMatchesRegularExpression('/id="labExamReferenceInput"[^>]*value="NLR-FM-T\d+-F"/i', $html);
+        // Section 5 Analysis / Examination Reference input should have NLA format (NLA-FM-T...-F) and NOT GSA format
+        $this->assertMatchesRegularExpression('/id="labExamReferenceInput"[^>]*value="NLA-FM-T\d+-F"/i', $html);
         $this->assertStringNotContainsString('value="GSA-FM-T', $html);
 
         // Verification of switcher functions
         $this->assertStringContainsString('switchToNlrExamSection', $html);
-        $this->assertStringContainsString("examRefInput.value = `NLR-FM-T\${randNum}-F`", $html);
-        $this->assertStringContainsString("examRefInput.value.replace(/^GSA-/, 'NLR-')", $html);
+        $this->assertStringContainsString("examRefInput.value = `NLA-FM-T\${randNum}-F`", $html);
+        $this->assertStringContainsString("examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-')", $html);
 
         // Verify Save & Attach GSA Report button is removed from Lab Analysis create page
         $this->assertStringNotContainsString('Save &amp; Attach GSA Report', $html);
@@ -614,6 +614,230 @@ class GsaReportUploadTest extends TestCase
         $showReloadResponse->assertStatus(200);
         $showReloadHtml = $showReloadResponse->getContent();
         $this->assertStringContainsString('Tema Port Cargo Container #GH-8820', $showReloadHtml);
+    }
+
+    #[Test]
+    public function user_can_upload_gsa_report_from_show_review_for_single_suspect_case_and_attach_to_suspect()
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->head()->create([
+            'fullname' => 'Lab Specialist',
+            'unit' => 'Forensic Laboratory',
+        ]);
+
+        $singleCase = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'SINGLE-2026-GSA01',
+            'title' => 'Republic vs Single Suspect GSA',
+            'unit_name' => 'Forensic Laboratory',
+            'suspect_name' => 'Emmanuel Tetteh',
+            'controller_user_id' => $user->id,
+            'user_id' => $user->id,
+        ]);
+
+        $file = UploadedFile::fake()->create('single_suspect_gsa_report.pdf', 300, 'application/pdf');
+
+        $uploadResponse = $this->actingAs($user)
+            ->postJson("/cases/{$singleCase->case_number}/upload-gsa-report", [
+                'single_suspect_case_id' => $singleCase->id,
+                'case_id' => $singleCase->id,
+                'case_number' => $singleCase->case_number,
+                'suspect_name' => 'Emmanuel Tetteh',
+                'gsa_lab_number' => 'GSA/LAB/2026/9991',
+                'gsa_case_reference' => $singleCase->case_number,
+                'gsa_status' => 'Certified Analysis',
+                'gsa_report_images' => [$file],
+            ]);
+
+        $uploadResponse->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_number' => 'SINGLE-2026-GSA01',
+            'single_suspect_case_id' => $singleCase->id,
+            'original_filename' => 'single_suspect_gsa_report.pdf',
+            'gsa_status' => 'Certified Analysis',
+            'status' => 'active',
+        ]);
+
+        // Review page must render the uploaded GSA report attached under the suspect
+        $reviewResponse = $this->actingAs($user)->get("/cases/{$singleCase->case_number}/review");
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+
+        $this->assertStringContainsString('single_suspect_gsa_report.pdf', $reviewHtml);
+        $this->assertStringContainsString('Attached Report Files', $reviewHtml);
+    }
+
+    #[Test]
+    public function gsa_report_displays_under_suspect_card_in_show_review_even_when_joint_exhibits_exist()
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->head()->create([
+            'fullname' => 'Lab Officer',
+            'unit' => 'Forensic Laboratory',
+        ]);
+
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'JOINT-2026-GSA01',
+            'title' => 'Republic vs Multiple Joint Suspects',
+            'unit_name' => 'Forensic Laboratory',
+            'controller_user_id' => $user->id,
+            'user_id' => $user->id,
+        ]);
+
+        $suspect1 = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'Kwabena Yeboah',
+            'role' => 'Primary Suspect',
+        ]);
+
+        $suspect2 = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 2,
+            'suspect_name' => 'Akua Afriyie',
+            'role' => 'Co-Suspect',
+        ]);
+
+        // Joint exhibit across all suspects
+        \App\Models\Exhibit::create([
+            'case_type' => 'MULTIPLE',
+            'multiple_suspect_case_id' => $mCase->id,
+            'associated_person' => 'All Suspects',
+            'exhibit_number' => 'EXH-JT-01',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Methamphetamine',
+        ]);
+
+        $file = UploadedFile::fake()->create('kwabena_gsa_report.pdf', 400, 'application/pdf');
+
+        $uploadResponse = $this->actingAs($user)
+            ->postJson("/cases/{$mCase->case_number}/upload-gsa-report", [
+                'multiple_suspect_case_id' => $mCase->id,
+                'case_id' => $mCase->id,
+                'case_number' => $mCase->case_number,
+                'case_suspect_id' => $suspect1->id,
+                'suspect_name' => 'Kwabena Yeboah',
+                'gsa_lab_number' => 'GSA/LAB/2026/8821',
+                'gsa_status' => 'Analysis Complete',
+                'gsa_report_images' => [$file],
+            ]);
+
+        $uploadResponse->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_number' => 'JOINT-2026-GSA01',
+            'case_suspect_id' => $suspect1->id,
+            'original_filename' => 'kwabena_gsa_report.pdf',
+            'status' => 'active',
+        ]);
+
+        // Verify show_review displays the GSA report under Kwabena Yeboah's card
+        $reviewResponse = $this->actingAs($user)->get("/cases/{$mCase->case_number}/review");
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+
+        $this->assertStringContainsString('kwabena_gsa_report.pdf', $reviewHtml);
+        $this->assertStringContainsString('Attached Report Files', $reviewHtml);
+    }
+
+    #[Test]
+    public function user_can_upload_gsa_report_with_multiple_exhibit_types_and_stores_in_database(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->head()->create([
+            'fullname' => 'Forensic Analyst',
+            'unit' => 'Forensic Laboratory',
+        ]);
+
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'EXH-TYPE-2026-01',
+            'title' => 'Republic vs Exhibit Type Test',
+            'unit_name' => 'Crime Scene Support',
+            'controller_user_id' => $user->id,
+        ]);
+
+        $suspect = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'John Exhibit',
+            'role' => 'Primary Suspect',
+        ]);
+
+        $file = UploadedFile::fake()->create('gsa_with_exhibits.pdf', 350, 'application/pdf');
+
+        $uploadResponse = $this->actingAs($user)
+            ->postJson("/cases/{$mCase->case_number}/upload-gsa-report", [
+                'multiple_suspect_case_id' => $mCase->id,
+                'case_id' => $mCase->id,
+                'case_number' => $mCase->case_number,
+                'case_suspect_id' => $suspect->id,
+                'suspect_name' => 'John Exhibit',
+                'gsa_lab_number' => 'GSA/LAB/2026/9999',
+                'gsa_status' => 'Certified',
+                'exhibit_type' => ['Cocaine Hydrochloride', 'Heroin Brown Sugar'],
+                'gsa_report_images' => [$file],
+            ]);
+
+        $uploadResponse->assertStatus(200)->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('suspect_gsa_reports', [
+            'case_number' => 'EXH-TYPE-2026-01',
+            'case_suspect_id' => $suspect->id,
+            'original_filename' => 'gsa_with_exhibits.pdf',
+            'exhibit_type' => 'Cocaine Hydrochloride, Heroin Brown Sugar',
+        ]);
+
+        // Verify show_review displays the Exhibit Type badge
+        $reviewResponse = $this->actingAs($user)->get("/cases/{$mCase->case_number}/review");
+        $reviewResponse->assertStatus(200);
+        $this->assertStringContainsString('Exhibit Type: Cocaine Hydrochloride, Heroin Brown Sugar', $reviewResponse->getContent());
+    }
+
+    #[Test]
+    public function gsa_upload_sections_across_system_render_exhibit_type_input_and_add_button(): void
+    {
+        $user = User::factory()->head()->create([
+            'unit' => 'Forensic Laboratory',
+        ]);
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'UI-TEST-2026-01',
+            'title' => 'Republic vs UI GSA Test',
+            'unit_name' => 'Forensic Laboratory',
+            'controller_user_id' => $user->id,
+        ]);
+
+        // 1. show_review
+        $reviewResponse = $this->actingAs($user)->get("/cases/{$mCase->case_number}/review");
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+        $this->assertStringContainsString('Exhibit Type', $reviewHtml);
+        $this->assertStringContainsString('name="exhibit_type[]"', $reviewHtml);
+        $this->assertStringContainsString('addGsaExhibitTypeInput', $reviewHtml);
+        $this->assertStringContainsString('Add Exhibit Type', $reviewHtml);
+
+        // 2. Lab_Analysis/analytical
+        $analyticalResponse = $this->actingAs($user)->get("/Lab_Analysis/analytical/{$mCase->case_number}");
+        $analyticalResponse->assertStatus(200);
+        $analyticalHtml = $analyticalResponse->getContent();
+        $this->assertStringContainsString('Exhibit Type', $analyticalHtml);
+        $this->assertStringContainsString('name="exhibit_type[]"', $analyticalHtml);
+        $this->assertStringContainsString('addGsaExhibitTypeInput', $analyticalHtml);
+        $this->assertStringContainsString('Add Exhibit Type', $analyticalHtml);
+
+        // 3. Lab_Analysis/create
+        $createResponse = $this->actingAs($user)->get('/Lab_Analysis/create');
+        $createResponse->assertStatus(200);
+        $createHtml = $createResponse->getContent();
+        $this->assertStringContainsString('Exhibit Type', $createHtml);
+        $this->assertStringContainsString('name="exhibit_type[]"', $createHtml);
+        $this->assertStringContainsString('addGsaExhibitTypeInput', $createHtml);
+        $this->assertStringContainsString('Add Exhibit Type', $createHtml);
     }
 }
 

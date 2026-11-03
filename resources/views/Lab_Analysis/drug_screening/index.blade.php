@@ -335,7 +335,7 @@
                                     </td>
                                     <td class="py-3.5 px-4 font-mono-code">
                                         <div class="font-bold text-slate-900">
-                                            {{ $parentCase->case_number ?? 'NCC-2026-N/A' }}
+                                            {{ $parentCase->case_number ?? ('NCC-' . date('Y') . '-N/A') }}
                                         </div>
                                         <div class="text-[10px] text-slate-500 truncate max-w-[140px]" title="{{ $parentCase->title ?? '' }}">
                                             {{ $parentCase->title ?? 'General Narcotics Case' }}
@@ -490,7 +490,7 @@
                     <div>
                         <div id="modalSuspectName" class="font-extrabold text-sm text-slate-900">Suspect Name</div>
                         <div class="text-[11px] text-slate-500 font-mono-code">
-                            Case: <span id="modalCaseNumber" class="font-bold text-slate-700">NCC-2026</span> &bull; 
+                            Case: <span id="modalCaseNumber" class="font-bold text-slate-700">NCC-{{ date('Y') }}</span> &bull; 
                             ID: <span id="modalGhanaCard">GHA-000</span>
                         </div>
                     </div>

@@ -18,6 +18,7 @@ class SingleSuspectCase extends Model
         'unit_name',
         'unit_id',
         'user_id',
+        'arresting_officer',
         'submitting_officer',
         'suspect_name',
         'suspect_alias',
@@ -121,5 +122,29 @@ class SingleSuspectCase extends Model
     public function nlrReports()
     {
         return $this->hasMany(SuspectNlrReport::class, 'single_suspect_case_id');
+    }
+
+    public function getSubmittingOfficerAttribute()
+    {
+        return $this->attributes['arresting_officer'] ?? ($this->attributes['submitting_officer'] ?? null);
+    }
+
+    public function setSubmittingOfficerAttribute($value)
+    {
+        if (array_key_exists('arresting_officer', $this->attributes) || (!array_key_exists('submitting_officer', $this->attributes) && \Illuminate\Support\Facades\Schema::hasColumn($this->getTable(), 'arresting_officer'))) {
+            $this->attributes['arresting_officer'] = $value;
+        } else {
+            $this->attributes['submitting_officer'] = $value;
+        }
+    }
+
+    public function getArrestingOfficerAttribute()
+    {
+        return $this->attributes['arresting_officer'] ?? ($this->attributes['submitting_officer'] ?? null);
+    }
+
+    public function setArrestingOfficerAttribute($value)
+    {
+        $this->attributes['arresting_officer'] = $value;
     }
 }

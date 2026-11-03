@@ -8,6 +8,13 @@ use App\Models\LaboratoryExaminationResult;
 use App\Models\AssociateLabExamination;
 use App\Models\SingleSuspectCase;
 use App\Models\MultipleSuspectCase;
+use App\Models\CaseSuspect;
+use App\Models\SuspectGsaReport;
+use App\Models\SuspectNlrReport;
+use App\Models\DrugScreening;
+use App\Models\ReferenceRegistry;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
 
 /**
  * Service handling laboratory examination persistence, exhibit linkage, and docket synchronization.
@@ -29,10 +36,10 @@ class LaboratoryExamService
     public function buildExamRecord(array $payload, ?string $ownerName, bool $isAssoc, ?string $officer): array
     {
         $rawExamRef = $payload['lab_exam_reference'] ?? ($payload['exam_reference'] ?? null);
-        if (!empty($rawExamRef)) {
-            $labExamRef = str_replace(['GSA-', 'T28'], ['NLR-', 'T35'], $rawExamRef);
+        if (!empty($rawExamRef) && trim($rawExamRef) !== 'NLR-FM-T35-F' && trim($rawExamRef) !== 'NLA-FM-T35-F') {
+            $labExamRef = app(CaseReferenceService::class)->normalizeExamReference($rawExamRef);
         } else {
-            $labExamRef = 'NLR-FM-T35-F';
+            $labExamRef = app(CaseReferenceService::class)->generateExamReference('Lab Analysis');
         }
 
         $detSubs = $payload['detected_substances'] ?? [];
@@ -75,9 +82,9 @@ class LaboratoryExamService
             'exhibit_number'           => $payload['lab_exhibit_number'] ?? ($payload['exhibit_number'] ?? null),
             'lab_unit'                 => $payload['lab_unit'] ?? 'Chemistry & Narcotics Unit',
             'analyst'                  => $officer,
-            'date_received'            => $payload['lab_date_received'] ?? ($payload['date_received'] ?? date('Y-m-d')),
-            'date_started'             => $payload['lab_date_started'] ?? ($payload['date_started'] ?? date('Y-m-d')),
-            'date_completed'           => $payload['lab_date_completed'] ?? ($payload['date_completed'] ?? date('Y-m-d')),
+            'date_received'            => !empty($payload['lab_date_received']) ? $payload['lab_date_received'] : (!empty($payload['date_received']) ? $payload['date_received'] : date('Y-m-d')),
+            'date_started'             => !empty($payload['lab_date_started']) ? $payload['lab_date_started'] : (!empty($payload['date_started']) ? $payload['date_started'] : date('Y-m-d')),
+            'date_completed'           => !empty($payload['lab_date_completed']) ? $payload['lab_date_completed'] : (!empty($payload['date_completed']) ? $payload['date_completed'] : date('Y-m-d')),
             'presumptive_result'       => $presumptive,
             'confirmatory_result'      => $confirmatory,
             'sample_weight'            => $sampleWeight,
@@ -229,38 +236,62 @@ class LaboratoryExamService
                       ->orWhereRaw('LOWER(TRIM(suspect_name)) = ?', [strtolower(trim($canonicalName))]);
                 })->first();
 
-            AssociateLabExamination::updateOrCreate(
-                [
-                    'id' => $existingExam ? $existingExam->id : null,
-                ],
-                [
-                    'case_id'                   => $case->id,
-                    'suspect_name'              => $canonicalName,
-                    'associate_id'              => $payload['associate_id'] ?? null,
-                    'exhibit_number'            => $examRecord['exhibit_number'],
-                    'laboratory_number'         => $examRecord['laboratory_number'],
-                    'exam_reference'            => $examRecord['exam_reference'],
-                    'lab_unit'                  => $examRecord['lab_unit'],
-                    'analyst'                   => $officer,
-                    'date_received'             => $examRecord['date_received'],
-                    'date_started'              => $examRecord['date_started'],
-                    'date_completed'            => $examRecord['date_completed'],
-                    'presumptive_result'        => $examRecord['presumptive_result'],
-                    'confirmatory_result'       => $examRecord['confirmatory_result'],
-                    'sample_weight_description' => $examRecord['sample_weight']['description'],
-                    'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
-                    'sample_weight_gross'       => $examRecord['sample_weight']['gross_weight'],
-                    'sample_weight_taken'       => $examRecord['sample_weight']['sample_taken'],
-                    'sample_weight_reserved'    => $examRecord['sample_weight']['reserved_samples'],
-                    'substance_identification'  => $examRecord['substance_identification'],
-                    'detected_substances'       => $examRecord['detected_substances'],
-                    'test_methods'              => $examRecord['test_methods'],
-                    'specifications'            => $examRecord['specifications'],
-                    'remark'                    => $examRecord['remark'],
-                    'findings'                  => $examRecord['findings'],
-                    'has_saved'                 => true,
-                ]
-            );
+            if ($existingExam && !empty($existingExam->exam_reference)) {
+                $examRecord['exam_reference'] = $existingExam->exam_reference;
+            } else {
+                if (empty($examRecord['exam_reference']) || $examRecord['exam_reference'] === 'NLR-FM-T35-F' || app(CaseReferenceService::class)->examReferenceExists($examRecord['exam_reference'])) {
+                    $examRecord['exam_reference'] = app(CaseReferenceService::class)->generateExamReference($examRecord['lab_unit'] ?? null);
+                }
+            }
+
+            for ($attempt = 1; $attempt <= 5; $attempt++) {
+                try {
+                    $savedAssocExam = AssociateLabExamination::updateOrCreate(
+                        [
+                            'id' => $existingExam ? $existingExam->id : null,
+                        ],
+                        [
+                            'case_id'                   => $case->id,
+                            'suspect_name'              => $canonicalName,
+                            'associate_id'              => $payload['associate_id'] ?? null,
+                            'exhibit_number'            => $examRecord['exhibit_number'],
+                            'laboratory_number'         => $examRecord['laboratory_number'],
+                            'exam_reference'            => $examRecord['exam_reference'],
+                            'lab_unit'                  => $examRecord['lab_unit'],
+                            'analyst'                   => $officer,
+                            'date_received'             => $examRecord['date_received'],
+                            'date_started'              => $examRecord['date_started'],
+                            'date_completed'            => $examRecord['date_completed'],
+                            'presumptive_result'        => $examRecord['presumptive_result'],
+                            'confirmatory_result'       => $examRecord['confirmatory_result'],
+                            'sample_weight_description' => $examRecord['sample_weight']['description'],
+                            'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
+                            'sample_weight_gross'       => $examRecord['sample_weight']['gross_weight'],
+                            'sample_weight_taken'       => $examRecord['sample_weight']['sample_taken'],
+                            'sample_weight_reserved'    => $examRecord['sample_weight']['reserved_samples'],
+                            'substance_identification'  => $examRecord['substance_identification'],
+                            'detected_substances'       => $examRecord['detected_substances'],
+                            'test_methods'              => $examRecord['test_methods'],
+                            'specifications'            => $examRecord['specifications'],
+                            'remark'                    => $examRecord['remark'],
+                            'findings'                  => $examRecord['findings'],
+                            'has_saved'                 => true,
+                        ]
+                    );
+
+                    ReferenceRegistry::reserve($examRecord['exam_reference'], 'EXAM', AssociateLabExamination::class, $savedAssocExam->id);
+                    break;
+                } catch (QueryException $e) {
+                    $isUniqueViolation = str_contains(strtolower($e->getMessage()), 'duplicate')
+                        || str_contains(strtolower($e->getMessage()), 'unique')
+                        || ($e->errorInfo[1] ?? 0) === 1062;
+
+                    if (!$isUniqueViolation || $attempt === 5) {
+                        throw $e;
+                    }
+                    $examRecord['exam_reference'] = app(CaseReferenceService::class)->generateExamReference($examRecord['lab_unit'] ?? null);
+                }
+            }
 
             if (!isset($docketData['associate_lab_examinations']) || !is_array($docketData['associate_lab_examinations'])) {
                 $docketData['associate_lab_examinations'] = [];
@@ -272,6 +303,22 @@ class LaboratoryExamService
             }
         } else {
             // Primary suspect examination
+            $existingPrimaryLab = LaboratoryExaminationResult::where(function ($q) use ($singleCaseId, $multiCaseId) {
+                if ($singleCaseId) {
+                    $q->where('single_suspect_case_id', $singleCaseId);
+                } else {
+                    $q->where('multiple_suspect_case_id', $multiCaseId);
+                }
+            })->first();
+
+            if ($existingPrimaryLab && !empty($existingPrimaryLab->exam_reference)) {
+                $examRecord['exam_reference'] = $existingPrimaryLab->exam_reference;
+            } else {
+                if (empty($examRecord['exam_reference']) || $examRecord['exam_reference'] === 'NLR-FM-T35-F' || app(CaseReferenceService::class)->examReferenceExists($examRecord['exam_reference'])) {
+                    $examRecord['exam_reference'] = app(CaseReferenceService::class)->generateExamReference($examRecord['lab_unit'] ?? null);
+                }
+            }
+
             $docketData['lab_examination'] = $examRecord;
             $docketData['confirmatory_detected_substances'] = $examRecord['detected_substances'];
 
@@ -287,35 +334,56 @@ class LaboratoryExamService
                 $primaryExhModel->update(['lab_remark' => $examRecord['remark']]);
             }
 
-            LaboratoryExaminationResult::updateOrCreate(
-                [
-                    'single_suspect_case_id'   => $singleCaseId,
-                    'multiple_suspect_case_id' => $multiCaseId,
-                ],
-                [
-                    'case_type'                 => $isMultiple ? 'MULTIPLE' : 'SINGLE',
-                    'single_suspect_case_id'    => $singleCaseId,
-                    'multiple_suspect_case_id'  => $multiCaseId,
-                    'exhibit_id'                => $primaryExhModel ? $primaryExhModel->id : null,
-                    'laboratory_number'         => $examRecord['laboratory_number'],
-                    'gsa_lab_number'            => $payload['gsa_lab_number'] ?? ($docketData['lab_examination']['gsa_lab_number'] ?? null),
-                    'presumptive_result'        => $examRecord['presumptive_result'],
-                    'confirmatory_result'       => $examRecord['confirmatory_result'],
-                    'sample_weight_description' => $examRecord['sample_weight']['description'],
-                    'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
-                    'sample_weight_gross'       => $examRecord['sample_weight']['gross_weight'],
-                    'sample_weight_taken'       => $examRecord['sample_weight']['sample_taken'],
-                    'sample_weight_reserved'    => $examRecord['sample_weight']['reserved_samples'],
-                    'substance_identification'  => $examRecord['substance_identification'],
-                    'detected_substances'       => $examRecord['detected_substances'],
-                    'test_methods'              => $examRecord['test_methods'],
-                    'specifications'            => $examRecord['specifications'],
-                    'remark'                    => $examRecord['remark'],
-                    'findings'                  => $examRecord['findings'],
-                    'analyst'                   => $officer,
-                    'has_saved'                 => true,
-                ]
-            );
+            for ($attempt = 1; $attempt <= 5; $attempt++) {
+                try {
+                    $savedLabResult = LaboratoryExaminationResult::updateOrCreate(
+                        [
+                            'single_suspect_case_id'   => $singleCaseId,
+                            'multiple_suspect_case_id' => $multiCaseId,
+                        ],
+                        [
+                            'case_type'                 => $isMultiple ? 'MULTIPLE' : 'SINGLE',
+                            'single_suspect_case_id'    => $singleCaseId,
+                            'multiple_suspect_case_id'  => $multiCaseId,
+                            'exhibit_id'                => $primaryExhModel ? $primaryExhModel->id : null,
+                            'laboratory_number'         => $examRecord['laboratory_number'],
+                            'exam_reference'            => $examRecord['exam_reference'],
+                            'gsa_lab_number'            => $payload['gsa_lab_number'] ?? ($docketData['lab_examination']['gsa_lab_number'] ?? null),
+                            'date_received'             => $examRecord['date_received'],
+                            'date_started'              => $examRecord['date_started'],
+                            'date_completed'            => $examRecord['date_completed'],
+                            'presumptive_result'        => $examRecord['presumptive_result'],
+                            'confirmatory_result'       => $examRecord['confirmatory_result'],
+                            'sample_weight_description' => $examRecord['sample_weight']['description'],
+                            'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
+                            'sample_weight_gross'       => $examRecord['sample_weight']['gross_weight'],
+                            'sample_weight_taken'       => $examRecord['sample_weight']['sample_taken'],
+                            'sample_weight_reserved'    => $examRecord['sample_weight']['reserved_samples'],
+                            'substance_identification'  => $examRecord['substance_identification'],
+                            'detected_substances'       => $examRecord['detected_substances'],
+                            'test_methods'              => $examRecord['test_methods'],
+                            'specifications'            => $examRecord['specifications'],
+                            'remark'                    => $examRecord['remark'],
+                            'findings'                  => $examRecord['findings'],
+                            'analyst'                   => $officer,
+                            'has_saved'                 => true,
+                        ]
+                    );
+
+                    $docketData['lab_examination'] = array_merge($docketData['lab_examination'] ?? [], $examRecord);
+                    ReferenceRegistry::reserve($examRecord['exam_reference'], 'EXAM', LaboratoryExaminationResult::class, $savedLabResult->id);
+                    break;
+                } catch (QueryException $e) {
+                    $isUniqueViolation = str_contains(strtolower($e->getMessage()), 'duplicate')
+                        || str_contains(strtolower($e->getMessage()), 'unique')
+                        || ($e->errorInfo[1] ?? 0) === 1062;
+
+                    if (!$isUniqueViolation || $attempt === 5) {
+                        throw $e;
+                    }
+                    $examRecord['exam_reference'] = app(CaseReferenceService::class)->generateExamReference($examRecord['lab_unit'] ?? null);
+                }
+            }
 
             // Clean up any associate record that may have been created for primary suspect
             $cleanName = $ownerName ?: ($case->suspect_name ?? 'Primary Suspect');
@@ -377,4 +445,84 @@ class LaboratoryExamService
 
         return $docketData;
     }
+
+    /**
+     * Determine whether an exhibit is strictly a drug or narcotic substance exhibit.
+     * Excludes non-drug exhibits (e.g. vehicles, firearms, electronics, cash, documents, ammunition, gold).
+     *
+     * @param mixed $item
+     * @return bool
+     */
+    public function isDrugExhibit($item): bool
+    {
+        if (!$item) return false;
+        if ($item instanceof ForensicCase) return $item->isDrugCase();
+
+        $drugKeywords = config('forensic.drug_keywords', [
+            'drug', 'narcotic', 'substance', 'cannabis', 'cocaine', 'heroin',
+            'meth', 'tramadol', 'weed', 'hemp', 'hashish', 'ephedrine',
+            'precursor', 'opioid', 'fentanyl', 'amphetamine', 'mdma', 'ecstasy',
+            'morphine', 'opium', 'diacetylmorphine', 'codeine', 'syrup',
+            'marijuana', 'thc', 'brown sugar', 'prohibited',
+        ]);
+        $nonDrugKeywords = config('forensic.non_drug_keywords', [
+            'truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency',
+            'zonda', 'cash', 'usd', 'ghs', 'laptop', 'phone', 'automobile',
+            'vessel', 'device', 'motorcycle', 'boat', 'firearm', 'electronics',
+            'document', 'ammunition', 'bullet', 'cartridge', 'gold',
+        ]);
+
+        $category = '';
+        $name = '';
+        $drugType = '';
+
+        if ($item instanceof Exhibit) {
+            $category = strtolower((string)$item->exhibit_category);
+            $name     = strtolower((string)($item->commodity_name ?: ($item->exhibit_type ?: '')));
+            $drugType = strtolower((string)($item->substance_identification ?? ($item->drug_classification ?? '')));
+        } elseif (is_array($item)) {
+            $category = strtolower((string)($item['category'] ?? ($item['exhibit_category'] ?? '')));
+            $name     = strtolower((string)($item['seizure_name_drug'] ?? ($item['seizure_name'] ?? ($item['commodity_name'] ?? ($item['name'] ?? ($item['exhibit_type'] ?? ''))))));
+            $drugType = strtolower((string)($item['drug_type'] ?? ($item['substance_identification'] ?? ($item['drug_classification'] ?? ($item['exhibit_type'] ?? '')))));
+        } elseif (is_object($item)) {
+            $category = strtolower((string)($item->exhibit_category ?? ($item->category ?? '')));
+            $name     = strtolower((string)($item->commodity_name ?? ($item->seizure_name ?? ($item->name ?? ($item->exhibit_type ?? '')))));
+            $drugType = strtolower((string)($item->drug_classification ?? ($item->substance_identification ?? ($item->exhibit_type ?? ''))));
+        }
+
+        // Exclude explicit non-drug categories unless an unambiguous drug substance name is present
+        foreach ($nonDrugKeywords as $nkw) {
+            if (!empty($nkw) && (str_contains($category, $nkw) || str_contains($name, $nkw))) {
+                $hasSpecificDrugKw = false;
+                foreach ($drugKeywords as $dkw) {
+                    if ($dkw !== 'drug' && $dkw !== 'substance' && $dkw !== 'narcotic' && $dkw !== 'precursor') {
+                        if (str_contains($name, $dkw) || str_contains($drugType, $dkw)) {
+                            $hasSpecificDrugKw = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$hasSpecificDrugKw) {
+                    return false;
+                }
+            }
+        }
+
+        if (!empty($drugType)) {
+            foreach ($drugKeywords as $kw) {
+                if (str_contains($drugType, $kw)) {
+                    return true;
+                }
+            }
+        }
+
+        foreach ($drugKeywords as $kw) {
+            if (str_contains($category, $kw) || str_contains($name, $kw)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 }

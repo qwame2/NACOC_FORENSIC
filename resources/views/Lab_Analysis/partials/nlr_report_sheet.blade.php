@@ -376,7 +376,7 @@
     ];
     $conditionReservedVal = $conditionMap[strtolower($conditionReservedRaw)] ?? (ucwords(str_replace('_', ' ', $conditionReservedRaw)) ?: 'Sealed & Labelled');
 
-    // Determine NLR Code for NLR Report (strictly format as NLR-FM-T35-F, never output GSA-FM-T28-F or GSA-FM-T51-F)
+    // Determine NLR Code for NLR Report (strictly format as NLR-FM-T{RANDOM}-F, never output GSA-FM-T28-F or GSA-FM-T51-F)
     $rawNlrRef = $nlrRecord->nlr_code 
         ?? ($nlr_code 
         ?? ($examRef 
@@ -386,9 +386,9 @@
         ?? ($case->lab_exam_reference ?? null))))));
 
     if (!empty($rawNlrRef)) {
-        $nlrCodeVal = str_replace(['GSA-', 'T28', 'T51'], ['NLR-', 'T35', 'T35'], $rawNlrRef);
+        $nlrCodeVal = str_starts_with(trim($rawNlrRef), 'GSA-') ? str_replace('GSA-', 'NLR-', $rawNlrRef) : $rawNlrRef;
     } else {
-        $nlrCodeVal = 'NLR-FM-T35-F';
+        $nlrCodeVal = app(\App\Services\CaseReferenceService::class)->resolveExamReference($case ?? null, $docketData ?? []);
     }
 @endphp
 <div id="nlrReportSheet" class="printable-document">
@@ -474,11 +474,11 @@
                 <div class="mt-10 text-center">
 
                     <p class="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-900">
-                        OFFICIAL FORENSIC DOSSIER
+                        OFFICIAL FORENSIC REPORT
                     </p>
 
                     <h2 class="mt-2 text-2xl font-bold uppercase tracking-wide text-slate-950">
-                        NACOC LAB RESULT
+                        FORENSIC LABORATORY REPORT
                     </h2>
 
                     <p class="mt-1 text-sm font-semibold uppercase tracking-[0.12em] text-slate-700">
@@ -488,7 +488,7 @@
                     <div class="mx-auto mt-4 h-[2px] w-16 bg-emerald-700"></div>
 
                     <p class="mt-9 text-[9px] font-medium uppercase tracking-wider text-slate-900">
-                        HIGH COURT ADMISSIBLE FORENSIC EVIDENCE DOSSIER
+                        HIGH COURT ADMISSIBLE FORENSIC EVIDENCE REPORT
                     </p>
 
                 </div>
@@ -695,7 +695,7 @@
 
                             <div>
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">
-                                    Seizure / Raid Location
+                                    Location of Arrest
                                 </p>
 
                                 <p class="mt-1 text-xs font-medium text-slate-800">
