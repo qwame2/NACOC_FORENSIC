@@ -70,8 +70,12 @@ class LabAnalysisShowReviewModuleSwitcherTest extends TestCase
         // 3. Sections for GSA Upload and Section 5 NLR Examination
         $this->assertStringContainsString('id="gsaUploadSection"', $html);
         $this->assertStringContainsString('id="section5LabExamination"', $html);
-        $this->assertStringContainsString('id="saveGsaFilesBtn"', $html);
-        $this->assertStringContainsString('Save &amp; Attach GSA Report', $html);
+        $this->assertStringNotContainsString('id="saveGsaFilesBtn"', $html);
+        $this->assertStringNotContainsString('id="saveSection4SeizureBtn"', $html);
+        $this->assertStringNotContainsString('id="section4ActionButtons"', $html);
+        $this->assertStringContainsString('id="gsaActionButtons"', $html);
+        $this->assertStringContainsString('id="saveGsaDetailsBtn"', $html);
+        $this->assertStringContainsString('Save Seizure Item &amp; GSA Details', $html);
 
         // 4. Container Placement: Report & Laboratory Examination Modules is under Seizure Item container (#section4Seizures)
         $posSection4 = strpos($html, 'id="section4Seizures"');
@@ -101,6 +105,42 @@ class LabAnalysisShowReviewModuleSwitcherTest extends TestCase
         $this->assertMatchesRegularExpression('/id="sampleWeightContainerReview"[^>]*class="[^"]*hidden[^"]*"/', $html);
         $this->assertMatchesRegularExpression('/id="sampleWeightDescriptionReview"[^>]*value=""/', $html);
         $this->assertMatchesRegularExpression('/id="confirmatorySubstanceIdentificationReview"[^>]*value=""/', $html);
+
+        // 7. Neutral state on initial page load / refresh
+        $this->assertStringContainsString('id="resetLabModulesBtn"', $html);
+        $this->assertStringContainsString('function resetLabModulesToNeutral()', $html);
+        $this->assertMatchesRegularExpression('/id="section5FormContainer"[^>]*class="[^"]*hidden[^"]*"/', $html);
+        $this->assertMatchesRegularExpression('/id="gsaUploadSection"[^>]*class="[^"]*hidden[^"]*"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="toggleNlrReportBtn"[^>]*class="[^"]*ring-2[^"]*"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="toggleGsaReportBtn"[^>]*class="[^"]*ring-2[^"]*"/', $html);
+
+        // 8. Exhibit No. input in Select Seized Exhibit and removal of Auto-Linked Exhibit Number from Examination Information
+        $this->assertStringContainsString('Exhibit No.', $html);
+        $this->assertStringContainsString('id="labExhibitNumberInput"', $html);
+        $this->assertDoesNotMatchRegularExpression('/<span>Exhibit Number<\/span>\s*<span[^>]*>Auto-Linked<\/span>/', $html);
+    }
+
+    #[Test]
+    public function lab_analysis_create_page_defaults_to_neutral_state_with_reset_button(): void
+    {
+        $response = $this->actingAs($this->officer)->get('/Lab_Analysis/create');
+        $response->assertStatus(200);
+
+        $html = $response->getContent();
+
+        $this->assertStringContainsString('Report &amp; Laboratory Examination Modules', $html);
+        $this->assertStringContainsString('id="toggleGsaReportBtn"', $html);
+        $this->assertStringContainsString('id="toggleNlrReportBtn"', $html);
+        $this->assertStringContainsString('id="resetLabModulesBtn"', $html);
+        $this->assertStringContainsString('function resetLabModulesToNeutral()', $html);
+        $this->assertMatchesRegularExpression('/id="labAnalysisExclusiveSections"[^>]*class="[^"]*hidden[^"]*"/', $html);
+        $this->assertMatchesRegularExpression('/id="gsaUploadSection"[^>]*class="[^"]*hidden[^"]*"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="toggleNlrReportBtn"[^>]*class="[^"]*ring-2[^"]*"/', $html);
+        $this->assertDoesNotMatchRegularExpression('/id="toggleGsaReportBtn"[^>]*class="[^"]*ring-2[^"]*"/', $html);
+
+        // Exhibit No. input in Select Seized Exhibit cards and removal of Auto-Linked Exhibit Number from Examination Information
+        $this->assertStringContainsString('Exhibit No.', $html);
+        $this->assertDoesNotMatchRegularExpression('/<span>Exhibit Number<\/span>\s*<span[^>]*>Auto-Linked<\/span>/', $html);
     }
 
     #[Test]
@@ -195,5 +235,63 @@ class LabAnalysisShowReviewModuleSwitcherTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/id="presumptiveTestNoReview"[^>]*checked/', $html);
         $this->assertDoesNotMatchRegularExpression('/id="confirmatoryTestYesReview"[^>]*checked/', $html);
         $this->assertDoesNotMatchRegularExpression('/id="confirmatoryTestNoReview"[^>]*checked/', $html);
+    }
+
+    #[Test]
+    public function gsa_and_nlr_complete_disabling_and_mutual_exclusivity_logic_in_both_create_and_show_review(): void
+    {
+        // 1. Verify create.blade.php implementation
+        $createResponse = $this->actingAs($this->officer)->get('/Lab_Analysis/create');
+        $createResponse->assertStatus(200);
+        $createHtml = $createResponse->getContent();
+
+        // GSA switch logic in create.blade.php
+        $this->assertStringContainsString("window.activeLabWorkflowMode = 'gsa'", $createHtml);
+        $this->assertStringContainsString("nlrBtn.disabled = true;", $createHtml);
+        $this->assertStringContainsString("nlrBtn.setAttribute('aria-disabled', 'true')", $createHtml);
+        $this->assertStringContainsString("nlrBtn.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')", $createHtml);
+        $this->assertStringContainsString("el.setAttribute('data-gsa-disabled', 'true')", $createHtml);
+        $this->assertStringContainsString("gsaBtn.disabled = true;", $createHtml);
+        $this->assertStringContainsString("el.setAttribute('data-nlr-disabled', 'true')", $createHtml);
+
+        // 2. Verify show_review.blade.php implementation
+        $case = MultipleSuspectCase::create([
+            'case_number' => 'LAB-2026-MUTUAL-TEST',
+            'title' => 'Republic v Mutual Test',
+            'unit_name' => 'Lab Analysis',
+            'status' => 'Pending Approval',
+            'user_id' => $this->officer->id,
+            'total_suspects_count' => 1,
+        ]);
+        $suspect = CaseSuspect::create([
+            'multiple_suspect_case_id' => $case->id,
+            'suspect_number' => 1,
+            'role' => 'Primary Suspect',
+            'suspect_name' => 'Kojo Antwi',
+        ]);
+        Exhibit::create([
+            'multiple_suspect_case_id' => $case->id,
+            'case_suspect_id' => $suspect->id,
+            'associated_person' => 'Kojo Antwi',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Cannabis Sativa',
+        ]);
+
+        $reviewResponse = $this->actingAs($this->officer)->get('/cases/' . $case->id . '/review?unit=Lab+Analysis&suspect=Kojo+Antwi');
+        $reviewResponse->assertStatus(200);
+        $reviewHtml = $reviewResponse->getContent();
+
+        // GSA switch logic in show_review.blade.php
+        $this->assertStringContainsString("window.activeLabWorkflowMode = 'gsa'", $reviewHtml);
+        $this->assertStringContainsString("nlrBtn.disabled = true;", $reviewHtml);
+        $this->assertStringContainsString("nlrBtn.setAttribute('aria-disabled', 'true')", $reviewHtml);
+        $this->assertStringContainsString("nlrBtn.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none')", $reviewHtml);
+        $this->assertStringContainsString("el.setAttribute('data-gsa-disabled', 'true')", $reviewHtml);
+        $this->assertStringContainsString("gsaBtn.disabled = true;", $reviewHtml);
+        $this->assertStringContainsString("el.setAttribute('data-nlr-disabled', 'true')", $reviewHtml);
+
+        // Guard on onReviewLabExhibitChange
+        $this->assertStringContainsString("if (window.activeLabWorkflowMode === 'nlr')", $reviewHtml);
+        $this->assertStringContainsString("if (window.activeLabWorkflowMode === 'gsa')", $reviewHtml);
     }
 }

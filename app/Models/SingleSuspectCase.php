@@ -49,6 +49,7 @@ class SingleSuspectCase extends Model
         'operation_code_name',
         'raid_location',
         'offense_description',
+        'description_of_exhibits',
         'arrest_date',
         'arrest_time',
         'incident_date',

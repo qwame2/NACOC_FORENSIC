@@ -1297,7 +1297,17 @@
                                             <p class="text-[11px] text-black">Record illicit substance types, street valuation, and evidence vault allocation</p>
                                         </div>
                                     </div>
-                                    <div class="flex items-center space-x-2">
+                                    <div class="flex items-center space-x-2.5 flex-wrap">
+                                        <div class="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-300 shadow-2xs">
+                                            <label for="seizureCountInput" class="text-[11px] font-extrabold uppercase font-mono-code text-slate-700 whitespace-nowrap">
+                                                Number of Seized Items:
+                                            </label>
+                                            <input type="number" id="seizureCountInput" min="1" max="100" value="1"
+                                                onchange="setSeizureBlocksCount(this.value)"
+                                                oninput="setSeizureBlocksCount(this.value)"
+                                                onblur="if(!this.value || parseInt(this.value, 10) < 1) { this.value = document.querySelectorAll('#seizuresListContainer .seizure-block').length; }"
+                                                class="w-16 px-2 py-0.5 text-center font-mono-code font-black text-xs text-slate-900 bg-emerald-50 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                                        </div>
                                         <span class="px-2.5 py-1 bg-emerald-100 text-black text-[10px] font-mono-code font-bold rounded-lg border border-slate-300 uppercase">Evidence Tagging Active</span>
                                         <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
                                             <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -1314,7 +1324,7 @@
                                         <div class="flex items-center justify-between border-b border-slate-200 pb-3">
                                             <div class="flex items-center space-x-2">
                                                 <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center seizure-number-badge">1</span>
-                                                <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">Seized Item #1</h5>
+                                                <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider seizure-title">Seized Item 1</h5>
                                             </div>
                                             <div class="flex items-center space-x-2 seizure-header-right">
                                                 <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200">ACTIVE EXHIBIT</span>
@@ -2553,13 +2563,7 @@
                                 </div>
                                 <!-- END SEIZURES LIST CONTAINER -->
 
-                                <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
-                                <div class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
-                                    <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group">
-                                        <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                        Add Another Seized Item
-                                    </button>
-                                </div>
+                                
                                 </div>
                             </div>
                         <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
@@ -5657,23 +5661,352 @@
             return document.querySelector('.seizure-block') || document;
         }
 
-        function addSeizureBlock() {
+        window._savedCaseExhibitsData = @json(old('seizures') ?? []);
+
+        function getPristineSeizureBlockTemplate() {
+            if (!window._seizureBlockTemplate) {
+                const container = document.getElementById('seizuresListContainer');
+                const firstBlock = container ? container.querySelector('.seizure-block') : null;
+                if (firstBlock) {
+                    window._seizureBlockTemplate = firstBlock.cloneNode(true);
+                    window._seizureBlockTemplate.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea').forEach(input => {
+                        input.value = '';
+                    });
+                    window._seizureBlockTemplate.querySelectorAll('input[type="hidden"]').forEach(input => {
+                        input.value = '';
+                    });
+                    window._seizureBlockTemplate.querySelectorAll('select').forEach(select => {
+                        select.selectedIndex = 0;
+                    });
+                    window._seizureBlockTemplate.querySelector('.seizure-associated-person-select')?.removeAttribute('data-user-selected');
+                    const photoGrid = window._seizureBlockTemplate.querySelector('.seizurePhotosGrid');
+                    if (photoGrid) { photoGrid.innerHTML = ''; photoGrid.classList.add('hidden'); }
+                    const photoCount = window._seizureBlockTemplate.querySelector('#seizurePhotosCount, .seizure-photos-count');
+                    if (photoCount) { photoCount.innerText = '0 Photos Uploaded'; photoCount.classList.add('hidden'); }
+                    const fileInput = window._seizureBlockTemplate.querySelector('.fileSeizurePhoto');
+                    if (fileInput) fileInput.value = '';
+                }
+            }
+            return window._seizureBlockTemplate;
+        }
+
+        function seizureBlockHasData(block) {
+            if (!block) return false;
+            const textInputs = block.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]), textarea');
+            for (const input of textInputs) {
+                if (input.value && input.value.trim() !== '') {
+                    return true;
+                }
+            }
+            const hiddenInputs = block.querySelectorAll('input[type="hidden"]');
+            for (const hidden of hiddenInputs) {
+                if (hidden.name === '_token') continue;
+                if (hidden.value && hidden.value.trim() !== '') {
+                    return true;
+                }
+            }
+            const suspectSelect = block.querySelector('.seizure-associated-person-select');
+            if (suspectSelect && suspectSelect.getAttribute('data-user-selected') === 'true') {
+                return true;
+            }
+            const photos = block.querySelectorAll('.seizure-photo-item, .seizurePhotoItem');
+            if (photos.length > 0) return true;
+
+            return false;
+        }
+
+        function setSeizureBlocksCount(val) {
+            const targetCount = parseInt(val, 10);
             const container = document.getElementById('seizuresListContainer');
             if (!container) return;
 
-            const firstBlock = container.querySelector('.seizure-block');
-            if (!firstBlock) return;
+            const countInput = document.getElementById('seizureCountInput');
 
+            if (isNaN(targetCount) || targetCount < 1) {
+                return;
+            }
+
+            const finalTarget = Math.min(Math.max(1, targetCount), 100);
+            const currentBlocks = container.querySelectorAll('.seizure-block');
+            const currentCount = currentBlocks.length;
+
+            if (finalTarget === currentCount) return;
+
+            if (finalTarget > currentCount) {
+                const diff = finalTarget - currentCount;
+                for (let i = 0; i < diff; i++) {
+                    addSeizureBlock(false);
+                }
+                updateSeizureBlockNumbers();
+                if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                    syncSuspectDropdownsForExhibits();
+                }
+                if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                    syncSection4ExhibitsToLabSection();
+                }
+                if (typeof evaluateLabExaminationVisibility === 'function') {
+                    evaluateLabExaminationVisibility();
+                }
+            } else {
+                let hasData = false;
+                for (let i = finalTarget; i < currentCount; i++) {
+                    if (seizureBlockHasData(currentBlocks[i])) {
+                        hasData = true;
+                        break;
+                    }
+                }
+
+                if (hasData) {
+                    const confirmed = confirm('Decreasing the number of seized items will remove section(s) with entered data. Are you sure you want to proceed and discard this information?');
+                    if (!confirmed) {
+                        if (countInput) countInput.value = currentCount;
+                        return;
+                    }
+                }
+
+                for (let i = currentCount - 1; i >= finalTarget; i--) {
+                    currentBlocks[i].remove();
+                }
+                updateSeizureBlockNumbers();
+                if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                    syncSuspectDropdownsForExhibits();
+                }
+                if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                    syncSection4ExhibitsToLabSection();
+                }
+                if (typeof evaluateLabExaminationVisibility === 'function') {
+                    evaluateLabExaminationVisibility();
+                }
+            }
+        }
+
+        function populateSeizureBlock(block, data) {
+            if (!block || !data) return;
+
+            const owner = data.resolved_owner || data.associated_person || data.suspect_name || data.owner_name || '';
+            const assocSelect = block.querySelector('.seizure-associated-person-select');
+            if (assocSelect && owner) {
+                let matched = false;
+                const ownerLower = owner.toLowerCase().trim();
+                for (let i = 0; i < assocSelect.options.length; i++) {
+                    const optVal = assocSelect.options[i].value.toLowerCase().trim();
+                    const optText = assocSelect.options[i].text.toLowerCase().trim();
+                    if (optVal === ownerLower || optText.includes(ownerLower) || (ownerLower === 'all suspects' && optVal.includes('all'))) {
+                        assocSelect.selectedIndex = i;
+                        assocSelect.setAttribute('data-user-selected', 'true');
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && owner) {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = owner;
+                    newOpt.text = owner;
+                    newOpt.selected = true;
+                    assocSelect.appendChild(newOpt);
+                    assocSelect.setAttribute('data-user-selected', 'true');
+                }
+            }
+
+            const cat = data.category || data.exhibit_category || '';
+            if (cat) {
+                const catInput = block.querySelector('#newSeizureCategory');
+                const catSearch = block.querySelector('#exhibitSearchInput');
+                if (catInput) catInput.value = cat;
+                if (catSearch) catSearch.value = cat;
+
+                if (typeof selectExhibitCategory === 'function') {
+                    try {
+                        selectExhibitCategory(cat, { target: block });
+                    } catch(e) {}
+                }
+            }
+
+            const name = data.seizure_name || data.commodity_name || data.name || data.seizure_name_drug || '';
+            const catLower = (cat || '').toLowerCase();
+
+            if (catLower.includes('drug') || catLower === 'narcotics') {
+                const drugHidden = block.querySelector('#newSeizureNameDrug');
+                const drugSearch = block.querySelector('#drugSearchInput');
+                const drugSelect = block.querySelector('#drugSelect');
+                if (drugHidden) drugHidden.value = name;
+                if (drugSearch) drugSearch.value = name;
+                if (drugSelect) drugSelect.value = name;
+            } else if (catLower.includes('weapon') || catLower.includes('firearm')) {
+                const wpnHidden = block.querySelector('#newSeizureNameWeapon');
+                const wpnSearch = block.querySelector('#weaponSearchInput');
+                const wpnSelect = block.querySelector('#weaponSelect');
+                if (wpnHidden) wpnHidden.value = name;
+                if (wpnSearch) wpnSearch.value = name;
+                if (wpnSelect) wpnSelect.value = name;
+            } else if (catLower.includes('money') || catLower.includes('currency')) {
+                const currHidden = block.querySelector('#newSeizureNameCurrency');
+                const currSearch = block.querySelector('#currencySearchInput');
+                if (currHidden) currHidden.value = name;
+                if (currSearch) currSearch.value = name;
+            } else if (catLower.includes('ammo')) {
+                const ammoHidden = block.querySelector('#newSeizureNameAmmo');
+                const ammoSearch = block.querySelector('#ammoSearchInput');
+                if (ammoHidden) ammoHidden.value = name;
+                if (ammoSearch) ammoSearch.value = name;
+            } else if (catLower.includes('device') || catLower.includes('electronic')) {
+                const devHidden = block.querySelector('#newSeizureNameDevice');
+                const devSearch = block.querySelector('#deviceSearchInput');
+                if (devHidden) devHidden.value = name;
+                if (devSearch) devSearch.value = name;
+            } else {
+                const genInput = block.querySelector('#newSeizureName');
+                if (genInput) genInput.value = name;
+            }
+
+            const setVal = (sel, v) => {
+                if (v !== undefined && v !== null && v !== '') {
+                    const el = block.querySelector(sel);
+                    if (el) el.value = v;
+                }
+            };
+
+            setVal('#newSeizureQuantity', data.quantity);
+            setVal('#newSeizureWeight', data.weight);
+            setVal('#newSeizureUnit', data.unit);
+            setVal('#unitSearchInput', data.unit);
+            setVal('#newSeizurePackaging', data.packaging);
+            setVal('#pkgSearchInput', data.packaging);
+            setVal('#newSeizureValue', data.value || data.estimated_street_value);
+            setVal('#newSeizureConcealment', data.concealment_method || data.concealment);
+            setVal('#newSeizureDate', data.seizure_date || data.date);
+            setVal('#newSeizureTime', data.seizure_time || data.time);
+            setVal('#newSeizureLocation', data.seizure_location || data.location);
+            setVal('#newSeizureReason', data.seizure_reason || data.reason);
+            setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
+
+            const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
+            if (officer) {
+                setVal('#newSeizureOfficer', officer);
+                setVal('.officerSearchInput', officer);
+            }
+
+            setVal('#newDevModel', data.model || data.dev_model);
+            setVal('#newDevSerialNo', data.serial_number || data.dev_serial_no);
+            setVal('#newDevImei1', data.imei1 || data.dev_imei1);
+            setVal('#newDevImei2', data.imei2 || data.dev_imei2);
+            setVal('#newDevMacAddress', data.mac_address || data.dev_mac_address);
+            setVal('#newDevStorage', data.storage_capacity || data.dev_storage);
+            setVal('#newDevColour', data.colour || data.dev_colour);
+            setVal('#newDevMarks', data.identifying_marks || data.dev_marks);
+
+            setVal('#wpnModel', data.model || data.weapon_model || data.wpn_model);
+            setVal('#wpnSerialNo', data.serial_number || data.weapon_serial_no || data.wpn_serial_no);
+            setVal('#wpnCalibre', data.caliber || data.wpn_calibre);
+            setVal('#wpnColour', data.colour || data.wpn_colour);
+            setVal('#wpnSize', data.size || data.wpn_size);
+            setVal('#wpnMarks', data.identifying_marks || data.wpn_marks);
+            setVal('#wpnLocationFound', data.location_found || data.wpn_location_found);
+            setVal('#wpnLoadedStatus', data.loaded_status || data.wpn_loaded_status);
+            setVal('#wpnCondition', data.condition || data.wpn_condition);
+
+            setVal('#vehMake', data.make || data.veh_make);
+            setVal('#vehModel', data.model || data.veh_model);
+            setVal('#vehType', data.type || data.veh_type);
+            setVal('#vehTypeSearchInput', data.type || data.veh_type);
+            setVal('#vehYear', data.year || data.veh_year);
+            setVal('#vehColour', data.colour || data.veh_colour);
+            setVal('#vehRegNo', data.registration_number || data.veh_reg_no);
+            setVal('#vehVIN', data.vin || data.veh_vin);
+            setVal('#vehEngineNo', data.engine_number || data.veh_engine_no);
+            setVal('#vehCountryReg', data.country_registration || data.veh_country_reg);
+            setVal('#vehOwner', data.owner || data.veh_owner);
+            setVal('#vehDriver', data.driver || data.veh_driver);
+            setVal('#vehOwnerContact', data.owner_contact || data.veh_owner_contact);
+            setVal('#vehDocsAvailable', data.documents_available || data.veh_docs_available);
+            setVal('#vehDocRef', data.document_reference || data.veh_doc_ref);
+            setVal('#vehCondition', data.condition || data.veh_condition);
+            setVal('#vehFuel', data.fuel_level || data.veh_fuel);
+            setVal('#vehKeysRecv', data.keys_received || data.veh_keys_recv);
+            setVal('#vehKeyCount', data.key_count || data.veh_key_count);
+            setVal('#vehDamage', data.damages_visible || data.veh_damage);
+            setVal('#vehMods', data.modifications || data.veh_mods);
+            setVal('#vehFeatures', data.features || data.veh_features);
+
+            setVal('#ammoCartridgeAppearance', data.cartridge_appearance || data.ammo_cartridge_appearance);
+            setVal('#ammoProjectileType', data.projectile_type || data.ammo_projectile_type);
+            setVal('#ammoCaseMaterial', data.case_material || data.ammo_case_material);
+            setVal('#ammoColourMarkings', data.colour_markings || data.ammo_colour_markings);
+            setVal('#ammoCondition', data.condition || data.ammo_condition);
+            setVal('#ammoOtherCondition', data.other_condition || data.ammo_other_condition);
+            setVal('#ammoPackagingType', data.packaging_type || data.ammo_packaging_type);
+            setVal('#ammoSealCondition', data.seal_condition || data.ammo_seal_condition);
+            setVal('#ammoPackageReferenceNumber', data.package_reference_number || data.ammo_package_reference_number);
+            setVal('#ammoConditionWhenReceived', data.condition_when_received || data.ammo_condition_when_received);
+
+            const otherDesc = data.other_exhibit_description || data.other_description || '';
+            if (otherDesc) {
+                setVal('#newOtherExhibitDescription', otherDesc);
+                setVal('.other-exhibit-description-input', otherDesc);
+                const otherWrap = block.querySelector('#otherExhibitDescriptionWrapper, .other-exhibit-description-wrapper');
+                if (otherWrap) otherWrap.classList.remove('hidden');
+            }
+        }
+
+        function populateExistingManifestSections(savedExhibits) {
+            if (!savedExhibits || !Array.isArray(savedExhibits) || savedExhibits.length === 0) return;
+            const container = document.getElementById('seizuresListContainer');
+            if (!container) return;
+
+            getPristineSeizureBlockTemplate();
+
+            const countInput = document.getElementById('seizureCountInput');
+            if (countInput) {
+                countInput.value = savedExhibits.length;
+            }
+
+            let currentBlocks = container.querySelectorAll('.seizure-block');
+            while (currentBlocks.length < savedExhibits.length) {
+                addSeizureBlock(false);
+                currentBlocks = container.querySelectorAll('.seizure-block');
+            }
+            while (currentBlocks.length > savedExhibits.length) {
+                currentBlocks[currentBlocks.length - 1].remove();
+                currentBlocks = container.querySelectorAll('.seizure-block');
+            }
+
+            currentBlocks.forEach((block, idx) => {
+                if (savedExhibits[idx]) {
+                    populateSeizureBlock(block, savedExhibits[idx]);
+                }
+            });
+
+            updateSeizureBlockNumbers();
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof evaluateLabExaminationVisibility === 'function') {
+                evaluateLabExaminationVisibility();
+            }
+        }
+
+        function addSeizureBlock(shouldUpdate = true) {
+            const container = document.getElementById('seizuresListContainer');
+            if (!container) return;
+
+            const tpl = getPristineSeizureBlockTemplate();
+            const firstBlock = container.querySelector('.seizure-block');
+            if (!tpl && !firstBlock) return;
+
+            const clone = tpl ? tpl.cloneNode(true) : firstBlock.cloneNode(true);
             const newIndex = container.querySelectorAll('.seizure-block').length + 1;
-            const clone = firstBlock.cloneNode(true);
 
             clone.setAttribute('data-seizure-index', newIndex);
 
-            // Update title
             const titleEl = clone.querySelector('.seizure-title');
-            if (titleEl) titleEl.innerText = `Seized Item #${newIndex}`;
+            if (titleEl) titleEl.innerText = `Seized Item ${newIndex}`;
+            const numberBadge = clone.querySelector('.seizure-number-badge');
+            if (numberBadge) numberBadge.innerText = newIndex;
 
-            // Reset inputs in clone
             clone.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea').forEach(input => {
                 input.value = '';
             });
@@ -5685,60 +6018,40 @@
             });
             clone.querySelector('.seizure-associated-person-select')?.removeAttribute('data-user-selected');
 
-            // Hide all specialized wrappers in clone initially
-            const drugWrapper = clone.querySelector('#drugSelectWrapper');
-            const weaponWrapper = clone.querySelector('#weaponSelectWrapper');
-            const currencyWrapper = clone.querySelector('#currencySelectWrapper');
-            const ammoWrapper = clone.querySelector('#ammoSelectWrapper');
-            const deviceWrapper = clone.querySelector('#deviceSelectWrapper');
-            const deviceFieldsWrapper = clone.querySelector('#deviceFieldsWrapper');
-            const vehicleFieldsWrapper = clone.querySelector('#vehicleFieldsWrapper');
-            const weaponFieldsWrapper = clone.querySelector('#weaponFieldsWrapper');
-            const ammoFieldsWrapper = clone.querySelector('#ammoFieldsWrapper');
+            const wrappers = [
+                '#drugSelectWrapper', '#weaponSelectWrapper', '#currencySelectWrapper',
+                '#ammoSelectWrapper', '#deviceSelectWrapper', '#deviceFieldsWrapper',
+                '#vehicleFieldsWrapper', '#weaponFieldsWrapper', '#ammoFieldsWrapper',
+                '#otherExhibitDescriptionWrapper', '.other-exhibit-description-wrapper'
+            ];
+            wrappers.forEach(w => {
+                const el = clone.querySelector(w);
+                if (el) el.classList.add('hidden');
+            });
 
-            // Hide all dropdown panels in clone
             clone.querySelectorAll('#exhibitListPanel, #drugListPanel, #weaponListPanel, #currencyListPanel, #ammoListPanel, #deviceListPanel, #pkgListPanel, #unitListPanel').forEach(panel => {
                 panel.classList.add('hidden');
             });
 
-            if (drugWrapper) drugWrapper.classList.add('hidden');
-            if (weaponWrapper) weaponWrapper.classList.add('hidden');
-            if (currencyWrapper) currencyWrapper.classList.add('hidden');
-            if (ammoWrapper) ammoWrapper.classList.add('hidden');
-            if (deviceWrapper) deviceWrapper.classList.add('hidden');
-            if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
-            if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.add('hidden');
-            if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
-            if (ammoFieldsWrapper) ammoFieldsWrapper.classList.add('hidden');
-
             const commodityTextWrapper = clone.querySelector('#commodityTextWrapper');
-            if (commodityTextWrapper) commodityTextWrapper.classList.add('hidden');
-            if (deviceWrapper) deviceWrapper.classList.remove('hidden');
-            if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
+            if (commodityTextWrapper) commodityTextWrapper.classList.remove('hidden');
 
-            const categoryInput = clone.querySelector('#newSeizureCategory');
-            const categoryDisplay = clone.querySelector('#exhibitSearchInput');
-            if (categoryInput) categoryInput.value = 'Electronic Devices';
-            if (categoryDisplay) categoryDisplay.value = 'Electronic Devices';
-            if (typeof updateCommodityField === 'function') {
-                updateCommodityField('Electronic Devices', clone);
+            const clonePhotoGrid = clone.querySelector('.seizurePhotosGrid');
+            if (clonePhotoGrid) {
+                clonePhotoGrid.innerHTML = '';
+                clonePhotoGrid.classList.add('hidden');
             }
+            const clonePhotoCount = clone.querySelector('#seizurePhotosCount') || clone.querySelector('.seizure-photos-count');
+            if (clonePhotoCount) {
+                clonePhotoCount.innerText = '0 Photos Uploaded';
+                clonePhotoCount.classList.add('hidden');
+            }
+            const cloneFileInput = clone.querySelector('.fileSeizurePhoto');
+            if (cloneFileInput) cloneFileInput.value = '';
 
             container.appendChild(clone);
-            updateSeizureBlockNumbers();
-            if (typeof syncSuspectDropdownsForExhibits === 'function') {
-                syncSuspectDropdownsForExhibits();
-            }
-            if (typeof syncSection4ExhibitsToLabSection === 'function') {
-                syncSection4ExhibitsToLabSection();
-            }
-        }
 
-        function removeSeizureBlock(btn) {
-            const block = btn ? btn.closest('.seizure-block') : null;
-            const container = document.getElementById('seizuresListContainer');
-            if (block && container && container.querySelectorAll('.seizure-block').length > 1) {
-                block.remove();
+            if (shouldUpdate) {
                 updateSeizureBlockNumbers();
                 if (typeof syncSuspectDropdownsForExhibits === 'function') {
                     syncSuspectDropdownsForExhibits();
@@ -5746,17 +6059,44 @@
                 if (typeof syncSection4ExhibitsToLabSection === 'function') {
                     syncSection4ExhibitsToLabSection();
                 }
+                if (typeof evaluateLabExaminationVisibility === 'function') {
+                    evaluateLabExaminationVisibility();
+                }
+            }
+        }
+
+        function removeSeizureBlock(btn) {
+            const block = btn ? btn.closest('.seizure-block') : null;
+            const container = document.getElementById('seizuresListContainer');
+            if (!block || !container || container.querySelectorAll('.seizure-block').length <= 1) return;
+
+            if (seizureBlockHasData(block)) {
+                const confirmed = confirm('This seized item section contains entered information. Are you sure you want to remove it?');
+                if (!confirmed) return;
+            }
+
+            block.remove();
+            updateSeizureBlockNumbers();
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof evaluateLabExaminationVisibility === 'function') {
+                evaluateLabExaminationVisibility();
             }
         }
 
         function updateSeizureBlockNumbers() {
-            const blocks = document.querySelectorAll('.seizure-block');
+            const container = document.getElementById('seizuresListContainer');
+            const blocks = container ? container.querySelectorAll('.seizure-block') : document.querySelectorAll('.seizure-block');
             blocks.forEach((block, index) => {
                 const num = index + 1;
                 block.setAttribute('data-seizure-index', num);
                 const titleEl = block.querySelector('.seizure-title');
                 const numberBadge = block.querySelector('.seizure-number-badge');
-                if (titleEl) titleEl.innerText = `Seized Item #${num}`;
+                if (titleEl) titleEl.innerText = `Seized Item ${num}`;
                 if (numberBadge) numberBadge.innerText = num;
 
                 const removeBtn = block.querySelector('.remove-seizure-btn');
@@ -5768,7 +6108,19 @@
                     }
                 }
             });
+
+            const countInput = document.getElementById('seizureCountInput');
+            if (countInput && parseInt(countInput.value, 10) !== blocks.length) {
+                countInput.value = blocks.length;
+            }
         }
+        document.addEventListener('DOMContentLoaded', function() {
+            getPristineSeizureBlockTemplate();
+            if (window._savedCaseExhibitsData && window._savedCaseExhibitsData.length > 0) {
+                populateExistingManifestSections(window._savedCaseExhibitsData);
+            }
+        });
+
 
         function toggleUnitDropdown(e) {
             if (e) e.stopPropagation();

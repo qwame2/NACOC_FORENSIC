@@ -132,7 +132,76 @@
                 </tbody>
             </table>
         </div>
-    </div>
+@if (!empty($screening->on_medication))
+        {{-- Clinical Medications & Prescriptions Table (When On Medication) --}}
+        <div class="mt-3 p-3.5 bg-purple-50/50 rounded-xl border border-purple-200/80 space-y-2.5">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-purple-600"></span>
+                    <h5 class="text-[11px] font-black uppercase font-mono-code text-purple-950 tracking-wider flex items-center gap-1.5">
+                        <span>Clinical Medications &amp; Prescriptions</span>
+                        <span class="px-1.5 py-0.5 rounded text-[9.5px] bg-purple-200 text-purple-900 font-bold">On Active Medication</span>
+                    </h5>
+                </div>
+                @if (!empty($screening->medication_summary))
+                    <span class="text-[10.5px] font-mono-code font-bold text-purple-900 bg-white/90 px-2.5 py-0.5 rounded-md border border-purple-200 shadow-2xs">
+                        {{ $screening->medication_summary }}
+                    </span>
+                @endif
+            </div>
+
+            @if ($screening->medications && $screening->medications->count() > 0)
+                <div class="overflow-x-auto border border-purple-200 rounded-lg bg-white shadow-2xs">
+                    <table class="w-full text-xs text-left border-collapse min-w-[650px]">
+                        <thead class="bg-purple-100/70 text-purple-950 font-mono-code uppercase text-[10px] font-extrabold border-b border-purple-200">
+                            <tr>
+                                <th class="py-2 px-3 border-r border-purple-100">#</th>
+                                <th class="py-2 px-3 border-r border-purple-100">Medication Name</th>
+                                <th class="py-2 px-3 border-r border-purple-100">Dosage</th>
+                                <th class="py-2 px-3 border-r border-purple-100">Form &amp; Route</th>
+                                <th class="py-2 px-3 border-r border-purple-100">Frequency</th>
+                                <th class="py-2 px-3 border-r border-purple-100">Prescription Source</th>
+                                <th class="py-2 px-3 border-r border-purple-100">Date Started / Duration</th>
+                                <th class="py-2 px-3">Last Dose Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-purple-100 text-[11px] text-slate-700">
+                            @foreach ($screening->medications as $mIdx => $med)
+                                <tr class="hover:bg-purple-50/40">
+                                    <td class="py-2 px-3 font-mono-code font-bold text-purple-900 border-r border-purple-100">{{ $mIdx + 1 }}</td>
+                                    <td class="py-2 px-3 font-extrabold text-slate-900 border-r border-purple-100">{{ $med->medication_name }}</td>
+                                    <td class="py-2 px-3 font-mono-code text-slate-700 border-r border-purple-100">{{ $med->dosage ?: '—' }}</td>
+                                    <td class="py-2 px-3 text-slate-700 border-r border-purple-100">
+                                        {{ $med->form ?: '—' }} {{ $med->route ? '(' . $med->route . ')' : '' }}
+                                    </td>
+                                    <td class="py-2 px-3 text-slate-700 border-r border-purple-100">{{ $med->frequency ?: '—' }}</td>
+                                    <td class="py-2 px-3 text-slate-700 border-r border-purple-100">{{ $med->source_label }}</td>
+                                    <td class="py-2 px-3 text-slate-700 border-r border-purple-100">
+                                        @if ($med->date_started)
+                                            <div><span class="font-bold text-slate-800">Started:</span> {{ $med->date_started->format('d M Y') }}</div>
+                                        @endif
+                                        @if ($med->duration_ongoing)
+                                            <div><span class="font-bold text-slate-800">Duration:</span> {{ $med->duration_ongoing }}</div>
+                                        @endif
+                                        @if (!$med->date_started && !$med->duration_ongoing)
+                                            —
+                                        @endif
+                                    </td>
+                                    <td class="py-2 px-3 font-mono-code text-slate-700">
+                                        {{ $med->last_dose_taken ? $med->last_dose_taken->format('d M Y, H:i') : '—' }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <div class="text-[11px] text-purple-800 italic bg-white p-2.5 rounded-lg border border-purple-200">
+                    Screened person declared active medication intake; detailed medication schedule pending clinician entry.
+                </div>
+            @endif
+        </div>
+@endif    </div>
 @elseif (!empty($showEmpty) && !empty($showActions))
     {{-- Empty State: Option to screen suspect (strictly in Lab Analysis) --}}
     <div class="mt-4 p-3.5 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-sans">

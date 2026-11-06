@@ -19,8 +19,6 @@ class NlrReport extends Model
         'single_suspect_case_id',
         'multiple_suspect_case_id',
         'suspect_id',
-        'detailed_exhibit_description',
-        'condition_of_reserved_sample',
         'analyst',
         'user_id',
         'status',

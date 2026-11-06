@@ -21,6 +21,7 @@ class LaboratoryExaminationResult extends Model
         'laboratory_number',
         'gsa_lab_number',
         'exam_reference',
+        'purpose_of_examination',
         'analyst',
         'date_received',
         'date_started',

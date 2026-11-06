@@ -1,0 +1,1394 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AuditLog;
+use App\Models\CaseHandover;
+use App\Models\DrugScreening;
+use App\Models\ForensicCase;
+use App\Models\MultipleSuspectCase;
+use App\Models\SuspectGsaReport;
+use App\Models\SuspectNlrReport;
+use App\Models\User;
+use App\Policies\ForensicCasePolicy;
+use Illuminate\Http\Request;
+
+class CaseShowReviewPresenter
+{
+    protected array $viewData = [];
+
+    public function __construct(
+        protected DrugExhibitClassifier $drugClassifier,
+        protected CasePhotoResolver $photoResolver,
+        protected ExhibitOwnershipResolver $ownershipResolver,
+        protected CaseExhibitResolver $exhibitResolver,
+        protected CaseUnitProgressService $unitProgressService,
+        protected CaseLabExamResolver $labExamResolver,
+        protected ?ForensicCasePolicy $policy = null,
+    ) {
+        $this->policy = $this->policy ?? new ForensicCasePolicy();
+    }
+
+    /**
+     * Build the presentation view-model for an explicit forensic unit without route/header/session guessing.
+     *
+     * Supported $unitKey values: 'css', 'lab', 'dpf', 'em', 'hof' (or their full unit names).
+     */
+    public function presentForUnit(mixed $case, string $unitKey, ?Request $request = null, mixed $authUser = null): self
+    {
+        $request = $request ?? request();
+        $authUser = $authUser ?? auth()->user();
+
+        $normalized = $this->normalizeUnitKey($unitKey);
+
+        $reqFrom =
+            $request->input('from') ??
+            ($request->input('unit') ??
+                ($request->input('source') ??
+                    ($request->query('from') ?? ($request->query('unit') ?? $request->query('source')))));
+        $userUnit = $authUser->unit ?? (session('user_unit') ?? '');
+        $referer = $request->header('referer') ?? '';
+
+        $isDigitalForensicsRegister =
+            str_contains(strtolower($reqFrom ?? ''), 'digital_forensics_register') ||
+            str_contains(strtolower($reqFrom ?? ''), 'digital_register') ||
+            $reqFrom === 'Digital_Forensics_Register';
+
+        $isForensicHeadContext = $normalized === 'hof';
+        $isLabAnalysis = $normalized === 'lab';
+        $isLabContext = $normalized === 'lab';
+        $isDigitalForensics = $normalized === 'dpf';
+        $isEvidenceManagement = $normalized === 'em';
+
+        $isHof = $isForensicHeadContext || $this->policy->isForensicHead($authUser instanceof User ? $authUser : null);
+        $isCrimeSceneContext = $normalized === 'css' && !$isHof;
+
+        $activeUnitContext = match ($normalized) {
+            'lab' => 'Lab Analysis',
+            'dpf' => 'Digital & Physical Forensics',
+            'em' => 'Evidence Management',
+            'hof' => !empty($userUnit) ? $userUnit : ($case->unit_name ?? 'Forensic Directorate'),
+            default => (!empty($reqFrom) && !str_contains(strtolower($reqFrom), 'crime') && !str_contains(strtolower($reqFrom), 'field'))
+                ? $reqFrom
+                : 'Crime Scene Support',
+        };
+
+        return $this->buildViewData(
+            $case,
+            $request,
+            $authUser,
+            [
+                'isHof' => $isHof,
+                'reqFrom' => $reqFrom,
+                'userUnit' => $userUnit,
+                'referer' => $referer,
+                'activeUnitContext' => $activeUnitContext,
+                'isDigitalForensicsRegister' => $isDigitalForensicsRegister,
+                'isDigitalForensics' => $isDigitalForensics,
+                'isEvidenceManagement' => $isEvidenceManagement,
+                'isLabContext' => $isLabContext,
+                'isLabAnalysis' => $isLabAnalysis,
+                'isCrimeSceneContext' => $isCrimeSceneContext,
+                'isForensicHeadContext' => $isForensicHeadContext,
+            ],
+        );
+    }
+
+    /**
+     * Resolve the target per-unit route name for legacy /cases/{id}/review requests.
+     */
+    public function resolveLegacyRedirectRoute(mixed $case, ?Request $request = null, mixed $authUser = null): string
+    {
+        $request = $request ?? request();
+        $authUser = $authUser ?? auth()->user();
+
+        $reqFrom = $request->query('from') ?? ($request->query('unit') ?? $request->query('source'));
+        $referer = $request->header('referer') ?? '';
+
+        if (
+            $request->is('Forensic_Head*') ||
+            $request->is('forensic-head*') ||
+            ($referer && str_contains($referer, 'Forensic_Head'))
+        ) {
+            return 'forensic_head.cases.review';
+        }
+
+        if (!empty($reqFrom)) {
+            $fromLower = strtolower((string) $reqFrom);
+            if (str_contains($fromLower, 'digital') || str_contains($fromLower, 'physical')) {
+                return 'digital.cases.review';
+            }
+            if (str_contains($fromLower, 'evidence')) {
+                return 'evidence.cases.review';
+            }
+            if (str_contains($fromLower, 'lab')) {
+                return 'lab.cases.review';
+            }
+            if (str_contains($fromLower, 'crime') || str_contains($fromLower, 'field')) {
+                return 'crime_scene.cases.review';
+            }
+        }
+
+        $userUnitLower = strtolower((string) ($authUser->unit ?? (session('user_unit') ?? '')));
+        if (str_contains($userUnitLower, 'digital') || str_contains($userUnitLower, 'physical')) {
+            return 'digital.cases.review';
+        }
+        if (str_contains($userUnitLower, 'evidence')) {
+            return 'evidence.cases.review';
+        }
+        if (str_contains($userUnitLower, 'lab')) {
+            return 'lab.cases.review';
+        }
+        if (str_contains($userUnitLower, 'crime') || str_contains($userUnitLower, 'field')) {
+            return 'crime_scene.cases.review';
+        }
+
+        $caseUnitLower = strtolower((string) ($case->unit_name ?? ''));
+        if (str_contains($caseUnitLower, 'digital') || str_contains($caseUnitLower, 'physical')) {
+            return 'digital.cases.review';
+        }
+        if (str_contains($caseUnitLower, 'evidence')) {
+            return 'evidence.cases.review';
+        }
+        if (str_contains($caseUnitLower, 'lab')) {
+            return 'lab.cases.review';
+        }
+
+        return 'crime_scene.cases.review';
+    }
+
+    protected function normalizeUnitKey(string $unitKey): string
+    {
+        $lower = strtolower(trim($unitKey));
+
+        return match (true) {
+            $lower === 'lab' || str_contains($lower, 'lab') => 'lab',
+            $lower === 'dpf' || str_contains($lower, 'digital') || str_contains($lower, 'physical') => 'dpf',
+            $lower === 'em' || str_contains($lower, 'evidence') => 'em',
+            $lower === 'hof' || str_contains($lower, 'forensic head') || str_contains($lower, 'forensic directorate') || str_contains($lower, 'directorate head') => 'hof',
+            default => 'css',
+        };
+    }
+
+    /**
+     * Build the complete presentation view-model for resources/views/cases/show_review.blade.php.
+     */
+    public function present(mixed $case, ?Request $request = null, mixed $authUser = null, ?bool $presetIsLabAnalysis = null): self
+    {
+        $request = $request ?? request();
+        $authUser = $authUser ?? auth()->user();
+
+        $isHof =
+            $this->policy->isForensicHead($authUser instanceof User ? $authUser : null) ||
+            $request->is('Forensic_Head*') ||
+            session('user_role') === 'HOF';
+
+        $reqFrom = $request->query('from') ?? ($request->query('unit') ?? $request->query('source'));
+        $userUnit = $authUser->unit ?? (session('user_unit') ?? '');
+        $referer = $request->header('referer') ?? '';
+
+        if (!empty($reqFrom)) {
+            if (str_contains(strtolower($reqFrom), 'crime') || str_contains(strtolower($reqFrom), 'field')) {
+                $activeUnitContext = 'Crime Scene Support';
+            } elseif (str_contains(strtolower($reqFrom), 'lab')) {
+                $activeUnitContext = 'Lab Analysis';
+            } elseif (str_contains(strtolower($reqFrom), 'evidence')) {
+                $activeUnitContext = 'Evidence Management';
+            } elseif (str_contains(strtolower($reqFrom), 'digital') || str_contains(strtolower($reqFrom), 'physical')) {
+                $activeUnitContext = 'Digital & Physical Forensics';
+            } else {
+                $activeUnitContext = $reqFrom;
+            }
+        } elseif ($request->is('Lab_Analysis*') || $request->is('lab-analysis*') || $request->is('lab-result*')) {
+            $activeUnitContext = 'Lab Analysis';
+        } elseif ($request->is('Crime_Scene_Support*') || $request->is('crime-scene-support*')) {
+            $activeUnitContext = 'Crime Scene Support';
+        } elseif ($request->is('Digital_Forensics*') || $request->is('digital-forensics*')) {
+            $activeUnitContext = 'Digital & Physical Forensics';
+        } elseif ($request->is('Evidence_Management*') || $request->is('evidence-management*')) {
+            $activeUnitContext = 'Evidence Management';
+        } elseif (!empty($userUnit)) {
+            if (str_contains(strtolower($userUnit), 'digital') || str_contains(strtolower($userUnit), 'physical')) {
+                $activeUnitContext = 'Digital & Physical Forensics';
+            } elseif (str_contains(strtolower($userUnit), 'evidence')) {
+                $activeUnitContext = 'Evidence Management';
+            } elseif (str_contains(strtolower($userUnit), 'lab')) {
+                $activeUnitContext = 'Lab Analysis';
+            } elseif (str_contains(strtolower($userUnit), 'crime') || str_contains(strtolower($userUnit), 'field')) {
+                $activeUnitContext = 'Crime Scene Support';
+            } else {
+                $activeUnitContext = $userUnit;
+            }
+        } else {
+            if (
+                str_contains(strtolower($case->unit_name ?? ''), 'digital') ||
+                str_contains(strtolower($case->unit_name ?? ''), 'physical')
+            ) {
+                $activeUnitContext = 'Digital & Physical Forensics';
+            } elseif (str_contains(strtolower($case->unit_name ?? ''), 'evidence')) {
+                $activeUnitContext = 'Evidence Management';
+            } elseif (str_contains(strtolower($case->unit_name ?? ''), 'lab')) {
+                $activeUnitContext = 'Lab Analysis';
+            } else {
+                $activeUnitContext = $case->unit_name ?? 'Crime Scene Support';
+            }
+        }
+
+        $reqFrom =
+            $request->input('from') ??
+            ($request->input('unit') ??
+                ($request->input('source') ??
+                    ($request->query('from') ?? ($request->query('unit') ?? $request->query('source')))));
+
+        $isDigitalForensicsRegister =
+            str_contains(strtolower($reqFrom ?? ''), 'digital_forensics_register') ||
+            str_contains(strtolower($reqFrom ?? ''), 'digital_register') ||
+            $reqFrom === 'Digital_Forensics_Register';
+
+        $isDigitalForensics =
+            str_contains(strtolower($activeUnitContext ?? ''), 'digital') ||
+            str_contains(strtolower($activeUnitContext ?? ''), 'physical') ||
+            str_contains(strtolower($reqFrom ?? ''), 'digital') ||
+            str_contains(strtolower($reqFrom ?? ''), 'physical') ||
+            $request->is('Digital_Forensics*') ||
+            $request->is('digital-forensics*') ||
+            (isset($authUser) &&
+                (str_contains(strtolower($authUser->unit ?? ''), 'digital') ||
+                    str_contains(strtolower($authUser->unit ?? ''), 'physical')));
+
+        $isEvidenceManagement =
+            str_contains(strtolower($activeUnitContext ?? ''), 'evidence') ||
+            str_contains(strtolower($reqFrom ?? ''), 'evidence') ||
+            $request->is('Evidence_Management*') ||
+            $request->is('evidence-management*') ||
+            (isset($authUser) && str_contains(strtolower($authUser->unit ?? ''), 'evidence'));
+
+        $isLabContext =
+            $request->is('Lab_Analysis*') ||
+            $request->is('lab-analysis*') ||
+            $request->is('lab-result*') ||
+            $request->query('unit') === 'Lab Analysis' ||
+            $request->query('from') === 'lab' ||
+            (str_contains(strtolower($activeUnitContext ?? ''), 'lab') &&
+                !$isEvidenceManagement &&
+                !$isDigitalForensics &&
+                !$request->is('Crime_Scene_Support*') &&
+                !$request->is('Evidence_Management*') &&
+                !$request->is('Digital_Forensics*'));
+
+        $isLabAnalysis = $presetIsLabAnalysis !== null
+            ? $presetIsLabAnalysis
+            : ($isLabContext && !$isDigitalForensics && !$isEvidenceManagement);
+
+        $isCrimeSceneContext =
+            (str_contains(strtolower($activeUnitContext), 'crime') ||
+                str_contains(strtolower($reqFrom ?? ''), 'crime') ||
+                $request->is('Crime_Scene_Support*') ||
+                $request->is('crime-scene-support*')) &&
+            !$isHof &&
+            !$isLabContext &&
+            !$isDigitalForensics &&
+            !$isEvidenceManagement;
+
+        $isForensicHeadContext =
+            $request->is('Forensic_Head*') ||
+            ($request->header('referer') && str_contains($request->header('referer'), 'Forensic_Head'));
+
+        return $this->buildViewData(
+            $case,
+            $request,
+            $authUser,
+            [
+                'isHof' => $isHof,
+                'reqFrom' => $reqFrom,
+                'userUnit' => $userUnit,
+                'referer' => $referer,
+                'activeUnitContext' => $activeUnitContext,
+                'isDigitalForensicsRegister' => $isDigitalForensicsRegister,
+                'isDigitalForensics' => $isDigitalForensics,
+                'isEvidenceManagement' => $isEvidenceManagement,
+                'isLabContext' => $isLabContext,
+                'isLabAnalysis' => $isLabAnalysis,
+                'isCrimeSceneContext' => $isCrimeSceneContext,
+                'isForensicHeadContext' => $isForensicHeadContext,
+            ],
+        );
+    }
+
+    /**
+     * Assemble the presentation payload for the resolved unit context.
+     */
+    protected function buildViewData(mixed $case, Request $request, mixed $authUser, array $unitFlags): self
+    {
+        $isHof = $unitFlags['isHof'];
+        $reqFrom = $unitFlags['reqFrom'];
+        $userUnit = $unitFlags['userUnit'];
+        $referer = $unitFlags['referer'];
+        $activeUnitContext = $unitFlags['activeUnitContext'];
+        $isDigitalForensicsRegister = $unitFlags['isDigitalForensicsRegister'];
+        $isDigitalForensics = $unitFlags['isDigitalForensics'];
+        $isEvidenceManagement = $unitFlags['isEvidenceManagement'];
+        $isLabContext = $unitFlags['isLabContext'];
+        $isLabAnalysis = $unitFlags['isLabAnalysis'];
+        $isCrimeSceneContext = $unitFlags['isCrimeSceneContext'];
+        $isForensicHeadContext = $unitFlags['isForensicHeadContext'];
+
+        $extractAllPhotosHelper = $this->photoResolver->getExtractAllPhotosClosure();
+        $formatPhotoUrlHelper = $this->photoResolver->getFormatPhotoUrlClosure();
+        $formatMugshotUrl = $this->photoResolver->getFormatMugshotUrlClosure();
+        $getImgSrc = $this->photoResolver->getImgSrcClosure();
+        $checkIsDrugExhibit = $this->drugClassifier->getClosure();
+
+        $isMultiCase = ($case instanceof ForensicCase)
+            ? $case->isMultipleSuspect()
+            : (($case->underlyingRecord ?? null) instanceof MultipleSuspectCase
+                || ($case instanceof MultipleSuspectCase)
+                || !empty($case->total_suspects_count)
+                || !empty($case->is_multiple));
+
+        $activeSuspectHasSavedResult = false;
+        $activeSuspectHasDrugExhibit = false;
+
+        $dbLabHead = User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
+        $defaultLabHeadName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
+        $officerName = $authUser->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : 'N/A')));
+        $officerRole = $isHof ? 'Forensic Head' : 'Commanding Officer';
+
+        $status = $case->status ?? 'Awaiting Sign-off';
+        $priority = strtoupper($case->priority ?? 'HIGH');
+
+        $docketData = is_array($case->docket_data)
+            ? $case->docket_data
+            : (json_decode($case->docket_data ?? '[]', true) ?: []);
+
+        // 1. Photos & Drug Classification
+        $photoData = $this->photoResolver->resolveCasePhotos($case, $docketData);
+        $drugCaseData = $this->drugClassifier->classifyCase($case, $docketData, $isDigitalForensics);
+
+        // 2. Controller, Handover, Creator, and AuditLog Status Updater
+        $controllerUser = is_object($case) && method_exists($case, 'getControllerUser') ? $case->getControllerUser() : null;
+        $isCaseController = $this->policy->controlCaseStatus($authUser instanceof User ? $authUser : null, $case, $isForensicHeadContext)
+            || ($authUser && $isHof);
+        $activeHandover = is_object($case) && method_exists($case, 'getActiveHandover') ? $case->getActiveHandover() : null;
+        $currentCaseStatus = $case->case_status ?? 'Under Investigation';
+
+        $caseCreatorName = $case->user?->fullname
+            ?? ($case->user?->username ?? ($docketData['created_by_name'] ?? 'Investigating Officer'));
+        $caseCreatorUnit = $case->user?->unit ?? ($case->unit_name ?? 'NACOC Forensic');
+        $caseCreatedAt = $case->created_at ? $case->created_at->format('d M Y, H:i') : null;
+        $arrestingOfficerName = $case->arresting_officer ?? ($case->submitting_officer ?? 'N/A');
+
+        $statusAudit = AuditLog::where('case_number', $case->case_number)
+            ->whereIn('action', ['CASE_STATUS_CHANGED', 'CASE_STATUS_UPDATED'])
+            ->latest('id')
+            ->first();
+        $statusUpdatedBy = $statusAudit->user_name ?? ($docketData['case_status_updated_by'] ?? null);
+        $statusUpdatedByUnit = $statusAudit->user_unit ?? ($docketData['case_status_updated_by_unit'] ?? null);
+        $statusUpdatedAt = $statusAudit
+            ? $statusAudit->created_at->format('d M Y, H:i')
+            : ($docketData['case_status_updated_at'] ?? null);
+
+        // 3. Active Suspect & Linked Exhibits
+        $activeSuspectData = $this->ownershipResolver->resolveActiveSuspect($case, $docketData, $request->query('suspect'));
+        $linkedExhibitsData = $this->exhibitResolver->resolveSuspectLinkedExhibits(
+            $case,
+            $docketData,
+            $activeSuspectData['activeSuspectNameLower'],
+            $activeSuspectData['isActiveSuspectPrimary'],
+        );
+        $suspectExhibitFlags = $this->drugClassifier->classifySuspectExhibits($linkedExhibitsData['suspectLinkedExhibits']);
+        $activeSuspectHasDrugExhibit = $suspectExhibitFlags['activeSuspectHasDrugExhibit'];
+        $initialActiveSuspectHasDrugExhibit = $activeSuspectHasDrugExhibit;
+
+        // 4. Saved Lab State & Unit Progress
+        $allGsaForReview = SuspectGsaReport::forCase(
+            $case->case_number ?? $case->id ?? null,
+            $case->id ?? null,
+        );
+        $allNlrForReview = SuspectNlrReport::forCase(
+            $case->case_number ?? $case->id ?? null,
+            $case->id ?? null,
+        );
+        $hasGsaReports = $allGsaForReview->count() > 0;
+
+        $savedLabFlags = $this->labExamResolver->resolveSuspectLabExamSaved(
+            $case,
+            $docketData,
+            $activeSuspectHasDrugExhibit,
+            $activeSuspectData['activeSuspectNameLower'],
+            $activeSuspectData['isActiveSuspectPrimary'],
+            $isMultiCase,
+            $linkedExhibitsData['suspectLinkedExhibits'],
+        );
+
+        $unitProgressData = $this->unitProgressService->resolveUnitProgress(
+            $case,
+            $docketData,
+            $activeSuspectData['activeSuspectNameLower'],
+            $activeSuspectData['isActiveSuspectPrimary'],
+            $savedLabFlags['suspectLabExamSaved'],
+            $suspectExhibitFlags['suspectHasDrug'],
+            $activeSuspectHasDrugExhibit,
+            $suspectExhibitFlags['suspectHasElectronic'],
+            $suspectExhibitFlags['suspectHasCrimeScene'],
+            $defaultLabHeadName,
+            null,
+            $hasGsaReports,
+        );
+
+        $initialNamesData = $this->ownershipResolver->resolveInitialSuspectNameLists($docketData);
+        $currentLoggedInName = $authUser->fullname ?? (session('user_name') ?? ($authUser->fullname ?? ''));
+
+        $topLevelLabData = $this->labExamResolver->resolveTopLevelLabExam(
+            $case,
+            $docketData,
+            $isMultiCase,
+            $initialNamesData['primaryAndCoNamesList'],
+            $drugCaseData['topDrugExhibits'],
+            $drugCaseData['isDrugCase'],
+            $savedLabFlags['suspectLabExamSaved'],
+            $unitProgressData['unitProgress'],
+            $currentLoggedInName,
+            $defaultLabHeadName,
+        );
+
+        $finalizedUnitProgress = $this->unitProgressService->finalizeUnitProgressAfterLabResolution(
+            $unitProgressData['unitProgress'],
+            $unitProgressData['unitsList'],
+            $case,
+            $docketData,
+            $savedLabFlags['suspectLabExamSaved'],
+            $unitProgressData['suspectHasDrugExhibit'],
+            $activeSuspectData['activeSuspectNameLower'],
+            $unitProgressData['isCreatorDpf'],
+            $topLevelLabData['labAnalyst'],
+            $defaultLabHeadName,
+            $hasGsaReports,
+        );
+
+        $unitColors = [
+            'Crime Scene Support' => 'text-blue-600 bg-blue-50 border-blue-200',
+            'Evidence Management' => 'text-indigo-600 bg-indigo-50 border-indigo-200',
+            'LAB Analysis' => 'text-emerald-600 bg-emerald-50 border-emerald-200',
+            'Lab Analysis' => 'text-emerald-600 bg-emerald-50 border-emerald-200',
+            'Digital & Physical Forensics' => 'text-amber-600 bg-amber-50 border-amber-200',
+            'Digital & Physical Forensic Unit' => 'text-amber-600 bg-amber-50 border-amber-200',
+        ];
+        $unitBadgeColor = $unitColors[$case->unit_name] ?? 'text-blue-600 bg-blue-50 border-blue-200';
+
+        // 5. Notification Bell Counts (lines 2071-2080)
+        $pendingCasesNotif = (int) ForensicCase::whereIn('status', [
+            'Awaiting Sign-off',
+            'Pending Approval',
+            'Pending',
+        ])->count();
+        $pendingUsersNotif = (int) User::where('is_approved', false)->count();
+        $pendingHandoversNotif = (int) CaseHandover::whereNull('acknowledged_at')->count();
+        $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0)
+            + ($pendingUsersNotif > 0 ? 1 : 0)
+            + ($pendingHandoversNotif > 0 ? 1 : 0);
+
+        // 6. Suspects List, Ownership & Case Exhibits (lines 2779-5568)
+        $ownershipData = $this->ownershipResolver->resolveSuspectsListAndOwnership($case, $docketData);
+        $caseExhibitsData = $this->exhibitResolver->resolveAllCaseExhibits(
+            $case,
+            $docketData,
+            $isMultiCase,
+            $ownershipData['primaryAndCoNamesList'],
+            $ownershipData['primarySuspectsCombinedNames'],
+        );
+
+        $allGsaForReview = SuspectGsaReport::forCase(
+            $case->case_number ?? $case->id ?? null,
+            $case->id ?? null,
+        );
+        $allNlrForReview = SuspectNlrReport::forCase(
+            $case->case_number ?? $case->id ?? null,
+            $case->id ?? null,
+        );
+
+        $suspectsList = $ownershipData['suspectsList'];
+        $capturedJointExhibits = [];
+        $savedJointLabExam = null;
+        $savedJointLabHeadingName = null;
+
+        foreach ($suspectsList as $sIdx => $sItem) {
+            $suspectsList[$sIdx]['resolved_view'] = $this->resolveSingleSuspectDossierView(
+                $case,
+                $docketData,
+                $suspectsList,
+                $sItem,
+                $sIdx,
+                $ownershipData['primarySuspectNamesList'],
+                $ownershipData['primaryAndCoNamesList'],
+                $ownershipData['primarySuspectsCombinedNames'],
+                $ownershipData['hasCoSuspectsInCase'],
+                $allGsaForReview,
+                $allNlrForReview,
+                $capturedJointExhibits,
+                $savedJointLabExam,
+                $savedJointLabHeadingName,
+                [
+                    'caseCreatorName' => $caseCreatorName,
+                    'caseCreatorUnit' => $caseCreatorUnit,
+                    'caseCreatedAt' => $caseCreatedAt,
+                    'arrestingOfficerName' => $arrestingOfficerName,
+                    'statusUpdatedBy' => $statusUpdatedBy,
+                    'statusUpdatedByUnit' => $statusUpdatedByUnit,
+                    'statusUpdatedAt' => $statusUpdatedAt,
+                    'isCaseController' => $isCaseController,
+                    'authUserIsHead' => (bool) ($authUser->is_head ?? false),
+                    'isLabContext' => (bool) $isLabContext,
+                ],
+            );
+        }
+
+        $finalJointSummary = $this->exhibitResolver->resolveFinalJointExhibitsSummary(
+            $case,
+            $caseExhibitsData['allCaseExhibits'],
+            $capturedJointExhibits,
+            $ownershipData['primaryAndCoNamesList'],
+            $ownershipData['primarySuspectsCombinedNames'],
+            $isMultiCase,
+            $ownershipData['hasCoSuspectsInCase'],
+            $suspectsList,
+            $ownershipData['rawSuspects'],
+        );
+
+        $savedJointLabExamCard = !empty($savedJointLabExam)
+            ? $this->labExamResolver->formatLabExamForCard(
+                $savedJointLabExam,
+                $case,
+                $savedJointLabHeadingName ?? $finalJointSummary['jointDossierHeadingName'],
+            )
+            : null;
+
+        $jointCaseReportFiles = $allGsaForReview->merge($allNlrForReview)->unique(function ($item) {
+            return get_class($item) . '_' . $item->id;
+        })->values();
+
+        // 7. Section 5 Lab Analysis Data (only applied when $isLabAnalysis is true, preserving exact behavior)
+        $section5Data = [];
+        if ($isLabAnalysis) {
+            $section5Data = $this->labExamResolver->resolveSection5LabAnalysisData(
+                $case,
+                $docketData,
+                $activeSuspectData['activeSuspectItem'],
+                $activeSuspectData['activeSuspectName'],
+                $activeSuspectData['activeSuspectNameLower'],
+                $activeSuspectHasDrugExhibit,
+                $drugCaseData['isDrugCase'],
+                $ownershipData['primaryAndCoNamesList'],
+                $ownershipData['primarySuspectsCombinedNames'],
+                $topLevelLabData,
+            );
+        }
+
+        // 8. Associate Suspect Lab Dossiers (lines 9138-10092)
+        $effectiveLabContext = array_merge($topLevelLabData, $section5Data);
+        $associateLabDossiersData = $this->labExamResolver->resolveAssociateLabDossiers(
+            $case,
+            $docketData,
+            $suspectsList,
+            $ownershipData['primaryAndCoNamesList'],
+            $ownershipData['primarySuspectsCombinedNames'],
+            $section5Data['allDrugExhibitsList'] ?? [],
+            $effectiveLabContext,
+        );
+
+        // 9. Debug script active suspect dossier lab exam (lines 15166-15169)
+        $activeSuspectDossierExam = is_object($case) && method_exists($case, 'resolveLabExamForSuspect')
+            ? $case->resolveLabExamForSuspect($activeSuspectData['activeSuspectName'] ?? null)
+            : [];
+        $activeSuspectDossierHasSaved = !empty($activeSuspectDossierExam['has_saved']);
+
+        $this->viewData = array_merge(
+            [
+                'extractAllPhotosHelper' => $extractAllPhotosHelper,
+                'formatPhotoUrlHelper' => $formatPhotoUrlHelper,
+                'formatMugshotUrl' => $formatMugshotUrl,
+                'getImgSrc' => $getImgSrc,
+                'checkIsDrugExhibit' => $checkIsDrugExhibit,
+                'authUser' => $authUser,
+                'isMultiCase' => $isMultiCase,
+                'activeSuspectHasSavedResult' => $activeSuspectHasSavedResult,
+                'activeSuspectHasDrugExhibit' => $activeSuspectHasDrugExhibit,
+                'initialActiveSuspectHasDrugExhibit' => $initialActiveSuspectHasDrugExhibit,
+                'isHof' => $isHof,
+                'dbLabHead' => $dbLabHead,
+                'defaultLabHeadName' => $defaultLabHeadName,
+                'officerName' => $officerName,
+                'officerRole' => $officerRole,
+                'reqFrom' => $reqFrom,
+                'userUnit' => $userUnit,
+                'referer' => $referer,
+                'activeUnitContext' => $activeUnitContext,
+                'isDigitalForensicsRegister' => $isDigitalForensicsRegister,
+                'isDigitalForensics' => $isDigitalForensics,
+                'isEvidenceManagement' => $isEvidenceManagement,
+                'isLabContext' => $isLabContext,
+                'isLabAnalysis' => $isLabAnalysis,
+                'isCrimeSceneContext' => $isCrimeSceneContext,
+                'isForensicHeadContext' => $isForensicHeadContext,
+                'status' => $status,
+                'priority' => $priority,
+                'docketData' => $docketData,
+                'controllerUser' => $controllerUser,
+                'isCaseController' => $isCaseController,
+                'activeHandover' => $activeHandover,
+                'currentCaseStatus' => $currentCaseStatus,
+                'caseCreatorName' => $caseCreatorName,
+                'caseCreatorUnit' => $caseCreatorUnit,
+                'caseCreatedAt' => $caseCreatedAt,
+                'arrestingOfficerName' => $arrestingOfficerName,
+                'statusAudit' => $statusAudit,
+                'statusUpdatedBy' => $statusUpdatedBy,
+                'statusUpdatedByUnit' => $statusUpdatedByUnit,
+                'statusUpdatedAt' => $statusUpdatedAt,
+                'currentLoggedInName' => $currentLoggedInName,
+                'unitColors' => $unitColors,
+                'unitBadgeColor' => $unitBadgeColor,
+                'pendingCasesNotif' => $pendingCasesNotif,
+                'pendingUsersNotif' => $pendingUsersNotif,
+                'pendingHandoversNotif' => $pendingHandoversNotif,
+                'totalAlertsCount' => $totalAlertsCount,
+                'capturedJointExhibits' => $capturedJointExhibits,
+                'savedJointLabExam' => $savedJointLabExam,
+                'savedJointLabExamCard' => $savedJointLabExamCard,
+                'savedJointLabHeadingName' => $savedJointLabHeadingName,
+                'allGsaForReview' => $allGsaForReview,
+                'allNlrForReview' => $allNlrForReview,
+                'jointCaseReportFiles' => $jointCaseReportFiles,
+                'activeSuspectDossierExam' => $activeSuspectDossierExam,
+                'activeSuspectDossierHasSaved' => $activeSuspectDossierHasSaved,
+            ],
+            $photoData,
+            $drugCaseData,
+            $activeSuspectData,
+            $linkedExhibitsData,
+            $suspectExhibitFlags,
+            $savedLabFlags,
+            $unitProgressData,
+            $initialNamesData,
+            $topLevelLabData,
+            $finalizedUnitProgress,
+            $ownershipData,
+            ['suspectsList' => $suspectsList],
+            [
+                'allCaseExhibits' => $caseExhibitsData['allCaseExhibits'],
+                'seenExhibitKeys' => $caseExhibitsData['seenExhibitKeys'],
+                'allCaseExhibitPhotos' => $caseExhibitsData['allCaseExhibitPhotos'],
+            ],
+            $finalJointSummary,
+            $section5Data,
+            $associateLabDossiersData,
+        );
+
+        return $this;
+    }
+
+    /**
+     * Pre-resolve all suspect-level variables for a single suspect entry in @foreach ($suspectsList as $sIdx => $sItem).
+     */
+    protected function resolveSingleSuspectDossierView(
+        mixed $case,
+        array $docketData,
+        array $suspectsList,
+        array $sItem,
+        int $sIdx,
+        array $primarySuspectNamesList,
+        array $primaryAndCoNamesList,
+        string $primarySuspectsCombinedNames,
+        bool $hasCoSuspectsInCase,
+        mixed $allGsaForReview,
+        mixed $allNlrForReview,
+        array &$capturedJointExhibits,
+        ?array &$savedJointLabExam,
+        ?string &$savedJointLabHeadingName,
+        array $caseContext = [],
+    ): array {
+        $sNum = $sItem['suspect_number'] ?? $sIdx + 1;
+        $rawSName = $sItem['suspect_name'] ?? 'Suspect #' . $sNum;
+        if (str_contains($rawSName, ',')) {
+            $sNameParts = array_map('trim', explode(',', $rawSName));
+            $sName = $sNameParts[$sIdx] ?? ($sNameParts[0] ?? $rawSName);
+        } else {
+            $sName = $rawSName;
+        }
+        $sDocketSuspect = [];
+        if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
+            if (isset($docketData['suspects'][$sIdx]) && is_array($docketData['suspects'][$sIdx])) {
+                $sDocketSuspect = $docketData['suspects'][$sIdx];
+            } elseif (isset($docketData['suspects'][$sNum - 1]) && is_array($docketData['suspects'][$sNum - 1])) {
+                $sDocketSuspect = $docketData['suspects'][$sNum - 1];
+            }
+            if (empty($sDocketSuspect)) {
+                foreach ($docketData['suspects'] as $ds) {
+                    if (
+                        is_array($ds) &&
+                        !empty($ds['suspect_name']) &&
+                        !empty($sName) &&
+                        strtolower(trim($ds['suspect_name'])) === strtolower(trim($sName))
+                    ) {
+                        $sDocketSuspect = $ds;
+                        break;
+                    }
+                }
+            }
+        }
+
+        $sAlias =
+            $sItem['suspect_alias'] ??
+            ($sDocketSuspect['suspect_alias'] ??
+                ($sDocketSuspect['alias'] ??
+                    ($sNum == 1 ? $case->suspect_alias ?? ($docketData['alias'] ?? 'N/A') : 'N/A')));
+        $sCard =
+            $sItem['ghana_card'] ??
+            ($sDocketSuspect['ghana_card'] ??
+                ($sDocketSuspect['id_card'] ??
+                    ($sNum == 1 ? $case->ghana_card ?? ($docketData['id_card'] ?? 'N/A') : 'N/A')));
+        $sGender =
+            $sItem['gender'] ??
+            ($sDocketSuspect['gender'] ??
+                ($sNum == 1 ? $case->gender ?? ($docketData['gender'] ?? 'N/A') : 'N/A'));
+        $sAge = $sItem['age'] ?? ($sDocketSuspect['age'] ?? ($sNum == 1 ? $case->age ?? ($docketData['age'] ?? null) : null));
+        $sDOB = $sItem['dob'] ?? ($sDocketSuspect['dob'] ?? ($sNum == 1 ? $case->dob ?? ($docketData['dob'] ?? null) : null));
+        $sHeight =
+            $sItem['height'] ?? ($sDocketSuspect['height'] ?? ($sNum == 1 ? $case->height ?? ($docketData['height'] ?? null) : null));
+        $sEye =
+            $sItem['eye_color'] ??
+            ($sDocketSuspect['eye_color'] ??
+                ($sNum == 1 ? $case->eye_color ?? ($docketData['eye_color'] ?? null) : null));
+        $sNat =
+            $sItem['nationality'] ??
+            ($sDocketSuspect['nationality'] ??
+                ($sNum == 1
+                    ? $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')
+                    : 'Ghanaian'));
+        $sPOB =
+            $sItem['place_of_birth'] ??
+            ($sItem['hometown'] ??
+                ($sItem['pob'] ??
+                    ($sDocketSuspect['place_of_birth'] ??
+                        ($sDocketSuspect['hometown'] ??
+                            ($sDocketSuspect['pob'] ??
+                                ($sNum == 1 ? $case->pob ?? ($docketData['pob'] ?? 'N/A') : 'N/A'))))));
+        if (empty($sPOB)) {
+            $sPOB = 'N/A';
+        }
+        $sPhone =
+            $sItem['phone_number'] ??
+            ($sItem['contact_phone'] ??
+                ($sItem['phone'] ??
+                    ($sDocketSuspect['phone_number'] ??
+                        ($sDocketSuspect['contact_phone'] ??
+                            ($sDocketSuspect['phone'] ??
+                                ($sNum == 1 ? $case->phone ?? ($docketData['phone'] ?? 'N/A') : 'N/A'))))));
+        $rawPhones = $sItem['phones'] ?? ($sItem['additional_phones'] ?? ($sDocketSuspect['phones'] ?? ($sDocketSuspect['additional_phones'] ?? ($sNum == 1 ? ($case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? []))) : []))));
+        if (is_string($rawPhones)) {
+            $rawPhones = json_decode($rawPhones, true) ?: [];
+        }
+        $sPhones = [];
+        if (is_array($rawPhones)) {
+            foreach ($rawPhones as $rItem) {
+                if (is_array($rItem)) {
+                    $rNum = trim((string) ($rItem['number'] ?? ($rItem['phone'] ?? '')));
+                    if ($rNum !== '') {
+                        $sPhones[] = [
+                            'label' => trim((string) ($rItem['label'] ?? 'Alternate')) ?: 'Alternate',
+                            'number' => $rNum,
+                        ];
+                    }
+                } elseif (is_string($rItem) && trim($rItem) !== '') {
+                    $sPhones[] = [
+                        'label' => 'Alternate',
+                        'number' => trim($rItem),
+                    ];
+                }
+            }
+        }
+        if (empty($sPhones) && !empty($sPhone) && $sPhone !== 'N/A' && (str_contains($sPhone, ',') || str_contains($sPhone, '/'))) {
+            $parts = array_filter(array_map('trim', preg_split('/[,\/]+/', $sPhone)));
+            foreach ($parts as $pIdx => $partNum) {
+                $sPhones[] = [
+                    'label' => $pIdx === 0 ? 'Primary' : 'Alternate',
+                    'number' => $partNum,
+                ];
+            }
+        }
+        if (!empty($sPhone) && $sPhone !== 'N/A') {
+            $hasPrim = false;
+            foreach ($sPhones as $spEntry) {
+                if ($spEntry['number'] === $sPhone) {
+                    $hasPrim = true;
+                    break;
+                }
+            }
+            if (!$hasPrim) {
+                array_unshift($sPhones, [
+                    'label' => 'Primary',
+                    'number' => $sPhone,
+                ]);
+            }
+        }
+        $sAddr =
+            $sItem['residential_address'] ??
+            ($sItem['address'] ??
+                ($sItem['gps'] ??
+                    ($sItem['residential_address_gps'] ??
+                        ($sDocketSuspect['residential_address'] ??
+                            ($sDocketSuspect['address'] ??
+                                ($sDocketSuspect['gps'] ??
+                                    ($sDocketSuspect['residential_address_gps'] ??
+                                        ($sNum == 1 ? $case->address ?? ($docketData['address'] ?? 'N/A') : 'N/A'))))))));
+        if (empty($sAddr)) {
+            $sAddr = 'N/A';
+        }
+        $sMarital = $sItem['marital_status'] ?? ($sDocketSuspect['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null));
+        $sSpouseN = $sItem['spouse_name'] ?? ($sDocketSuspect['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null));
+        $sSpouseP = $sItem['spouse_phone'] ?? ($sDocketSuspect['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null));
+        $sSpouseI = $sItem['spouse_info'] ?? ($sDocketSuspect['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null));
+        $sPartnerN = $sItem['partner_name'] ?? ($sDocketSuspect['partner_name'] ?? ($sNum == 1 ? $case->partner_name : null));
+        $sPartnerP = $sItem['partner_phone'] ?? ($sDocketSuspect['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone : null));
+        $sPartnerI = $sItem['partner_info'] ?? ($sDocketSuspect['partner_info'] ?? ($sNum == 1 ? $case->partner_info : null));
+        $sDependents =
+            $sItem['dependents'] ??
+            ($sDocketSuspect['dependents'] ??
+                ($sNum == 1
+                    ? $case->dependents ?? ($docketData['dependents'] ?? 'No Children')
+                    : 'No Children'));
+        $sRaid =
+            $sItem['raid_location'] ??
+            ($sItem['location'] ??
+                ($sDocketSuspect['raid_location'] ??
+                    ($sDocketSuspect['location'] ??
+                        ($case->raid_location ?: ($case->location ?: $docketData['raid_location'] ?? 'N/A')))));
+        $sArrestDate =
+            $sItem['date_of_arrest'] ??
+            ($sItem['arrest_date'] ??
+                ($sDocketSuspect['date_of_arrest'] ??
+                    ($sDocketSuspect['arrest_date'] ??
+                        ($case->arrest_date ??
+                            ($docketData['arrest_date'] ??
+                                ($docketData['date_of_arrest'] ??
+                                    ($case->incident_date
+                                        ? substr((string) $case->incident_date, 0, 10)
+                                        : null)))))));
+        $sArrestTime =
+            $sItem['time_of_arrest'] ??
+            ($sItem['arrest_time'] ??
+                ($sDocketSuspect['time_of_arrest'] ??
+                    ($sDocketSuspect['arrest_time'] ??
+                        ($case->arrest_time ??
+                            ($docketData['arrest_time'] ?? ($docketData['time_of_arrest'] ?? null))))));
+        $sFacility =
+            $sItem['holding_facility'] ??
+            ($sItem['facility'] ??
+                ($sDocketSuspect['holding_facility'] ??
+                    ($sDocketSuspect['facility'] ??
+                        ($case->holding_facility ?? ($docketData['holding_facility'] ?? null)))));
+        if (empty($sFacility) || $sFacility === 'N/A') {
+            $sFacility = !empty($case->holding_facility)
+                ? $case->holding_facility
+                : (!empty($docketData['holding_facility'])
+                    ? $docketData['holding_facility']
+                    : 'NACOC Custody & Holding Facility');
+        }
+        $sOffense =
+            $sItem['offense'] ??
+            ($sItem['offense_description'] ??
+                ($sDocketSuspect['offense'] ??
+                    ($sDocketSuspect['offense_description'] ??
+                        ($case->offense_description ?:
+                            ($case->description ?:
+                            $docketData['offense_description'] ?? 'N/A')))));
+
+        $rawFront =
+            $sItem['mugshot_front'] ??
+            ($sItem['mugshots']['front'] ??
+                ($sItem['mugshots']['front-profile'] ??
+                    ($sDocketSuspect['mugshot_front'] ??
+                        ($sDocketSuspect['mugshots']['front'] ??
+                            ($sDocketSuspect['mugshots']['front-profile'] ??
+                                ($sNum == 1 ? $case->mugshot_front : null))))));
+        $sFront = $this->photoResolver->formatMugshotUrl($rawFront);
+
+        $rawLeft =
+            $sItem['mugshot_left'] ??
+            ($sItem['mugshots']['left'] ??
+                ($sItem['mugshots']['left-profile'] ??
+                    ($sDocketSuspect['mugshot_left'] ??
+                        ($sDocketSuspect['mugshots']['left'] ??
+                            ($sDocketSuspect['mugshots']['left-profile'] ??
+                                ($sNum == 1 ? $case->mugshot_left : null))))));
+        $sLeft = $this->photoResolver->formatMugshotUrl($rawLeft);
+
+        $rawRight =
+            $sItem['mugshot_right'] ??
+            ($sItem['mugshots']['right'] ??
+                ($sItem['mugshots']['right-profile'] ??
+                    ($sDocketSuspect['mugshot_right'] ??
+                        ($sDocketSuspect['mugshots']['right'] ??
+                            ($sDocketSuspect['mugshots']['right-profile'] ??
+                                ($sNum == 1 ? $case->mugshot_right : null))))));
+        $sRight = $this->photoResolver->formatMugshotUrl($rawRight);
+
+        $isAssociate =
+            !empty($sItem['is_associate']) ||
+            (!empty($sItem['association_role']) &&
+                strtolower($sItem['association_role']) !== 'primary suspect') ||
+            (!empty($sItem['role']) && strtolower($sItem['role']) !== 'primary suspect');
+        $isCoSuspect =
+            $isAssociate &&
+            ((!empty($sItem['association_role']) &&
+                (str_contains(strtolower($sItem['association_role']), 'co-suspect') ||
+                    str_contains(strtolower($sItem['association_role']), 'co suspect'))) ||
+                (!empty($sItem['role']) &&
+                    (str_contains(strtolower($sItem['role']), 'co-suspect') ||
+                        str_contains(strtolower($sItem['role']), 'co suspect'))) ||
+                (!empty($sItem['suspect_role']) &&
+                    (str_contains(strtolower($sItem['suspect_role']), 'co-suspect') ||
+                        str_contains(strtolower($sItem['suspect_role']), 'co suspect'))));
+        $sRoleLabel =
+            $sItem['association_role'] ??
+            ($sItem['role'] ??
+                ($isCoSuspect
+                    ? 'CO-SUSPECT'
+                    : ($isAssociate
+                        ? 'ASSOCIATE SUSPECT'
+                        : 'PRIMARY SUSPECT')));
+        $assocNum = 0;
+        if ($isAssociate) {
+            foreach ($suspectsList as $cIdx => $cSp) {
+                $cAssoc =
+                    !empty($cSp['is_associate']) ||
+                    (!empty($cSp['association_role']) &&
+                        strtolower($cSp['association_role']) !== 'primary suspect');
+                if ($cAssoc) {
+                    $assocNum++;
+                    if ($cIdx === $sIdx) {
+                        break;
+                    }
+                }
+            }
+        }
+        $sId =
+            $sItem['associate_id'] ??
+            ($sItem['suspect_id'] ??
+                ($isAssociate ? 'ASC-' . str_pad($assocNum ?: 1, 3, '0', STR_PAD_LEFT) : 'PRIM-001'));
+
+        $sDispRaw = $sItem['suspect_disposition'] ?? ($case->suspect_disposition ?? ($case->underlyingRecord->suspect_disposition ?? 'Active — Under Investigation'));
+        $sDisp = ForensicCase::normalizeSuspectDisposition($sDispRaw);
+        $isClearedDisp = $sDisp !== 'Active — Under Investigation';
+        $dispBadgeCls = match ($sDisp) {
+            'Cleared / No Further Action' => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+            'Released from Case' => 'bg-purple-100 text-purple-800 border-purple-300',
+            'Reclassified' => 'bg-indigo-100 text-indigo-800 border-indigo-300',
+            'Referred for Further Review' => 'bg-blue-100 text-blue-800 border-blue-300',
+            default => 'bg-amber-100 text-amber-800 border-amber-300',
+        };
+        $isMultipleCase = (($case->underlyingRecord ?? null) instanceof MultipleSuspectCase) || count($suspectsList) > 1;
+
+        $sHeaderDrugScreening = DrugScreening::forSuspect(
+            $sItem['id'] ?? ($sId ?? null),
+            $sName,
+            $case->id ?? null,
+            $case->case_number ?? null,
+        );
+        $sScreeningTextCls = $sHeaderDrugScreening
+            ? ($sHeaderDrugScreening->isPositive()
+                ? 'text-red-600'
+                : ($sHeaderDrugScreening->isNegative() ? 'text-emerald-600' : 'text-amber-600'))
+            : '';
+
+        $assocExhibits = [];
+        $primaryExhibits = [];
+        if ($isAssociate) {
+            $assocExhibits = is_object($case) && method_exists($case, 'getExhibitsForSuspect')
+                ? $case->getExhibitsForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel)
+                : [];
+            if (empty($assocExhibits)) {
+                $directEx =
+                    $sItem['exhibits'] ??
+                    ($sItem['seizures'] ??
+                        ($sItem['associated_seizures'] ?? ($sItem['associate_exhibits'] ?? [])));
+                if (!empty($directEx) && is_array($directEx)) {
+                    $assocExhibits = $directEx;
+                }
+            }
+            if (!empty($assocExhibits)) {
+                $assocExhibits = array_values(
+                    array_filter($assocExhibits, function ($ex) use ($primarySuspectNamesList) {
+                        $owner = '';
+                        if (is_array($ex)) {
+                            $owner = $ex['associated_person'] ??
+                                ($ex['owner_name'] ??
+                                    ($ex['owner'] ??
+                                        ($ex['suspect_name'] ?? ($ex['associated_suspect'] ?? ''))));
+                        } elseif (is_object($ex)) {
+                            $owner = $ex->associated_person ??
+                                ($ex->owner_name ??
+                                    ($ex->owner ??
+                                        ($ex->suspect_name ?? ($ex->associated_suspect ?? ''))));
+                        }
+                        $cleanOwner = strtolower(trim((string) $owner));
+                        if (empty($cleanOwner)) {
+                            return false;
+                        }
+                        $isJoint =
+                            str_contains($cleanOwner, 'all suspect') ||
+                            str_contains($cleanOwner, 'both') ||
+                            str_contains($cleanOwner, 'joint') ||
+                            str_contains($cleanOwner, ',') ||
+                            str_contains($cleanOwner, ';') ||
+                            str_contains($cleanOwner, '&') ||
+                            str_contains($cleanOwner, ' and ');
+                        if (!$isJoint && !empty($primarySuspectNamesList)) {
+                            foreach ($primarySuspectNamesList as $pName) {
+                                $pNameClean = strtolower(trim($pName));
+                                if (!empty($pNameClean) && (str_contains($cleanOwner, $pNameClean) || $cleanOwner === $pNameClean)) {
+                                    $isJoint = true;
+                                    break;
+                                }
+                            }
+                        }
+                        return !$isJoint;
+                    }),
+                );
+            }
+        } else {
+            $primaryExhibits = is_object($case) && method_exists($case, 'getExhibitsForSuspect')
+                ? $case->getExhibitsForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel)
+                : [];
+            if (empty($primaryExhibits)) {
+                $directEx =
+                    $sItem['exhibits'] ??
+                    ($sItem['seizures'] ??
+                        ($sItem['associated_seizures'] ?? ($sItem['associate_exhibits'] ?? [])));
+                if (!empty($directEx) && is_array($directEx)) {
+                    $primaryExhibits = $directEx;
+                }
+            }
+            if (!empty($primaryExhibits) && is_array($primaryExhibits)) {
+                foreach ($primaryExhibits as $pEx) {
+                    if ($this->ownershipResolver->isJointExhibit($pEx, $primaryAndCoNamesList)) {
+                        $capturedJointExhibits[] = $pEx;
+                    }
+                }
+            }
+        }
+
+        $currSuspectExhibits = $isAssociate ? $assocExhibits : $primaryExhibits;
+        $sDossierLabExam = is_object($case) && method_exists($case, 'resolveLabExamForSuspect')
+            ? $case->resolveLabExamForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel, $sIdx)
+            : [];
+        $sDossierHasSavedLab = !empty($sDossierLabExam['has_saved']);
+
+        $currSuspectHasDrug = false;
+        if (!empty($currSuspectExhibits)) {
+            foreach ($currSuspectExhibits as $eCh) {
+                if ($this->drugClassifier->isDrugExhibit($eCh)) {
+                    $currSuspectHasDrug = true;
+                    break;
+                }
+            }
+        }
+
+        $sDossierIsJointLab = false;
+        $labExamHeadingName = $sName;
+        if ($currSuspectHasDrug && $sDossierHasSavedLab) {
+            if (!empty($sDossierLabExam)) {
+                $examOwner = strtolower(trim($sDossierLabExam['exhibit_owner_name'] ?? ''));
+                if (
+                    str_contains($examOwner, ',') ||
+                    str_contains($examOwner, '&') ||
+                    str_contains($examOwner, 'all suspect') ||
+                    str_contains($examOwner, 'both')
+                ) {
+                    $sDossierIsJointLab = true;
+                }
+            }
+            if (!$isAssociate && !$sDossierIsJointLab && $hasCoSuspectsInCase && !empty($primarySuspectsCombinedNames)) {
+                $sDossierIsJointLab = true;
+            }
+            if (!$isAssociate && !$sDossierIsJointLab && !empty($capturedJointExhibits)) {
+                $sDossierIsJointLab = true;
+            }
+            $labExamHeadingName = $sDossierIsJointLab && !empty($primarySuspectsCombinedNames)
+                ? $primarySuspectsCombinedNames
+                : $sName;
+            if ($sDossierIsJointLab && $sDossierHasSavedLab) {
+                $savedJointLabExam = $sDossierLabExam;
+                $savedJointLabHeadingName = $labExamHeadingName;
+            }
+        }
+
+        $sGsaFiles = SuspectGsaReport::filterForSuspect(
+            $allGsaForReview,
+            $sItem['id'] ?? null,
+            $sName,
+        )->merge(
+            SuspectNlrReport::filterForSuspect(
+                $allNlrForReview,
+                $sItem['id'] ?? null,
+                $sName,
+            ),
+        )->unique(function ($item) {
+            return get_class($item) . '_' . $item->id;
+        })->values();
+
+        $sDrugScreening = $sHeaderDrugScreening;
+
+        $assocPhotos = [];
+        foreach ($assocExhibits as $aIdx => $aEx) {
+            $extractedA = $this->photoResolver->extractAllPhotos($aEx);
+            foreach ($extractedA as $ap) {
+                if ($ap && !in_array($ap, $assocPhotos)) {
+                    $assocPhotos[] = $ap;
+                }
+            }
+            $assocExhibits[$aIdx]['resolved_assoc_view'] = $this->resolveAssociateExhibitView($aEx, $case);
+        }
+        if (!empty($sItem['evidence_photos'])) {
+            $sEvPhotos = is_array($sItem['evidence_photos'])
+                ? $sItem['evidence_photos']
+                : (json_decode($sItem['evidence_photos'], true) ?: []);
+            if (is_array($sEvPhotos)) {
+                foreach ($sEvPhotos as $sp) {
+                    if ($sp && !in_array($sp, $assocPhotos)) {
+                        $assocPhotos[] = $sp;
+                    }
+                }
+            }
+        }
+        $assocPhotosFormatted = array_map(
+            fn($apUrl) => $this->photoResolver->formatPhotoUrl($apUrl),
+            $assocPhotos,
+        );
+
+        $sDossierLabExamCard = !empty($sDossierLabExam)
+            ? $this->labExamResolver->formatLabExamForCard($sDossierLabExam, $case, $labExamHeadingName)
+            : [];
+
+        return array_merge($caseContext, [
+            'sNum' => $sNum,
+            'rawSName' => $rawSName,
+            'sName' => $sName,
+            'sDocketSuspect' => $sDocketSuspect,
+            'sAlias' => $sAlias,
+            'sCard' => $sCard,
+            'sGender' => $sGender,
+            'sAge' => $sAge,
+            'sDOB' => $sDOB,
+            'sHeight' => $sHeight,
+            'sEye' => $sEye,
+            'sNat' => $sNat,
+            'sPOB' => $sPOB,
+            'sPhone' => $sPhone,
+            'sPhones' => $sPhones,
+            'sAddr' => $sAddr,
+            'sMarital' => $sMarital,
+            'sSpouseN' => $sSpouseN,
+            'sSpouseP' => $sSpouseP,
+            'sSpouseI' => $sSpouseI,
+            'sPartnerN' => $sPartnerN,
+            'sPartnerP' => $sPartnerP,
+            'sPartnerI' => $sPartnerI,
+            'sDependents' => $sDependents,
+            'sRaid' => $sRaid,
+            'sArrestDate' => $sArrestDate,
+            'sArrestTime' => $sArrestTime,
+            'sFacility' => $sFacility,
+            'sOffense' => $sOffense,
+            'rawFront' => $rawFront,
+            'sFront' => $sFront,
+            'rawLeft' => $rawLeft,
+            'sLeft' => $sLeft,
+            'rawRight' => $rawRight,
+            'sRight' => $sRight,
+            'isAssociate' => $isAssociate,
+            'isCoSuspect' => $isCoSuspect,
+            'sRoleLabel' => $sRoleLabel,
+            'assocNum' => $assocNum,
+            'sId' => $sId,
+            'sDispRaw' => $sDispRaw,
+            'sDisp' => $sDisp,
+            'isClearedDisp' => $isClearedDisp,
+            'dispBadgeCls' => $dispBadgeCls,
+            'isMultipleCase' => $isMultipleCase,
+            'sHeaderDrugScreening' => $sHeaderDrugScreening,
+            'sScreeningTextCls' => $sScreeningTextCls,
+            'assocExhibits' => $assocExhibits,
+            'assocPhotos' => $assocPhotos,
+            'assocPhotosFormatted' => $assocPhotosFormatted,
+            'primaryExhibits' => $primaryExhibits,
+            'currSuspectExhibits' => $currSuspectExhibits,
+            'sDossierLabExam' => $sDossierLabExam,
+            'sDossierLabExamCard' => $sDossierLabExamCard,
+            'sDossierHasSavedLab' => $sDossierHasSavedLab,
+            'currSuspectHasDrug' => $currSuspectHasDrug,
+            'sDossierIsJointLab' => $sDossierIsJointLab,
+            'labExamHeadingName' => $labExamHeadingName,
+            'sGsaFiles' => $sGsaFiles,
+            'sDrugScreening' => $sDrugScreening,
+        ]);
+    }
+
+    /**
+     * Pre-resolve display fields for a single associate exhibit item.
+     */
+    protected function resolveAssociateExhibitView(array $aEx, mixed $case): array
+    {
+        $rawValA = $aEx['seizure_value'] ?? ($aEx['value'] ?? null);
+        $cleanValA = !empty($rawValA) && !str_contains($rawValA, 'Item #') && !str_contains($rawValA, "\n")
+            ? trim($rawValA)
+            : 'N/A';
+
+        $exPhotos = $this->photoResolver->extractAllPhotos($aEx);
+        $exPhotosFormatted = array_map(fn($u) => $this->photoResolver->formatPhotoUrl($u), $exPhotos);
+
+        $catLower = strtolower($aEx['category'] ?? ($aEx['exhibit_category'] ?? ''));
+        $hasWeaponData =
+            !empty($aEx['weapon_model']) ||
+            !empty($aEx['weapon_serial_number']) ||
+            !empty($aEx['weapon_calibre']) ||
+            !empty($aEx['weapon_loaded_status']) ||
+            !empty($aEx['weapon_condition_at_recovery']) ||
+            !empty($aEx['weapon_location_found']) ||
+            !empty($aEx['weapon_distinguishing_marks']);
+        $isWeaponEx = str_contains($catLower, 'weapon') || str_contains($catLower, 'firearm') || $hasWeaponData;
+
+        $hasVehicleData =
+            !empty($aEx['veh_make']) ||
+            !empty($aEx['veh_model']) ||
+            !empty($aEx['veh_reg_no']) ||
+            !empty($aEx['veh_vin']) ||
+            !empty($aEx['veh_colour']) ||
+            !empty($aEx['veh_type']) ||
+            !empty($aEx['vehicle_make_model']) ||
+            !empty($aEx['vehicle_registration']) ||
+            !empty($aEx['vehicle_chassis_vin']);
+        $isVehEx = str_contains($catLower, 'vehicle') || str_contains($catLower, 'vessel') || str_contains($catLower, 'automobile') || $hasVehicleData;
+
+        $hasDeviceData =
+            !empty($aEx['dev_model']) ||
+            !empty($aEx['dev_serial_no']) ||
+            !empty($aEx['dev_imei1']) ||
+            !empty($aEx['dev_imei_1']) ||
+            !empty($aEx['dev_imei2']) ||
+            !empty($aEx['dev_imei_2']) ||
+            !empty($aEx['dev_mac_address']) ||
+            !empty($aEx['dev_storage']) ||
+            !empty($aEx['storage_capacity']) ||
+            !empty($aEx['dev_storage_capacity']) ||
+            !empty($aEx['storage']) ||
+            !empty($aEx['dev_colour']) ||
+            !empty($aEx['dev_color']) ||
+            !empty($aEx['colour']) ||
+            !empty($aEx['color']) ||
+            !empty($aEx['device_color']) ||
+            !empty($aEx['dev_marks']) ||
+            !empty($aEx['dev_other_marks']) ||
+            !empty($aEx['marks']) ||
+            !empty($aEx['other_marks']) ||
+            !empty($aEx['distinguishing_marks']) ||
+            !empty($aEx['device_model']) ||
+            !empty($aEx['device_serial']) ||
+            !empty($case->dev_storage) ||
+            !empty($case->dev_colour) ||
+            !empty($case->dev_marks);
+        $isDevEx = str_contains($catLower, 'device') || str_contains($catLower, 'electronic') || str_contains($catLower, 'digital') || $hasDeviceData;
+
+        $vMake = !empty($aEx['veh_make']) ? $aEx['veh_make'] : null;
+        $vModel = !empty($aEx['veh_model']) ? $aEx['veh_model'] : null;
+        $vMakeModelFull = implode(' ', array_filter([$vMake, $vModel]));
+        if (empty($vMakeModelFull)) {
+            $vMakeModelFull = $aEx['vehicle_make_model'] ?? ($aEx['seizure_name'] ?? ($aEx['commodity_name'] ?? ($aEx['name'] ?? 'N/A')));
+        }
+        $vDate = !empty($aEx['seizure_date']) ? $aEx['seizure_date'] : null;
+        $vTime = !empty($aEx['seizure_time']) ? "@ {$aEx['seizure_time']}" : '';
+
+        $aAmmo = $aEx['ammunition_details'] ?? null;
+        if (is_string($aAmmo)) {
+            $aAmmo = json_decode($aAmmo, true) ?: [];
+        }
+        $isAmmoEx = str_contains($catLower, 'ammo') || str_contains($catLower, 'ammunition') || (!empty($aAmmo) && is_array($aAmmo) && array_filter($aAmmo));
+
+        return [
+            'cleanValA' => $cleanValA,
+            'exPhotos' => $exPhotos,
+            'exPhotosFormatted' => $exPhotosFormatted,
+            'isWeaponEx' => $isWeaponEx,
+            'isVehEx' => $isVehEx,
+            'isDevEx' => $isDevEx,
+            'isAmmoEx' => $isAmmoEx,
+            'aAmmo' => $aAmmo,
+            'vMakeModelFull' => $vMakeModelFull,
+            'vRegNo' => $aEx['veh_reg_no'] ?? ($aEx['vehicle_registration'] ?? ($aEx['registration_number'] ?? 'N/A')),
+            'vVin' => $aEx['veh_vin'] ?? ($aEx['vehicle_chassis_vin'] ?? ($aEx['chassis_number'] ?? 'N/A')),
+            'vType' => $aEx['veh_type'] ?? ($aEx['vehicle_type'] ?? 'Vehicle Exhibit'),
+            'vColor' => $aEx['veh_colour'] ?? ($aEx['vehicle_color_type'] ?? 'N/A'),
+            'vYear' => $aEx['veh_year'] ?? ($aEx['vehicle_year'] ?? 'N/A'),
+            'vEngine' => $aEx['veh_engine_no'] ?? ($aEx['engine_number'] ?? 'N/A'),
+            'vCountry' => $aEx['veh_country_reg'] ?? ($aEx['country_of_registration'] ?? 'N/A'),
+            'vOwner' => $aEx['veh_owner'] ?? ($aEx['vehicle_owner'] ?? 'N/A'),
+            'vDriver' => $aEx['veh_driver'] ?? ($aEx['vehicle_driver'] ?? 'N/A'),
+            'vOwnerContact' => $aEx['veh_owner_contact'] ?? ($aEx['veh']['owner_contact'] ?? ($aEx['owner_contact'] ?? null)),
+            'vDocsAvailable' => $aEx['veh_docs_available'] ?? ($aEx['veh']['docs_available'] ?? ($aEx['docs_available'] ?? null)),
+            'vDocRef' => $aEx['veh_doc_ref'] ?? ($aEx['veh']['doc_ref'] ?? ($aEx['doc_ref'] ?? null)),
+            'vCondition' => $aEx['veh_condition'] ?? ($aEx['veh']['condition'] ?? ($aEx['overall_condition'] ?? null)),
+            'vFuel' => $aEx['veh_fuel'] ?? ($aEx['veh']['fuel'] ?? ($aEx['fuel_level'] ?? null)),
+            'vKeysRecv' => $aEx['veh_keys_recv'] ?? ($aEx['veh']['keys_recv'] ?? ($aEx['keys_received'] ?? null)),
+            'vKeyCount' => $aEx['veh_key_count'] ?? ($aEx['veh']['key_count'] ?? ($aEx['key_count'] ?? null)),
+            'vDamage' => $aEx['veh_damage'] ?? ($aEx['veh']['damage'] ?? ($aEx['existing_damage'] ?? null)),
+            'vMods' => $aEx['veh_mods'] ?? ($aEx['veh']['mods'] ?? ($aEx['modifications'] ?? null)),
+            'vFeatures' => $aEx['veh_features'] ?? ($aEx['veh']['features'] ?? ($aEx['notable_features'] ?? null)),
+            'vLoc' => $aEx['seizure_location'] ?? ($aEx['location'] ?? 'N/A'),
+            'vOfficer' => $aEx['seizure_officer'] ?? ($aEx['officer'] ?? 'N/A'),
+            'vDateTime' => !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A',
+            'vReason' => $aEx['seizure_reason'] ?? 'N/A',
+            'vPhotos' => $exPhotos,
+            'vPhotosFormatted' => $exPhotosFormatted,
+            'wModel' => $aEx['weapon_model'] ?? ($aEx['wpn_model'] ?? ($aEx['seizure_name'] ?? 'Firearm / Weapon Exhibit')),
+            'wSerial' => $aEx['weapon_serial_number'] ?? ($aEx['wpn_serial_no'] ?? ($aEx['weapon_serial'] ?? null)),
+            'wCalibre' => $aEx['weapon_calibre'] ?? ($aEx['wpn_calibre'] ?? null),
+            'wColour' => $aEx['weapon_color'] ?? ($aEx['wpn_colour'] ?? null),
+            'wSize' => $aEx['weapon_size_length'] ?? ($aEx['wpn_size'] ?? null),
+            'wLoaded' => $aEx['weapon_loaded_status'] ?? ($aEx['wpn_loaded_status'] ?? null),
+            'wCondition' => $aEx['weapon_condition_at_recovery'] ?? ($aEx['wpn_condition'] ?? null),
+            'wLocation' => $aEx['weapon_location_found'] ?? ($aEx['wpn_location_found'] ?? null),
+            'wMarks' => $aEx['weapon_distinguishing_marks'] ?? ($aEx['wpn_marks'] ?? null),
+            'wPhotos' => $exPhotos,
+            'wPhotosFormatted' => $exPhotosFormatted,
+            'dModel' => $aEx['dev_model'] ?? ($aEx['device_model'] ?? 'N/A'),
+            'dSerial' => $aEx['dev_serial_no'] ?? ($aEx['device_serial'] ?? ($aEx['serial_number'] ?? 'N/A')),
+            'dImei1' => $aEx['dev_imei1'] ?? ($aEx['dev_imei_1'] ?? ($aEx['imei1'] ?? 'N/A')),
+            'dImei2' => $aEx['dev_imei2'] ?? ($aEx['dev_imei_2'] ?? ($aEx['imei2'] ?? 'N/A')),
+            'dMac' => $aEx['dev_mac_address'] ?? ($aEx['mac_address'] ?? 'N/A'),
+            'dStorage' => !empty($aEx['dev_storage']) ? $aEx['dev_storage'] : (!empty($aEx['storage_capacity']) ? $aEx['storage_capacity'] : (!empty($aEx['dev_storage_capacity']) ? $aEx['dev_storage_capacity'] : (!empty($aEx['storage']) ? $aEx['storage'] : (!empty($case->dev_storage) ? $case->dev_storage : 'N/A')))),
+            'dColor' => !empty($aEx['dev_colour']) ? $aEx['dev_colour'] : (!empty($aEx['dev_color']) ? $aEx['dev_color'] : (!empty($aEx['colour']) ? $aEx['colour'] : (!empty($aEx['color']) ? $aEx['color'] : (!empty($aEx['device_color']) ? $aEx['device_color'] : (!empty($case->dev_colour) ? $case->dev_colour : 'N/A'))))),
+            'dMarks' => !empty($aEx['dev_marks']) ? $aEx['dev_marks'] : (!empty($aEx['dev_other_marks']) ? $aEx['dev_other_marks'] : (!empty($aEx['marks']) ? $aEx['marks'] : (!empty($aEx['other_marks']) ? $aEx['other_marks'] : (!empty($aEx['distinguishing_marks']) ? $aEx['distinguishing_marks'] : (!empty($case->dev_marks) ? $case->dev_marks : 'N/A'))))),
+        ];
+    }
+
+    public function toViewData(): array
+    {
+        return $this->viewData;
+    }
+
+    public function get(string $key, mixed $default = null): mixed
+    {
+        return $this->viewData[$key] ?? $default;
+    }
+
+    public function __get(string $name): mixed
+    {
+        return $this->viewData[$name] ?? null;
+    }
+
+    public function __isset(string $name): bool
+    {
+        return isset($this->viewData[$name]);
+    }
+}
+

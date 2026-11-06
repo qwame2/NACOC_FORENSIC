@@ -287,11 +287,10 @@ class CaseController extends Controller
             abort(404, "Case {$id} not found.");
         }
 
-        $this->repairExhibitAssociations($case);
-        $gsaReports = SuspectGsaReport::forCase($case->case_number ?: $id, $case->id);
-        $nlrReports = SuspectNlrReport::forCase($case->case_number ?: $id, $case->id);
+        $targetRoute = app(\App\Services\CaseShowReviewPresenter::class)
+            ->resolveLegacyRedirectRoute($case, request(), auth()->user());
 
-        return view('cases.show_review', compact('case', 'gsaReports', 'nlrReports'));
+        return redirect()->route($targetRoute, array_merge(['id' => $id], request()->query()));
     }
 
     /**

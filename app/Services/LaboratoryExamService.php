@@ -79,6 +79,7 @@ class LaboratoryExamService
             'exhibit_is_associate'     => $isAssoc,
             'laboratory_number'        => $payload['laboratory_number'] ?? ($payload['lab_number'] ?? null),
             'exam_reference'           => $labExamRef,
+            'purpose_of_examination'   => $payload['purpose_of_examination'] ?? ($payload['lab_purpose_of_examination'] ?? null),
             'exhibit_number'           => $payload['lab_exhibit_number'] ?? ($payload['exhibit_number'] ?? null),
             'lab_unit'                 => $payload['lab_unit'] ?? 'Chemistry & Narcotics Unit',
             'analyst'                  => $officer,
@@ -197,6 +198,7 @@ class LaboratoryExamService
             $docketData['seizures'][$matchedSeizureIdx]['analyst']                = $officer;
             $docketData['seizures'][$matchedSeizureIdx]['laboratory_number']      = $examRecord['laboratory_number'];
             $docketData['seizures'][$matchedSeizureIdx]['exam_reference']         = $examRecord['exam_reference'];
+            $docketData['seizures'][$matchedSeizureIdx]['purpose_of_examination'] = $examRecord['purpose_of_examination'];
             $docketData['seizures'][$matchedSeizureIdx]['exhibit_number']         = $examRecord['exhibit_number'];
             $docketData['seizures'][$matchedSeizureIdx]['date_received']          = $examRecord['date_received'];
             $docketData['seizures'][$matchedSeizureIdx]['date_started']           = $examRecord['date_started'];
@@ -348,6 +350,7 @@ class LaboratoryExamService
                             'exhibit_id'                => $primaryExhModel ? $primaryExhModel->id : null,
                             'laboratory_number'         => $examRecord['laboratory_number'],
                             'exam_reference'            => $examRecord['exam_reference'],
+                            'purpose_of_examination'    => $examRecord['purpose_of_examination'] ?? ($payload['purpose_of_examination'] ?? ($payload['lab_purpose_of_examination'] ?? null)),
                             'gsa_lab_number'            => $payload['gsa_lab_number'] ?? ($docketData['lab_examination']['gsa_lab_number'] ?? null),
                             'date_received'             => $examRecord['date_received'],
                             'date_started'              => $examRecord['date_started'],

@@ -25,6 +25,7 @@ class MultipleSuspectCase extends Model
         'operation_code_name',
         'raid_location',
         'offense_description',
+        'description_of_exhibits',
         'incident_date',
         'docket_summary',
         'total_suspects_count',

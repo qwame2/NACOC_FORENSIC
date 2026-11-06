@@ -80,6 +80,8 @@ class Exhibit extends Model
         'evidence_photos',
         'tag_url',
         'other_exhibit_description',
+        'contents',
+        'description_of_exhibits',
         'custodial_status',
         'qr_token',
     ];

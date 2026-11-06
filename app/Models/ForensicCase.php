@@ -97,6 +97,7 @@ class ForensicCase extends Model
         $instance->operation_code_name = $record->operation_code_name ?? null;
         $instance->raid_location = $record->raid_location ?? null;
         $instance->offense_description = $record->offense_description ?? null;
+        $instance->description_of_exhibits = $record->description_of_exhibits ?? null;
         $casePriority = $record->priority;
         if (empty($casePriority) || $casePriority === 'NORMAL') {
             if ($record instanceof MultipleSuspectCase) {
@@ -946,6 +947,7 @@ class ForensicCase extends Model
                 'operation_code_name'  => $attributes['operation_code_name'] ?? null,
                 'raid_location'        => $attributes['raid_location'] ?? ($attributes['location'] ?? null),
                 'offense_description'  => $attributes['offense_description'] ?? ($attributes['description'] ?? null),
+                'description_of_exhibits' => $attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null),
                 'incident_date'        => $attributes['incident_date'] ?? now(),
                 'docket_summary'       => $attributes['exhibits_summary'] ?? null,
                 'total_suspects_count' => count($suspects),
@@ -1016,6 +1018,8 @@ class ForensicCase extends Model
                         'seizure_weight'          => $attributes['seizure_weight'] ?? null,
                         'seizure_unit'            => $attributes['seizure_unit'] ?? null,
                         'seizure_packaging'       => $attributes['seizure_packaging'] ?? ($attributes['packaging_type'] ?? null),
+                        'contents'                => $attributes['contents'] ?? null,
+                        'description_of_exhibits' => $attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null),
                         'seizure_value'           => $attributes['seizure_value'] ?? ($attributes['valuation'] ?? null),
                         'seizure_concealment'     => $attributes['seizure_concealment'] ?? null,
                         'seizure_date'            => $attributes['seizure_date'] ?? null,
@@ -1171,6 +1175,8 @@ class ForensicCase extends Model
                         'dev_marks'               => $sz['dev_marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['other_marks'] ?? ($sz['distinguishing_marks'] ?? ($attributes['dev_marks'] ?? null))))),
                         'ammunition_details'      => $sz['ammunition_details'] ?? ($attributes['ammunition_details'] ?? null),
                         'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
+                        'contents'                => $sz['contents'] ?? ($sz['seizure_contents'] ?? ($attributes['contents'] ?? null)),
+                        'description_of_exhibits' => $sz['description_of_exhibits'] ?? ($attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null)),
                         'evidence_photos'         => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
                     ]);
 
@@ -1182,6 +1188,8 @@ class ForensicCase extends Model
                             'suspect_id'              => $matchedSuspect ? $matchedSuspect->id : ($createdSuspects[0]->id ?? null),
                             'exhibit_id'              => $ex->id,
                             'laboratory_number'       => $sz['laboratory_number'] ?? ($multi->laboratory_number ?? ($labDataFromDocket['laboratory_number'] ?? null)),
+                            'exam_reference'          => $sz['exam_reference'] ?? ($attributes['exam_reference'] ?? ($labDataFromDocket['exam_reference'] ?? null)),
+                            'purpose_of_examination' => $sz['purpose_of_examination'] ?? ($attributes['purpose_of_examination'] ?? ($attributes['lab_purpose_of_examination'] ?? ($labDataFromDocket['purpose_of_examination'] ?? null))),
                             'date_received'           => $sz['date_received'] ?? ($labDataFromDocket['date_received'] ?? ($labDataFromDocket['lab_date_received'] ?? date('Y-m-d'))),
                             'date_started'            => $sz['date_started'] ?? ($labDataFromDocket['date_started'] ?? ($labDataFromDocket['lab_date_started'] ?? date('Y-m-d'))),
                             'date_completed'          => $sz['date_completed'] ?? ($labDataFromDocket['date_completed'] ?? ($labDataFromDocket['lab_date_completed'] ?? date('Y-m-d'))),
@@ -1210,7 +1218,23 @@ class ForensicCase extends Model
             $hasPresumptiveExplicit = !empty($attributes['presumptive_result']) || !empty($attributes['presumptive_test_result']) || !empty($labDataFromDocket['presumptive_result']);
             $hasConfirmatoryExplicit = !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket['confirmatory_result']);
 
-            if (empty($hasCreatedLabFromSeizure) && ($hasSavedLabExplicit || $hasPresumptiveExplicit || $hasConfirmatoryExplicit)) {
+            $labWorkflowModeAttr = strtolower(trim((string) ($attributes['lab_workflow_mode'] ?? (request() ? request()->input('lab_workflow_mode', '') : ''))));
+            $gsaFilesAttr = $attributes['gsa_files_uploaded'] ?? (request() ? request()->input('gsa_files_uploaded') : null);
+            $hasGsaFlagAttr = is_array($gsaFilesAttr)
+                ? count(array_filter($gsaFilesAttr, fn ($v) => !empty($v) && $v !== '0' && $v !== false)) > 0
+                : (filter_var($gsaFilesAttr, FILTER_VALIDATE_BOOLEAN) || ((int) $gsaFilesAttr > 0));
+            $section5CompletedAttr = $attributes['section5_completed'] ?? (request() && request()->has('section5_completed') ? request()->input('section5_completed') : null);
+            $section5ExplicitlyFalse = $section5CompletedAttr !== null && !filter_var($section5CompletedAttr, FILTER_VALIDATE_BOOLEAN);
+
+            $hasGsaUpload = !empty($attributes['gsa_report_images'])
+                || $hasGsaFlagAttr
+                || $labWorkflowModeAttr === 'gsa'
+                || $labWorkflowModeAttr === 'none'
+                || $section5ExplicitlyFalse
+                || !empty($attributes['gsa_lab_number'])
+                || (request() && (request()->hasFile('gsa_report_images') || request()->filled('gsa_lab_number')));
+
+            if (!$hasGsaUpload && empty($hasCreatedLabFromSeizure) && ($hasSavedLabExplicit || $hasPresumptiveExplicit || $hasConfirmatoryExplicit)) {
                 $labSuspectId = null;
                 if (!empty($ex) && !empty($ex->suspect_id)) {
                     $labSuspectId = $ex->suspect_id;
@@ -1225,6 +1249,8 @@ class ForensicCase extends Model
                     'suspect_id'              => $labSuspectId,
                     'exhibit_id'              => $ex->id ?? null,
                     'laboratory_number'       => $multi->laboratory_number,
+                    'exam_reference'          => $attributes['exam_reference'] ?? ($labDataFromDocket['exam_reference'] ?? null),
+                    'purpose_of_examination' => $attributes['purpose_of_examination'] ?? ($attributes['lab_purpose_of_examination'] ?? ($labDataFromDocket['purpose_of_examination'] ?? null)),
                     'analyst'                 => $attributes['analyst'] ?? ($labDataFromDocket['analyst'] ?? null),
                     'date_received'           => $attributes['date_received'] ?? ($attributes['lab_date_received'] ?? ($labDataFromDocket['date_received'] ?? ($labDataFromDocket['lab_date_received'] ?? date('Y-m-d')))),
                     'date_started'            => $attributes['date_started'] ?? ($attributes['lab_date_started'] ?? ($labDataFromDocket['date_started'] ?? ($labDataFromDocket['lab_date_started'] ?? date('Y-m-d')))),
@@ -1323,6 +1349,7 @@ class ForensicCase extends Model
             'operation_code_name'  => $attributes['operation_code_name'] ?? null,
             'raid_location'        => $attributes['raid_location'] ?? ($attributes['location'] ?? null),
             'offense_description'  => $attributes['offense_description'] ?? ($attributes['description'] ?? null),
+            'description_of_exhibits' => $attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null),
             'arrest_date'          => $attributes['arrest_date'] ?? null,
             'arrest_time'          => $attributes['arrest_time'] ?? null,
             'incident_date'        => $attributes['incident_date'] ?? now(),
@@ -1401,6 +1428,8 @@ class ForensicCase extends Model
                     'dev_marks'             => $attributes['dev_marks'] ?? ($attributes['dev_other_marks'] ?? ($attributes['marks'] ?? ($attributes['other_marks'] ?? ($attributes['distinguishing_marks'] ?? null)))),
                     'ammunition_details'    => $attributes['ammunition_details'] ?? null,
                     'other_exhibit_description' => $attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null),
+                    'contents'              => $attributes['contents'] ?? null,
+                    'description_of_exhibits' => $attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null),
                     'evidence_photos'       => $attributes['evidence_photos'] ?? [],
                 ]);
             }
@@ -1473,8 +1502,40 @@ class ForensicCase extends Model
                     'dev_marks'             => $sz['dev_marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['other_marks'] ?? ($sz['distinguishing_marks'] ?? ($attributes['dev_marks'] ?? null))))),
                     'ammunition_details'    => $sz['ammunition_details'] ?? ($attributes['ammunition_details'] ?? null),
                     'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
+                    'contents'              => $sz['contents'] ?? ($sz['seizure_contents'] ?? ($attributes['contents'] ?? null)),
+                    'description_of_exhibits' => $sz['description_of_exhibits'] ?? ($attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null)),
                     'evidence_photos'       => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
                 ]);
+
+                if (!empty($sz['has_saved_lab'])) {
+                    $hasCreatedLabFromSeizure = true;
+                    LaboratoryExaminationResult::create([
+                        'case_type'               => 'SINGLE',
+                        'single_suspect_case_id'  => $single->id,
+                        'exhibit_id'              => $ex->id,
+                        'laboratory_number'       => $sz['laboratory_number'] ?? ($single->laboratory_number ?? ($labDataFromDocket['laboratory_number'] ?? null)),
+                        'exam_reference'          => $sz['exam_reference'] ?? ($attributes['exam_reference'] ?? ($labDataFromDocket['exam_reference'] ?? null)),
+                        'purpose_of_examination' => $sz['purpose_of_examination'] ?? ($attributes['purpose_of_examination'] ?? ($attributes['lab_purpose_of_examination'] ?? ($labDataFromDocket['purpose_of_examination'] ?? null))),
+                        'date_received'           => $sz['date_received'] ?? ($labDataFromDocket['date_received'] ?? ($labDataFromDocket['lab_date_received'] ?? date('Y-m-d'))),
+                        'date_started'            => $sz['date_started'] ?? ($labDataFromDocket['date_started'] ?? ($labDataFromDocket['lab_date_started'] ?? date('Y-m-d'))),
+                        'date_completed'          => $sz['date_completed'] ?? ($labDataFromDocket['date_completed'] ?? ($labDataFromDocket['lab_date_completed'] ?? date('Y-m-d'))),
+                        'presumptive_result'      => $sz['presumptive_result'] ?? ($labDataFromDocket['presumptive_result'] ?? ($attributes['presumptive_result'] ?? ($attributes['presumptive_test_result'] ?? null))),
+                        'confirmatory_result'     => $sz['confirmatory_result'] ?? ($labDataFromDocket['confirmatory_result'] ?? 'Pending'),
+                        'substance_identification'=> $sz['substance_identification'] ?? ($labDataFromDocket['substance_identification'] ?? ($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? null))),
+                        'sample_weight_description'=> $sz['sample_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? ($labDataFromDocket['sample_weight_description'] ?? null)),
+                        'sample_weight_units'     => $sz['sample_units'] ?? ($labDataFromDocket['sample_weight']['units_packaging'] ?? ($labDataFromDocket['sample_weight_units'] ?? null)),
+                        'sample_weight_gross'     => $sz['sample_gross'] ?? ($labDataFromDocket['sample_weight']['gross_weight'] ?? ($labDataFromDocket['sample_weight_gross'] ?? null)),
+                        'sample_weight_taken'     => $sz['sample_taken'] ?? ($sz['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)))),
+                        'sample_weight_reserved'  => $sz['sample_reserved'] ?? ($sz['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)))),
+                        'detected_substances'     => $sz['detected_substances'] ?? ($labDataFromDocket['detected_substances'] ?? []),
+                        'test_methods'            => $sz['test_methods'] ?? ($labDataFromDocket['test_methods'] ?? null),
+                        'specifications'          => $sz['specifications'] ?? ($labDataFromDocket['specifications'] ?? null),
+                        'remark'                  => $sz['remark'] ?? ($labDataFromDocket['remark'] ?? null),
+                        'findings'                => $sz['findings'] ?? ($labDataFromDocket['findings'] ?? null),
+                        'analyst'                 => $sz['analyst'] ?? ($labDataFromDocket['analyst'] ?? null),
+                        'has_saved'               => !empty($sz['has_saved_lab']),
+                    ]);
+                }
             }
         }
 
@@ -1483,7 +1544,23 @@ class ForensicCase extends Model
         $hasPresumptiveExplicit = !empty($attributes['presumptive_result']) || !empty($attributes['presumptive_test_result']) || !empty($labDataFromDocket['presumptive_result']);
         $hasConfirmatoryExplicit = !empty($attributes['confirmatory_test_result']) || !empty($labDataFromDocket['confirmatory_result']);
 
-        if ($hasSavedLabExplicit || $hasPresumptiveExplicit || $hasConfirmatoryExplicit) {
+        $labWorkflowModeAttr = strtolower(trim((string) ($attributes['lab_workflow_mode'] ?? (request() ? request()->input('lab_workflow_mode', '') : ''))));
+        $gsaFilesAttr = $attributes['gsa_files_uploaded'] ?? (request() ? request()->input('gsa_files_uploaded') : null);
+        $hasGsaFlagAttr = is_array($gsaFilesAttr)
+            ? count(array_filter($gsaFilesAttr, fn ($v) => !empty($v) && $v !== '0' && $v !== false)) > 0
+            : (filter_var($gsaFilesAttr, FILTER_VALIDATE_BOOLEAN) || ((int) $gsaFilesAttr > 0));
+        $section5CompletedAttr = $attributes['section5_completed'] ?? (request() && request()->has('section5_completed') ? request()->input('section5_completed') : null);
+        $section5ExplicitlyFalse = $section5CompletedAttr !== null && !filter_var($section5CompletedAttr, FILTER_VALIDATE_BOOLEAN);
+
+        $hasGsaUpload = !empty($attributes['gsa_report_images'])
+            || $hasGsaFlagAttr
+            || $labWorkflowModeAttr === 'gsa'
+            || $labWorkflowModeAttr === 'none'
+            || $section5ExplicitlyFalse
+            || !empty($attributes['gsa_lab_number'])
+            || (request() && (request()->hasFile('gsa_report_images') || request()->filled('gsa_lab_number')));
+
+        if (!$hasGsaUpload && empty($hasCreatedLabFromSeizure) && ($hasSavedLabExplicit || $hasPresumptiveExplicit || $hasConfirmatoryExplicit)) {
             // Derive weight fields from the exhibit when not provided
             $labSwDesc  = $attributes['sample_weight_description'] ?? ($labDataFromDocket['sample_weight_description'] ?? ($labDataFromDocket['sample_weight']['description'] ?? null));
             $labSwUnits = $attributes['sample_weight_units'] ?? ($labDataFromDocket['sample_weight_units'] ?? ($labDataFromDocket['sample_weight']['units_packaging'] ?? null));
@@ -1501,6 +1578,7 @@ class ForensicCase extends Model
                 'exhibit_id'              => $ex->id ?? null,
                 'laboratory_number'       => $single->laboratory_number,
                 'exam_reference'          => $attributes['exam_reference'] ?? ($labDataFromDocket['exam_reference'] ?? null),
+                'purpose_of_examination' => $attributes['purpose_of_examination'] ?? ($attributes['lab_purpose_of_examination'] ?? ($labDataFromDocket['purpose_of_examination'] ?? null)),
                 'analyst'                 => $attributes['analyst'] ?? ($labDataFromDocket['analyst'] ?? null),
                 'date_received'           => $attributes['date_received'] ?? ($attributes['lab_date_received'] ?? ($labDataFromDocket['date_received'] ?? ($labDataFromDocket['lab_date_received'] ?? date('Y-m-d')))),
                 'date_started'            => $attributes['date_started'] ?? ($attributes['lab_date_started'] ?? ($labDataFromDocket['date_started'] ?? ($labDataFromDocket['lab_date_started'] ?? date('Y-m-d')))),
@@ -2980,7 +3058,10 @@ class ForensicCase extends Model
     public function resolveLabExamForSuspect(?string $suspectName = null, $suspectDbId = null, $associateId = null, ?string $role = null, int $suspectIndex = 0): ?array
     {
         $cleanName = strtolower(trim($suspectName ?? ''));
-        $isAssociate = (!empty($role) && str_contains(strtolower($role), 'associate')) || (!empty($associateId));
+        $cleanRole = strtolower(trim($role ?? ''));
+        $isAssociate = (!empty($cleanRole) && (str_contains($cleanRole, 'associate') || str_contains($cleanRole, 'co-suspect') || str_contains($cleanRole, 'co suspect')))
+            || (!empty($associateId))
+            || ($suspectIndex > 0);
         $docketData = is_array($this->docket_data) ? $this->docket_data : (json_decode($this->docket_data ?? '[]', true) ?: []);
         $isMultiCase = $this->isMultipleSuspect();
         $sDossierLabExam = null;
@@ -3000,7 +3081,7 @@ class ForensicCase extends Model
                 if (empty($a->analyst) && empty($a->exam_reference) && empty($a->substance_identification) && empty($a->date_completed)) return false;
                 $aName = strtolower(trim($a->suspect_name ?? ''));
                 if (empty($aName)) return false;
-                return $aName === $cleanName || (!empty($cleanName) && (str_contains($aName, $cleanName) || str_contains($cleanName, $aName)));
+                return $aName === $cleanName;
             });
 
             if ($dbAssoc && $dbAssoc->has_saved) {
@@ -3055,13 +3136,13 @@ class ForensicCase extends Model
             });
 
             $dbPrimary = null;
-            if (!empty($suspectDbId)) {
+            if (!empty($suspectDbId) && is_numeric($suspectDbId)) {
                 $dbPrimary = $records->first(fn($r) => (int)$r->suspect_id === (int)$suspectDbId);
             }
             if (!$dbPrimary && !empty($cleanName)) {
                 $dbPrimary = $records->first(function ($r) use ($cleanName) {
                     $rName = strtolower(trim($r->suspect_name ?? ''));
-                    return !empty($rName) && ($rName === $cleanName || str_contains($rName, $cleanName) || str_contains($cleanName, $rName));
+                    return !empty($rName) && $rName === $cleanName;
                 });
             }
             if (!$dbPrimary && !$isAssociate && $suspectIndex === 0) {
@@ -3111,7 +3192,7 @@ class ForensicCase extends Model
             foreach ($docketData['lab_examinations_list'] as $lItem) {
                 if (!empty($lItem['has_saved'])) {
                     $lOwner = strtolower(trim($lItem['exhibit_owner_name'] ?? ($lItem['suspect_name'] ?? '')));
-                    if ($lOwner === $cleanName || (!empty($cleanName) && (str_contains($lOwner, $cleanName) || str_contains($cleanName, $lOwner)))) {
+                    if ($lOwner === $cleanName) {
                         $foundInLabExaminationsList = true;
                         $sDossierHasSavedLab = true;
                         $sDossierLabExam = $lItem;
@@ -3133,7 +3214,7 @@ class ForensicCase extends Model
             foreach ($docketData['associate_lab_examinations'] as $kAssoc => $vAssoc) {
                 if (!empty($vAssoc['has_saved'])) {
                     $kLow = strtolower(trim($kAssoc));
-                    if ($kLow === $cleanName || (!empty($cleanName) && (str_contains($kLow, $cleanName) || str_contains($cleanName, $kLow)))) {
+                    if ($kLow === $cleanName) {
                         $foundInAssociateLabExaminations = true;
                         $sDossierHasSavedLab = true;
                         $sDossierLabExam = $vAssoc;
@@ -3149,7 +3230,7 @@ class ForensicCase extends Model
             foreach ($docketData['seizures'] as $szItem) {
                 if (!empty($szItem['has_saved_lab'])) {
                     $szOwner = strtolower(trim($szItem['associated_person'] ?? ($szItem['suspect_name'] ?? ($szItem['owner_name'] ?? ''))));
-                    $isOwnerMatch = !empty($cleanName) && ($szOwner === $cleanName || str_contains($szOwner, $cleanName) || str_contains($cleanName, $szOwner));
+                    $isOwnerMatch = !empty($cleanName) && ($szOwner === $cleanName);
                     $isPrimaryMatch = (!$isAssociate && $suspectIndex === 0 && (empty($szOwner) || $szOwner === 'primary suspect' || $szOwner === 'primary'));
                     if ($isOwnerMatch || $isPrimaryMatch) {
                         $foundInSeizures = true;
@@ -3189,7 +3270,7 @@ class ForensicCase extends Model
         // Primary fallback: $docketData['lab_examination'] when has_saved === true
         if (!$sDossierHasSavedLab && !$isAssociate && $suspectIndex === 0 && !empty($docketData['lab_examination']['has_saved'])) {
             $labOwner = strtolower(trim($docketData['lab_examination']['exhibit_owner_name'] ?? ''));
-            if (empty($labOwner) || $labOwner === 'primary suspect' || $labOwner === $cleanName || (!empty($cleanName) && str_contains($labOwner, $cleanName))) {
+            if (empty($labOwner) || $labOwner === 'primary suspect' || $labOwner === $cleanName) {
                 $sDossierHasSavedLab = true;
                 $sDossierLabExam = $docketData['lab_examination'];
                 $sDossierLabExam['has_saved'] = true;

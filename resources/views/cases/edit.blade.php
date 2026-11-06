@@ -15,6 +15,29 @@
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     $isForensicHeadContext = request()->is('Forensic_Head*') || session('user_role') === 'HOF';
 
+    // Resolve active unit / page context - strictly for Lab Analysis
+    $fromParam = request()->query('from') ?? request()->query('unit') ?? '';
+    $fromLower = strtolower(trim((string)$fromParam));
+    $userUnit = strtolower(trim($authUser->unit ?? ''));
+
+    if ($fromLower !== '') {
+        $isLabAnalysis = str_contains($fromLower, 'lab') || str_contains($fromLower, 'chemistry') || str_contains($fromLower, 'narcotics');
+    } else {
+        $isLabAnalysis = request()->is('Lab_Analysis*') ||
+            request()->is('lab-analysis*') ||
+            (
+                !$isForensicHeadContext && (
+                    str_contains($userUnit, 'lab') ||
+                    str_contains($userUnit, 'chemistry') ||
+                    str_contains($userUnit, 'narcotics')
+                )
+            );
+    }
+
+    $backReviewUrl = $isLabAnalysis
+        ? ('/Lab_Analysis/cases/' . ($case->case_number ?: $case->id) . '/review')
+        : ('/cases/' . ($case->case_number ?: $case->id) . '/review' . ($fromParam ? '?from=' . urlencode($fromParam) : ''));
+
     // MULTI-SUSPECT & EXHIBIT EXTRACTION & MATCHING
     $rawSuspects = $docketData['suspects'] ?? [];
     if (empty($rawSuspects) && !empty($case->suspect_name)) {
@@ -444,7 +467,7 @@
         <!-- STICKY TOP TOOLBAR & ACTION BAR -->
         <header class="hero-banner text-white h-16 px-6 flex items-center justify-between shrink-0 z-30 shadow-lg">
             <div class="flex items-center gap-4 min-w-0">
-                <a href="/cases/{{ $case->case_number }}/review" class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl border border-slate-700 transition-all text-decoration-none shadow-sm">
+                <a href="{{ $backReviewUrl }}" class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl border border-slate-700 transition-all text-decoration-none shadow-sm">
                     <span>Back to Case Review</span>
                 </a>
                 <div class="h-5 w-px bg-slate-700/80 hidden sm:block"></div>
@@ -460,7 +483,7 @@
 
             <!-- TOP RIGHT QUICK SAVE ACTIONS -->
             <div class="flex items-center gap-3 shrink-0">
-                <a href="/cases/{{ $case->case_number }}/review" class="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all text-decoration-none">
+                <a href="{{ $backReviewUrl }}" class="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all text-decoration-none">
                     Cancel
                 </a>
                 <button type="button" onclick="document.getElementById('editCaseForm').submit();" class="px-5 py-2 text-xs font-extrabold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 rounded-xl shadow-md shadow-amber-500/20 border border-amber-400/50 transition-all cursor-pointer inline-flex items-center gap-2 active:scale-95">
@@ -565,12 +588,14 @@
                             <span class="text-[9px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-mono-code font-bold">Read-Only</span>
                         @endif
                     </button>
+                    @if($isLabAnalysis)
                     <button type="button" id="editTabBtn3" onclick="switchEditTab(3)" class="edit-tab-btn px-5 py-3 text-xs font-bold text-slate-500 hover:text-slate-900 border-b-2 border-transparent hover:bg-white/60 rounded-t-xl flex items-center gap-2.5 cursor-pointer shrink-0 transition-all">
                         <span>3. Laboratory Chemical Results</span>
                         @if(!$canEditLab)
                             <span class="text-[9px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-mono-code font-bold">Read-Only</span>
                         @endif
                     </button>
+                    @endif
                 </div>
 
                 <!-- EDIT FORM -->
@@ -1903,6 +1928,7 @@
                         </div>
                     </div>
 
+                    @if($isLabAnalysis)
                     <!-- TAB 3: LABORATORY CHEMICAL RESULTS -->
                     <div id="editTabContent3" class="edit-tab-content space-y-6 hidden">
                         @if(!$canEditLab)
@@ -2456,10 +2482,11 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                     <!-- FOOTER ACTIONS -->
                     <div class="pt-6 border-t border-slate-200 flex items-center justify-between shrink-0">
-                        <a href="/cases/{{ $case->case_number }}/review" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition-all text-decoration-none">
+                        <a href="{{ $backReviewUrl }}" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition-all text-decoration-none">
                             Cancel &amp; Return to Review
                         </a>
                         <button type="submit" class="px-6 py-2.5 text-xs font-extrabold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 rounded-xl shadow-md shadow-amber-500/20 border border-amber-400/50 transition-all cursor-pointer inline-flex items-center gap-2 active:scale-95">
@@ -2494,23 +2521,24 @@
 
 <script>
     function switchEditTab(tabNum) {
-        document.querySelectorAll('.edit-tab-btn').forEach((btn, idx) => {
-            if (idx + 1 === tabNum) {
-                btn.classList.add('border-amber-600', 'text-slate-900', 'font-black', 'bg-white', 'shadow-xs', 'border-t', 'border-x', 'rounded-t-xl');
-                btn.classList.remove('border-transparent', 'text-slate-500', 'font-bold', 'hover:bg-white/60');
-            } else {
-                btn.classList.remove('border-amber-600', 'text-slate-900', 'font-black', 'bg-white', 'shadow-xs', 'border-t', 'border-x', 'rounded-t-xl');
-                btn.classList.add('border-transparent', 'text-slate-500', 'font-bold', 'hover:bg-white/60');
-            }
+        document.querySelectorAll('.edit-tab-btn').forEach(btn => {
+            btn.classList.remove('border-amber-600', 'text-slate-900', 'font-black', 'bg-white', 'shadow-xs', 'border-t', 'border-x', 'rounded-t-xl');
+            btn.classList.add('border-transparent', 'text-slate-500', 'font-bold', 'hover:bg-white/60');
         });
 
-        document.querySelectorAll('.edit-tab-content').forEach((content, idx) => {
-            if (idx + 1 === tabNum) {
-                content.classList.remove('hidden');
-            } else {
-                content.classList.add('hidden');
-            }
+        document.querySelectorAll('.edit-tab-content').forEach(content => {
+            content.classList.add('hidden');
         });
+
+        const activeBtn = document.getElementById('editTabBtn' + tabNum);
+        const activeContent = document.getElementById('editTabContent' + tabNum);
+        if (activeBtn) {
+            activeBtn.classList.add('border-amber-600', 'text-slate-900', 'font-black', 'bg-white', 'shadow-xs', 'border-t', 'border-x', 'rounded-t-xl');
+            activeBtn.classList.remove('border-transparent', 'text-slate-500', 'font-bold', 'hover:bg-white/60');
+        }
+        if (activeContent) {
+            activeContent.classList.remove('hidden');
+        }
     }
 
     function calculateAgeFromDOB() {
@@ -3560,7 +3588,7 @@
 
         // 3. Lab details (saved to shared labsData[labIdx])
         const labIdx = typeof s.lab_index !== 'undefined' ? s.lab_index : 0;
-        if (labsData[labIdx]) {
+        if (labsData[labIdx] && document.getElementById('editTabContent3')) {
             const lab = labsData[labIdx];
             lab.laboratory_number = document.getElementById('input_laboratory_number')?.value || '';
             lab.confirmatory_test_result = document.getElementById('confirmatoryStatusSelect')?.value || '';
@@ -4158,6 +4186,12 @@
                     if (nameSpan) nameSpan.innerText = newName || `Suspect #${activeSuspectIndex + 1}`;
                 }
             });
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetTab = parseInt(urlParams.get('tab') || '1', 10);
+        if (targetTab > 1 && document.getElementById('editTabBtn' + targetTab)) {
+            switchEditTab(targetTab);
         }
 
         const form = document.getElementById('editCaseForm');

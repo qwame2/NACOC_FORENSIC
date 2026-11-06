@@ -2534,7 +2534,7 @@
       }).join('');
 
       cardsHtml += `
-        <a href="/cases/${c.id || ''}/edit" class="rounded-xl p-3 border border-dashed border-white/20 hover:border-indigo-400 bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center justify-center text-center group">
+        <a href="/cases/${c.id || ''}/edit?from=Lab_Analysis" class="rounded-xl p-3 border border-dashed border-white/20 hover:border-indigo-400 bg-white/5 hover:bg-white/10 transition-all flex flex-col items-center justify-center text-center group">
           <div class="w-5 h-5 rounded-full bg-white/10 group-hover:bg-[#5c56df] flex items-center justify-center mb-1 text-white transition-colors">
             <i data-lucide="plus" class="w-3 h-3"></i>
           </div>

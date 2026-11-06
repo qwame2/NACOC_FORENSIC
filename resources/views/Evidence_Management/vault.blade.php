@@ -13,7 +13,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>National Exhibit Vault & Custody Directorate | NACOC Forensic</title>
+    <title>NACOC EXHIBIT LOGS | NACOC Forensic</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,7 +25,7 @@
         <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
     <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="{{ asset('vendor/lucide.min.js') }}"></script>
     <!-- QRCode Generator for Seized Property Badge Tags -->
     <script src="{{ asset('vendor/qrcode.min.js') }}"></script>
 
@@ -66,13 +66,10 @@
                     </div>
                     <div>
                         <div class="flex items-center space-x-2">
-                            <h1 class="text-sm font-extrabold text-slate-900 tracking-tight uppercase">EXHIBIT VAULT</h1>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold font-mono-code">
-                                CENTRAL CUSTODY
-                            </span>
+                            <h1 class="text-sm font-extrabold text-slate-900 tracking-tight uppercase">EXHIBIT LOG</h1>
                         </div>
                         <p class="text-[11px] text-slate-500 font-medium">
-                            National Evidence Vault &amp; Associated Suspects Registry
+                            NACOC Evidence Logs &amp; Associated Suspects Registry
                         </p>
                     </div>
                 </div>
@@ -313,7 +310,7 @@
                 </div>
 
                 <!-- ==================================================== -->
-                <!-- 5. EXHIBIT VAULT CONTENT SECTION (AJAX + SKELETON)   -->
+                <!-- 5. EXHIBIT LOG CONTENT SECTION (AJAX + SKELETON)   -->
                 <!-- ==================================================== -->
                 <div id="vaultContentWrapper" class="relative min-h-[450px]">
                     <!-- Skeleton Loader State (shown during AJAX updates) -->
@@ -393,7 +390,7 @@
                     </div>
                     <div>
                         <div class="flex items-center space-x-2">
-                            <h2 class="text-base font-extrabold tracking-tight text-white" id="modalExhibitTitle">Exhibit Vault Dossier</h2>
+                            <h2 class="text-base font-extrabold tracking-tight text-white" id="modalExhibitTitle">Exhibit Log</h2>
                             <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono-code font-bold uppercase border border-emerald-500/30" id="modalCategoryBadge">
                                 General
                             </span>

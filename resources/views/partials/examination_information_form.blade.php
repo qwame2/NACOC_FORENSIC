@@ -3,7 +3,7 @@
     $isLabCompleted = !empty($activeSuspectHasSavedResult) || (!empty($labStatus) && $labStatus === 'COMPLETED');
 @endphp
 <div id="section5FormContainer"
-    class= "mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm space-y-6 {{ $activeSuspectHasSavedResult || !$isLabAnalysis ? 'hidden' : '' }}">
+    class="mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm space-y-6 hidden">
     <div
         class="pb-3 border-b border-emerald-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 
@@ -47,10 +47,10 @@
         <!-- EXHIBIT SELECTOR CARD FROM SECTION 4 MANIFEST -->
         <div
             class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
-            <div class="grid grid-cols-1 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                 <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
-                <div>
+                <div class="md:col-span-2">
                     <label
                         class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                         <span class="flex items-center space-x-2">
@@ -147,12 +147,27 @@
                                     data-sample-taken="{{ $dEx['sample_taken'] ?? '' }}"
                                     data-sample-reserved="{{ $dEx['sample_reserved'] ?? '' }}"
                                     data-detected-substances="{{ is_array($dEx['detected_substances'] ?? null) ? json_encode($dEx['detected_substances']) : $dEx['detected_substances'] ?? '' }}"
-                                    data-findings="{{ $dEx['findings'] ?? '' }}">
+                                    data-findings="{{ $dEx['findings'] ?? '' }}"
+                                    data-purpose-of-examination="{{ $dEx['purpose_of_examination'] ?? ($initialPurposeOfExamination ?? '') }}">
                                     {{ $exTitle }}{{ $exMetrics }}{{ $exPkgStr }}{{ $exOwnerStr }}
                                 </option>
                             @endforeach
                         @endif
                     </select>
+                </div>
+
+                <!-- EXHIBIT NO. INPUT IN SELECT SEIZED EXHIBIT (MANIFEST SYNC) -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                        <span>Exhibit No.</span>
+                        <span
+                            class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Exhibit ID</span>
+                    </label>
+                    <input type="text" id="labExhibitNumberInput" name="lab_exhibit_number"
+                        value="{{ $isLabCompleted ? '' : $labExhibitNo }}"
+                        placeholder="e.g. EXH-2026-001-NFC"
+                        class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
                 </div>
             </div>
             <p class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
@@ -167,7 +182,7 @@
         </div>
 
         <!-- REFERENCE NUMBER FIELDS -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <!-- Analysis/Examination Reference -->
             <div>
                 <label
@@ -192,19 +207,6 @@
                 <input type="text" id="labCaseReferenceInput" value="{{ $isLabCompleted ? '' : $labCaseRef }}"
                     readonly
                     class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
-            </div>
-
-            <!-- Exhibit Number -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                    <span>Exhibit Number</span>
-                    <span
-                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
-                </label>
-                <input type="text" id="labExhibitNumberInput" value="{{ $isLabCompleted ? '' : $labExhibitNo }}"
-                    readonly
-                    class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
             </div>
         </div>
 
@@ -283,6 +285,41 @@
                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
             </div>
         </div>
+    </div>
+
+    <!-- PURPOSE OF EXAMINATION CARD -->
+    <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-2xs space-y-4">
+        <div class="pb-3 border-b border-emerald-100 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div
+                    class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="font-extrabold text-slate-900 text-sm">Purpose of Examination</h3>
+                    <p class="text-[11px] text-emerald-700 font-semibold">Formal purpose and analytical scope of the examination</p>
+                </div>
+            </div>
+            <span
+                class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                MANDATORY / SCOPE
+            </span>
+        </div>
+        <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200">
+            <label
+                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                <span>Purpose of Examination</span>
+                <span
+                    class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Mandatory / Scope</span>
+            </label>
+            <textarea id="labPurposeOfExaminationInput" name="purpose_of_examination" rows="3"
+                placeholder="State the purpose of examination (e.g. Qualitative and quantitative chemical analysis to identify controlled substances and determine purity percentage)..."
+                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs resize-none placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($initialPurposeOfExamination ?? '') }}</textarea>
+        </div>
+    </div>
 
         <!-- SECTION 6: PRESUMPTIVE TEST CARD -->
         <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-2xs space-y-4">

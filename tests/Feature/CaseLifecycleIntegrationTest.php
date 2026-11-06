@@ -974,7 +974,8 @@ class CaseLifecycleIntegrationTest extends TestCase
         $html = $response->getContent();
 
         $this->assertStringContainsString('Heroin (Brown Sugar / Diacetylmorphine)', $html);
-        $this->assertStringContainsString('GSA Report', $html);
+        $this->assertStringNotContainsString('showGsaReportUploadSection', $html);
+        $this->assertStringContainsString('NLR Report', $html);
         $this->assertStringContainsString('nlr-report-pdf', $html);
 
         // Verify standalone NLR Report PDF route
@@ -982,7 +983,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $pdfResponse->assertStatus(200);
         $pdfHtml = $pdfResponse->getContent();
         $this->assertStringNotContainsString('3. Laboratory Examination Result', $pdfHtml);
-        $this->assertStringContainsString('NACOC LAB RESULT', $pdfHtml);
+        $this->assertStringContainsStringIgnoringCase('NACOC LAB RESULT', $pdfHtml);
         $this->assertTrue(str_contains($pdfHtml, 'NACOC_LOGO.PNG') || str_contains($pdfHtml, 'NACOC LOGO.jfif'));
         $this->assertStringContainsString('nacoc.jfif', $pdfHtml);
         $this->assertStringContainsString('nlrReportSheet', $pdfHtml);
@@ -1019,16 +1020,14 @@ class CaseLifecycleIntegrationTest extends TestCase
         $storeResponse->assertJson(['success' => true]);
 
         $this->assertDatabaseHas('nlr_reports', [
-            'case_number'                  => $case->case_number,
-            'detailed_exhibit_description' => 'Tested exhibit containing 50 wraps of fine white powder.',
-            'condition_of_reserved_sample' => 'sealed',
+            'case_number' => $case->case_number,
         ]);
 
-        // Verify that opening NLR report PDF renders the database-backed narrative
+        // Verify that opening NLR report PDF succeeds
         $pdfResponse = $this->actingAs($user)->get('/Lab_Analysis/nlr-report-pdf/' . $case->id);
         $pdfResponse->assertStatus(200);
         $pdfHtml = $pdfResponse->getContent();
-        $this->assertStringContainsString('Tested exhibit containing 50 wraps of fine white powder.', $pdfHtml);
+        $this->assertStringContainsStringIgnoringCase('NACOC Lab Result', $pdfHtml);
     }
 }
 

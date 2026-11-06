@@ -202,18 +202,9 @@
 <body>
     <div class="max-w-[210mm] mx-auto px-4 sm:px-0 mb-4 no-print">
         <!-- TOP TOOLBAR -->
-        <div class="bg-slate-900 text-white p-4 rounded-xl flex items-center justify-between shadow-lg">
-            <div class="flex items-center gap-3">
-                <span class="px-2.5 py-1 bg-emerald-700 font-bold text-xs tracking-wider rounded">NACOC LAB RESULT (NLR REPORT)</span>
-                <span class="font-mono-code text-xs text-slate-300">Ref: {{ $caseNo }} &bull; {{ $labNo }}</span>
-            </div>
+        <div class="bg-slate-900 text-white p-4 rounded-xl flex items-center justify-between shadow-l    
             <div class="flex items-center gap-2.5">
-                <a href="{{ url()->previous() !== url()->current() ? url()->previous() : url('/Lab_Analysis/analytical/' . $caseNo) }}" onclick="if (window.history.length > 1 && document.referrer) { event.preventDefault(); window.history.back(); }" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs font-mono-code rounded-lg flex items-center gap-1.5 transition-colors border border-slate-700 cursor-pointer no-underline">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    <span>Back</span>
-                </a>
+                
                 <button onclick="window.print()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs font-mono-code rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer border-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>

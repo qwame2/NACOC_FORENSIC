@@ -1317,7 +1317,12 @@
 
             {{-- SUSPECT CLINICAL DRUG SCREENING RECORD --}}
             @php
-                $pdfDrugScreening = \App\Models\DrugScreening::forSuspect($sItem['id'] ?? null, $sName);
+                $pdfDrugScreening = \App\Models\DrugScreening::forSuspect(
+                    $sItem['id'] ?? null,
+                    $sName,
+                    $case->id ?? null,
+                    $case->case_number ?? null
+                );
             @endphp
             @if(!empty($pdfDrugScreening))
             <div class="space-y-1.5 avoid-break relative z-10 pt-2">

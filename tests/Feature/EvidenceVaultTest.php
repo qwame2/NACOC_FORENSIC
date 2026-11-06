@@ -23,10 +23,10 @@ class EvidenceVaultTest extends TestCase
             'is_approved' => true,
         ]);
 
-        // When accessing Evidence Management unit pages, the sidebar should display the "Exhibit Vault" button
+        // When accessing Evidence Management unit pages, the sidebar should display the "Exhibit Log" button
         $resp = $this->actingAs($officer)->get('/Evidence_Management/vault');
         $resp->assertStatus(200);
-        $resp->assertSee('Exhibit Vault');
+        $resp->assertSee('Exhibit Log');
         $resp->assertSee('/Evidence_Management/vault');
 
         // Also check on Evidence Management dashboard

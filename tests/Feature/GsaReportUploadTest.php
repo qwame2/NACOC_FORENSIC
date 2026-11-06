@@ -82,12 +82,10 @@ class GsaReportUploadTest extends TestCase
         $pageResponse->assertStatus(200);
         $html = $pageResponse->getContent();
 
-        // GSA Upload Section container has hidden class by default
-        $this->assertStringContainsString('id="gsaUploadSection"', $html);
-        $this->assertStringContainsString('class="hidden bg-white', $html);
-
-        // GSA Certificate button exists to trigger unhiding
-        $this->assertStringContainsString('onclick="showGsaReportUploadSection()"', $html);
+        // GSA Upload Section and upload triggers are safely removed from analytical report page
+        $this->assertStringNotContainsString('id="gsaUploadSection"', $html);
+        $this->assertStringNotContainsString('showGsaReportUploadSection', $html);
+        $this->assertStringNotContainsString('openGsaReportModal', $html);
     }
 
     #[Test]
@@ -238,8 +236,8 @@ class GsaReportUploadTest extends TestCase
         $pageResponse->assertStatus(200);
         $html = $pageResponse->getContent();
 
-        // Top header buttons MUST be enabled because Suspect 2 has no report attached yet!
-        $this->assertStringContainsString('onclick="showGsaReportUploadSection()"', $html);
+        // Top header button MUST be enabled because Suspect 2 has no report attached yet!
+        $this->assertStringNotContainsString('showGsaReportUploadSection', $html);
         $this->assertStringContainsString('onclick="openNlrReportModal()"', $html);
 
         // Suspect 1's card buttons are disabled
@@ -821,14 +819,12 @@ class GsaReportUploadTest extends TestCase
         $this->assertStringContainsString('addGsaExhibitTypeInput', $reviewHtml);
         $this->assertStringContainsString('Add Exhibit Type', $reviewHtml);
 
-        // 2. Lab_Analysis/analytical
+        // 2. Lab_Analysis/analytical (GSA Upload removed)
         $analyticalResponse = $this->actingAs($user)->get("/Lab_Analysis/analytical/{$mCase->case_number}");
         $analyticalResponse->assertStatus(200);
         $analyticalHtml = $analyticalResponse->getContent();
-        $this->assertStringContainsString('Exhibit Type', $analyticalHtml);
-        $this->assertStringContainsString('name="exhibit_type[]"', $analyticalHtml);
-        $this->assertStringContainsString('addGsaExhibitTypeInput', $analyticalHtml);
-        $this->assertStringContainsString('Add Exhibit Type', $analyticalHtml);
+        $this->assertStringNotContainsString('addGsaExhibitTypeInput', $analyticalHtml);
+        $this->assertStringNotContainsString('id="gsaUploadSection"', $analyticalHtml);
 
         // 3. Lab_Analysis/create
         $createResponse = $this->actingAs($user)->get('/Lab_Analysis/create');

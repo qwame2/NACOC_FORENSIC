@@ -769,15 +769,6 @@
 
                     @if ($allGroupsHaveReports)
                         <button type="button" disabled title="Reports have already been generated and attached for all suspects in this case."
-                            class="px-3.5 py-2 bg-slate-100 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-200 opacity-60 cursor-not-allowed flex items-center gap-1.5">
-                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>GSA Report Upload</span>
-                        </button>
-
-                        <button type="button" disabled title="Reports have already been generated and attached for all suspects in this case."
                             class="px-3.5 sm:px-4 py-2 bg-slate-100 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-200 opacity-60 cursor-not-allowed flex items-center gap-1.5">
                             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -786,15 +777,6 @@
                             <span>Generate NLR Report</span>
                         </button>
                     @else
-                        <button type="button" onclick="showGsaReportUploadSection()"
-                            class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
-                            <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <span>GSA Report Upload</span>
-                        </button>
-
                         <!-- GENERATE NLR REPORT BUTTON -->
                         <button type="button" onclick="openNlrReportModal()"
                             class="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
@@ -1118,8 +1100,13 @@
                             @foreach ($group['members'] as $gMem)
                                 @php
                                     $gMemId = $getSuspectId($gMem['suspect_info'] ?? null);
-                                    $gMemName = $gMem['suspect_name'] ?? null;
-                                    $gDrugScreening = \App\Models\DrugScreening::forSuspect($gMemId, $gMemName);
+                                    $gMemName = $gMem['suspect_name'] ?? ($gMem['suspect_info']['suspect_name'] ?? ($gMem['name'] ?? null));
+                                    $gDrugScreening = \App\Models\DrugScreening::forSuspect(
+                                        $gMemId,
+                                        $gMemName,
+                                        $case->id ?? null,
+                                        $caseNo ?? ($case->case_number ?? null)
+                                    );
                                 @endphp
                                 @if ($gDrugScreening)
                                     @include('partials.suspect_drug_screening_card', [
@@ -1143,18 +1130,9 @@
                                     @if ($hasCardReportAttached)
                                         <button type="button" disabled title="A report has already been generated and attached."
                                             class="px-3.5 py-1.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 opacity-60 cursor-not-allowed">
-                                            GSA Report Upload
-                                        </button>
-                                        <button type="button" disabled title="A report has already been generated and attached."
-                                            class="px-3.5 py-1.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 opacity-60 cursor-not-allowed">
                                             NLR Report 
                                         </button>
                                     @else
-                                        <button type="button"
-                                            onclick="openGsaReportModal({{ \Illuminate\Support\Js::from($group['members'][0]['suspect_name'] ?? '') }}, {{ \Illuminate\Support\Js::from($group['members'][0]['suspect_info']['id'] ?? null) }})"
-                                            class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl border border-emerald-200 transition-colors cursor-pointer">
-                                            GSA Report Upload
-                                        </button>
                                         <button type="button" onclick="openNlrReportModal({{ \Illuminate\Support\Js::from($res) }})"
                                             class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition-colors cursor-pointer">
                                             NLR Report 
@@ -1168,346 +1146,7 @@
 
                 </div>
 
-                {{-- ═══════════════════════════════════════════════════════════
-                     GSA REPORT UPLOAD SECTION
-                     ═══════════════════════════════════════════════════════════ --}}
-                <div class="hidden bg-white rounded-3xl border border-slate-200/90 shadow-xl p-5 sm:p-8 space-y-5 no-print"
-                    id="gsaUploadSection">
-
-                    {{-- Section Header --}}
-                    <div
-                        class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center shadow-md shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <span
-                                        class="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">GSA
-                                        FILES</span>
-                                    <h2
-                                        class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight">
-                                        GSA Report Upload</h2>
-                                </div>
-                                <p class="text-[11px] text-slate-500 font-mono-code mt-0.5">Attach scans, photos, or
-                                    documents of the signed GSA Report Upload</p>
-                                <p id="gsaActiveSuspectLabel"
-                                    class="hidden text-[11px] text-blue-700 font-mono-code font-bold mt-0.5"></p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <span id="gsaFileCount"
-                                class="hidden px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-full">0
-                                files</span>
-                            <button type="button" onclick="clearAllGsaFiles()" id="gsaClearAllBtn"
-                                class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold rounded-lg border border-red-200 transition-colors cursor-pointer">Clear
-                                All</button>
-                            <button type="button" id="saveGsaFilesBtn" onclick="saveGsaReportFiles()"
-                                @if ($allGroupsHaveReports) disabled title="Reports have already been generated and attached for all suspects in this case." class="px-4 py-2 bg-slate-200 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-300 opacity-60 cursor-not-allowed flex items-center gap-1.5" @else class="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-0" @endif>
-                                <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                </svg>
-                                <span>Save &amp; Attach GSA Report</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- GSA DETAILS: Exhibit Type -->
-                    <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-2" id="gsaExhibitTypesSection">
-                        <div class="flex items-center justify-between">
-                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                </svg>
-                                <span>Exhibit Type</span>
-                            </label>
-                            <button type="button" onclick="addGsaExhibitTypeInput()" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono-code font-bold uppercase text-blue-700 bg-blue-100 hover:bg-blue-200 active:scale-95 rounded-lg border border-blue-200 transition-all cursor-pointer">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                                <span>Add Exhibit Type</span>
-                            </button>
-                        </div>
-                        <div id="gsaExhibitTypeList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                            <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
-                                <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
-                                    class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- DROP ZONE — files render inside this container -->
-                    <div id="gsaDropZone" ondragover="gsaDragOver(event)" ondragleave="gsaDragLeave(event)"
-                        ondrop="gsaHandleDrop(event)"
-                        class="relative w-full border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:border-blue-400 transition-all overflow-hidden">
-
-                        <!-- FILE LIST (inside the zone) -->
-                        <div id="gsaFileGrid" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 p-3"></div>
-
-                        <!-- FULL PROMPT — shown when no files -->
-                        <div id="gsaFullPrompt" onclick="document.getElementById('gsaReportImageInput').click()"
-                            class="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center cursor-pointer group hover:bg-blue-50/60 transition-all">
-                            <div
-                                class="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center group-hover:bg-blue-50 group-hover:border-blue-300 transition-all">
-                                <svg class="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition-colors"
-                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                        d="M12 4v16m8-8H4" />
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="text-xs font-bold text-slate-600 group-hover:text-blue-800">Click to add
-                                    files or drag &amp; drop</p>
-                                <p class="text-[11px] text-slate-400 mt-0.5 font-mono-code">JPG &middot; PNG &middot;
-                                    WEBP &middot; PDF &middot; DOCX &middot; CSV &nbsp;|&nbsp; Max 10 MB each</p>
-                            </div>
-                        </div>
-
-                        <!-- COMPACT ADD-MORE STRIP — shown when files exist -->
-                        <div id="gsaAddMoreStrip" onclick="document.getElementById('gsaReportImageInput').click()"
-                            class="hidden items-center justify-center gap-2 py-2.5 px-4 border-t border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/60 hover:border-blue-400 transition-all cursor-pointer group">
-                            <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors"
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span
-                                class="text-[11px] font-bold text-slate-500 group-hover:text-blue-800 font-mono-code">Click
-                                to add more files or drag &amp; drop</span>
-                        </div>
-
-                        <!-- Hidden file input -->
-                        <input type="file" id="gsaReportImageInput" name="gsa_report_images[]"
-                            accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,.csv,.docx"
-                            multiple class="hidden" onchange="gsaHandleFileSelect(this)">
-                    </div>
-
-                    {{-- SAVED ATTACHED GSA / NLR REPORT FILES --}}
-                    @php
-                        $gsaReportsLive = \App\Models\SuspectGsaReport::forCase($caseNo ?? ($case->case_number ?? $case->id), $case->id ?? null);
-                        $nlrReportsLive = \App\Models\SuspectNlrReport::forCase($caseNo ?? ($case->case_number ?? $case->id), $case->id ?? null);
-                        $allReportsLive = collect($gsaReportsLive)->merge($nlrReportsLive)->unique(function ($item) {
-                            return get_class($item) . '_' . $item->id;
-                        })->values();
-                    @endphp
-                    @if (!empty($allReportsLive) && count($allReportsLive) > 0)
-                        <div class="pt-4 border-t border-slate-100 space-y-3">
-                            <div
-                                class="flex items-center justify-between text-xs font-bold text-slate-800 font-mono-code">
-                                <span class="flex items-center gap-2 text-blue-900">
-                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    ATTACHED REPORT FILES ({{ count($allReportsLive) }})
-                                </span>
-                                <span class="text-[11px] text-slate-400 font-mono-code">Saved for Case
-                                    #{{ $caseNo }}</span>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                @foreach ($allReportsLive as $gsaF)
-                                    <div
-                                        class="bg-blue-50/60 border border-blue-200/90 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-2xs">
-                                        <div class="flex items-center gap-2.5 min-w-0">
-                                            <div
-                                                class="w-9 h-9 {{ ($gsaF instanceof \App\Models\SuspectNlrReport || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR')) ? 'bg-emerald-600' : 'bg-blue-600' }} text-white rounded-xl flex items-center justify-center font-mono-code text-xs font-bold shrink-0">
-                                                {{ ($gsaF instanceof \App\Models\SuspectNlrReport || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR')) ? 'NLR' : strtoupper(substr($gsaF->file_extension ?? 'PDF', 0, 3)) }}
-                                            </div>
-                                            <div class="min-w-0">
-                                                <div class="text-xs font-bold text-slate-900 truncate"
-                                                    title="{{ $gsaF->original_filename }}">
-                                                    {{ $gsaF->original_filename }}</div>
-                                                <div class="text-[10px] text-slate-500 font-mono-code">
-                                                    {{ $gsaF->file_size_label }} &bull;
-                                                    {{ $gsaF->created_at ? $gsaF->created_at->format('M d, Y H:i') : 'Attached' }}
-                                                </div>
-                                                @if (!empty($gsaF->exhibit_type))
-                                                    <div class="mt-0.5 flex items-center gap-1">
-                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-200 truncate max-w-full" title="Exhibit Type: {{ $gsaF->exhibit_type }}">
-                                                            Exhibit Type: {{ $gsaF->exhibit_type }}
-                                                        </span>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        <a href="{{ $gsaF->url }}" target="_blank"
-                                            class="px-3 py-1.5 {{ ($gsaF instanceof \App\Models\SuspectNlrReport || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR')) ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700' }} text-white text-[10px] font-extrabold font-mono-code rounded-xl transition-colors shrink-0">
-                                            Open File
-                                        </a>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-                </div>
-
-                <!-- ═══════════════════════════════════════════════════════════
-                     DETAILED EXHIBIT DESCRIPTION FORM
-                     ═══════════════════════════════════════════════════════════ -->
-                <div class="hidden bg-white rounded-3xl border border-slate-200/90 shadow-xl p-5 sm:p-8 space-y-5 no-print"
-                    id="exhibitDescriptionSection">
-
-                    <!-- Section Header -->
-                    <div
-                        class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 text-white flex items-center justify-center shadow-md shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <span
-                                        class="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">EXHIBIT
-                                        LOG</span>
-                                    <span
-                                        class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-bold font-mono-code rounded-md border border-slate-200 uppercase">Case:
-                                        {{ $caseNo }}</span>
-                                </div>
-                                <h2
-                                    class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight mt-0.5">
-                                    Detailed Exhibit Description</h2>
-                                <p class="text-xs text-slate-500 font-medium">Provide a comprehensive narrative of the
-                                    physical exhibit contents, packaging, and distinguishing features.</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <span id="descCharCount"
-                                class="text-[11px] font-mono-code font-bold text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">0
-                                chars</span>
-                            <button type="button" onclick="clearExhibitDescription()"
-                                class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Clear
-                            </button>
-                            <button type="button" onclick="copyExhibitDescription()"
-                                class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition-colors cursor-pointer flex items-center gap-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                                Copy
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- FORMAT GUIDE CARD -->
-                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span
-                                class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Format
-                                Guide</span>
-                            <span class="flex-1 h-px bg-slate-200"></span>
-                        </div>
-                        <div class="text-xs text-slate-700 font-sans leading-relaxed space-y-1 pl-1">
-                            <p class="font-semibold text-slate-800">Opening sentence describing the outer
-                                container/packaging, then bullet points for each item found inside:</p>
-                            <div
-                                class="pl-3 border-l-2 border-emerald-300 space-y-1 mt-2 text-slate-600 font-normal italic text-[11px]">
-                                <p>Inside the box were two large ziplock bags.</p>
-                                <p>• One of the ziplock bags labelled 'A' contained one hundred and six (106) wraps of
-                                    plant-like substances.</p>
-                                <p>• The second ziplock bag contained one transparent polythene bag and a small ziplock
-                                    bag labeled 'B' and 'C' respectively…</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TEXTAREA FORM -->
-                    <form id="exhibitDescriptionForm" onsubmit="saveExhibitDescription(event)" class="space-y-4">
-                        <div class="relative">
-                            <label for="detailedExhibitDescription"
-                                class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider mb-2">
-                                Detailed Exhibit Description
-                                <span class="text-red-500 ml-0.5">*</span>
-                            </label>
-                            <div class="relative">
-                                <textarea id="detailedExhibitDescription" name="detailed_exhibit_description" rows="10"
-                                    placeholder="Inside the [container type] were [quantity] [packaging type].&#10;• One of the [packaging] labelled '[Label]' contained [quantity and description of contents].&#10;• The second [packaging] contained [description of contents]…"
-                                    oninput="updateDescCharCount(this)"
-                                    class="w-full px-4 py-3.5 bg-white border-2 border-slate-200 rounded-2xl text-sm text-slate-900 font-sans leading-relaxed focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-y custom-scrollbar placeholder-slate-300"
-                                    style="min-height: 180px; font-family: 'Inter', system-ui, sans-serif; font-size: 13px; line-height: 1.75;">{{ old('detailed_exhibit_description') }}</textarea>
-
-                                <!-- Corner decoration -->
-                                <div class="absolute bottom-3 right-3 flex items-center gap-1.5 pointer-events-none">
-                                    <span id="descLiveCount"
-                                        class="text-[10px] font-mono-code font-bold text-slate-300">0</span>
-                                </div>
-                            </div>
-
-                            <!-- Bullet Helper Toolbar -->
-                            <div class="flex items-center gap-2 mt-2 flex-wrap">
-                                <span
-                                    class="text-[10px] font-mono-code font-bold text-slate-400 uppercase tracking-wide">Quick
-                                    Insert:</span>
-                                <button type="button" onclick="insertAtCursor('detailedExhibitDescription', '\n• ')"
-                                    class="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 text-slate-600 font-bold text-[11px] rounded-lg border border-slate-200 transition-all cursor-pointer font-mono-code">
-                                    + Bullet Point
-                                </button>
-                                <button type="button" onclick="insertAtCursor('detailedExhibitDescription', '\n')"
-                                    class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] rounded-lg border border-slate-200 transition-all cursor-pointer font-mono-code">
-                                    + New Line
-                                </button>
-                                <button type="button" onclick="insertTemplate()"
-                                    class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] rounded-lg border border-emerald-200 transition-all cursor-pointer font-mono-code">
-                                    Load Template
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- ADDITIONAL FIELDS ROW -->
-                        <div class="w-full">
-
-                            <div class="space-y-1.5">
-                                <label for="conditionOfReservedSample"
-                                    class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">Condition
-                                    of Reserved Sample</label>
-                                <textarea id="conditionOfReservedSample" name="condition_of_reserved_sample" rows="3"
-                                    placeholder="Enter condition of reserved sample(s)... (e.g., Sealed in tamper-evident forensic bag, intact, unaltered)"
-                                    class="w-full px-4 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-xs text-slate-900 font-sans leading-relaxed focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-y placeholder-slate-300">{{ old('condition_of_reserved_sample') }}</textarea>
-                            </div>
-                        </div>
-
-                        <!-- SUBMIT BAR -->
-                        <div
-                            class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-                            <div class="flex items-center gap-2">
-                                <div id="descSaveStatus"
-                                    class="hidden items-center gap-1.5 text-xs font-mono-code font-bold">
-                                    <span class="text-emerald-700">Description saved to dossier.</span>
-                                </div>
-                                <p class="text-[11px] text-slate-400 font-mono-code">Ref: {{ $caseNo }} •
-                                    {{ $labNo }}</p>
-                            </div>
-                            <div class="flex items-center gap-2 justify-end">
-                                <button type="button" onclick="clearExhibitDescription()"
-                                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors cursor-pointer">
-                                    Reset
-                                </button>
-                                <button type="submit" id="saveDescBtn"
-                                    @if ($allGroupsHaveReports) disabled title="Reports have already been generated and attached for all suspects in this case." class="inline-flex items-center gap-2 px-5 py-2 bg-slate-200 text-slate-400 font-extrabold text-xs rounded-xl shadow-2xs border border-slate-300 opacity-60 cursor-not-allowed" @else class="inline-flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer" @endif>
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                                    </svg>
-                                    Save &amp; Attach NLR Report
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+                
 
             </main>
         </div>
@@ -1523,63 +1162,6 @@
         }
 
         window.allGroupsHaveReports = @json($allGroupsHaveReports);
-
-        function showGsaReportUploadSection() {
-            if (window.allGroupsHaveReports) {
-                return;
-            }
-            const sec = document.getElementById('gsaUploadSection');
-            if (sec) {
-                if (sec.classList.contains('hidden')) {
-                    sec.classList.remove('hidden');
-                    setTimeout(() => {
-                        sec.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }, 100);
-                } else {
-                    sec.classList.add('hidden');
-                }
-            }
-        }
-
-        // Suspect the GSA upload section is currently attached to (set by the dossier card button)
-        let gsaActiveSuspect = {
-            name: '',
-            id: null
-        };
-
-        function openGsaReportModal(suspectName, suspectId) {
-            const newName = suspectName || '';
-            const newId = suspectId || null;
-            const suspectChanged = newName !== gsaActiveSuspect.name || newId !== gsaActiveSuspect.id;
-            gsaActiveSuspect = {
-                name: newName,
-                id: newId
-            };
-
-            const label = document.getElementById('gsaActiveSuspectLabel');
-            if (label) {
-                label.textContent = newName ? 'Attaching to suspect: ' + newName : '';
-                label.classList.toggle('hidden', !newName);
-            }
-
-            const sec = document.getElementById('gsaUploadSection');
-            // If the section is already open for a different suspect, keep it open instead of toggling closed
-            if (sec && !sec.classList.contains('hidden') && suspectChanged) {
-                sec.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-                return;
-            }
-            showGsaReportUploadSection();
-        }
-
-        function closeGsaReportModal() {
-            // Unused
-        }
 
         window.suspectLabResults = @json($suspectLabResults);
         window.selectedSuspectQuery = @json($selectedSuspectQuery ?? '');
@@ -1604,21 +1186,53 @@
             }
             if (labData) {
                 window.activeNlrLabData = labData;
+            } else if (!window.activeNlrLabData && window.suspectLabResults && window.suspectLabResults.length > 0) {
+                window.activeNlrLabData = window.suspectLabResults[0];
             }
-            const descSec = document.getElementById('exhibitDescriptionSection');
-            if (descSec) {
-                if (descSec.classList.contains('hidden')) {
-                    descSec.classList.remove('hidden');
-                    setTimeout(() => {
-                        descSec.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }, 100);
+
+            const sName = (window.activeNlrLabData && window.activeNlrLabData.suspect_name) ? window.activeNlrLabData.suspect_name : '';
+            const sId = (window.activeNlrLabData && window.activeNlrLabData.suspect_info) ? window.activeNlrLabData.suspect_info.id : null;
+
+            // Open window synchronously on user click to avoid popup blocker
+            const previewWin = window.open('about:blank', '_blank');
+
+            const payload = {
+                case_id: "{{ $caseNo }}",
+                case_number: "{{ $caseNo }}",
+                laboratory_number: "{{ $labNo }}",
+                suspect_id: sId,
+                suspect_name: sName,
+                _token: "{{ csrf_token() }}"
+            };
+
+            let pdfUrl = "{{ route('lab.nlr.pdf', ['id' => $caseNo]) }}";
+            if (sName) {
+                pdfUrl += (pdfUrl.includes('?') ? '&' : '?') + 'suspect=' + encodeURIComponent(sName);
+            }
+
+            fetch("{{ route('lab.nlr.store') }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload)
+            }).then(res => res.json()).then(() => {
+                if (previewWin) {
+                    previewWin.location.href = pdfUrl;
                 } else {
-                    descSec.classList.add('hidden');
+                    window.open(pdfUrl, '_blank');
                 }
-            }
+                window.location.reload();
+            }).catch(() => {
+                if (previewWin) {
+                    previewWin.location.href = pdfUrl;
+                } else {
+                    window.open(pdfUrl, '_blank');
+                }
+                window.location.reload();
+            });
         }
 
         function showNlrReportModal(labData) {
@@ -1649,384 +1263,6 @@
                 } else {
                     card.style.display = 'none';
                 }
-            });
-        }
-
-        /* ── GSA Report multi-file upload helpers ── */
-        let gsaFilesMap = {}; // id -> {file, dataUrl}
-        let gsaFileIdCounter = 0;
-
-        function gsaDragOver(e) {
-            e.preventDefault();
-            const zone = document.getElementById('gsaDropZone');
-            if (zone) {
-                zone.classList.add('border-emerald-500', 'bg-emerald-50/80');
-                zone.classList.remove('border-slate-300', 'bg-slate-50');
-            }
-        }
-
-        function gsaDragLeave(e) {
-            const zone = document.getElementById('gsaDropZone');
-            if (zone) {
-                zone.classList.remove('border-emerald-500', 'bg-emerald-50/80');
-                zone.classList.add('border-slate-300', 'bg-slate-50');
-            }
-        }
-
-        function gsaHandleDrop(e) {
-            e.preventDefault();
-            gsaDragLeave(e);
-            Array.from(e.dataTransfer.files).forEach(f => gsaAddFile(f));
-        }
-
-        function gsaHandleFileSelect(input) {
-            Array.from(input.files).forEach(f => gsaAddFile(f));
-            input.value = ''; // reset so same file can be re-added
-        }
-
-        function gsaAddFile(file) {
-            const maxMB = 10;
-            if (file.size > maxMB * 1024 * 1024) {
-                alert('"' + file.name + '" exceeds ' + maxMB + ' MB limit and was skipped.');
-                return;
-            }
-            const id = 'gsa_' + (++gsaFileIdCounter);
-            const ext = file.name.split('.').pop().toLowerCase();
-
-            gsaFilesMap[id] = {
-                file
-            };
-
-            const grid = document.getElementById('gsaFileGrid');
-            if (grid) {
-                const card = document.createElement('div');
-                card.id = 'gsaCard_' + id;
-                card.className =
-                    'relative bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group/card';
-                card.innerHTML = gsaBuildCardInner(id, file.name, file.size, ext, null);
-                grid.appendChild(card);
-
-                // For images: load thumbnail asynchronously and swap into the thumb wrapper
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        const thumbWrapper = document.getElementById('gsaThumb_' + id);
-                        if (thumbWrapper) {
-                            thumbWrapper.innerHTML = '<img src="' + ev.target.result +
-                                '" class="w-full h-24 object-cover" alt="preview">';
-                        }
-                        gsaFilesMap[id].dataUrl = ev.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                }
-            }
-            gsaUpdateCount();
-        }
-
-        function gsaBuildCardInner(id, name, size, ext, dataUrl) {
-            const sizeStr = (size / 1024).toFixed(0) + ' KB';
-            const shortName = name.length > 16 ? name.substring(0, 13) + '...' : name;
-            const cfg = gsaIconConfig(ext);
-
-            // Thumbnail area (top of card)
-            let thumbHtml;
-            if (dataUrl) {
-                thumbHtml = '<img src="' + dataUrl + '" class="w-full h-24 object-cover" alt="preview">';
-            } else {
-                thumbHtml = '<div class="w-full h-24 flex flex-col items-center justify-center gap-1 ' + cfg.bg + '">' +
-                    '<svg class="w-7 h-7 ' + cfg.color + '" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
-                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="' + cfg.path + '"/></svg>' +
-                    '<span class="text-[10px] font-extrabold ' + cfg.color + ' font-mono-code tracking-wider">' + ext
-                    .toUpperCase() + '</span>' +
-                    '</div>';
-            }
-
-            // Thumb wrapper with id so async image load can swap it in
-            const thumb = '<div id="gsaThumb_' + id + '" class="overflow-hidden">' + thumbHtml + '</div>';
-
-            // ✓ badge
-            const badge = '<span class="absolute top-1.5 left-1.5 w-5 h-5 ' + cfg.badgeBg +
-                ' text-white rounded-full flex items-center justify-center text-[9px] shadow">✓</span>';
-
-            // Remove ✕ button (top-right, appears on hover)
-            const removeBtn = '<button type="button" onclick="gsaRemoveFile(\'' + id + '\', event)" ' +
-                'class="absolute top-1.5 right-1.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full ' +
-                'flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity cursor-pointer shadow">' +
-                '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
-                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>' +
-                '</button>';
-
-            // Info below thumb
-            const info = '<div class="px-2 py-1.5">' +
-                '<p class="text-[11px] font-bold text-slate-800 font-mono-code truncate leading-tight" title="' + name +
-                '">' + shortName + '</p>' +
-                '<p class="text-[10px] text-slate-400 font-mono-code">' + sizeStr + '</p>' +
-                '</div>';
-
-            return thumb + badge + removeBtn + info;
-        }
-
-        function gsaIconConfig(ext) {
-            if (ext === 'pdf') return {
-                bg: 'bg-red-50',
-                border: 'border-red-300',
-                color: 'text-red-600',
-                badgeBg: 'bg-red-600',
-                path: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z'
-            };
-            if (ext === 'docx') return {
-                bg: 'bg-blue-50',
-                border: 'border-blue-300',
-                color: 'text-blue-600',
-                badgeBg: 'bg-blue-600',
-                path: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-            };
-            if (ext === 'csv') return {
-                bg: 'bg-emerald-50',
-                border: 'border-emerald-300',
-                color: 'text-emerald-700',
-                badgeBg: 'bg-emerald-600',
-                path: 'M3 10h18M3 14h18M10 3v18M6 3h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z'
-            };
-            return {
-                bg: 'bg-emerald-50',
-                border: 'border-emerald-300',
-                color: 'text-emerald-700',
-                badgeBg: 'bg-emerald-600',
-                path: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z'
-            };
-        }
-
-        function gsaRemoveFile(id, e) {
-            if (e) e.stopPropagation();
-            delete gsaFilesMap[id];
-            const card = document.getElementById('gsaCard_' + id);
-            if (card) card.remove();
-            gsaUpdateCount();
-        }
-
-        function addGsaExhibitTypeInput() {
-            const list = document.getElementById('gsaExhibitTypeList');
-            if (!list) return;
-            const row = document.createElement('div');
-            row.className = 'flex items-center gap-1.5 gsa-exhibit-type-row';
-            row.innerHTML = `
-                <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
-                    class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
-                <button type="button" onclick="removeGsaExhibitTypeInput(this)" class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl border border-red-200 transition-all shrink-0 cursor-pointer" title="Remove">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-            `;
-            list.appendChild(row);
-            const input = row.querySelector('input');
-            if (input) input.focus();
-        }
-
-        function removeGsaExhibitTypeInput(btn) {
-            const row = btn?.closest('.gsa-exhibit-type-row');
-            if (row) {
-                row.remove();
-            }
-        }
-
-        function clearAllGsaFiles() {
-            gsaFilesMap = {};
-            const grid = document.getElementById('gsaFileGrid');
-            if (grid) grid.innerHTML = '';
-            const input = document.getElementById('gsaReportImageInput');
-            if (input) input.value = '';
-            const exhibitList = document.getElementById('gsaExhibitTypeList');
-            if (exhibitList) {
-                exhibitList.innerHTML = `
-                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
-                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
-                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
-                    </div>`;
-            }
-            gsaUpdateCount();
-        }
-
-        function gsaUpdateCount() {
-            const count = Object.keys(gsaFilesMap).length;
-            const badge = document.getElementById('gsaFileCount');
-            const clearBtn = document.getElementById('gsaClearAllBtn');
-            const prompt = document.getElementById('gsaFullPrompt');
-            const strip = document.getElementById('gsaAddMoreStrip');
-            if (badge) {
-                badge.textContent = count + (count === 1 ? ' file' : ' files');
-                badge.classList.toggle('hidden', count === 0);
-            }
-            if (clearBtn) clearBtn.classList.toggle('hidden', count === 0);
-            // Show full prompt when empty, compact strip when files exist
-            if (prompt) prompt.classList.toggle('hidden', count > 0);
-            if (strip) {
-                strip.classList.toggle('hidden', count === 0);
-                strip.classList.toggle('flex', count > 0);
-            }
-        }
-
-        function saveGsaReportFiles() {
-            const fileKeys = Object.keys(gsaFilesMap);
-            const fileInput = document.getElementById('gsaReportImageInput');
-            const hasInputFiles = fileInput && fileInput.files && fileInput.files.length > 0;
-
-            if (fileKeys.length === 0 && !hasInputFiles) {
-                alert('Please select or drag at least one GSA report file before saving.');
-                return;
-            }
-
-            const btn = document.getElementById('saveGsaFilesBtn');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML =
-                    '<span class="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent mr-1"></span> Uploading &amp; Saving...';
-            }
-
-            const formData = new FormData();
-            formData.append('case_number', @json($caseNo));
-            formData.append('multiple_suspect_case_id', @json($case->id));
-            formData.append('lab_number', @json($labNo));
-            if (gsaActiveSuspect.id) {
-                formData.append('case_suspect_id', gsaActiveSuspect.id);
-            }
-            if (gsaActiveSuspect.name) {
-                formData.append('suspect_name', gsaActiveSuspect.name);
-            }
-
-            const exhibitInputs = document.querySelectorAll('#gsaExhibitTypeList .gsa-exhibit-type-input');
-            exhibitInputs.forEach(input => {
-                const val = input.value?.trim();
-                if (val) {
-                    formData.append('exhibit_type[]', val);
-                }
-            });
-
-            formData.append('_token', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-                '{{ csrf_token() }}');
-
-            if (fileKeys.length > 0) {
-                fileKeys.forEach(k => {
-                    if (gsaFilesMap[k] && gsaFilesMap[k].file) {
-                        formData.append('gsa_report_images[]', gsaFilesMap[k].file);
-                    }
-                });
-            } else if (hasInputFiles) {
-                Array.from(fileInput.files).forEach(f => {
-                    formData.append('gsa_report_images[]', f);
-                });
-            }
-
-            const caseId = @json($caseNo);
-            fetch(`/cases/${encodeURIComponent(caseId)}/upload-gsa-report`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-                            '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    },
-                    body: formData
-                })
-                .then(res => res.json().then(data => ({
-                    ok: res.ok,
-                    status: res.status,
-                    data: data
-                })).catch(() => ({
-                    ok: res.ok,
-                    status: res.status,
-                    data: {}
-                })))
-                .then(result => {
-                    const data = result.data;
-                    if (result.ok && data.success) {
-                        if (typeof showToast === 'function') {
-                            showToast(`✔ ${data.message || 'GSA report file(s) saved and attached successfully.'}`);
-                        } else {
-                            alert(data.message || 'GSA report file(s) saved and attached successfully.');
-                        }
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML =
-                                '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> <span>Save &amp; Attach GSA Report</span>';
-                        }
-                        alert(data.message || 'Failed to save GSA report files.');
-                    }
-                })
-                .catch(err => {
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML =
-                            '<svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> <span>Save &amp; Attach GSA Report</span>';
-                    }
-                    alert('An unexpected error occurred while saving GSA report files.');
-                });
-        }
-
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            const container = document.getElementById('reportDropdownContainer');
-            const menu = document.getElementById('reportDropdownMenu');
-            if (container && menu && !container.contains(e.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-
-        /* ── Detailed Exhibit Description helpers ── */
-        function updateDescCharCount(el) {
-            const len = el.value.length;
-            const badge = document.getElementById('descCharCount');
-            const live = document.getElementById('descLiveCount');
-            if (badge) badge.textContent = len.toLocaleString() + ' chars';
-            if (live) live.textContent = len.toLocaleString();
-        }
-
-        function insertAtCursor(fieldId, text) {
-            const el = document.getElementById(fieldId);
-            if (!el) return;
-            const start = el.selectionStart;
-            const end = el.selectionEnd;
-            el.value = el.value.substring(0, start) + text + el.value.substring(end);
-            el.selectionStart = el.selectionEnd = start + text.length;
-            el.focus();
-            updateDescCharCount(el);
-        }
-
-        function insertTemplate() {
-            const el = document.getElementById('detailedExhibitDescription');
-            if (!el) return;
-            const tpl =
-                `Inside the [container type] were [quantity] [packaging].\n• One of the [packaging] labelled 'A' contained [quantity] [description of contents].\n• The second [packaging] contained [description of contents].\n• The [packaging] labelled 'C' contained [additional details].`;
-            el.value = tpl;
-            el.focus();
-            updateDescCharCount(el);
-        }
-
-        function clearExhibitDescription() {
-            const el = document.getElementById('detailedExhibitDescription');
-            if (el) {
-                el.value = '';
-                updateDescCharCount(el);
-            }
-            const crs = document.getElementById('conditionOfReservedSample');
-            if (crs) crs.value = '';
-            const status = document.getElementById('descSaveStatus');
-            if (status) status.classList.add('hidden');
-        }
-
-        function copyExhibitDescription() {
-            const el = document.getElementById('detailedExhibitDescription');
-            if (!el || !el.value.trim()) return;
-            navigator.clipboard.writeText(el.value).then(() => {
-                const btn = event.currentTarget;
-                const orig = btn.innerHTML;
-                btn.innerHTML =
-                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!';
-                btn.classList.add('bg-emerald-100', 'text-emerald-800', 'border-emerald-300');
-                setTimeout(() => {
-                    btn.innerHTML = orig;
-                    btn.classList.remove('bg-emerald-100', 'text-emerald-800', 'border-emerald-300');
-                }, 2000);
             });
         }
 
@@ -2198,77 +1434,6 @@
             }
         }
 
-        function saveExhibitDescription(e) {
-            if (e) e.preventDefault();
-            const el = document.getElementById('detailedExhibitDescription');
-            const condEl = document.getElementById('conditionOfReservedSample');
-            if (!el || !el.value.trim()) {
-                el.classList.add('border-red-400');
-                el.focus();
-                setTimeout(() => el.classList.remove('border-red-400'), 2000);
-                return;
-            }
-
-            const btn = document.getElementById('saveDescBtn');
-            if (btn) {
-                btn.innerHTML =
-                    '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Saving &amp; Attaching…';
-                btn.disabled = true;
-            }
-
-            const status = document.getElementById('descSaveStatus');
-            if (status) {
-                status.classList.remove('hidden');
-                status.classList.add('flex');
-            }
-
-            // Open window synchronously on user click to avoid popup blocker
-            const previewWin = window.open('about:blank', '_blank');
-
-            const sName = (window.activeNlrLabData && window.activeNlrLabData.suspect_name) ? window.activeNlrLabData.suspect_name : '';
-            const sId = (window.activeNlrLabData && window.activeNlrLabData.suspect_info) ? window.activeNlrLabData.suspect_info.id : null;
-
-            const payload = {
-                case_id: "{{ $caseNo }}",
-                case_number: "{{ $caseNo }}",
-                laboratory_number: "{{ $labNo }}",
-                detailed_exhibit_description: el.value.trim(),
-                condition_of_reserved_sample: condEl ? condEl.value : null,
-                suspect_id: sId,
-                suspect_name: sName,
-                _token: "{{ csrf_token() }}"
-            };
-
-            let pdfUrl = "{{ route('lab.nlr.pdf', ['id' => $caseNo]) }}";
-            if (sName) {
-                pdfUrl += (pdfUrl.includes('?') ? '&' : '?') + 'suspect=' + encodeURIComponent(sName);
-            }
-
-            fetch("{{ route('lab.nlr.store') }}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRF-TOKEN": "{{ csrf_token() }}",
-                    "Accept": "application/json"
-                },
-                body: JSON.stringify(payload)
-            }).then(res => res.json()).then(() => {
-                if (previewWin) {
-                    previewWin.location.href = pdfUrl;
-                } else {
-                    window.open(pdfUrl, '_blank');
-                }
-                window.location.reload();
-            }).catch(() => {
-                if (previewWin) {
-                    previewWin.location.href = pdfUrl;
-                } else {
-                    window.open(pdfUrl, '_blank');
-                }
-                window.location.reload();
-            });
-        }
-
         function printNlrReport() {
             window.print();
         }
@@ -2314,6 +1479,15 @@
             link.click();
             document.body.removeChild(link);
         }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const container = document.getElementById('reportDropdownContainer');
+            const menu = document.getElementById('reportDropdownMenu');
+            if (container && menu && !container.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
 
         // Front mugshot lightbox
         function openFrontMugshotLightbox(src, name) {

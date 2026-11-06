@@ -119,14 +119,14 @@
                 
                 @php
                     $isCaseRegisterActive = $isDigitalContext && (
-                        request()->is('Digital_Forensics/cases*') || 
+                        (request()->is('Digital_Forensics/cases*') && !request()->is('Digital_Forensics/cases/*/review')) || 
                         request()->is('Digital_Forensics/case-register*') || 
                         request()->is('Digital_Forensics/head*') || 
-                        request()->is('digital-forensics/cases*') || 
+                        (request()->is('digital-forensics/cases*') && !request()->is('digital-forensics/cases/*/review')) || 
                         request()->is('digital-forensics/case-register*') || 
-                        (request()->is('cases/*/review') && request()->query('from') === 'Digital_Forensics_Register')
+                        ((request()->is('cases/*/review') || request()->is('*/cases/*/review')) && request()->query('from') === 'Digital_Forensics_Register')
                     );
-                    $isCaseDirectoryActive = request()->is('cases*') && 
+                    $isCaseDirectoryActive = (request()->is('cases*') || request()->is('*/cases/*/review')) && 
                         !request()->is('*/history*') && 
                         !request()->is('history*') && 
                         !request()->is('*lab-result*') && 
@@ -140,7 +140,7 @@
                 </a>
 
                 @if($isEvidenceContext)
-                <!-- EXHIBIT VAULT (EVIDENCE MANAGEMENT UNIT ONLY) -->
+                <!-- EXHIBIT LOGS (EVIDENCE MANAGEMENT UNIT ONLY) -->
                 @php
                     $isVaultActive = request()->is('Evidence_Management/vault*') || 
                                      request()->is('evidence-management/vault*') || 
@@ -151,7 +151,7 @@
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isVaultActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                     </svg>
-                    <span class="text-xs flex-1">Exhibit Vault</span>
+                    <span class="text-xs flex-1">Exhibit Log</span>
                     @php
                         $vaultExhibitsBadge = \App\Models\Exhibit::countPendingQrOrClassification();
                     @endphp

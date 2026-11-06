@@ -134,7 +134,7 @@ class CaseDocumentController extends Controller
     }
 
     /**
-     * Store / Update NLR Report data (detailed_exhibit_description & condition_of_reserved_sample).
+     * Store / Update NLR Report data.
      * Fix Issue 28: Enforce authorizeCaseWrite() authorization check.
      */
     public function storeNlrReport(Request $request)
@@ -143,7 +143,7 @@ class CaseDocumentController extends Controller
             'case_id'                       => 'nullable',
             'case_number'                   => 'nullable|string',
             'laboratory_number'             => 'nullable|string',
-            'detailed_exhibit_description'  => 'required|string',
+            'detailed_exhibit_description'  => 'nullable|string',
             'condition_of_reserved_sample'  => 'nullable|string',
             'suspect_id'                    => 'nullable',
             'suspect_name'                  => 'nullable|string',

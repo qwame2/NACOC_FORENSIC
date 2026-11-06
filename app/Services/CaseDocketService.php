@@ -202,6 +202,8 @@ class CaseDocketService
             'confirmatory_remark'  => ['nullable', 'string'],
             'exhibit_type'         => ['nullable', 'string', 'max:255'],
             'drug_classification'  => ['nullable', 'string', 'max:50'],
+            'contents'             => ['nullable', 'string'],
+            'description_of_exhibits' => ['nullable', 'string'],
             'other_exhibit_description' => ['nullable', 'string'],
             'veh_make'             => ['nullable', 'string', 'max:255'],
             'veh_model'            => ['nullable', 'string', 'max:255'],
@@ -454,8 +456,23 @@ class CaseDocketService
         $docketData['full_name'] = $jointSuspectNameLabel;
         $docketData['phones'] = $allSuspects[0]['phones'] ?? ($docketData['phones'] ?? null);
 
+        $descOfExhibits = $validated['description_of_exhibits']
+            ?? ($request->input('description_of_exhibits')
+            ?? ($docketData['description_of_exhibits'] ?? null));
+
+        if (empty($docketData['seizures']) && $request->has('seizures') && is_array($request->input('seizures'))) {
+            $docketData['seizures'] = $request->input('seizures');
+        }
+
+        if ($descOfExhibits !== null) {
+            $docketData['description_of_exhibits'] = $descOfExhibits;
+        }
+
         if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
             foreach ($docketData['seizures'] as $sIdx => $sz) {
+                if ($descOfExhibits !== null && !isset($sz['description_of_exhibits'])) {
+                    $docketData['seizures'][$sIdx]['description_of_exhibits'] = $descOfExhibits;
+                }
                 $ownership = $sz['suspect_ownership'] ?? null;
                 $assocPerson = $sz['associated_person'] ?? null;
                 if ($ownership === 'All Suspects' || $assocPerson === 'All Suspects' || str_contains(strtolower((string)$ownership), 'all suspect') || str_contains(strtolower((string)$assocPerson), 'all suspect')) {
@@ -509,6 +526,8 @@ class CaseDocketService
             'exhibit_remark'           => $validated['exhibit_remark'] ?? ($request->input('exhibit_remark') ?? null),
             'exhibit_type'             => $validated['exhibit_type'] ?? null,
             'drug_classification'      => $validated['drug_classification'] ?? null,
+            'contents'                 => $validated['contents'] ?? ($request->input('contents') ?? null),
+            'description_of_exhibits'  => $descOfExhibits,
             'veh_make'                 => $validated['veh_make'] ?? null,
             'veh_model'                => $validated['veh_model'] ?? null,
             'veh_type'                 => $validated['veh_type'] ?? null,
@@ -562,12 +581,84 @@ class CaseDocketService
             'confirmatory_specifications' => $request->input('confirmatory_specifications') ?? null,
             'confirmatory_remark'        => $request->input('confirmatory_remark') ?? ($request->input('remark') ?? null),
             'lab_remark'                 => $request->input('confirmatory_remark') ?? ($request->input('remark') ?? null),
+            'purpose_of_examination'     => $request->input('purpose_of_examination') ?? null,
             'incident_date'            => $validated['arrest_date'] ?? now(),
         ];
 
         // Fix Issue 3: SchemaCache::hasColumn
         if (SchemaCache::hasColumn('cases', 'sample_weight_units')) {
             $sharedFields['sample_weight_units'] = $request->input('sample_weight_units') ?? null;
+        }
+
+        // Enforce GSA & NLR Mutual Exclusivity and Section 5 Completion Guard before creating the case
+        $labWorkflowMode = strtolower(trim((string) $request->input('lab_workflow_mode', '')));
+        $gsaFilesUploadedInput = $request->input('gsa_files_uploaded');
+        $hasGsaFilesFlag = is_array($gsaFilesUploadedInput)
+            ? count(array_filter($gsaFilesUploadedInput, fn ($v) => !empty($v) && $v !== '0' && $v !== false)) > 0
+            : (filter_var($gsaFilesUploadedInput, FILTER_VALIDATE_BOOLEAN) || ((int) $gsaFilesUploadedInput > 0));
+
+        $hasGsaFilesUploadedOuter = $request->hasFile('gsa_report_images')
+            || $hasGsaFilesFlag
+            || $labWorkflowMode === 'gsa'
+            || !empty($request->input('gsa_lab_number'))
+            || !empty($request->input('docket_data.lab_examination.gsa_lab_number'));
+
+        $section5ExplicitlyNotCompleted = $hasGsaFilesUploadedOuter
+            || $labWorkflowMode === 'gsa'
+            || $labWorkflowMode === 'none'
+            || ($request->has('section5_completed') && !filter_var($request->input('section5_completed'), FILTER_VALIDATE_BOOLEAN));
+
+        $seizureDrugNameForCompare = strtolower(trim((string) ($request->input('seizure_name_drug') ?: ($request->input('seizure_name') ?: ''))));
+        $submittedSubstanceId = strtolower(trim((string) $request->input('confirmatory_substance_identification', '')));
+        $hasDistinctSubstanceId = $submittedSubstanceId !== '' && $submittedSubstanceId !== $seizureDrugNameForCompare;
+
+        $detectedSubsInput = $sharedFields['detected_substances'] ?? [];
+        $hasValidDetectedSubstances = is_array($detectedSubsInput) && count(array_filter($detectedSubsInput, function ($d) {
+            if (is_array($d)) {
+                return !empty($d['substance']) || !empty($d['name']);
+            }
+            return is_string($d) && trim($d) !== '';
+        })) > 0;
+
+        $hasCompletedSection5Outer = !$section5ExplicitlyNotCompleted && (
+            filter_var($request->input('section5_completed'), FILTER_VALIDATE_BOOLEAN)
+            || !empty($request->input('docket_data.lab_examination.has_saved'))
+            || !empty($request->input('has_saved_lab'))
+            || !empty($request->input('presumptive_result'))
+            || !empty($request->input('presumptive_test_result'))
+            || !empty($request->input('presumptive_reaction_result_input'))
+            || !empty($request->input('confirmatory_test_result'))
+            || !empty($request->input('sample_weight_taken'))
+            || !empty($request->input('sample_weight_reserved'))
+            || !empty($request->input('confirmatory_test_methods'))
+            || !empty($request->input('confirmatory_specifications'))
+            || !empty($request->input('confirmatory_remark'))
+            || !empty($request->input('purpose_of_examination'))
+            || !empty($request->input('laboratory_analytical_findings'))
+            || $hasValidDetectedSubstances
+            || $hasDistinctSubstanceId
+        );
+
+        if (!$hasCompletedSection5Outer) {
+            $sharedFields['presumptive_test_result'] = null;
+            $sharedFields['laboratory_number'] = null;
+            $sharedFields['confirmatory_test_result'] = null;
+            $sharedFields['sample_weight_description'] = null;
+            $sharedFields['sample_weight_gross'] = null;
+            $sharedFields['sample_weight_taken'] = null;
+            $sharedFields['sample_weight_reserved'] = null;
+            $sharedFields['confirmatory_substance_identification'] = null;
+            $sharedFields['detected_substances'] = null;
+            $sharedFields['confirmatory_test_methods'] = null;
+            $sharedFields['confirmatory_specifications'] = null;
+            $sharedFields['confirmatory_remark'] = null;
+            $sharedFields['lab_remark'] = null;
+            if (array_key_exists('sample_weight_units', $sharedFields)) {
+                $sharedFields['sample_weight_units'] = null;
+            }
+            if (is_array($sharedFields['docket_data'] ?? null)) {
+                unset($sharedFields['docket_data']['lab_examination']);
+            }
         }
 
         $suspectFields = function (array $suspect) use ($validated, $normalizePhonesHelper, $request): array {
@@ -624,13 +715,14 @@ class CaseDocketService
         try {
             $preferredRef = $request->filled('case_number') ? trim($request->input('case_number')) : null;
             $case = $caseNumberService->withUniqueRetry(function (string $generatedRef) use (
-                $allSuspects, $suspectFields, $sharedFields, $validated, $user, $request
+                $allSuspects, $suspectFields, $sharedFields, $validated, $user, $request,
+                $hasGsaFilesUploadedOuter, $hasCompletedSection5Outer, $descOfExhibits
             ) {
                 $caseRef = $generatedRef;
 
                 return DB::transaction(function () use (
                     $allSuspects, $suspectFields, $sharedFields, $caseRef, $validated,
-                    $user, $request
+                    $user, $request, $hasGsaFilesUploadedOuter, $hasCompletedSection5Outer, $descOfExhibits
                 ) {
                     $primarySuspect = $allSuspects[0];
                     $primaryPersonalFields = $suspectFields($primarySuspect);
@@ -747,20 +839,16 @@ class CaseDocketService
                     $isDrugStore = $case->isDrugCase();
                     $isElectronicStore = method_exists($case, 'isElectronicCase') ? $case->isElectronicCase() : false;
 
-                    // Only genuine lab submissions by the Lab Analysis unit can complete lab analysis during creation
-                    $hasSubmittedLabData = $isLabCreatedCaseStore && (
-                        !empty($request->input('presumptive_result'))
-                        || !empty($request->input('presumptive_test_result'))
-                        || !empty($request->input('presumptive_reaction_result_input'))
-                        || !empty($request->input('confirmatory_test_result'))
-                        || !empty($request->input('confirmatory_substance_identification'))
-                        || !empty($request->input('sample_weight_taken'))
-                        || !empty($request->input('sample_weight_reserved'))
-                    );
+                    // Check if GSA files are uploaded or present (mutual exclusivity with NLR)
+                    $hasGsaFilesUploaded = $hasGsaFilesUploadedOuter;
 
-                    $labStatus = $hasSubmittedLabData ? WorkflowStatus::COMPLETED->value : WorkflowStatus::PENDING->value;
-                    $labOfficer = $hasSubmittedLabData ? ($user ? $user->fullname : ($case->arresting_officer ?? ($case->submitting_officer ?: 'Lab Analyst'))) : null;
-                    $labUpdatedAt = $hasSubmittedLabData ? now()->toDateTimeString() : null;
+                    // Only genuine lab submissions by the Lab Analysis unit can complete lab analysis during creation
+                    // Mutual Exclusivity: When GSA files are uploaded or Section 5 was not completed, NLR examination is NOT created.
+                    $hasSubmittedLabData = $isLabCreatedCaseStore && !$hasGsaFilesUploaded && $hasCompletedSection5Outer;
+
+                    $labStatus = ($hasSubmittedLabData || $hasGsaFilesUploaded) ? WorkflowStatus::COMPLETED->value : WorkflowStatus::PENDING->value;
+                    $labOfficer = ($hasSubmittedLabData || $hasGsaFilesUploaded) ? ($user ? $user->fullname : ($case->arresting_officer ?? ($case->submitting_officer ?: 'Lab Analyst'))) : null;
+                    $labUpdatedAt = ($hasSubmittedLabData || $hasGsaFilesUploaded) ? now()->toDateTimeString() : null;
 
                     $unitProgressBlock = [];
 
@@ -826,10 +914,24 @@ class CaseDocketService
                     $caseDocketData['unit_progress'] = $unitProgressBlock;
 
                     // Fix Issue 11: Delegate lab exam building and persistence to LaboratoryExamService only for Lab Analysis unit creations
-                    if ($hasSubmittedLabData && $isLabCreatedCaseStore) {
+                    // Mutual Exclusivity: Only invoke saveExam if Section 5 lab data was genuinely completed AND GSA files were NOT uploaded
+                    if ($hasSubmittedLabData && $isLabCreatedCaseStore && !$hasGsaFilesUploaded) {
                         $primarySuspectName = $primarySuspect['suspect_name'] ?? $case->suspect_name;
                         $labService = app(LaboratoryExamService::class);
                         $caseDocketData = $labService->saveExam($case, $request->all(), $primarySuspectName, false, $labOfficer);
+                    } else {
+                        // Ensure no uncompleted or conflicting NLR lab examination data exists
+                        unset($caseDocketData['lab_examination']);
+                    }
+
+                    if ($descOfExhibits !== null) {
+                        $caseDocketData['description_of_exhibits'] = $descOfExhibits;
+                        $case->description_of_exhibits = $descOfExhibits;
+                        $underlyingRecord = $case->underlyingRecord;
+                        if ($underlyingRecord && SchemaCache::hasColumn($underlyingRecord->getTable(), 'description_of_exhibits')) {
+                            $underlyingRecord->description_of_exhibits = $descOfExhibits;
+                            $underlyingRecord->save();
+                        }
                     }
 
                     $case->docket_data = $caseDocketData;
@@ -1191,6 +1293,19 @@ class CaseDocketService
             if ($request->has('seizure_unit')) $case->seizure_unit = $request->input('seizure_unit');
             if ($request->has('seizure_packaging')) $case->seizure_packaging = $request->input('seizure_packaging');
             if ($request->has('seizure_reason')) $case->seizure_reason = $request->input('seizure_reason');
+            if ($request->has('contents')) {
+                $case->contents = $request->input('contents');
+                if (!empty($docketData['seizures'][0])) {
+                    $docketData['seizures'][0]['contents'] = $request->input('contents');
+                }
+            }
+            if ($request->has('description_of_exhibits')) {
+                $case->description_of_exhibits = $request->input('description_of_exhibits');
+                $docketData['description_of_exhibits'] = $case->description_of_exhibits;
+                if ($case->underlyingRecord && SchemaCache::hasColumn($case->underlyingRecord->getTable(), 'description_of_exhibits')) {
+                    $case->underlyingRecord->description_of_exhibits = $case->description_of_exhibits;
+                }
+            }
 
             if (empty($docketData['suspects']) || !is_array($docketData['suspects'])) {
                 $docketData['suspects'] = [['suspect_name' => $case->suspect_name]];
@@ -1276,6 +1391,7 @@ class CaseDocketService
             if ($request->has('confirmatory_specifications')) $docketData['lab_examination']['specifications'] = $request->input('confirmatory_specifications');
             if ($request->has('confirmatory_remark')) $docketData['lab_examination']['remark'] = $request->input('confirmatory_remark');
             if ($request->has('remark')) $docketData['lab_examination']['remark'] = $request->input('remark');
+            if ($request->has('purpose_of_examination')) $docketData['lab_examination']['purpose_of_examination'] = $request->input('purpose_of_examination');
             if ($request->has('findings') || $request->has('notes')) {
                 $docketData['lab_examination']['findings'] = $request->input('findings') ?? $request->input('notes');
             }
@@ -1668,6 +1784,7 @@ class CaseDocketService
                     'operation_code_name'  => $single->operation_code_name,
                     'raid_location'        => $single->raid_location,
                     'offense_description'  => $single->offense_description,
+                    'description_of_exhibits' => $single->description_of_exhibits,
                     'incident_date'        => $single->incident_date,
                     'priority'             => $single->priority ?? 'HIGH',
                     'status'               => $single->status ?? CaseStatus::APPROVED->value,
@@ -1753,6 +1870,15 @@ class CaseDocketService
         }
 
         $targetRecord = $case->underlyingRecord;
+        $descOfExhibits = $request->input('description_of_exhibits');
+        if ($descOfExhibits !== null) {
+            $case->description_of_exhibits = $descOfExhibits;
+            $docketData['description_of_exhibits'] = $descOfExhibits;
+            if ($targetRecord && SchemaCache::hasColumn($targetRecord->getTable(), 'description_of_exhibits')) {
+                $targetRecord->description_of_exhibits = $descOfExhibits;
+                $targetRecord->save();
+            }
+        }
         $isMultiple = $targetRecord instanceof MultipleSuspectCase;
         $addedPersonsCount = 0;
         $addedExhibitsCount = 0;
@@ -1967,6 +2093,8 @@ class CaseDocketService
                     'exhibit_number'           => $exhibit['exhibit_number'] ?? ('EXH-' . sprintf('%02d', $currentExhibitsCount)),
                     'exhibit_category'         => $exCat,
                     'commodity_name'           => $exName,
+                    'contents'                 => $exhibit['contents'] ?? ($exhibit['seizure_contents'] ?? null),
+                    'description_of_exhibits'  => $exhibit['description_of_exhibits'] ?? ($targetRecord->description_of_exhibits ?? null),
                     'seizure_quantity'         => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
                     'seizure_packaging'        => $exhibit['seizure_packaging'] ?? ($exhibit['packaging'] ?? null),
                     'seizure_weight'           => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
@@ -2030,6 +2158,8 @@ class CaseDocketService
                     'seizure_name'       => $exName,
                     'commodity_name'     => $exName,
                     'name'               => $exName,
+                    'contents'           => $exhibit['contents'] ?? ($exhibit['seizure_contents'] ?? null),
+                    'description_of_exhibits' => $exhibit['description_of_exhibits'] ?? ($targetRecord->description_of_exhibits ?? null),
                     'seizure_name_drug'  => $isDrug ? $exName : null,
                     'seizure_quantity'   => $exhibit['seizure_quantity'] ?? ($exhibit['quantity'] ?? null),
                     'seizure_weight'     => $exhibit['seizure_weight'] ?? ($exhibit['weight'] ?? null),
@@ -2155,6 +2285,9 @@ class CaseDocketService
                 'total_exhibits_count' => $currentExhibitsCount,
                 'title'                => 'Republic vs ' . $jointSuspectNameLabel,
             ];
+            if ($descOfExhibits !== null && SchemaCache::hasColumn($targetRecord->getTable(), 'description_of_exhibits')) {
+                $updatePayload['description_of_exhibits'] = $descOfExhibits;
+            }
             if (SchemaCache::hasColumn($targetRecord->getTable(), 'docket_data')) {
                 $updatePayload['docket_data'] = $docketData;
             }
@@ -2182,6 +2315,9 @@ class CaseDocketService
             $docketData['unit_progress'] = $unitProgress;
 
             $updatePayload = [];
+            if ($descOfExhibits !== null && SchemaCache::hasColumn($targetRecord->getTable(), 'description_of_exhibits')) {
+                $updatePayload['description_of_exhibits'] = $descOfExhibits;
+            }
             if (SchemaCache::hasColumn($targetRecord->getTable(), 'docket_data')) {
                 $updatePayload['docket_data'] = $docketData;
             }

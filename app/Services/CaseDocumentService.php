@@ -94,25 +94,39 @@ class CaseDocumentService
         for ($attempt = 1; $attempt <= 5; $attempt++) {
             try {
                 if ($report) {
-                    $report->update(array_filter([
+                    $updatePayload = array_filter([
                         'multiple_suspect_case_id'     => $multipleId ?: $report->multiple_suspect_case_id,
                         'single_suspect_case_id'       => $singleId ?: $report->single_suspect_case_id,
                         'case_number'                  => $caseNo ?: ($report->case_number ?: ($case ? $case->case_number : null)),
                         'laboratory_number'            => $labNo ?: $report->laboratory_number,
-                        'detailed_exhibit_description' => $exhibitDesc,
-                        'condition_of_reserved_sample' => $condition ?: $report->condition_of_reserved_sample,
                         'nlr_code'                     => $nlrCode,
-                    ], fn($v) => !is_null($v)));
+                    ], fn($v) => !is_null($v));
+
+                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'detailed_exhibit_description')) {
+                        $updatePayload['detailed_exhibit_description'] = $exhibitDesc;
+                    }
+                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'condition_of_reserved_sample')) {
+                        $updatePayload['condition_of_reserved_sample'] = $condition ?: $report->condition_of_reserved_sample;
+                    }
+
+                    $report->update($updatePayload);
                 } else {
-                    $report = NlrReport::create([
+                    $createPayload = [
                         'multiple_suspect_case_id'     => $multipleId,
                         'single_suspect_case_id'       => $singleId,
                         'case_number'                  => $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null)),
                         'laboratory_number'            => $labNo,
-                        'detailed_exhibit_description' => $exhibitDesc,
-                        'condition_of_reserved_sample' => $condition,
                         'nlr_code'                     => $nlrCode,
-                    ]);
+                    ];
+
+                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'detailed_exhibit_description')) {
+                        $createPayload['detailed_exhibit_description'] = $exhibitDesc;
+                    }
+                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'condition_of_reserved_sample')) {
+                        $createPayload['condition_of_reserved_sample'] = $condition;
+                    }
+
+                    $report = NlrReport::create($createPayload);
                 }
 
                 ReferenceRegistry::reserve($nlrCode, 'EXAM', NlrReport::class, $report->id);
@@ -387,19 +401,6 @@ class CaseDocumentService
                 'case_number'              => $caseNumber,
                 'status'                   => 'active',
             ]);
-
-            if (!empty($gsaLabNumber)) {
-                $labQuery = $multiCase
-                    ? LaboratoryExaminationResult::where('multiple_suspect_case_id', $multiCase->id)
-                    : ($singleCase ? LaboratoryExaminationResult::where('single_suspect_case_id', $singleCase->id) : null);
-                if ($labQuery) {
-                    $labQuery->where(function ($q) use ($suspect) {
-                        if ($suspect) {
-                            $q->where('suspect_id', $suspect->id)->orWhereNull('suspect_id');
-                        }
-                    })->update(['gsa_lab_number' => $gsaLabNumber]);
-                }
-            }
 
             $saved[] = [
                 'id'                 => $record->id,
