@@ -98,6 +98,7 @@
     @else
         <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
+    <script src="{{ asset('js/ajax-table.js') }}"></script>
 
     <style>
         body {
@@ -259,12 +260,12 @@
 
                 <!-- HERO SECTION BANNER -->
                 <div
-                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-slate-100 shadow-sm text-slate-900 border border-slate-200">
+                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-white shadow-md shadow-slate-200/60 text-slate-900 border border-slate-200/90">
                     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div class="space-y-2">
                             <div class="flex items-center space-x-2">
                                 <span
-                                    class="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">
+                                    class="px-2.5 py-0.5 bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">
                                     {{ $unitBadge }}
                                 </span>
                             </div>
@@ -403,17 +404,6 @@
                                 oninput="filterCases()"
                                 class="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/30 transition-all shadow-2xs placeholder:text-slate-400">
                         </div>
-
-                        <div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                            <button onclick="filterStatus('ALL', this)"
-                                class="filter-tab-btn status-tab-btn active-tab">All Statuses</button>
-                            <button onclick="filterStatus('Active Investigation', this)"
-                                class="filter-tab-btn status-tab-btn">Active Ops</button>
-                            <button onclick="filterStatus('Lab Analysis', this)"
-                                class="filter-tab-btn status-tab-btn">Pending</button>
-                            <button onclick="filterStatus('Court Ready', this)"
-                                class="filter-tab-btn status-tab-btn">Certified</button>
-                        </div>
                     </div>
 
                     <!-- SEARCH STATS BANNER -->
@@ -497,41 +487,101 @@
         updateClock();
 
         // Initialize Reusable AJAX Table Controller for Master Cases
-        window.casesAjaxTable = initAjaxTable({
-            container: '#casesTableContainer',
-            table: '#casesTable',
-            columns: 6,
-            rows: 6,
-            onAfterUpdate: (container) => {
-                const rows = container.querySelectorAll('.case-row');
-                const visEl = document.getElementById('visibleCaseCount');
-                if (visEl) visEl.innerText = rows.length;
-                
-                const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
-                const badge = document.getElementById('activeFilterBadge');
-                if (badge) {
-                    if (searchInput || (currentStatusFilter && currentStatusFilter !== 'ALL')) {
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
+        function setupCasesAjaxTable() {
+            if (typeof initAjaxTable !== 'function') return;
+            if (window.casesAjaxTable) return;
+
+            window.casesAjaxTable = initAjaxTable({
+                container: '#casesTableContainer',
+                table: '#casesTable',
+                columns: 6,
+                rows: 6,
+                debounce: 300,
+                onAfterUpdate: (container) => {
+                    const rows = container.querySelectorAll('.case-row');
+                    const visEl = document.getElementById('visibleCaseCount');
+                    if (visEl) visEl.innerText = rows.length;
+                    
+                    const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
+                    const badge = document.getElementById('activeFilterBadge');
+                    if (badge) {
+                        if (searchInput || (currentStatusFilter && currentStatusFilter !== 'ALL')) {
+                            badge.classList.remove('hidden');
+                        } else {
+                            badge.classList.add('hidden');
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupCasesAjaxTable);
+        } else {
+            setupCasesAjaxTable();
+        }
+
+        let searchDebounceTimer = null;
 
         function filterCases() {
-            const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
+            const searchInput = document.getElementById('caseSearchInput');
+            const searchVal = (searchInput?.value || '').trim();
+
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                executeCaseFilter(searchVal);
+            }, 300);
+        }
+
+        function executeCaseFilter(searchVal) {
+            const badge = document.getElementById('activeFilterBadge');
+            if (badge) {
+                if (searchVal || (currentStatusFilter && currentStatusFilter !== 'ALL')) {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            if (!window.casesAjaxTable && typeof initAjaxTable === 'function') {
+                setupCasesAjaxTable();
+            }
+
             if (window.casesAjaxTable) {
-                if (window.casesAjaxTable.debounceTimer) clearTimeout(window.casesAjaxTable.debounceTimer);
-                window.casesAjaxTable.debounceTimer = setTimeout(() => {
-                    window.casesAjaxTable.applyFilters({
-                        search: searchVal || null,
-                        status: (currentStatusFilter && currentStatusFilter !== 'ALL') ? currentStatusFilter : null,
-                        page: null
-                    });
-                }, 350);
+                window.casesAjaxTable.applyFilters({
+                    search: searchVal || null,
+                    status: (currentStatusFilter && currentStatusFilter !== 'ALL') ? currentStatusFilter : null,
+                    page: null
+                });
+            } else {
+                const url = new URL(window.location.href);
+                if (searchVal) {
+                    url.searchParams.set('search', searchVal);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                if (currentStatusFilter && currentStatusFilter !== 'ALL') {
+                    url.searchParams.set('status', currentStatusFilter);
+                } else {
+                    url.searchParams.delete('status');
+                }
+                url.searchParams.delete('page');
+                window.location.href = url.toString();
             }
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('caseSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+                        executeCaseFilter((this.value || '').trim());
+                    }
+                });
+            }
+        });
 
         function filterStatus(statusName, element) {
             currentStatusFilter = statusName;
@@ -539,6 +589,10 @@
             if (element) element.classList.add('active-tab');
 
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
+            if (!window.casesAjaxTable && typeof initAjaxTable === 'function') {
+                setupCasesAjaxTable();
+            }
+
             if (window.casesAjaxTable) {
                 window.casesAjaxTable.applyFilters({
                     status: statusName === 'ALL' ? null : statusName,
@@ -585,22 +639,39 @@
             alert('Exporting Field Case Directory PDF report...');
         }
 
+        let isPollingMasterCases = false;
         async function pollMasterCasesTable() {
-            try {
-                const docketModal = document.getElementById('docketModal');
-                const associateModal = document.getElementById('associateModal');
-                const activeActionMenu = document.querySelector('.case-action-menu:not(.hidden)');
-                if ((docketModal && !docketModal.classList.contains('hidden')) ||
-                    (associateModal && !associateModal.classList.contains('hidden')) ||
-                    activeActionMenu) return;
+            if (isPollingMasterCases) return;
+            if (document.hidden) return;
 
-                const currentSearch = window.location.search || '';
-                const apiEndpoint = currentSearch ? ('/api/cases' + currentSearch) : '/api/cases?per_page=15';
+            const docketModal = document.getElementById('docketModal');
+            const associateModal = document.getElementById('associateModal');
+            const activeActionMenu = document.querySelector('.case-action-menu:not(.hidden)');
+            if ((docketModal && !docketModal.classList.contains('hidden')) ||
+                (associateModal && !associateModal.classList.contains('hidden')) ||
+                activeActionMenu) return;
+
+            const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
+            if (searchInput || (window.casesAjaxTable && window.casesAjaxTable.isLoading)) return;
+
+            isPollingMasterCases = true;
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+
+            try {
+                const params = new URLSearchParams(window.location.search);
+                if (!params.has('per_page')) {
+                    params.set('per_page', '15');
+                }
+                const apiEndpoint = '{{ url("/api/cases") }}' + (params.toString() ? ('?' + params.toString()) : '');
                 const res = await fetch(apiEndpoint, {
                     headers: {
                         'Accept': 'application/json'
-                    }
+                    },
+                    credentials: 'same-origin',
+                    signal: controller ? controller.signal : undefined
                 });
+                if (timeoutId) clearTimeout(timeoutId);
                 if (!res.ok) return;
                 const rawCasesData = await res.json();
                 const cases = Array.isArray(rawCasesData) ? rawCasesData : (rawCasesData.data || []);
@@ -929,17 +1000,14 @@
                 if (visCountEl && !searchInput && currentStatusFilter === 'ALL') visCountEl.innerText = cases.length;
                 const totCountEl = document.getElementById('totalCaseCount');
                 if (totCountEl) totCountEl.innerText = totalCasesCount;
-
-                filterCases();
             } catch (e) {
                 // Background polling failure handled silently
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
+                isPollingMasterCases = false;
             }
         }
-        setInterval(pollMasterCasesTable, 3000);
-
-        document.addEventListener('DOMContentLoaded', function() {
-            filterCases();
-        });
+        setInterval(pollMasterCasesTable, 15000);
 
         document.addEventListener('mouseover', function(e) {
             const trigger = e.target.closest('.suspect-avatar-trigger');
@@ -1102,7 +1170,6 @@
             });
         }, true);
     </script>
-<script src="{{ asset('js/ajax-table.js') }}"></script>
 </body>
 
 </html>

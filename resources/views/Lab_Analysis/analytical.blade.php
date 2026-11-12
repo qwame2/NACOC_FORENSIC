@@ -135,91 +135,7 @@
         return str_contains($c1, $c2) || str_contains($c2, $c1);
     };
 
-    $checkIsDrugExhibit = function ($ex) {
-        if (empty($ex)) {
-            return false;
-        }
-        $exArr = is_array($ex) ? $ex : (method_exists($ex, 'toArray') ? $ex->toArray() : (array) $ex);
-        $cat = strtolower($exArr['exhibit_category'] ?? ($exArr['category'] ?? ''));
-        $name = strtolower($exArr['commodity_name'] ?? ($exArr['seizure_name'] ?? ($exArr['seizure_name_drug'] ?? '')));
-        $class = strtolower($exArr['drug_classification'] ?? '');
-        $substance = strtolower($exArr['substance_identification'] ?? '');
-
-        $nonDrugKw = [
-            'weapon',
-            'pistol',
-            'rifle',
-            'firearm',
-            'gun',
-            'vehicle',
-            'car',
-            'truck',
-            'cash',
-            'usd',
-            'ghs',
-            'laptop',
-            'phone',
-            'automobile',
-            'vessel',
-            'device',
-            'motorcycle',
-            'boat',
-        ];
-        $drugKw = [
-            'cocaine',
-            'heroin',
-            'cannabis',
-            'weed',
-            'hemp',
-            'tramadol',
-            'meth',
-            'narcotic',
-            'drug',
-            'substance',
-            'precursor',
-            'ephedrine',
-            'hashish',
-            'diacetylmorphine',
-            'amphetamine',
-            'mdma',
-            'ecstasy',
-        ];
-
-        if (!empty($substance) && in_array(strtolower($substance), $drugKw)) {
-            return true;
-        }
-
-        $isNonDrug = false;
-        foreach ($nonDrugKw as $nk) {
-            if (str_contains($cat, $nk) || str_contains($name, $nk)) {
-                $isNonDrug = true;
-                break;
-            }
-        }
-
-        if ($isNonDrug) {
-            foreach ($drugKw as $dk) {
-                if (
-                    $dk !== 'drug' &&
-                    $dk !== 'substance' &&
-                    $dk !== 'narcotic' &&
-                    $dk !== 'precursor' &&
-                    (str_contains($cat, $dk) || str_contains($name, $dk))
-                ) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        foreach ($drugKw as $dk) {
-            if (str_contains($cat, $dk) || str_contains($name, $dk) || str_contains($class, $dk)) {
-                return true;
-            }
-        }
-
-        return false;
-    };
+    $checkIsDrugExhibit = app(\App\Services\DrugExhibitClassifier::class)->getClosure();
 
     // Gather suspect records
     $rawSuspects = [];
@@ -401,45 +317,13 @@
     // several suspects share a single drug only ONE Laboratory Examination
     // Result is rendered for them.
     // ------------------------------------------------------------------
-    $drugKeywordsList = [
-        'drug',
-        'narcotic',
-        'substance',
-        'cannabis',
-        'cocaine',
-        'heroin',
-        'meth',
-        'tramadol',
-        'weed',
-        'hemp',
-        'hashish',
-        'ephedrine',
-        'precursor',
-        'opioid',
-        'fentanyl',
-        'amphetamine',
-        'mdma',
-        'ecstasy',
-    ];
     $caseDrugExhibits = [];
     foreach ($docketData['seizures'] ?? [] as $szItem) {
         if (!is_array($szItem)) {
             continue;
         }
-        $szHaystack = strtolower(
-            ($szItem['category'] ?? '') .
-                ' ' .
-                ($szItem['seizure_name'] ?? ($szItem['commodity_name'] ?? '')) .
-                ' ' .
-                ($szItem['drug_classification'] ?? '') .
-                ' ' .
-                ($szItem['seizure_name_drug'] ?? ''),
-        );
-        foreach ($drugKeywordsList as $kw) {
-            if (str_contains($szHaystack, $kw)) {
-                $caseDrugExhibits[] = $szItem;
-                break;
-            }
+        if ($checkIsDrugExhibit($szItem)) {
+            $caseDrugExhibits[] = $szItem;
         }
     }
 
@@ -774,17 +658,17 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <span>Generate NLR Report</span>
+                            <span>Generate Preliminary Report</span>
                         </button>
                     @else
-                        <!-- GENERATE NLR REPORT BUTTON -->
+                        <!-- GENERATE PRELIMINARY REPORT BUTTON -->
                         <button type="button" onclick="openNlrReportModal()"
                             class="px-3.5 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer border-0">
                             <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <span>Generate NLR Report</span>
+                            <span>Generate Preliminary Report</span>
                         </button>
                     @endif
 
@@ -985,15 +869,15 @@
 
                             <!-- SUSPECT PROFILE HEADER BANNER -->
                             <div
-                                class="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+                                class="rounded-2xl p-4 sm:p-5 bg-white text-slate-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-slate-200/90 shadow-md shadow-slate-200/60">
                                 <div class="flex-1 min-w-0 space-y-3">
                                     @if ($isJointGroup)
                                         <div
-                                            class="text-[10px] sm:text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-2 flex-wrap pb-2 border-b border-white/10">
+                                            class="text-[10px] sm:text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-teal-700 flex items-center gap-2 flex-wrap pb-2 border-b border-slate-200">
                                             <span>DOSSIER RECORD #{{ $resIdx + 1 }}</span>
                                             <span>&bull;</span>
                                             <span
-                                                class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-400/30">JOINT
+                                                class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-800 border border-amber-400/40 font-bold">JOINT
                                                 EXHIBIT &mdash; {{ count($group['members']) }} SUSPECTS LINKED TO ONE
                                                 DRUG</span>
                                         </div>
@@ -1001,7 +885,7 @@
 
                                     @foreach ($group['members'] as $memIdx => $m)
                                         <div
-                                            class="flex items-center space-x-3.5 sm:space-x-4 {{ $isJointGroup && $memIdx > 0 ? 'pt-3 border-t border-white/10' : '' }}">
+                                            class="flex items-center space-x-3.5 sm:space-x-4 {{ $isJointGroup && $memIdx > 0 ? 'pt-3 border-t border-slate-200' : '' }}">
                                             @if (!empty($m['mugshot_front']))
                                                 <button type="button"
                                                     onclick="openFrontMugshotLightbox(this.querySelector('img').src, {{ json_encode($m['suspect_name']) }})"
@@ -1130,12 +1014,12 @@
                                     @if ($hasCardReportAttached)
                                         <button type="button" disabled title="A report has already been generated and attached."
                                             class="px-3.5 py-1.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl border border-slate-200 opacity-60 cursor-not-allowed">
-                                            NLR Report 
+                                            Preliminary Report 
                                         </button>
                                     @else
                                         <button type="button" onclick="openNlrReportModal({{ \Illuminate\Support\Js::from($res) }})"
                                             class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition-colors cursor-pointer">
-                                            NLR Report 
+                                            Preliminary Report 
                                         </button>
                                     @endif
                                 </div>
@@ -1205,7 +1089,7 @@
                 _token: "{{ csrf_token() }}"
             };
 
-            let pdfUrl = "{{ route('lab.nlr.pdf', ['id' => $caseNo]) }}";
+            let pdfUrl = "{{ route('lab.preliminary_report.pdf', ['id' => $caseNo]) }}";
             if (sName) {
                 pdfUrl += (pdfUrl.includes('?') ? '&' : '?') + 'suspect=' + encodeURIComponent(sName);
             }

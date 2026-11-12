@@ -399,11 +399,11 @@
     <div class="a4-page page-break relative text-slate-900">
 
         <!-- SUBTLE NACOC WATERMARK -->
-        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
             <img
                 src="{{ asset('nacoc.jfif') }}"
                 alt="NACOC Watermark"
-                class="w-[900px] h-[900px] object-contain filter grayscale"
+                class="w-[900px] h-[900px] object-contain"
             />
         </div>
 
@@ -748,11 +748,11 @@
     <div class="a4-page relative text-slate-900">
 
         <!-- SUBTLE NACOC WATERMARK -->
-        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
             <img
                 src="{{ asset('nacoc.jfif') }}"
                 alt="NACOC Watermark"
-                class="w-[900px] h-[900px] object-contain filter grayscale"
+                class="w-[900px] h-[900px] object-contain"
             />
         </div>
 

@@ -157,7 +157,7 @@
             <!-- STAFF OFFICER PROFILE BANNER -->
             <div class="p-3.5 bg-slate-950 border-t border-slate-800">
                 <div class="flex items-center space-x-3 px-2 py-1">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-bold text-xs text-white shadow-md shadow-emerald-600/30">
+                    <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center font-bold text-xs text-emerald-600 border border-slate-200/90 shadow-md shadow-slate-200/60">
                         {{ $staffInitials }}
                     </div>
                     <div class="flex-1 min-w-0">
@@ -210,7 +210,7 @@
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs">
                     <div>
                         <div class="flex items-center space-x-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">STAFF WORKSTATION</span>
+                            <span class="px-2.5 py-0.5 bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] font-extrabold font-mono-code rounded-md uppercase">STAFF WORKSTATION</span>
                             <span class="text-xs text-slate-400">&bull;</span>
                             <span class="text-xs font-bold text-slate-700 font-mono-code">FIELD OFFICER DOSSIER LOGGING</span>
                         </div>

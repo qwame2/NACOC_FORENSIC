@@ -184,64 +184,12 @@
         }
     }
 
-    $isPrimaryDrugCase = false;
-    $drugKeywords = ['drug', 'narcotic', 'opioid', 'cocaine', 'heroin', 'cannabis', 'marijuana', 'weed', 'hashish', 'hash', 'meth', 'methamphetamine', 'fentanyl', 'tramadol', 'codeine', 'morphine', 'opium', 'amphetamine', 'mdma', 'ecstasy'];
-
-    $allExhibitsCheckPdf = [];
-    if (!empty($case->exhibit_category) || !empty($case->seizure_name_drug) || !empty($case->seizure_name)) {
-        $allExhibitsCheckPdf[] = [
-            'category'          => $case->exhibit_category ?? '',
-            'seizure_name_drug' => $case->seizure_name_drug ?? '',
-            'seizure_name'      => $case->seizure_name ?? '',
-        ];
-    }
-    if (!empty($docketData['seizures']) && is_array($docketData['seizures'])) {
-        foreach ($docketData['seizures'] as $sz) { $allExhibitsCheckPdf[] = $sz; }
-    }
-    if (!empty($docketData['associated_seizures']) && is_array($docketData['associated_seizures'])) {
-        foreach ($docketData['associated_seizures'] as $aEx) { $allExhibitsCheckPdf[] = $aEx; }
-    }
-    if (!empty($docketData['associate_exhibits']) && is_array($docketData['associate_exhibits'])) {
-        foreach ($docketData['associate_exhibits'] as $aEx) { $allExhibitsCheckPdf[] = $aEx; }
-    }
-
-    $isAnyDrugCasePdf = false;
-    foreach ($allExhibitsCheckPdf as $exCheck) {
-        $cat   = strtolower($exCheck['category'] ?? ($exCheck['exhibit_category'] ?? ''));
-        $dName = strtolower($exCheck['seizure_name_drug'] ?? '');
-        $sName = strtolower($exCheck['seizure_name'] ?? ($exCheck['name'] ?? ($exCheck['commodity_name'] ?? ($exCheck['description'] ?? ''))));
-
-        if (!empty($dName)) {
-            $isAnyDrugCasePdf = true;
-            break;
-        }
-
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $isAnyDrugCasePdf = true;
-                break 2;
-            }
-        }
-    }
-
-    foreach ($primaryExhibitsCheckPdf as $exCheck) {
-        $cat   = strtolower($exCheck['category'] ?? ($exCheck['exhibit_category'] ?? ''));
-        $dName = strtolower($exCheck['seizure_name_drug'] ?? '');
-        $sName = strtolower($exCheck['seizure_name'] ?? ($exCheck['name'] ?? ($exCheck['commodity_name'] ?? ($exCheck['description'] ?? ''))));
-
-        if (!empty($dName)) {
-            $isPrimaryDrugCase = true;
-            break;
-        }
-
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($cat, $kw) || str_contains($sName, $kw)) {
-                $isPrimaryDrugCase = true;
-                break 2;
-            }
-        }
-    }
-    $isDrugCase = $isPrimaryDrugCase || $isAnyDrugCasePdf;
+    $drugKeywords = config('forensic.drug_keywords', []);
+    $drugClassifier = app(\App\Services\DrugExhibitClassifier::class);
+    $caseClassification = $drugClassifier->classifyCase($case, $docketData);
+    $isPrimaryDrugCase = $caseClassification['isPrimaryDrugCase'];
+    $isAnyDrugCasePdf = $caseClassification['isAnyDrugCase'];
+    $isDrugCase = $caseClassification['isDrugCase'];
 
     $isLabCreatedCasePdf = !empty($case->unit_name) && (
         strtolower(trim($case->unit_name)) === 'lab analysis' ||
@@ -531,7 +479,8 @@
         foreach ($docketData['seizures'] as $idx => $sz) {
             $cat = strtolower($sz['category'] ?? ($sz['exhibit_category'] ?? ''));
             $sName = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '');
-            if (!empty($sz['seizure_name_drug']) || str_contains($cat, 'drug') || str_contains($cat, 'narcotic') || str_contains(strtolower($sName), 'cocaine') || str_contains(strtolower($sName), 'heroin') || str_contains(strtolower($sName), 'cannabis') || str_contains(strtolower($sName), 'drug')) {
+            $isDrugSz = $drugClassifier->isDrugExhibit($sz);
+            if ($isDrugSz) {
                 $topDrugExhibits[] = [
                     'index' => $idx + 1,
                     'name'  => $sName ?: 'Drug Exhibit',
@@ -608,26 +557,7 @@
         $labSampleUnit = $uMatch[1];
     }
     $labFindings = !empty($labExam['findings']) ? $labExam['findings'] : (!empty($unitProgress['Lab Analysis']['notes']) ? $unitProgress['Lab Analysis']['notes'] : (!empty($case->laboratory_analytical_findings) ? $case->laboratory_analytical_findings : ''));
-    $checkIsDrugExhibitPdf = function($ex) {
-        if (empty($ex) || !is_array($ex)) return false;
-        $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? ($ex['seizure_category'] ?? ($ex['type'] ?? '')))));
-        $name = strtolower(trim($ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))));
-        $type = strtolower(trim($ex['seizure_type'] ?? ($ex['exhibit_type'] ?? '')));
-        
-        $nonDrugKws = ['weapon', 'firearm', 'pistol', 'rifle', 'shotgun', 'ammunition', 'vehicle', 'truck', 'car', 'cash', 'currency', 'usd', 'ghs', 'laptop', 'phone', 'electronics', 'document'];
-        foreach ($nonDrugKws as $kw) {
-            if (str_contains($cat, $kw) || str_contains($name, $kw) || str_contains($type, $kw)) {
-                return false;
-            }
-        }
-        if ($cat === 'drugs' || $cat === 'narcotics' || $cat === 'drug' || !empty($ex['seizure_name_drug'])) {
-            return true;
-        }
-        if (!empty($cat) && in_array($cat, ['weapons', 'weapon', 'vehicles', 'vehicle', 'cash', 'currency', 'firearm', 'firearms'])) {
-            return false;
-        }
-        return true;
-    };
+    $checkIsDrugExhibitPdf = app(\App\Services\DrugExhibitClassifier::class)->getClosure();
 
     $hasAnySavedLabExam = !empty($docketData['lab_examination']['has_saved'])
         || \App\Models\AssociateLabExamination::where('case_id', $case->id)->where('has_saved', true)->exists()
@@ -1408,9 +1338,13 @@
                     @foreach($primaryExhibitsFromDocket as $pIdx => $pEx)
                         @php
                             $pCat = $pEx['category'] ?? ($pEx['exhibit_category'] ?? ($case->exhibit_category ?: ($firstDrugFound ?: 'General Exhibit')));
-                            $pName = $pEx['seizure_name_drug'] ?? ($pEx['seizure_name'] ?? ($pEx['name'] ?? ($case->seizure_name ?: ($case->seizure_name_drug ?: 'N/A'))));
+                            $pName = (!empty($pEx['commodity_name']) && !in_array(strtolower(trim((string)$pEx['commodity_name'])), ['exhibit', 'exhibits']))
+                                ? $pEx['commodity_name']
+                                : ($pEx['seizure_name_currency'] ?? ($pEx['seizure_name_drug'] ?? ($pEx['seizure_name'] ?? ($pEx['name'] ?? ($case->commodity_name ?: ($case->seizure_name ?: ($case->seizure_name_drug ?: 'N/A')))))));
                             $pExNo = $pEx['exhibit_number'] ?? null;
-                            $pQty = $pEx['seizure_quantity'] ?? ($pEx['quantity'] ?? null);
+                            $pQty = (in_array(strtolower(trim((string)$pCat)), ['money', 'currency', 'cash']) || !empty($pEx['amount']))
+                                ? ($pEx['amount'] ?? ($pEx['seizure_quantity'] ?? ($pEx['quantity'] ?? null)))
+                                : ($pEx['seizure_quantity'] ?? ($pEx['quantity'] ?? null));
                             $pPkg = $pEx['seizure_packaging'] ?? ($pEx['packaging'] ?? null);
                             $pWt = $pEx['seizure_weight'] ?? ($pEx['weight'] ?? null);
                             $pUnit = $pEx['seizure_unit'] ?? ($pEx['unit'] ?? '');
@@ -1592,15 +1526,33 @@
                     <table class="pdf-table border border-slate-300 rounded-xl overflow-hidden shadow-2xs mb-2">
                         <tbody>
                             <tr>
+                                @php
+                                    $aCatValPdf = $aEx['category'] ?? ($aEx['exhibit_category'] ?? 'Associate Exhibit');
+                                    $isMoneyPdfA = in_array(strtolower(trim((string)$aCatValPdf)), ['money', 'currency', 'cash']);
+                                    $rawSzPdfA = $aEx['seizure_name'] ?? null;
+                                    $rawCommPdfA = $aEx['commodity_name'] ?? ($aEx['seizure_name_currency'] ?? null);
+                                    if (!empty($rawCommPdfA) && (empty($rawSzPdfA) || in_array(strtolower(trim((string)$rawSzPdfA)), ['exhibit', 'exhibits', 'general exhibit', 'confiscated exhibit']))) {
+                                        $aNamePdf = $rawCommPdfA;
+                                    } else {
+                                        $aNamePdf = (!empty($rawCommPdfA) && !in_array(strtolower(trim((string)$rawCommPdfA)), ['exhibit', 'exhibits']))
+                                            ? $rawCommPdfA
+                                            : ($rawSzPdfA ?? ($aEx['name'] ?? 'N/A'));
+                                    }
+                                    $aQtyPdf = ($isMoneyPdfA || !empty($aEx['amount']))
+                                        ? ($aEx['amount'] ?? ($aEx['seizure_quantity'] ?? ($aEx['quantity'] ?? null)))
+                                        : null;
+                                @endphp
                                 <td class="pdf-label-cell w-1/5">Exhibit Category:</td>
-                                <td class="pdf-value-cell font-mono-code font-black text-amber-900 w-3/10">{{ $aEx['category'] ?? ($aEx['exhibit_category'] ?? 'Associate Exhibit') }}</td>
+                                <td class="pdf-value-cell font-mono-code font-black text-amber-900 w-3/10">{{ $aCatValPdf }}</td>
                                 <td class="pdf-label-cell w-1/5">Exhibit / Commodity Name:</td>
-                                <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $aEx['seizure_name'] ?? ($aEx['name'] ?? 'N/A') }}</td>
+                                <td class="pdf-value-cell font-black text-slate-950 w-3/10">{{ $aNamePdf }}</td>
                             </tr>
                             <tr>
-                                <td class="pdf-label-cell">Quantity / Weight:</td>
+                                <td class="pdf-label-cell">{{ $isMoneyPdfA || !empty($aEx['amount']) ? 'Amount / Quantity:' : 'Quantity / Weight:' }}</td>
                                 <td class="pdf-value-cell font-mono-code font-black text-slate-950">
-                                    @if(!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
+                                    @if($isMoneyPdfA || !empty($aEx['amount']))
+                                        {{ !empty($aQtyPdf) ? "Amount: {$aQtyPdf}" : 'N/A' }}
+                                    @elseif(!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
                                         {{ implode(' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
                                     @else
                                         N/A
@@ -2092,26 +2044,7 @@
                     return false;
                 };
 
-                $checkIsDrugExhibitPdf = function($ex) {
-                    if (empty($ex) || !is_array($ex)) return false;
-                    $cat = strtolower(trim($ex['exhibit_category'] ?? ($ex['category'] ?? ($ex['seizure_category'] ?? ($ex['type'] ?? '')))));
-                    $name = strtolower(trim($ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ''))));
-                    $type = strtolower(trim($ex['seizure_type'] ?? ($ex['exhibit_type'] ?? '')));
-                    
-                    $nonDrugKws = ['weapon', 'firearm', 'pistol', 'rifle', 'shotgun', 'ammunition', 'vehicle', 'truck', 'car', 'cash', 'currency', 'usd', 'ghs', 'laptop', 'phone', 'electronics', 'document'];
-                    foreach ($nonDrugKws as $kw) {
-                        if (str_contains($cat, $kw) || str_contains($name, $kw) || str_contains($type, $kw)) {
-                            return false;
-                        }
-                    }
-                    if ($cat === 'drugs' || $cat === 'narcotics' || $cat === 'drug' || !empty($ex['seizure_name_drug'])) {
-                        return true;
-                    }
-                    if (!empty($cat) && in_array($cat, ['weapons', 'weapon', 'vehicles', 'vehicle', 'cash', 'currency', 'firearm', 'firearms'])) {
-                        return false;
-                    }
-                    return true;
-                };
+                $checkIsDrugExhibitPdf = app(\App\Services\DrugExhibitClassifier::class)->getClosure();
 
                 $associateSuspectsForPdfLab = [];
                 if (!empty($suspectsList) && is_array($suspectsList)) {

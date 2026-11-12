@@ -8,6 +8,7 @@ use App\Models\SingleSuspectCase;
 use App\Models\CaseSuspect;
 use App\Models\NlrReport;
 use App\Models\SuspectNlrReport;
+use App\Models\SuspectPreliminaryReport;
 use App\Models\SuspectGsaReport;
 use App\Models\LaboratoryExaminationResult;
 use App\Models\ReferenceRegistry;
@@ -204,12 +205,13 @@ class CaseDocumentService
         }
 
         $finalCaseNo  = $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null));
-        $pdfUrlPath   = 'Lab_Analysis/nlr-report-pdf/' . ($finalCaseNo ?: ($caseId ?: ($multiCase ? $multiCase->id : '')));
-        $filename     = 'NLR_Report_' . ($report->nlr_code ?: ($report->laboratory_number ?: 'NACOC')) . '.pdf';
+        $pdfUrlPath   = 'Lab_Analysis/preliminary-report-pdf/' . ($finalCaseNo ?: ($caseId ?: ($multiCase ? $multiCase->id : '')));
+        $cleanRef     = preg_replace('/[^A-Za-z0-9\-]/', '_', (string)($report->nlr_code ?: ($report->laboratory_number ?: 'NACOC')));
+        $filename     = 'Preliminary_Report_' . $cleanRef . '.pdf';
         $singleCaseId = ($case && !($case->underlyingRecord instanceof MultipleSuspectCase)) ? $case->id : ($report->single_suspect_case_id ?: ($singleCase ? $singleCase->id : null));
 
         if (empty($targetSuspects)) {
-            $existingReport = SuspectNlrReport::where(function ($q) use ($multiCase, $singleCaseId, $finalCaseNo) {
+            $existingReport = SuspectPreliminaryReport::where(function ($q) use ($multiCase, $singleCaseId, $finalCaseNo) {
                 if ($multiCase) $q->orWhere('multiple_suspect_case_id', $multiCase->id);
                 if ($singleCaseId) $q->orWhere('single_suspect_case_id', $singleCaseId);
                 if ($finalCaseNo) $q->orWhere('case_number', $finalCaseNo);
@@ -217,6 +219,9 @@ class CaseDocumentService
             ->where(function ($q) use ($pdfUrlPath) {
                 $q->where('file_path', $pdfUrlPath)
                   ->orWhere('file_path', '/' . ltrim($pdfUrlPath, '/'))
+                  ->orWhere('file_path', 'LIKE', '%preliminary-report-pdf%')
+                  ->orWhere('file_path', 'LIKE', '%nlr-report-pdf%')
+                  ->orWhere('original_filename', 'LIKE', 'Preliminary_Report%')
                   ->orWhere('original_filename', 'LIKE', 'NLR_Report%');
             })
             ->first();
@@ -228,17 +233,17 @@ class CaseDocumentService
                 'case_number'              => $finalCaseNo,
                 'original_filename'        => $filename,
                 'file_path'                => $pdfUrlPath,
-                'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
+                'notes'                    => 'Attached Preliminary Exhibit Analysis Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
                 'status'                   => 'active',
             ];
 
             if ($existingReport) {
                 $existingReport->update($payload);
             } else {
-                SuspectNlrReport::create(array_merge($payload, [
+                SuspectPreliminaryReport::create(array_merge($payload, [
                     'case_suspect_id' => null,
                     'uploaded_by'     => auth()->id(),
-                    'stored_filename' => 'nlr_report_' . $report->id . '.pdf',
+                    'stored_filename' => 'preliminary_report_' . $report->id . '.pdf',
                     'file_type'       => 'application/pdf',
                     'file_extension'  => 'pdf',
                     'file_size'       => 0,
@@ -246,10 +251,13 @@ class CaseDocumentService
             }
         } else {
             foreach ($targetSuspects as $s) {
-                $existingReport = SuspectNlrReport::where('case_suspect_id', $s->id)
+                $existingReport = SuspectPreliminaryReport::where('case_suspect_id', $s->id)
                     ->where(function ($q) use ($pdfUrlPath) {
                         $q->where('file_path', $pdfUrlPath)
                           ->orWhere('file_path', '/' . ltrim($pdfUrlPath, '/'))
+                          ->orWhere('file_path', 'LIKE', '%preliminary-report-pdf%')
+                          ->orWhere('file_path', 'LIKE', '%nlr-report-pdf%')
+                          ->orWhere('original_filename', 'LIKE', 'Preliminary_Report%')
                           ->orWhere('original_filename', 'LIKE', 'NLR_Report%');
                     })
                     ->first();
@@ -261,17 +269,17 @@ class CaseDocumentService
                     'case_number'              => $finalCaseNo,
                     'original_filename'        => $filename,
                     'file_path'                => $pdfUrlPath,
-                    'notes'                    => 'Attached NLR Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
+                    'notes'                    => 'Attached Preliminary Exhibit Analysis Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
                     'status'                   => 'active',
                 ];
 
                 if ($existingReport) {
                     $existingReport->update($payload);
                 } else {
-                    SuspectNlrReport::create(array_merge($payload, [
+                    SuspectPreliminaryReport::create(array_merge($payload, [
                         'case_suspect_id' => $s->id,
                         'uploaded_by'     => auth()->id(),
-                        'stored_filename' => 'nlr_report_' . $report->id . '.pdf',
+                        'stored_filename' => 'preliminary_report_' . $report->id . '_' . $s->id . '.pdf',
                         'file_type'       => 'application/pdf',
                         'file_extension'  => 'pdf',
                         'file_size'       => 0,
@@ -419,6 +427,57 @@ class CaseDocumentService
             'success' => true,
             'message' => count($saved) . ' GSA report file(s) saved successfully.',
             'files'   => $saved,
+        ];
+    }
+
+    /**
+     * Persist an uploaded Search Warrant document onto the public disk.
+     */
+    public function storeSearchWarrantFile(\Illuminate\Http\UploadedFile $file): ?string
+    {
+        if (!$file->isValid()) {
+            return null;
+        }
+
+        $folder = 'search_warrants/' . now()->format('Y/m');
+        $ext = strtolower($file->getClientOriginalExtension());
+        $storedName = Str::uuid() . ($ext !== '' ? '.' . $ext : '');
+        $path = $file->storeAs($folder, $storedName, 'public');
+
+        return $path ?: null;
+    }
+
+    /**
+     * Store a Search Warrant document and link its storage path to the case record(s).
+     */
+    public function attachSearchWarrantToCase(ForensicCase $case, \Illuminate\Http\UploadedFile $file): array
+    {
+        $path = $this->storeSearchWarrantFile($file);
+        if (!$path) {
+            return [
+                'success' => false,
+                'message' => 'Uploaded Search Warrant document could not be stored.',
+                'code'    => 422,
+            ];
+        }
+
+        if ($case->underlyingRecord) {
+            $case->underlyingRecord->update(['search_warrant_document' => $path]);
+        }
+
+        if (!empty($case->case_number)) {
+            SingleSuspectCase::where('case_number', $case->case_number)
+                ->update(['search_warrant_document' => $path]);
+            MultipleSuspectCase::where('case_number', $case->case_number)
+                ->update(['search_warrant_document' => $path]);
+        }
+
+        return [
+            'success'                 => true,
+            'search_warrant_document' => $path,
+            'url'                     => Storage::url($path),
+            'original_filename'       => $file->getClientOriginalName(),
+            'message'                 => 'Search warrant document uploaded successfully.',
         ];
     }
 }

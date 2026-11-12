@@ -24,23 +24,17 @@
                     $drug = strtolower($sz['seizure_name_drug'] ?? '');
                     $name = strtolower($sz['seizure_name'] ?? '');
 
-                    $isDrugExhibit = !empty($drug)
-                        || str_contains($cat, 'drug')
-                        || str_contains($cat, 'narcotic')
-                        || str_contains($cat, 'substance')
-                        || str_contains($cat, 'cannabis')
-                        || str_contains($cat, 'cocaine')
-                        || str_contains($cat, 'heroin')
-                        || str_contains($cat, 'meth')
-                        || str_contains($cat, 'tramadol')
-                        || str_contains($name, 'cocaine')
-                        || str_contains($name, 'heroin')
-                        || str_contains($name, 'cannabis')
-                        || str_contains($name, 'weed')
-                        || str_contains($name, 'meth')
-                        || str_contains($name, 'tramadol')
-                        || str_contains($name, 'drug')
-                        || str_contains($name, 'narcotic');
+                    $isDrugExhibit = !empty($drug);
+                    if (!$isDrugExhibit) {
+                        $combinedSzText = "{$cat} {$name}";
+                        $drugKeywords = config('forensic.drug_keywords', []);
+                        foreach ($drugKeywords as $dkw) {
+                            if ($dkw !== '' && str_contains($combinedSzText, strtolower($dkw))) {
+                                $isDrugExhibit = true;
+                                break;
+                            }
+                        }
+                    }
 
                     if (!$isDrugExhibit) {
                         continue;

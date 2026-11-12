@@ -239,73 +239,29 @@
                             <!-- ALERTS LIST -->
                             <div class="divide-y divide-slate-100 max-h-80 overflow-y-auto">
 
-                                <!-- ALERT 1: CASE APPROVALS -->
+                                <!-- ALERT 1: CASE REGISTER -->
                                 <a href="{{ url('/Forensic_Head/cases') }}"
-                                    class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-amber-700 uppercase">Case
-                                                Approvals</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingCasesNotif > 0)
-                                                {{ $pendingCasesNotif }} Case Dossiers Awaiting Executive Sign-off
-                                            @else
-                                                All Case Dossiers Authorized
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingCasesNotif > 0)
-                                                Pending findings certificates and official seal approval required.
-                                            @else
-                                                No outstanding case dossier sign-offs pending.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
-                                <!-- ALERT 2: USER ACCOUNT APPROVALS -->
-                                <a href="{{ url('/Forensic_Head/approvals') }}"
                                     class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
                                     <div
                                         class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                                         <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
                                             <span
-                                                class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account
-                                                Control</span>
-                                            <span
-                                                class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
+                                                class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Case
+                                                Register</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">OVERVIEW</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingUsersNotif > 0)
-                                                {{ $pendingUsersNotif }} Pending User Account Approval(s)
-                                            @else
-                                                Personnel Roster Fully Verified
-                                            @endif
+                                            Forensic Directorate Case Dossier
                                         </div>
                                         <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingUsersNotif > 0)
-                                                Staff or Unit Head registrations awaiting directorate access clearance.
-                                            @else
-                                                All registered system accounts are authorized and active.
-                                            @endif
+                                            Real-time directorate tracking across operational units.
                                         </div>
                                     </div>
                                 </a>
@@ -432,26 +388,15 @@
                                         {{ $case->case_number }}</span>
                                 </h1>
                                 <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
-                                    The complete case record is available for your review. Please carefully review the
-                                    registered details below before proceeding with the executive sign-off.
+                                    The complete case dossier is available for your review across operational units.
                                 </p>
                             </div>
                         </div>
 
                         <!-- QUICK ACTIONS IN HERO -->
-                        <div class="flex items-center gap-3 shrink-0">
-
-                            <a href="/cases/{{ $case->case_number }}/edit?from=Forensic_Head"
-                                class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
-                                <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                <span>Edit Case/Update Case Records</span>
-                            </a>
-                            <a href="/cases/{{ $case->case_number }}/pdf" target="_blank"
-                                class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline">
+                        <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                            <a href="/Forensic_Head/cases/{{ $case->case_number }}/pdf" target="_blank"
+                                class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline shadow-sm hover:scale-105 active:scale-95">
                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -495,7 +440,12 @@
                             </span>
                         @endif
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    @php
+                        $dispLabNumber = !empty($case->laboratory_number) && $case->laboratory_number !== 'Pending Assignment'
+                            ? $case->laboratory_number
+                            : (!empty($savedLabNumber) && $savedLabNumber !== 'N/A' && $savedLabNumber !== 'Pending Assignment' ? $savedLabNumber : null);
+                    @endphp
+                    <div class="grid grid-cols-1 md:grid-cols-{{ !empty($dispLabNumber) ? '4' : '3' }} gap-4 text-xs">
                         <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                             <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Case Name /
                                 Legal Title</div>
@@ -513,6 +463,27 @@
                             <div class="font-bold text-slate-800 text-sm mt-1">
                                 {{ $case->operation_code_name ?: $case->operation_code ?? 'N/A' }}</div>
                         </div>
+                        @if (!empty($case->search_warrant_document))
+                            <div class="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200">
+                                <div class="text-[10px] font-mono-code font-bold text-blue-700 uppercase">Search Warrant Document</div>
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($case->search_warrant_document) }}" target="_blank" rel="noopener"
+                                    class="inline-flex items-center space-x-1.5 mt-1 text-xs font-extrabold text-blue-700 hover:text-blue-900 underline">
+                                    <span>View / Download Warrant</span>
+                                </a>
+                            </div>
+                        @endif
+                        @if (!empty($dispLabNumber))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Laboratory Number</div>
+                                <div class="font-extrabold text-emerald-700 font-mono-code text-sm mt-1">{{ $dispLabNumber }}</div>
+                            </div>
+                        @endif
+                        @if (!empty($case->description_of_exhibits))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 md:col-span-{{ !empty($dispLabNumber) ? '4' : '3' }}">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Description of Exhibit(s)</div>
+                                <div class="font-bold text-slate-900 text-sm mt-1 leading-relaxed">{{ $case->description_of_exhibits }}</div>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -557,7 +528,15 @@
                     @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
-                    @if (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']) && $activeSuspectHasDrugExhibit)
+                    @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
+                        @foreach ($savedJointLabExamCards as $labCard)
+                            @include('partials.lab-examination-card', [
+                                'labExam' => $labCard,
+                                'labHeadingName' => $labCard['labHeadingName'] ?? ($savedJointLabHeadingName ?? $jointDossierHeadingName),
+                                'case' => $case,
+                            ])
+                        @endforeach
+                    @elseif (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']))
                         @include('partials.lab-examination-card', [
                             'labExam' => $savedJointLabExamCard ?? $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
@@ -569,48 +548,18 @@
                                     @include('partials.exhibit-table', [
                                         'exhibits' => $allCaseExhibits,
                                         'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
+                                        'case' => $case,
                                     ])
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
                 
-                <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD (ALL 4 UNITS) -->
-                <div id="seizureItemActivationCard"
-                    class="mt-8 bg-white border border-slate-300/80 rounded-2xl p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-slate-400">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
-                                        Seizure Item Section
-                                    </h4>
-                                    <span id="seizureItemStatusBadge"
-                                        class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">
-                                        INACTIVE / HIDDEN
-                                    </span>
-                                </div>
-                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">
-                                    Check the box to display and activate the Seizure Item section to record new exhibits or commodities for this case.
-                                </p>
-                            </div>
-                        </div>
 
-                        <label for="toggleSeizureItemSectionCheckbox"
-                            id="labelToggleSeizureItemSection"
-                            class="inline-flex items-center gap-3 cursor-pointer select-none bg-slate-50 hover:bg-slate-100/90 px-4 py-2.5 rounded-xl border border-slate-300 transition-all duration-150 shrink-0 shadow-2xs">
-                            <input type="checkbox" id="toggleSeizureItemSectionCheckbox"
-                                onchange="toggleSeizureItemSection(this.checked)"
-                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                            <span class="text-xs font-extrabold text-slate-800 tracking-wide">
-                                Add / Record Seizure Item
-                            </span>
-                        </label>
-                    </div>
+
+                <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD (HIDDEN FOR FORENSIC HEAD) -->
+                <div id="seizureItemActivationCard" class="hidden" style="display: none !important;">
+                    <input type="checkbox" id="toggleSeizureItemSectionCheckbox" style="display: none;">
+                    <span id="seizureItemStatusBadge" style="display: none;"></span>
+                    <label id="labelToggleSeizureItemSection" style="display: none;"></label>
                 </div>
 
                 <!-- SECTION 4: SEIZURES (COMMODITIES & EXHIBITS) -->
@@ -622,7 +571,7 @@
                         <!-- MANIFEST HEADER BAR WITH DYNAMIC SEIZED ITEMS NUMBER INPUT -->
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-300/60 pb-4 mb-6 gap-3">
                             <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 </div>
                                 <div>
@@ -765,13 +714,13 @@
                                                             </button>
                                                         </li>
                                                         <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Gold', event)">
+                                                            onclick="selectExhibitCategory('Precious Stones', event)">
                                                             <button type="button"
                                                                 class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
                                                                 <div>
-                                                                    <div class="font-extrabold text-slate-900">Gold</div>
+                                                                    <div class="font-extrabold text-slate-900">Precious Stones</div>
                                                                     <div class="text-[10px] text-slate-500 font-normal">
-                                                                        Bullion, Bars, Smuggled Metals</div>
+                                                                        Diamonds, Gemstones, Gold, Bullion</div>
                                                                 </div>
                                                                 <span
                                                                     class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
@@ -1314,8 +1263,8 @@
                                                 <div class="relative flex items-center group">
                                                     <span
                                                         class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                    <input type="number" step="0.01" id="newSeizureQuantity"
-                                                        placeholder="e.g. 10"
+                                                    <input type="text" inputmode="decimal" id="newSeizureQuantity"
+                                                        placeholder="e.g. 10 or 50,000"
                                                         class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
@@ -2361,6 +2310,36 @@
                                         </div>
                                     </div>
 
+                                    <!-- INVESTIGATING OFFICER -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Investigating Officer
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
+                                    <!-- SOURCE / REQUESTING UNIT -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Source/Requesting Unit
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
                                     <!-- REMARKS / EXHIBIT REMARK -->
                                     <div class="col-span-full pt-2 border-t border-slate-300/60">
                                         <label
@@ -2885,83 +2864,6 @@
         updateClock();
         setInterval(updateClock, 1000);
 
-        /* ── Approve Case Action ─────────────────────── */
-        async function approveCaseAction(ref) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch(`/cases/${ref}/approve`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    }
-                });
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    // Update UI status
-                    const badge = document.getElementById('headerStatusBadge');
-                    if (badge) {
-                        badge.innerHTML =
-                            `<span class="status-badge status-done"><svg class="w-3 h-3 mr-1 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> Authorized</span>`;
-                    }
-
-                    // Hide approve/decline buttons and display signed badge
-                    const container = document.getElementById('executiveActionContainer');
-                    if (container) {
-                        container.innerHTML =
-                            `<div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono-code font-bold text-xs shadow-sm"><svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> OFFICIALLY APPROVED &amp; SIGNED BY DIRECTORATE HEAD</div>`;
-                    }
-
-                    showToast(
-                        `✔ Case ${ref} has been officially APPROVED and signed off by ${officerName} (${officerRole}).`
-                    );
-                } else {
-                    showToast(`❌ Error approving case: ${data.message || 'Server error'}`);
-                }
-            } catch (e) {
-                showToast(`❌ Error connecting to server.`);
-            }
-        }
-
-        /* ── Decline Case Action ─────────────────────── */
-        async function declineCaseAction(ref) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch(`/cases/${ref}/decline`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    }
-                });
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    // Update UI status
-                    const badge = document.getElementById('headerStatusBadge');
-                    if (badge) {
-                        badge.innerHTML =
-                            `<span class="status-badge status-declined">Declined</span>`;
-                    }
-
-                    const container = document.getElementById('executiveActionContainer');
-                    if (container) {
-                        container.innerHTML =
-                            `<div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-800 border border-red-300 font-mono-code font-bold text-xs shadow-sm">CASE DECLINED BY DIRECTORATE HEAD</div>`;
-                    }
-
-                    showToast(`❌ Case ${ref} has been officially DECLINED by ${officerName} (${officerRole}).`);
-                } else {
-                    showToast(`❌ Error declining case: ${data.message || 'Server error'}`);
-                }
-            } catch (e) {
-                showToast(`❌ Error connecting to server.`);
-            }
-        }
-
         /* ── Toast Notification (Bootstrap Design) ──────────────────────── */
         function showToast(msg) {
             let container = document.getElementById('bsToastContainer');
@@ -3190,10 +3092,10 @@
                         if (banner) banner.classList.remove('hidden');
                         if (headerStatusBadge) {
                             headerStatusBadge.innerHTML =
-                                `<span class="status-badge bg-white text-slate-900 border border-slate-300">Awaiting Sign-off</span>`;
+                                `<span class="status-badge bg-white text-slate-900 border border-slate-300">All Units Completed</span>`;
                         }
                         showToast(
-                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`
+                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings.`
                         );
                     } else {
                         showToast(
@@ -3982,6 +3884,8 @@
                     const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
+                    const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                    const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                     const devModel = block.querySelector('#newDevModel')?.value || '';
                     const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -4096,6 +4000,8 @@
                             source_of_exhibits: sourceOfExhibits,
                             exhibit_remark: exhibitRemark,
                             seizure_officer: seizingOfficer,
+                            investigating_officer: investigatingOfficer,
+                            source_requesting_unit: sourceRequestingUnit,
                             dev_model: devModel,
                             dev_serial_no: devSerialNo,
                             dev_imei1: devImei1,
@@ -5963,6 +5869,8 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
@@ -7288,6 +7196,8 @@
                 const location = block.querySelector('#newSeizureLocation')?.value || '';
                 const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                 const seizingOfficer = getSeizureOfficersFormatted(block);
+                const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                 const devModel = block.querySelector('#newDevModel')?.value || '';
                 const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -7392,6 +7302,7 @@
                         name: seizureName,
                         seizure_quantity: quantity,
                         quantity: quantity,
+                        amount: (category === 'Money' || category === 'Currency' || category === 'Cash') ? (quantity || value || '') : (block.querySelector('#newSeizureAmount')?.value || ''),
                         seizure_weight: weight,
                         weight: weight,
                         seizure_unit: unit,
@@ -7407,6 +7318,8 @@
                         source_of_exhibits: sourceOfExhibits,
                         exhibit_remark: exhibitRemark,
                         seizure_officer: seizingOfficer,
+                        investigating_officer: investigatingOfficer,
+                        source_requesting_unit: sourceRequestingUnit,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,

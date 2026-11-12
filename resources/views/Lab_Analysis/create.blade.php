@@ -27,26 +27,10 @@
         $isDrugCase = true;
         $activeSuspectHasSavedResult = false;
         if (isset($case)) {
-            $exCat = strtolower($case->exhibit_category ?? '');
-            $szDrug = $case->seizure_name_drug ?? '';
-            $szName = strtolower($case->seizure_name ?? '');
-            $exSum = strtolower($case->exhibits_summary ?? '');
-            if (
-                !empty($szDrug) ||
-                str_contains($exCat, 'drug') ||
-                str_contains($exCat, 'narcotic') ||
-                str_contains($exCat, 'substance') ||
-                str_contains($szName, 'cocaine') ||
-                str_contains($szName, 'heroin') ||
-                str_contains($szName, 'cannabis') ||
-                str_contains($szName, 'drug') ||
-                str_contains($exSum, 'cocaine') ||
-                str_contains($exSum, 'heroin') ||
-                str_contains($exSum, 'cannabis') ||
-                str_contains($exSum, 'drug')
-            ) {
-                $isDrugCase = true;
-            }
+            $classifier = app(\App\Services\DrugExhibitClassifier::class);
+            $docketDataCase = is_array($case->docket_data ?? null) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            $classification = $classifier->classifyCase($case, $docketDataCase);
+            $isDrugCase = $classification['is_drug_case'] || $classifier->isDrugExhibit($case);
 
             $dbExamExists = false;
             if (!empty($case->id)) {
@@ -303,6 +287,9 @@
                     onreset="setTimeout(clearDocketFormDraftAndReset, 50)" class="space-y-6 text-xs font-medium">
                     @csrf
 
+                    @include('partials.optional_sections_1_to_3_toggle')
+
+                    <div id="sections1To3Wrapper" class="space-y-6">
                     <!-- SECTION 1: MASTER CASE TITLE & DOCKET CLASSIFICATION -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-50">
                         <div
@@ -603,6 +590,8 @@
                             </div>
                         </div>
                     </div>
+
+                    @include('partials.search_warrant_upload_section')
 
                     <!-- SECTION 2: MUGSHOT PHOTO UPLOAD -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-40">
@@ -1896,7 +1885,9 @@
                                 </div>
                             </div>
                         </div>
-                    </div>   
+                    </div>
+                    </div>
+                    </div>
                     <!-- SECTION 4: SEIZURES (COMMODITIES) -->
                     <div
                         class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
@@ -1926,6 +1917,8 @@
                                 </span>
                             </div>
                         </div>
+
+                        @include('partials.unassigned_exhibits_selector', ['selectorTargetUnit' => 'Lab Analysis'])
 
                         <!-- SEIZURE STATUS CHECKBOX CARD -->
                         <div class="space-y-2.5">
@@ -2040,16 +2033,27 @@
 
                                         <!-- SUSPECT / OWNERSHIP SELECT DROPDOWN -->
                                         <div class="relative z-30">
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                Suspect / Ownership <span class="text-red-600 font-bold">*</span>
-                                            </label>
-                                            <div class="relative">
-                                                <select onchange="this.setAttribute('data-user-selected', 'true'); if (typeof syncSection4ExhibitsToLabSection === 'function') syncSection4ExhibitsToLabSection();"
-                                                    class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
-                                                    <option value="All Suspects">All Suspects (Joint Ownership)
-                                                    </option>
-                                                </select>
+                                            <div class="seizure-ownership-default">
+                                                <label
+                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Suspect / Ownership <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <div class="relative">
+                                                    <select onchange="this.setAttribute('data-user-selected', 'true'); if (typeof syncSection4ExhibitsToLabSection === 'function') syncSection4ExhibitsToLabSection();"
+                                                        class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
+                                                        <option value="All Suspects">All Suspects (Joint Ownership)
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="seizure-ownership-unassigned hidden">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                    Custody / Ownership Status
+                                                </label>
+                                                <div class="px-3.5 py-2.5 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-700 text-xs flex items-center justify-between gap-2">
+                                                    <span>Unassigned (Vault Lodgement)</span>
+                                                    <span class="text-[9px] font-mono-code font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded shrink-0">NO SUSPECT</span>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -2118,7 +2122,7 @@
                                         <!-- SPECIFIC COMMODITY / DRUG NAME (SMART FIELD) -->
                                         <div id="commodityFieldWrapper">
                                             <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging as Received / Commodity Name <span
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging as Received <span
                                                     class="text-red-600 font-bold">*</span></label>
 
                                             <!-- TEXT INPUT (shown for non-drug categories) -->
@@ -4233,8 +4237,8 @@
                                                     <div class="relative flex items-center group">
                                                         <span
                                                             class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                        <input type="number" step="0.01"
-                                                            id="newSeizureQuantity" placeholder="e.g. 10"
+                                                        <input type="text" inputmode="decimal"
+                                                            id="newSeizureQuantity" placeholder="e.g. 10 or 50,000"
                                                             class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                     </div>
                                                 </div>
@@ -4630,30 +4634,6 @@
                                                         class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                                                 </div>
                                             </div>
-
-                                            <!-- LOCATION SEIZED -->
-                                            <div class="sm:col-span-2 md:col-span-2">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location
-                                                    Seized <span class="text-red-600 font-bold">*</span></label>
-                                                <div class="relative flex items-center group">
-                                                    <span
-                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                        </svg>
-                                                    </span>
-                                                    <input type="text" id="newSeizureLocation"
-                                                        placeholder="e.g. Tema Port, Gate 4 — Container Terminal"
-                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                </div>
-                                            </div>
                                         </div>
 
                                         <!-- SEIZING OFFICERS (MULTI-ROW) -->
@@ -4750,25 +4730,7 @@
                                             </div>
                                         </div>
 
-                                        <!-- SOURCE OF EXHIBITS -->
-                                        <div class="col-span-full md:col-span-2">
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
-                                            <div class="relative flex items-center group">
-                                                <span
-                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                                    </svg>
-                                                </span>
-                                                <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
-                                                    placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
-                                                    class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                            </div>
-                                        </div>
+                                        @include('partials.seized_item_source_custody_fields', ['sourceRequired' => true])
 
                                         <!-- REMARKS / EXHIBIT REMARK -->
                                         <div class="col-span-full md:col-span-2">
@@ -6011,13 +5973,42 @@
                                 </div>
                             </div>
 
-                            <!-- SUB-SECTION 5E: SHARED CONFIRMATORY TEST INFORMATION (Requirement 5) -->
+                            <!-- SUB-SECTION 5E: PRELIMINARY EXAMINATION PROCEDURE -->
                             <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
                                 <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
                                     <h4
                                         class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
                                         <span
                                             class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5E</span>
+                                        <span>Preliminary Examination Procedure</span>
+                                    </h4>
+                                    <span
+                                        class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                                        APPLICABLE TO ALL EXHIBITS
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 font-medium">Record the detailed preliminary examination procedures, physical inspection protocols, and visual screening methodology applied to the exhibit(s).</p>
+
+                                <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                                    <label
+                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                        <span>PRELIMINARY EXAMINATION PROCEDURE</span>
+                                        <span
+                                            class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Procedure</span>
+                                    </label>
+                                    <textarea id="labPreliminaryExamProcedureInput" name="preliminary_exam_procedure" rows="3"
+                                        placeholder="Enter the preliminary examination procedure..."
+                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs resize-none placeholder:text-slate-400"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- SUB-SECTION 5F: SHARED CONFIRMATORY TEST INFORMATION (Requirement 5) -->
+                            <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+                                <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                                    <h4
+                                        class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                                        <span
+                                            class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">5F</span>
                                         <span>Shared Confirmatory Test Information</span>
                                     </h4>
                                     <span
@@ -6029,6 +6020,31 @@
 
                                 <div class="p-5 bg-white rounded-2xl border border-emerald-300 shadow-2xs space-y-4">
                                     <div class="space-y-4">
+                                        <!-- 0. SCREENING METHOD / INSTRUMENT USED INPUT (DYNAMIC REPEATABLE) -->
+                                        <div class="space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                    <span>Screening method/Instrument Used</span>
+                                                </label>
+                                                <button type="button" onclick="addScreeningMethodRow()"
+                                                    class="inline-flex items-center px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-xs transition-all cursor-pointer border-none space-x-1">
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                    <span>+ Add More</span>
+                                                </button>
+                                            </div>
+                                            <div id="screeningMethodsContainer" class="space-y-2">
+                                                <div class="screening-method-row flex items-center space-x-2">
+                                                    <input type="text" name="screening_method[]" id="screeningMethodInput"
+                                                        placeholder="e.g. Gas Chromatography-Mass Spectrometry (GC-MS), FTIR, Raman..."
+                                                        class="screening-method-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                                                    <button type="button" onclick="removeScreeningMethodRow(this)"
+                                                        class="remove-screening-method-btn hidden p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Method">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <!-- 1. TEST METHODS INPUT -->
                                         <div>
                                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
@@ -6061,12 +6077,22 @@
                                                 placeholder="Enter any overall remarks or observations regarding the confirmatory analysis across all exhibits..."
                                                 class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
                                         </div>
+
+                                        <!-- 4. DISPOSITION OF EXHIBIT(S) TEXTAREA INPUT -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Disposition Of Exhibit(s) <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span></span>
+                                                <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Chain of Custody / Vault</span>
+                                            </label>
+                                            <textarea id="confirmatoryDispositionOfExhibit" name="disposition_of_exhibit" rows="2"
+                                                placeholder="Enter the disposition of exhibit(s) (e.g. Retained in forensic vault, Returned to seizing agency, Scheduled for destruction)..."
+                                                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400"></textarea>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                             </div>
                         </div>
-                    </div>
 
                     <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
                     <div
@@ -6110,6 +6136,23 @@
 
     <script>
         /* ── Section 4 Module Switcher (GSA File Upload vs Section 5 NLR Examination) ── */
+        window.evaluateLabExaminationVisibility = function() {
+            const nlrSec = document.getElementById('labAnalysisExclusiveSections');
+            if (!nlrSec) return;
+            const mode = window.activeLabWorkflowMode || document.getElementById('labWorkflowModeInput')?.value || '';
+            if (mode === 'gsa' || mode === 'none') {
+                nlrSec.classList.add('hidden');
+                return;
+            }
+            if (mode === 'nlr') {
+                nlrSec.classList.remove('hidden', 'opacity-60', 'pointer-events-none', 'select-none');
+                nlrSec.removeAttribute('aria-disabled');
+            }
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+        };
+
         function switchToGsaUploadSection() {
             window.activeLabWorkflowMode = 'gsa';
 
@@ -6260,8 +6303,19 @@
             }
             modeInput.value = 'nlr';
 
-            const section5CompletedInput = document.getElementById('section5CompletedInput');
-            if (section5CompletedInput) section5CompletedInput.value = '1';
+            let section5CompletedInput = document.getElementById('section5CompletedInput');
+            if (!section5CompletedInput) {
+                section5CompletedInput = document.createElement('input');
+                section5CompletedInput.type = 'hidden';
+                section5CompletedInput.id = 'section5CompletedInput';
+                section5CompletedInput.name = 'section5_completed';
+                document.querySelector('form')?.appendChild(section5CompletedInput);
+            }
+            section5CompletedInput.value = '1';
+
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
 
             if (nlrSec) {
                 nlrSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -6671,6 +6725,49 @@
                 }
             }
             if (typeof updateSampleWeightReserved === 'function') updateSampleWeightReserved();
+        }
+
+        function addScreeningMethodRow(val = '') {
+            const container = document.getElementById('screeningMethodsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'screening-method-row flex items-center space-x-2';
+            row.innerHTML = `
+                <input type="text" name="screening_method[]"
+                    value="${val}"
+                    placeholder="e.g. Gas Chromatography-Mass Spectrometry (GC-MS), FTIR, Raman..."
+                    class="screening-method-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                <button type="button" onclick="removeScreeningMethodRow(this)"
+                    class="remove-screening-method-btn p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Method">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            `;
+            container.appendChild(row);
+            updateScreeningMethodRemoveButtons();
+        }
+
+        function removeScreeningMethodRow(btn) {
+            const row = btn.closest('.screening-method-row');
+            if (row) {
+                row.remove();
+                updateScreeningMethodRemoveButtons();
+            }
+        }
+
+        function updateScreeningMethodRemoveButtons() {
+            const container = document.getElementById('screeningMethodsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.screening-method-row');
+            rows.forEach(r => {
+                const btn = r.querySelector('.remove-screening-method-btn');
+                if (btn) {
+                    if (rows.length > 1) {
+                        btn.classList.remove('hidden');
+                    } else {
+                        btn.classList.add('hidden');
+                    }
+                }
+            });
         }
 
         function toggleConfirmatoryTest(choice) {
@@ -8235,6 +8332,10 @@
 
 
         function validateSuspectDocketForm() {
+            if (typeof window.isSections1To3OptionalMode === 'function' && window.isSections1To3OptionalMode()) {
+                return true;
+            }
+
             const requiredFields = [{
                     id: 'newArrestedName',
                     label: 'Suspect Full Legal Name'
@@ -8367,20 +8468,24 @@
                 return;
             }
 
-            if (!validateSuspectDocketForm()) {
-                return;
-            }
-            if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
-                return;
+            const noSuspectMode = typeof window.isSections1To3OptionalMode === 'function' && window.isSections1To3OptionalMode();
+
+            if (!noSuspectMode) {
+                if (!validateSuspectDocketForm()) {
+                    return;
+                }
+                if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
+                    return;
+                }
             }
 
             // Immediately lock submission and disable button
             setSubmittingState(true);
 
-            const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
-            const name = document.getElementById('newArrestedName')?.value?.trim() || '';
-            const alias = document.getElementById('newArrestedAlias')?.value?.trim() || '';
-            const card = document.getElementById('newArrestedID')?.value?.trim() || '';
+            const ref = noSuspectMode ? '' : (document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419');
+            const name = noSuspectMode ? 'Unassigned (No Suspect)' : (document.getElementById('newArrestedName')?.value?.trim() || '');
+            const alias = noSuspectMode ? '' : (document.getElementById('newArrestedAlias')?.value?.trim() || '');
+            const card = noSuspectMode ? '' : (document.getElementById('newArrestedID')?.value?.trim() || '');
             const gender = document.getElementById('newArrestedGender')?.value?.trim() || '';
             const dob = document.getElementById('newArrestedDOB')?.value?.trim() || '';
             const age = document.getElementById('newArrestedAge')?.value?.trim() || '';
@@ -8401,7 +8506,8 @@
             const childrenVal = hasChildren ? (document.getElementById('newArrestedChildren')?.value || '1') : '0';
             const childrenText = hasChildren ? `${childrenVal} Kids` : 'N/A';
             const offense = document.getElementById('newArrestedOffense')?.value || 'Under Investigation';
-            const raidLocation = document.getElementById('newArrestedRaidLocation')?.value || 'Unspecified Scene';
+            const rawRaidLocation = document.getElementById('newArrestedRaidLocation')?.value?.trim() || '';
+            const raidLocation = noSuspectMode ? (rawRaidLocation || null) : (rawRaidLocation || 'Unspecified Scene');
             const facility = document.getElementById('newArrestedFacility')?.value || 'NACOC Holding Cell';
             const caseTitleInput = document.getElementById('caseTitleInput')?.value;
 
@@ -8440,7 +8546,7 @@
             let seizureSummaryParts = [];
 
             // Collect all suspects for exhibit association in joint cases
-            const allSuspectsForExhibits = collectAllSuspects();
+            const allSuspectsForExhibits = noSuspectMode ? [] : collectAllSuspects();
             const jointSuspectNamesLabel = allSuspectsForExhibits.map(s => s.suspect_name).filter(Boolean).join(', ');
 
             if (hasSeizures) {
@@ -8482,7 +8588,9 @@
                     const seizureLocation = block.querySelector('#newSeizureLocation')?.value || '';
                     const seizureOfficer = getSeizureOfficersFormatted(block);
                     const seizureReason = block.querySelector('#newSeizureReason')?.value || '';
-                    const seizureSourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                    const seizureSourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.querySelector('.seizure-source-of-exhibits-input')?.value || block.querySelector('[name="source_of_exhibits"]')?.value || '';
+                    const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                    const seizureSourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
                     const seizureExhibitRemark = block.querySelector('#newSeizureExhibitRemark')?.value || block.querySelector('input[name="exhibit_remark"]')?.value || '';
 
                     // Device fields
@@ -8565,6 +8673,8 @@
 
                     seizuresList.push({
                         item_number: itemNum,
+                        linked_exhibit_id: block.dataset.linkedExhibitId ? Number(block.dataset.linkedExhibitId) : null,
+                        property_id: block.dataset.propertyId || block.getAttribute('data-property-id') || null,
                         exhibit_category: exhibitCat,
                         exhibit_type: block.querySelector('.exhibit-type-select')?.value || (exhibitCat ===
                             'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit'),
@@ -8583,6 +8693,7 @@
                         seizure_name_ammo: ammoName,
                         seizure_name_device: devName,
                         seizure_quantity: seizureQty,
+                        amount: (exhibitCat === 'Money' || exhibitCat === 'Currency' || exhibitCat === 'Cash') ? (seizureQty || seizureValue || '') : (block.querySelector('#newSeizureAmount')?.value || ''),
                         seizure_packaging: seizurePackaging,
                         seizure_weight: seizureWeight,
                         seizure_unit: seizureUnit,
@@ -8594,6 +8705,8 @@
                         seizure_officer: seizureOfficer,
                         seizure_reason: seizureReason,
                         source_of_exhibits: seizureSourceOfExhibits,
+                        investigating_officer: investigatingOfficer,
+                        source_requesting_unit: seizureSourceRequestingUnit,
                         exhibit_remark: seizureExhibitRemark,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
@@ -8696,6 +8809,16 @@
 
             let seizureSummary = 'No contraband logged';
             let seizureHtml = '';
+            if (noSuspectMode && seizuresList.length === 0) {
+                setSubmittingState(false);
+                showValidationErrorPopover(['Exhibit Category & Seized Commodity Details (Section 4)']);
+                return;
+            }
+            if (noSuspectMode) {
+                seizuresList.forEach(s => {
+                    s.associated_person = 'Unassigned (No Suspect)';
+                });
+            }
             if (hasSeizures && seizuresList.length > 0) {
                 seizureSummary = seizureSummaryParts.join(' \n ');
                 seizureHtml =
@@ -8735,39 +8858,100 @@
             const vehMods = primarySeizure.veh?.mods || '';
             const vehFeatures = primarySeizure.veh?.features || '';
 
-            let presumptiveVal = null;
-            const yesBox = document.getElementById('presumptiveTestYes');
-            const noBox = document.getElementById('presumptiveTestNo');
-            if (noBox && noBox.checked) {
-                presumptiveVal = 'NO (Negative Reaction)';
-            } else if (yesBox && yesBox.checked) {
-                const customResult = document.getElementById('presumptiveReactionResultInput')?.value;
-                presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : null;
+            const activeLabIdx = window.activeLabExhibitIndex || 1;
+            const collectScreeningMethods = () => Array.from(document.querySelectorAll('#screeningMethodsContainer .screening-method-input'))
+                .map(el => (el.value || '').trim())
+                .filter(Boolean);
+            const activeLabData = (typeof getPerExhibitLabData === 'function') ? getPerExhibitLabData(activeLabIdx) : {};
+            const activeScreeningMethods = collectScreeningMethods();
+            const rawLabWorkflowMode = window.activeLabWorkflowMode || document.getElementById('labWorkflowModeInput')?.value || '';
+            const labDateReceivedVal = document.getElementById('labDateReceivedInput')?.value || '';
+            const labDateStartedVal = document.getElementById('labDateStartedInput')?.value || '';
+            const labDateCompletedVal = document.getElementById('labDateCompletedInput')?.value || '';
+            const labPurposeOfExamVal = document.getElementById('labPurposeOfExaminationInput')?.value || '';
+            const labPreliminaryProcedureVal = document.getElementById('labPreliminaryExamProcedureInput')?.value || '';
+            const labDispositionVal = document.getElementById('confirmatoryDispositionOfExhibit')?.value || '';
+            const labExhibitDescVal = document.getElementById('labExhibitDescriptionInput')?.value || '';
+            const labAnalystVal = document.getElementById('labAnalystInput')?.value || '';
+            const labCardExhNoVal = document.getElementById(`labCardExhibitNo_${activeLabIdx}`)?.value
+                || document.getElementById('labExhibitNumberInput')?.value
+                || '';
+
+            let presumptiveVal = activeLabData.presumptive_result || null;
+            if (!presumptiveVal) {
+                const yesBox = document.getElementById(`presumptiveTestYes_${activeLabIdx}`) || document.getElementById('presumptiveTestYes');
+                const noBox = document.getElementById(`presumptiveTestNo_${activeLabIdx}`) || document.getElementById('presumptiveTestNo');
+                if (noBox && noBox.checked) {
+                    presumptiveVal = 'NO (Negative Reaction)';
+                } else if (yesBox && yesBox.checked) {
+                    const customResult = document.getElementById(`presumptiveReactionResultInput_${activeLabIdx}`)?.value
+                        || document.getElementById('presumptiveReactionResultInput')?.value;
+                    presumptiveVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES';
+                }
             }
+            const confirmatoryVal = activeLabData.confirmatory_result || (document.getElementById(`confirmatoryTestYes_${activeLabIdx}`)?.checked || document.getElementById('confirmatoryTestYes')?.checked ? 'YES' : 'NO');
+            const sampleDescVal = activeLabData.sample_weight_description || document.getElementById(`sampleWeightDescription_${activeLabIdx}`)?.value || document.getElementById('sampleWeightDescription')?.value || '';
+            const sampleUnitsVal = activeLabData.sample_weight_units || document.getElementById(`sampleWeightUnits_${activeLabIdx}`)?.value || document.getElementById('sampleWeightUnits')?.value || '';
+            const sampleGrossVal = activeLabData.sample_weight_gross || document.getElementById(`sampleWeightGross_${activeLabIdx}`)?.value || document.getElementById('sampleWeightGross')?.value || '';
+            const sampleTakenVal = activeLabData.sample_weight_taken || document.getElementById(`sampleWeightTaken_${activeLabIdx}`)?.value || document.getElementById('sampleWeightTaken')?.value || '';
+            const sampleReservedVal = activeLabData.sample_weight_reserved || document.getElementById(`sampleWeightReserved_${activeLabIdx}`)?.value || document.getElementById('sampleWeightReserved')?.value || '';
+            const substanceIdVal = activeLabData.substance_identification || document.getElementById(`confirmatorySubstanceIdentification_${activeLabIdx}`)?.value || document.getElementById('confirmatorySubstanceIdentification')?.value || '';
+            const detectedSubsVal = (Array.isArray(activeLabData.detected_substances) && activeLabData.detected_substances.length > 0)
+                ? activeLabData.detected_substances
+                : (typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() : []);
+            const testMethodsVal = document.getElementById('confirmatoryTestMethods')?.value || '';
+            const specificationsVal = document.getElementById('confirmatorySpecifications')?.value || '';
+            const confirmatoryRemarkVal = document.getElementById('confirmatoryRemark')?.value || '';
+
+            const hasEnteredSection5Inputs = !!(
+                activeLabData.has_saved
+                || presumptiveVal
+                || confirmatoryVal === 'YES'
+                || (labPurposeOfExamVal && labPurposeOfExamVal.trim() !== '')
+                || (labPreliminaryProcedureVal && labPreliminaryProcedureVal.trim() !== '')
+                || (Array.isArray(activeScreeningMethods) && activeScreeningMethods.length > 0)
+                || (labDispositionVal && labDispositionVal.trim() !== '')
+                || (sampleTakenVal && sampleTakenVal.trim() !== '')
+                || (substanceIdVal && substanceIdVal.trim() !== '')
+                || (Array.isArray(detectedSubsVal) && detectedSubsVal.length > 0)
+                || (testMethodsVal && testMethodsVal.trim() !== '')
+                || (specificationsVal && specificationsVal.trim() !== '')
+                || (confirmatoryRemarkVal && confirmatoryRemarkVal.trim() !== '')
+            );
+            const activeLabWorkflowMode = rawLabWorkflowMode || (hasEnteredSection5Inputs ? 'nlr' : '');
+            const explicitSection5Val = document.getElementById('section5CompletedInput')?.value;
+            const section5CompletedFlag = (activeLabWorkflowMode === 'gsa' || activeLabWorkflowMode === 'none')
+                ? '0'
+                : (explicitSection5Val === '1' || activeLabWorkflowMode === 'nlr' || hasEnteredSection5Inputs ? '1' : '0');
 
             // Collect all suspects (Suspect #1 + any additional)
-            const allSuspects = collectAllSuspects();
+            const allSuspects = noSuspectMode ? [] : collectAllSuspects();
+            const resolvedPrimaryCommodity = primarySeizure.commodity_name || primarySeizure.seizure_name || primarySeizure.exhibit_category || 'Contraband';
+            const resolvedTitle = noSuspectMode ? `Seized Exhibit: ${resolvedPrimaryCommodity} (Awaiting Suspect)` : caseTitle;
+            const resolvedSuspectName = noSuspectMode ? 'Unassigned (No Suspect)' : name;
+            const resolvedDocketMode = noSuspectMode ? 'SINGLE' : (document.getElementById('caseEntryTypeSelect')?.value || 'SINGLE');
 
             const docketPayload = {
-                raid_ref: ref,
-                full_name: name,
-                alias: alias,
-                id_card: card,
-                gender: gender,
-                dob: dob,
-                age: age,
-                height: height,
-                eye_color: eyeColor,
-                pob: pob,
-                phone: phone,
-                phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
-                address: address,
-                marital_status: marital,
-                spouse_summary: spouseSummary,
-                dependents: childrenText,
-                offense: offense,
+                no_suspect: noSuspectMode ? 1 : 0,
+                raid_ref: noSuspectMode ? null : ref,
+                full_name: resolvedSuspectName,
+                alias: noSuspectMode ? null : alias,
+                id_card: noSuspectMode ? null : card,
+                gender: noSuspectMode ? null : gender,
+                dob: noSuspectMode ? null : dob,
+                age: noSuspectMode ? null : age,
+                height: noSuspectMode ? null : height,
+                eye_color: noSuspectMode ? null : eyeColor,
+                pob: noSuspectMode ? null : pob,
+                phone: noSuspectMode ? null : phone,
+                phones: noSuspectMode ? [] : (typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : []),
+                address: noSuspectMode ? null : address,
+                marital_status: noSuspectMode ? null : marital,
+                spouse_summary: noSuspectMode ? null : spouseSummary,
+                dependents: noSuspectMode ? 'N/A' : childrenText,
+                offense: noSuspectMode ? null : offense,
                 raid_location: raidLocation,
-                holding_facility: facility,
+                holding_facility: noSuspectMode ? null : facility,
                 exhibit_category: exhibitCat,
                 exhibits_summary: seizureSummary,
                 valuation: valuationText,
@@ -8779,8 +8963,10 @@
                 suspects: allSuspects,
                 suspects_count: allSuspects.length,
                 description_of_exhibits: document.getElementById('manifestDescriptionOfExhibits')?.value || '',
-                lab_examinations_list: (typeof getPerExhibitLabData === 'function') ? Array.from(seizureBlocks).map((_, i) => ({
+                lab_examinations_list: (typeof getPerExhibitLabData === 'function') ? Array.from(seizureBlocks).map((blk, i) => ({
                     item_number: i + 1,
+                    linked_exhibit_id: blk?.dataset?.linkedExhibitId ? Number(blk.dataset.linkedExhibitId) : null,
+                    property_id: blk?.dataset?.propertyId || blk?.getAttribute?.('data-property-id') || null,
                     exhibit_number: `EXH-${new Date().getFullYear()}-${String(i + 1).padStart(3, '0')}-NFC`,
                     laboratory_number: document.getElementById('labNumberInput')?.value || '',
                     exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
@@ -8789,33 +8975,46 @@
                 lab_examination: {
                     exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
                     lab_exam_reference: document.getElementById('labExamReferenceInput')?.value || '',
-                    exhibit_number: document.getElementById('labExhibitNumberInput')?.value || '',
+                    exhibit_number: labCardExhNoVal,
+                    lab_exhibit_no: labCardExhNoVal,
+                    exhibit_description: labExhibitDescVal,
                     laboratory_number: document.getElementById('labNumberInput')?.value || '',
-                    purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || '',
+                    analyst: labAnalystVal,
+                    date_received: labDateReceivedVal,
+                    date_started: labDateStartedVal,
+                    date_completed: labDateCompletedVal,
+                    lab_date_received: labDateReceivedVal,
+                    lab_date_started: labDateStartedVal,
+                    lab_date_completed: labDateCompletedVal,
+                    purpose_of_examination: labPurposeOfExamVal,
+                    preliminary_exam_procedure: labPreliminaryProcedureVal,
+                    screening_method: activeScreeningMethods,
+                    disposition_of_exhibit: labDispositionVal,
                     gsa_lab_number: document.getElementById('gsaLabNumberInput')?.value?.trim() || '',
                     gsa_case_reference: document.getElementById('gsaCaseReferenceInput')?.value?.trim() || '',
                     gsa_status: document.getElementById('gsaStatusInput')?.value?.trim() || '',
                     presumptive_result: presumptiveVal,
-                    substance_identification: document.getElementById('confirmatorySubstanceIdentification')?.value ||
-                        '',
-                    detected_substances: typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() :
-                        [],
+                    presumptive_presence: activeLabData.presumptive_presence || null,
+                    presumptive_percentage: activeLabData.presumptive_percentage || null,
+                    confirmatory_result: confirmatoryVal,
+                    substance_identification: substanceIdVal,
+                    detected_substances: detectedSubsVal,
                     test_methods: document.getElementById('confirmatoryTestMethods')?.value || '',
                     specifications: document.getElementById('confirmatorySpecifications')?.value || '',
                     remark: document.getElementById('confirmatoryRemark')?.value || '',
-                    sample_weight_description: document.getElementById('sampleWeightDescription')?.value || '',
-                    sample_weight_units: document.getElementById('sampleWeightUnits')?.value || '',
-                    sample_weight_gross: document.getElementById('sampleWeightGross')?.value || '',
-                    sample_weight_taken: document.getElementById('sampleWeightTaken')?.value || '',
-                    sample_weight_reserved: document.getElementById('sampleWeightReserved')?.value || '',
-                    sample_taken: document.getElementById('sampleWeightTaken')?.value || '',
-                    sample_reserved: document.getElementById('sampleWeightReserved')?.value || '',
+                    sample_weight_description: sampleDescVal,
+                    sample_weight_units: sampleUnitsVal,
+                    sample_weight_gross: sampleGrossVal,
+                    sample_weight_taken: sampleTakenVal,
+                    sample_weight_reserved: sampleReservedVal,
+                    sample_taken: sampleTakenVal,
+                    sample_reserved: sampleReservedVal,
                     sample_weight: {
-                        description: document.getElementById('sampleWeightDescription')?.value || '',
-                        units_packaging: document.getElementById('sampleWeightUnits')?.value || '',
-                        gross_weight: document.getElementById('sampleWeightGross')?.value || '',
-                        sample_taken: document.getElementById('sampleWeightTaken')?.value || '',
-                        reserved_samples: document.getElementById('sampleWeightReserved')?.value || ''
+                        description: sampleDescVal,
+                        units_packaging: sampleUnitsVal,
+                        gross_weight: sampleGrossVal,
+                        sample_taken: sampleTakenVal,
+                        reserved_samples: sampleReservedVal
                     }
                 }
             };
@@ -8831,53 +9030,56 @@
                         'X-CSRF-TOKEN': token || ''
                     },
                     body: JSON.stringify({
+                        no_suspect: noSuspectMode ? 1 : 0,
                         case_number: caseRef,
-                        title: caseTitle,
+                        linked_exhibit_ids: (typeof jQuery !== 'undefined' ? jQuery('#linkedUnassignedExhibitsSelect').val() : (document.getElementById('linkedUnassignedExhibitsSelect') ? Array.from(document.getElementById('linkedUnassignedExhibitsSelect').selectedOptions).map(o => o.value) : [])) || [],
+                        link_suspect_to_locked_exhibit: document.getElementById('linkSuspectToLockedExhibitCheckbox')?.checked ? 1 : 0,
+                        title: resolvedTitle,
                         unit_name: @json($userUnit),
-                        operation_code_name: document.getElementById('operationTypeSelect')?.value || document
-                            .getElementById('operationCodeNameInput')?.value || null,
-                        suspect_docket_mode: document.getElementById('caseEntryTypeSelect')?.value || 'SINGLE',
+                        operation_code_name: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || document
+                            .getElementById('operationCodeNameInput')?.value || null),
+                        suspect_docket_mode: resolvedDocketMode,
 
                         // Suspect info
-                        suspect_name: name,
-                        suspect_alias: alias,
-                        ghana_card: card,
-                        gender: gender,
-                        dob: dob,
-                        age: age,
-                        height: height,
-                        eye_color: eyeColor,
-                        nationality: document.getElementById('nationalitySelect')?.value || document
-                            .getElementById('newArrestedNationality')?.value || 'Ghanaian',
-                        pob: pob,
-                        phone: phone,
-                        additional_phones: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
-                        additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
-                        phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
-                        address: address,
+                        suspect_name: resolvedSuspectName,
+                        suspect_alias: noSuspectMode ? null : alias,
+                        ghana_card: noSuspectMode ? null : card,
+                        gender: noSuspectMode ? null : gender,
+                        dob: noSuspectMode ? null : dob,
+                        age: noSuspectMode ? null : age,
+                        height: noSuspectMode ? null : height,
+                        eye_color: noSuspectMode ? null : eyeColor,
+                        nationality: noSuspectMode ? null : (document.getElementById('nationalitySelect')?.value || document
+                            .getElementById('newArrestedNationality')?.value || 'Ghanaian'),
+                        pob: noSuspectMode ? null : pob,
+                        phone: noSuspectMode ? null : phone,
+                        additional_phones: noSuspectMode ? [] : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
+                        additional_phone_labels: noSuspectMode ? [] : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
+                        phones: noSuspectMode ? [] : (typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : []),
+                        address: noSuspectMode ? null : address,
 
                         // Family & Marital
-                        marital_status: marital,
-                        has_children: hasChildren,
-                        children_count: childrenVal,
-                        spouse_name: spouseName,
-                        spouse_phone: spousePhone,
-                        spouse_info: spouseInfo,
-                        partner_name: partnerName,
-                        partner_phone: partnerPhone,
-                        partner_info: partnerInfo,
-                        dependents: childrenText,
+                        marital_status: noSuspectMode ? null : marital,
+                        has_children: noSuspectMode ? false : hasChildren,
+                        children_count: noSuspectMode ? null : childrenVal,
+                        spouse_name: noSuspectMode ? null : spouseName,
+                        spouse_phone: noSuspectMode ? null : spousePhone,
+                        spouse_info: noSuspectMode ? null : spouseInfo,
+                        partner_name: noSuspectMode ? null : partnerName,
+                        partner_phone: noSuspectMode ? null : partnerPhone,
+                        partner_info: noSuspectMode ? null : partnerInfo,
+                        dependents: noSuspectMode ? 'N/A' : childrenText,
 
                         // Offence & Arrest Details
-                        operation_code: document.getElementById('operationTypeSelect')?.value || ref,
+                        operation_code: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || ref),
                         raid_location: raidLocation,
-                        offense_description: offense,
-                        arrest_date: document.getElementById('newArrestedDate')?.value || null,
-                        arrest_time: document.getElementById('newArrestedTime')?.value || null,
-                        holding_facility: facility,
+                        offense_description: noSuspectMode ? null : offense,
+                        arrest_date: noSuspectMode ? null : (document.getElementById('newArrestedDate')?.value || null),
+                        arrest_time: noSuspectMode ? null : (document.getElementById('newArrestedTime')?.value || null),
+                        holding_facility: noSuspectMode ? null : facility,
 
                         // Seizures (Commodities)
-                        has_seizures: hasSeizures,
+                        has_seizures: noSuspectMode ? true : hasSeizures,
                         exhibit_category: (hasSeizures && primarySeizure.exhibit_category) ? primarySeizure
                             .exhibit_category : null,
                         seizure_name: primarySeizure.seizure_name || null,
@@ -8895,6 +9097,7 @@
                         dev_colour: primarySeizure.dev_colour || null,
                         dev_marks: primarySeizure.dev_marks || null,
                         seizure_quantity: primarySeizure.seizure_quantity || null,
+                        amount: primarySeizure.amount || ((primarySeizure.exhibit_category === 'Money' || primarySeizure.exhibit_category === 'Currency' || primarySeizure.exhibit_category === 'Cash') ? (primarySeizure.seizure_quantity || primarySeizure.seizure_value) : null),
                         seizure_packaging: primarySeizure.seizure_packaging || null,
                         seizure_weight: primarySeizure.seizure_weight || null,
                         seizure_unit: primarySeizure.seizure_unit || null,
@@ -8906,6 +9109,8 @@
                         seizure_officer: primarySeizure.seizure_officer || null,
                         seizure_reason: primarySeizure.seizure_reason || null,
                         source_of_exhibits: primarySeizure.source_of_exhibits || null,
+                        investigating_officer: primarySeizure.investigating_officer || null,
+                        source_requesting_unit: primarySeizure.source_requesting_unit || null,
                         exhibit_remark: primarySeizure.exhibit_remark || null,
                         exhibit_type: primarySeizure.exhibit_type || null,
                         drug_classification: primarySeizure.drug_classification || null,
@@ -8950,41 +9155,55 @@
 
                         // Photos
                         evidence_photos: seizedExhibitDataUrls,
-                        mugshot_front: mugshotFront && mugshotFront.startsWith('data:') ? mugshotFront : null,
-                        mugshot_left: mugshotLeft && mugshotLeft.startsWith('data:') ? mugshotLeft : null,
-                        mugshot_right: mugshotRight && mugshotRight.startsWith('data:') ? mugshotRight : null,
+                        mugshot_front: (!noSuspectMode && mugshotFront && mugshotFront.startsWith('data:')) ? mugshotFront : null,
+                        mugshot_left: (!noSuspectMode && mugshotLeft && mugshotLeft.startsWith('data:')) ? mugshotLeft : null,
+                        mugshot_right: (!noSuspectMode && mugshotRight && mugshotRight.startsWith('data:')) ? mugshotRight : null,
 
                         // Presumptive & Confirmatory / Sample Weight
+                        lab_workflow_mode: activeLabWorkflowMode || null,
+                        section5_completed: section5CompletedFlag,
                         lab_exam_reference: document.getElementById('labExamReferenceInput')?.value || null,
                         exam_reference: document.getElementById('labExamReferenceInput')?.value || null,
-                        lab_exhibit_number: document.getElementById('labExhibitNumberInput')?.value || null,
+                        lab_exhibit_number: labCardExhNoVal || null,
+                        lab_exhibit_no: labCardExhNoVal || null,
+                        lab_exhibit_description: labExhibitDescVal || null,
+                        exhibit_description: labExhibitDescVal || null,
                         laboratory_number: document.getElementById('labNumberInput')?.value || null,
-                        sample_weight_description: document.getElementById('sampleWeightDescription')?.value ||
-                            null,
-                        sample_weight_units: document.getElementById('sampleWeightUnits')?.value || null,
-                        sample_weight_gross: document.getElementById('sampleWeightGross')?.value || null,
-                        sample_weight_taken: document.getElementById('sampleWeightTaken')?.value || null,
-                        sample_weight_reserved: document.getElementById('sampleWeightReserved')?.value || null,
-                        sample_taken: document.getElementById('sampleWeightTaken')?.value || null,
-                        sample_reserved: document.getElementById('sampleWeightReserved')?.value || null,
-                        confirmatory_substance_identification: document.getElementById(
-                            'confirmatorySubstanceIdentification')?.value || null,
+                        lab_analyst: labAnalystVal || null,
+                        lab_date_received: labDateReceivedVal || null,
+                        lab_date_started: labDateStartedVal || null,
+                        lab_date_completed: labDateCompletedVal || null,
+                        preliminary_exam_procedure: labPreliminaryProcedureVal || null,
+                        screening_method: activeScreeningMethods,
+                        disposition_of_exhibit: labDispositionVal || null,
+                        confirmatory_test_result: confirmatoryVal || null,
+                        confirmatory_result: confirmatoryVal || null,
+                        sample_weight_description: sampleDescVal || null,
+                        sample_weight_units: sampleUnitsVal || null,
+                        sample_weight_gross: sampleGrossVal || null,
+                        sample_weight_taken: sampleTakenVal || null,
+                        sample_weight_reserved: sampleReservedVal || null,
+                        sample_taken: sampleTakenVal || null,
+                        sample_reserved: sampleReservedVal || null,
+                        confirmatory_substance_identification: substanceIdVal || null,
                         confirmatory_test_methods: document.getElementById('confirmatoryTestMethods')?.value ||
                             null,
                         confirmatory_specifications: document.getElementById('confirmatorySpecifications')
                             ?.value || null,
                         confirmatory_remark: document.getElementById('confirmatoryRemark')?.value || null,
-                        detected_substances: typeof getDetectedSubstancesData === 'function' ? getDetectedSubstancesData() : [],
+                        detected_substances: detectedSubsVal,
                         description_of_exhibits: document.getElementById('manifestDescriptionOfExhibits')?.value || null,
                         purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || null,
 
                         // Presumptive Result & Legacy JSON docket data
                         presumptive_result: presumptiveVal,
+                        presumptive_presence: activeLabData.presumptive_presence || null,
+                        presumptive_percentage: activeLabData.presumptive_percentage || null,
                         docket_data: docketPayload,
                         priority: document.getElementById('casePrioritySelect')?.value || 'HIGH',
                         status: 'Under Multi-Unit Processing',
-                        location: `${raidLocation} (${address})`,
-                        description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
+                        location: noSuspectMode ? (rawRaidLocation || null) : `${raidLocation} (${address})`,
+                        description: noSuspectMode ? null : `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
                         arresting_officer: primarySeizure.seizure_officer || null,
                         submitting_officer: primarySeizure.seizure_officer || null,
                         confirm_duplicate: confirmDuplicate ? 1 : 0
@@ -9021,8 +9240,11 @@
                 })
                 .then(async data => {
                     setSubmittingState(false);
-                    // Upload and attach any staged GSA report files alongside this case
+                    // Upload and attach any staged GSA report files and Search Warrant document alongside this case
                     await uploadStagedGsaFiles(data, name);
+                    if (typeof uploadStagedSearchWarrantFile === 'function') {
+                        await uploadStagedSearchWarrantFile(data);
+                    }
 
                     const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                     const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
@@ -9068,7 +9290,12 @@
                     }
 
                     clearDocketFormDraft();
-                    showSuccessPopover(finalRef);
+                    if (typeof window.afterCaseSavedRefreshUnassignedSelector === 'function') {
+                        window.afterCaseSavedRefreshUnassignedSelector();
+                    } else if (typeof window.refreshUnassignedExhibitsSelector === 'function') {
+                        window.refreshUnassignedExhibitsSelector();
+                    }
+                    showSuccessPopover(finalRef, data && data.preliminary_report ? data.preliminary_report : null);
                 })
                 .catch(err => {
                     setSubmittingState(false);
@@ -9186,6 +9413,7 @@
 
                 toggleChildrenInput();
                 toggleSeizuresContainer();
+                if (typeof syncSections1To3OptionalState === 'function') syncSections1To3OptionalState();
                 handleCaseEntryTypeChange();
 
                 const maritalVal = document.getElementById('newArrestedMarital')?.value || '';
@@ -9208,6 +9436,10 @@
                     }
                 }
 
+                if (typeof toggleSearchWarrantUploadSection === 'function') {
+                    toggleSearchWarrantUploadSection(document.getElementById('operationTypeSelect')?.value || '');
+                }
+
                 if (restoredCount > 0) {
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
@@ -9223,6 +9455,9 @@
 
         function clearDocketFormDraftAndReset() {
             clearDocketFormDraft();
+            if (typeof toggleSearchWarrantUploadSection === 'function') {
+                toggleSearchWarrantUploadSection('');
+            }
             const phoneListEl = document.getElementById('suspectPhonesList');
             if (phoneListEl) {
                 phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
@@ -9248,17 +9483,58 @@
             handleMaritalChange('');
             toggleChildrenInput();
             toggleSeizuresContainer();
+            if (typeof syncSections1To3OptionalState === 'function') syncSections1To3OptionalState();
         }
 
         let popoverTimer = null;
 
-        function showSuccessPopover(ref) {
+        function showSuccessPopover(ref, preliminaryReport = null) {
             clearDocketFormDraft();
             const modal = document.getElementById('successPopoverModal');
+            const modalCard = document.getElementById('successPopoverModalCard');
             const caseRefEl = document.getElementById('popoverCaseRef');
+            const prelimContainer = document.getElementById('preliminaryReportDownloadContainer');
+            const prelimFilenameEl = document.getElementById('preliminaryReportFilename');
+            const prelimNotesEl = document.getElementById('preliminaryReportNotes');
+            const prelimOpenLink = document.getElementById('preliminaryReportOpenLink');
+            const prelimDownloadLink = document.getElementById('preliminaryReportDownloadLink');
+
             if (caseRefEl) {
                 caseRefEl.textContent = ref || '-';
             }
+
+            if (prelimContainer && preliminaryReport && preliminaryReport.url) {
+                const baseUrl = String(preliminaryReport.url);
+                const downloadUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'download=1';
+
+                if (prelimFilenameEl) {
+                    prelimFilenameEl.textContent = preliminaryReport.filename || '';
+                    prelimFilenameEl.setAttribute('title', preliminaryReport.filename || '');
+                }
+                if (prelimNotesEl) {
+                    prelimNotesEl.textContent = preliminaryReport.notes || '';
+                }
+                if (prelimOpenLink) {
+                    prelimOpenLink.setAttribute('href', baseUrl);
+                }
+                if (prelimDownloadLink) {
+                    prelimDownloadLink.setAttribute('href', downloadUrl);
+                }
+                prelimContainer.classList.remove('hidden');
+                if (modalCard) {
+                    modalCard.classList.remove('max-w-md');
+                    modalCard.classList.add('max-w-lg');
+                }
+            } else if (prelimContainer) {
+                prelimContainer.classList.add('hidden');
+                if (prelimOpenLink) prelimOpenLink.setAttribute('href', '#');
+                if (prelimDownloadLink) prelimDownloadLink.setAttribute('href', '#');
+                if (modalCard) {
+                    modalCard.classList.remove('max-w-lg');
+                    modalCard.classList.add('max-w-md');
+                }
+            }
+
             if (modal) {
                 modal.classList.remove('hidden');
             }
@@ -9426,6 +9702,9 @@
             }
 
             closeAllDropdowns();
+            if (typeof window.toggleSearchWarrantUploadSection === 'function') {
+                window.toggleSearchWarrantUploadSection(val);
+            }
             if (typeof window.handleCargoParcelOperationTypeSwitch === 'function') {
                 window.handleCargoParcelOperationTypeSwitch(val);
             }
@@ -9993,6 +10272,9 @@
                     evaluateLabExaminationVisibility();
                 }
             }
+            if (typeof window.syncSeizureOwnershipBoxes === 'function') {
+                window.syncSeizureOwnershipBoxes();
+            }
         }
 
         function populateSeizureBlock(block, data) {
@@ -10094,6 +10376,8 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
@@ -10289,6 +10573,9 @@
                 if (typeof evaluateLabExaminationVisibility === 'function') {
                     evaluateLabExaminationVisibility();
                 }
+            }
+            if (typeof window.syncSeizureOwnershipBoxes === 'function') {
+                window.syncSeizureOwnershipBoxes();
             }
         }
 
@@ -10757,7 +11044,7 @@
                     'Vehicles': 'e.g. Toyota Hilux (Unregistered)',
                     'Other Exhibits': 'e.g. Hardware Devices / Illegal Tools'
                 };
-                if (textInput) textInput.placeholder = placeholders[category] || 'e.g. Packaging as Received / Commodity Name';
+                if (textInput) textInput.placeholder = placeholders[category] || 'e.g. Packaging as Received';
 
                 if (otherDescriptionWrapper) {
                     const isOther = category === 'Other Exhibits' || category === 'Other' || category ===
@@ -11884,19 +12171,17 @@
 
         // SECTION 5: MANIFEST SYNC & EXHIBIT SELECTION LOGIC FOR LAB ANALYSIS
         let labExhibitUserEdits = {};
+        const forensicDrugKeywords = @json(config('forensic.drug_keywords', []));
+        const forensicNonDrugKeywords = @json(config('forensic.non_drug_keywords', []));
 
-        function isDrugCategory(cat) {
-            if (!cat) return false;
-            const c = String(cat).toLowerCase().trim();
-            return c.includes('drug') ||
-                c.includes('narcotic') ||
-                c.includes('substance') ||
-                c.includes('cocaine') ||
-                c.includes('heroin') ||
-                c.includes('cannabis') ||
-                c.includes('weed') ||
-                c.includes('meth') ||
-                c.includes('tramadol');
+        function isDrugCategory(cat, name = '') {
+            const combined = `${cat || ''} ${name || ''}`.toLowerCase().trim();
+            if (!combined) return false;
+            if (Array.isArray(forensicNonDrugKeywords) && forensicNonDrugKeywords.some(ndk => combined.includes(ndk.toLowerCase()))) {
+                const hasExplicitDrug = Array.isArray(forensicDrugKeywords) && forensicDrugKeywords.some(dk => (name || '').toLowerCase().includes(dk.toLowerCase()));
+                if (!hasExplicitDrug) return false;
+            }
+            return Array.isArray(forensicDrugKeywords) && forensicDrugKeywords.some(k => combined.includes(k.toLowerCase()));
         }
 
         window.activeLabExhibitIndex = 1;
@@ -11905,12 +12190,24 @@
             const yesBox = document.getElementById(`presumptiveTestYes_${idx}`) || document.getElementById('presumptiveTestYes');
             const noBox = document.getElementById(`presumptiveTestNo_${idx}`) || document.getElementById('presumptiveTestNo');
             let presVal = null;
+            let presPresences = [];
+            let presPcts = [];
             if (noBox && noBox.checked) {
-                presVal = 'NO (Negative Reaction)';
+                presVal = 'NO';
             } else if (yesBox && yesBox.checked) {
-                const customResult = document.getElementById(`presumptiveReactionResultInput_${idx}`)?.value ||
-                                     document.getElementById('presumptiveReactionResultInput')?.value;
-                presVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES (Presumptive Positive)';
+                const customResult = document.getElementById(`presumptiveReactionResultInput_${idx}`)?.value
+                    || document.getElementById('presumptiveReactionResultInput')?.value;
+                presVal = (customResult && customResult.trim() !== '') ? customResult.trim() : 'YES';
+                const presContainer = document.getElementById(`presumptiveTestRowsContainer_${idx}`) || document.getElementById('presumptiveTestRowsContainer');
+                if (presContainer) {
+                    presContainer.querySelectorAll('.presumptive-test-row').forEach(r => {
+                        const pr = (r.querySelector('.presumptive-presence-input')?.value || '').trim();
+                        let pc = (r.querySelector('.presumptive-percentage-input')?.value || '').trim();
+                        if (pc && !pc.endsWith('%')) pc += '%';
+                        if (pr) presPresences.push(pr);
+                        if (pc) presPcts.push(pc);
+                    });
+                }
             }
 
             const confYes = document.getElementById(`confirmatoryTestYes_${idx}`) || document.getElementById('confirmatoryTestYes');
@@ -11931,12 +12228,38 @@
             const methods = document.getElementById('confirmatoryTestMethods')?.value || '';
             const specs = document.getElementById('confirmatorySpecifications')?.value || '';
             const remark = document.getElementById('confirmatoryRemark')?.value || '';
+            const purpose = document.getElementById('labPurposeOfExaminationInput')?.value || '';
+            const prelimProc = document.getElementById('labPreliminaryExamProcedureInput')?.value || '';
+            const screeningMethods = Array.from(document.querySelectorAll('#screeningMethodsContainer .screening-method-input'))
+                .map(el => (el.value || '').trim())
+                .filter(Boolean);
+            const disposition = document.getElementById('confirmatoryDispositionOfExhibit')?.value || '';
+            const dateReceived = document.getElementById('labDateReceivedInput')?.value || '';
+            const dateStarted = document.getElementById('labDateStartedInput')?.value || '';
+            const dateCompleted = document.getElementById('labDateCompletedInput')?.value || '';
+            const analyst = document.getElementById('labAnalystInput')?.value || '';
+            const exhDesc = document.getElementById('labExhibitDescriptionInput')?.value || '';
+            const labExhNo = document.getElementById(`labCardExhibitNo_${idx}`)?.value
+                || document.getElementById('labExhibitNumberInput')?.value || '';
 
-            const hasSaved = (yesBox && yesBox.checked) || (confYes && confYes.checked) || !!taken || !!substanceId || detSubs.length > 0;
+            const hasSaved = (yesBox && yesBox.checked) || (confYes && confYes.checked) || !!taken || !!substanceId || detSubs.length > 0 || !!methods || !!prelimProc || screeningMethods.length > 0 || !!disposition || !!purpose || !!remark || !!specs;
 
             return {
+                lab_exhibit_no: labExhNo,
+                exhibit_description: exhDesc,
+                analyst: analyst,
+                date_received: dateReceived,
+                date_started: dateStarted,
+                date_completed: dateCompleted,
+                purpose_of_examination: purpose,
+                preliminary_exam_procedure: prelimProc,
+                screening_method: screeningMethods,
+                disposition_of_exhibit: disposition,
                 presumptive_result: presVal,
+                presumptive_presence: presPresences.length > 0 ? presPresences.join('; ') : null,
+                presumptive_percentage: presPcts.length > 0 ? presPcts.join('; ') : null,
                 confirmatory_result: confVal,
+                confirmatory_test_result: confVal,
                 substance_identification: substanceId,
                 sample_weight_description: desc,
                 sample_weight_units: units,
@@ -12528,16 +12851,7 @@
                                         </span>
                                     </div>
 
-                                    <div>
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                            <span>Substance Identification <span class="text-red-600 font-bold">*</span></span>
-                                            <span class="text-[9px] font-mono-code font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">EDITABLE SPECIFICATION</span>
-                                        </label>
-                                        <input type="text" id="confirmatorySubstanceIdentification_${idx}" name="confirmatory_substance_identification_${idx}"
-                                            placeholder="Enter substance identification (e.g. Heroin, Cocaine, Cannabis)"
-                                            value="${safeName}"
-                                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans">
-                                    </div>
+                                    <input type="hidden" id="confirmatorySubstanceIdentification_${idx}" name="confirmatory_substance_identification_${idx}" value="${safeName}">
 
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between">
@@ -12692,6 +13006,8 @@
                     const isActive = (window.activeLabExhibitIndex === itemNum);
                     cardDiv.className = `lab-exhibit-card p-3.5 rounded-xl border transition-all cursor-pointer shadow-2xs ${isActive ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/40' : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/70'}`;
                     cardDiv.setAttribute('data-exhibit-index', itemNum);
+                    const systemExhibitId = block.dataset.exhibitNumber || ('EXH-' + String(itemNum).padStart(5, '0'));
+                    cardDiv.setAttribute('data-system-exhibit-number', systemExhibitId);
                     cardDiv.onclick = () => selectLabExhibitCard(itemNum);
 
                     let metricStr = '';
@@ -12699,16 +13015,16 @@
                     if (weight || unit) metricStr += (metricStr ? ' | ' : '') + `${weight} ${unit}`.trim();
                     if (!metricStr) metricStr = 'No metrics specified';
 
-                    const currentYear = new Date().getFullYear();
-                    const paddedIdx = itemNum.toString().padStart(3, '0');
-                    const defaultExhNo = `EXH-${currentYear}-${paddedIdx}-NFC`;
                     const existingCardInput = document.getElementById(`labCardExhibitNo_${itemNum}`);
-                    const exhNoVal = existingCardInput ? existingCardInput.value : defaultExhNo;
+                    const exhNoVal = existingCardInput ? existingCardInput.value : '';
 
                     cardDiv.innerHTML = `
-                        <div class="flex items-center justify-between mb-1.5">
-                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-md uppercase">Exhibit #${itemNum}</span>
-                            <span class="text-[10px] text-slate-400 font-medium truncate max-w-[110px]">${cat}</span>
+                        <div class="flex items-center justify-between mb-1.5 gap-1.5">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-md uppercase shrink-0">Exhibit #${itemNum}</span>
+                                <span class="text-[10px] text-slate-400 font-medium truncate max-w-[110px]">${cat}</span>
+                            </div>
+                            <span class="lab-card-system-exhibit-id text-emerald-700 text-[10px] font-mono-code font-extrabold tracking-wider uppercase shrink-0" data-system-exhibit-number="${systemExhibitId}" title="System-Generated Exhibit ID">${systemExhibitId}</span>
                         </div>
                         <div class="font-extrabold text-slate-900 text-xs truncate mb-1" title="${name}">${name}</div>
                         <div class="text-[11px] text-slate-600 font-medium flex items-center gap-1 mb-1 truncate" title="Visual Contents: ${contents || 'Not specified'}">
@@ -12721,14 +13037,15 @@
                         </div>
                         <div class="mt-2.5 pt-2 border-t border-slate-100" onclick="event.stopPropagation()">
                             <label class="block text-slate-800 font-extrabold text-[10px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                <span>Exhibit No.</span>
-                                <span class="text-[8px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Exhibit ID</span>
+                                <span>Lab Exhibit No.</span>
+                                <span class="text-[8px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Lab No.</span>
                             </label>
                             <input type="text"
                                 id="labCardExhibitNo_${itemNum}"
-                                name="exhibit_numbers[]"
+                                name="lab_exhibit_nos[]"
+                                data-field="lab_exhibit_no"
                                 value="${exhNoVal}"
-                                placeholder="e.g. EXH-${currentYear}-${paddedIdx}-NFC"
+                                placeholder="A, B...Ai, Aii, Bi, Bii...., A1, A2, B1, B2"
                                 class="card-exhibit-no-input w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30 shadow-2xs"
                                 onclick="event.stopPropagation()"
                                 oninput="onCardExhibitNoChange(this, ${itemNum})"
@@ -13293,7 +13610,7 @@
     <!-- EXECUTIVE SUCCESS POPOVER MESSAGE CONTAINER -->
     <div id="successPopoverModal"
         class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
-        <div
+        <div id="successPopoverModalCard"
             class="bg-white rounded-3xl border border-emerald-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in duration-200">
             <div class="flex items-start space-x-4">
                 <div
@@ -13318,14 +13635,55 @@
                         </button>
                     </div>
                     <h3 class="text-base font-extrabold text-slate-900 leading-snug">
-                        Crime Scene Data Saved Successfully!
+                        Lab Analysis Docket Saved Successfully!
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
-                        Official Suspect Arrested Docket <span id="popoverCaseRef"
-                            class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-{{ date('Y') }}-XXXX</span>
+                        Official Laboratory Docket <span id="popoverCaseRef"
+                            class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200"></span>
                         has been saved. The other 3 forensic units can now access, build on, and submit their findings
                         before final HOF approval.
                     </p>
+                </div>
+            </div>
+
+            <!-- PRELIMINARY REPORT DOWNLOAD CONTAINER (ACTIVATED AFTER SAVING DRUG CASE) -->
+            <div id="preliminaryReportDownloadContainer"
+                class="hidden p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 space-y-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-mono-code text-[10px] font-extrabold shrink-0 shadow-xs">
+                            PRELIM
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-emerald-700">
+                                Preliminary_Report Ready for Download
+                            </div>
+                            <div id="preliminaryReportFilename"
+                                class="text-xs font-bold text-slate-900 truncate font-mono-code"></div>
+                            <div id="preliminaryReportNotes"
+                                class="text-[11px] text-slate-600 truncate"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-emerald-200/70">
+                    <a id="preliminaryReportOpenLink" href="#" target="_blank" rel="noopener"
+                        class="px-3.5 py-2 bg-white hover:bg-slate-50 text-emerald-700 border border-emerald-300 text-[11px] font-extrabold rounded-xl transition-colors inline-flex items-center space-x-1.5 no-underline">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        <span>Open Report</span>
+                    </a>
+                    <a id="preliminaryReportDownloadLink" href="#" target="_blank" rel="noopener"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm shadow-emerald-600/30 transition-all inline-flex items-center space-x-1.5 no-underline">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span>Download Preliminary_Report (PDF)</span>
+                    </a>
                 </div>
             </div>
 
@@ -13533,6 +13891,8 @@
             </div>
         </div>
     </div>
+
+    @include('partials.unit_exhibit_alert_popover', ['alertDomain' => 'lab'])
 </body>
 
 </html>

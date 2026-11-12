@@ -60,7 +60,7 @@
             $activeUnitBadge = 'EVIDENCE MANAGEMENT';
             $activeUnitTheme = 'amber';
             $activeUnitBackUrl = '/Evidence_Management';
-            $allowedCategories = $allowedCategories ?? ['Drugs', 'Money', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
+            $allowedCategories = $allowedCategories ?? ['Drugs', 'Money', 'Precious Stones', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
             $defaultCategory = $defaultCategory ?? 'Drugs';
         } else {
             $activeUnitKey = 'all';
@@ -68,7 +68,7 @@
             $activeUnitBadge = 'FORENSIC DIRECTORATE';
             $activeUnitTheme = 'indigo';
             $activeUnitBackUrl = '/cases';
-            $allowedCategories = $allowedCategories ?? ['Drugs', 'Money', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
+            $allowedCategories = $allowedCategories ?? ['Drugs', 'Money', 'Precious Stones', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
             $defaultCategory = $defaultCategory ?? '';
         }
 
@@ -858,7 +858,7 @@
                         
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center space-x-3">
-                                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                <div class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
                                 </div>
                                 <div>
@@ -1219,21 +1219,7 @@
                                             </div>
 
                                             <div class="space-y-4">
-                                                <!-- 1. SUBSTANCE IDENTIFICATION -->
-                                                <div>
-                                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                        <span>Substance Identification <span class="text-red-600 font-bold">*</span></span>
-                                                        <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                                                    </label>
-                                                    <input 
-                                                        type="text" 
-                                                        id="confirmatorySubstanceIdentification" 
-                                                        name="confirmatory_substance_identification" 
-                                                        readonly
-                                                        placeholder="Fetched from drug manifest"
-                                                        class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
-                                                    >
-                                                </div>
+                                                <input type="hidden" id="confirmatorySubstanceIdentification" name="confirmatory_substance_identification" value="">
 
                                                 <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
                                                 <div class="space-y-2">
@@ -2291,6 +2277,7 @@
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (textWrapper) textWrapper.classList.remove('hidden');
                 const placeholders = {
+                    'Precious Stones':     'e.g. Diamonds, Gemstones, Gold Bars / Bullion (24K)',
                     'Gold':                'e.g. Gold Bars / Bullion (24K)',
                     'Vehicles':            'e.g. Toyota Hilux (Unregistered)',
                     'Other Exhibits':      'e.g. Hardware Devices / Illegal Tools'
@@ -2652,7 +2639,8 @@
             'Ammunition': { name: 'Ammunition', desc: 'Bullets, Cartridges, Explosives', code: 'AMMO', cls: 'bg-orange-50 text-orange-700' },
             'Vehicles': { name: 'Vehicles', desc: 'Automobiles, Vessels, Trucks', code: 'VEH', cls: 'bg-emerald-50 text-emerald-800' },
             'Money': { name: 'Money', desc: 'Cash, Foreign Currencies, Laundering', code: 'CASH', cls: 'bg-emerald-50 text-emerald-800' },
-            'Gold': { name: 'Gold', desc: 'Bullion, Bars, Smuggled Metals', code: 'MET', cls: 'bg-amber-50 text-amber-800' },
+            'Precious Stones': { name: 'Precious Stones', desc: 'Diamonds, Gemstones, Gold, Bullion', code: 'MET', cls: 'bg-amber-50 text-amber-800' },
+            'Gold': { name: 'Precious Stones', desc: 'Diamonds, Gemstones, Gold, Bullion', code: 'MET', cls: 'bg-amber-50 text-amber-800' },
             'Other Exhibits': { name: 'Other Exhibits', desc: 'Hardware, Miscellaneous Devices', code: 'MISC', cls: 'bg-slate-200 text-slate-700' }
         };
 
@@ -2663,7 +2651,7 @@
 
             let allowedCats = Array.isArray(UNIT_ALLOWED_CATEGORIES) && UNIT_ALLOWED_CATEGORIES.length > 0
                 ? UNIT_ALLOWED_CATEGORIES
-                : ['Drugs', 'Money', 'Gold', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
+                : ['Drugs', 'Money', 'Precious Stones', 'Vehicles', 'Electronic Devices', 'Weapons', 'Ammunition', 'Other Exhibits'];
 
             let categoryListHtml = '';
             allowedCats.forEach(cName => {

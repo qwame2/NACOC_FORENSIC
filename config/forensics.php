@@ -40,6 +40,11 @@ return [
         'ketamine',
         'morphine',
         'codeine',
+        'tapentadol',
+        'pregabalin',
+        'diazepam',
+        'methaqualone',
+        'rohypnol',
     ],
 
     /*
@@ -126,9 +131,9 @@ return [
             'category' => 'CUSTODY',
             'role_key' => 'evidence',
         ],
-        'CFLU' => [
+        'LAU' => [
             'name'     => 'Lab Analysis',
-            'code'     => 'CFLU',
+            'code'     => 'LAU',
             'category' => 'LAB',
             'role_key' => 'lab',
         ],

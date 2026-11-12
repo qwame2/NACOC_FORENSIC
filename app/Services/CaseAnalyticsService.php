@@ -141,11 +141,18 @@ class CaseAnalyticsService
             }
 
             $cDate = $c->created_at ? Carbon::parse($c->created_at) : now();
+            $uDate = $c->updated_at ? Carbon::parse($c->updated_at) : $cDate;
             $diffDays = $cDate->diffInDays(now());
-            $relativeTime = $diffDays === 0 ? 'Today' : "{$diffDays} days ago";
+            $relativeTime = $diffDays === 0 ? 'Today' : ($diffDays === 1 ? '1 day ago' : "{$diffDays} days ago");
+            $updatedDiffDays = $uDate->diffInDays(now());
+            $updatedHuman = $updatedDiffDays === 0 ? 'Today' : ($updatedDiffDays === 1 ? '1 day ago' : "{$updatedDiffDays} days ago");
 
             $statusBadge = $c->case_status ?? ($c->status ?? 'Under Investigation');
-            $isApproved = in_array(strtolower($statusBadge), ['approved', 'completed'], true);
+            $isApproved = in_array(strtolower($statusBadge), ['approved', 'completed', 'authorized'], true);
+            $priorityNorm = strtoupper(trim((string) ($c->priority ?? 'HIGH')));
+            if (!in_array($priorityNorm, ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], true)) {
+                $priorityNorm = 'HIGH';
+            }
 
             if ($diffDays > 30 && !$isApproved) {
                 $overdueSum += $totalEstVal;
@@ -157,73 +164,149 @@ class CaseAnalyticsService
             }
 
             $casesList[] = [
-                'id'                  => $c->id,
-                'case_number'         => $c->case_number,
-                'is_multiple'         => $isMultiple,
-                'suspects_count'      => count($suspectsList),
-                'suspects'            => $suspectsList,
-                'suspect_name'        => implode(' & ', array_column($suspectsList, 'name')),
-                'primary_suspect'     => $suspectsList[0] ?? null,
-                'laboratory_number'   => $c->laboratory_number,
-                'title'               => $c->title ?? 'Forensic Docket File',
-                'suspect_alias'       => $c->suspect_alias ?? 'N/A',
-                'suspect_role'        => $suspectsList[0]['role'] ?? 'Primary Target',
-                'nationality'         => $suspectsList[0]['nationality'] ?? 'Ghanaian',
-                'gender'              => $suspectsList[0]['gender'] ?? 'Male',
-                'age'                 => $suspectsList[0]['age'] ?? null,
-                'ghana_card'          => $suspectsList[0]['ghana_card'] ?? 'GHA-XXXXXXXXX-X',
-                'mugshot_front'       => $suspectsList[0]['mugshot_front'] ?? null,
-                'unit_name'           => $c->unit_name ?? 'Forensic Directorate',
-                'status'              => $c->status,
-                'status_badge'        => $statusBadge,
-                'case_status'         => $statusBadge,
-                'priority'            => $c->priority ?? 'HIGH',
-                'raid_location'       => $c->raid_location ?? 'Accra Regional Sector',
-                'region'              => $matchedReg,
-                'incident_date'       => $cDate->format('d M Y'),
-                'created_at_human'    => $relativeTime,
-                'created_at_formatted'=> $cDate->format('d M Y, H:i'),
-                'submitting_officer'  => $c->submitting_officer ?? 'N/A',
-                'exhibits_count'      => count($exhibitItems),
-                'exhibits'            => $exhibitItems,
-                'total_amount'        => '$' . number_format($totalEstVal, 2),
-                'total_amount_raw'    => $totalEstVal,
-                'balance_due'         => '$' . number_format($totalEstVal, 2),
+                'id'                   => $c->id,
+                'case_number'          => $c->case_number,
+                'is_multiple'          => $isMultiple,
+                'suspects_count'       => count($suspectsList),
+                'suspects'             => $suspectsList,
+                'suspect_name'         => implode(' & ', array_column($suspectsList, 'name')),
+                'primary_suspect'      => $suspectsList[0] ?? null,
+                'laboratory_number'    => $c->laboratory_number,
+                'title'                => $c->title ?? 'Forensic Docket File',
+                'suspect_alias'        => $c->suspect_alias ?? 'N/A',
+                'suspect_role'         => $suspectsList[0]['role'] ?? 'Primary Target',
+                'nationality'          => $suspectsList[0]['nationality'] ?? 'Ghanaian',
+                'gender'               => $suspectsList[0]['gender'] ?? 'Male',
+                'age'                  => $suspectsList[0]['age'] ?? null,
+                'ghana_card'           => $suspectsList[0]['ghana_card'] ?? 'GHA-XXXXXXXXX-X',
+                'mugshot_front'        => $suspectsList[0]['mugshot_front'] ?? null,
+                'unit_name'            => $c->unit_name ?? 'Forensic Directorate',
+                'status'               => $c->status,
+                'status_badge'         => $statusBadge,
+                'case_status'          => $statusBadge,
+                'priority'             => $priorityNorm,
+                'raid_location'        => $c->raid_location ?? 'Accra Regional Sector',
+                'region'               => $matchedReg,
+                'incident_date'        => $cDate->format('d M Y'),
+                'created_at_iso'       => $cDate->toIso8601String(),
+                'created_at_month'     => $cDate->format('Y-m'),
+                'created_at_human'     => $relativeTime,
+                'created_at_formatted' => $cDate->format('d M Y, H:i'),
+                'updated_at_human'     => $updatedHuman,
+                'updated_at_formatted' => $uDate->format('d M Y, H:i'),
+                'days_open'            => (int) $diffDays,
+                'submitting_officer'   => $c->submitting_officer ?? 'N/A',
+                'exhibits_count'       => count($exhibitItems),
+                'exhibits'             => $exhibitItems,
+                'total_amount'         => '$' . number_format($totalEstVal, 2),
+                'total_amount_raw'     => $totalEstVal,
+                'balance_due'          => '$' . number_format($totalEstVal, 2),
             ];
         }
 
-        $totalCases = count($casesList);
-        $pendingCount = collect($casesList)->filter(fn($c) => in_array(strtolower($c['status_badge']), ['pending', 'awaiting sign-off', 'pending approval']))->count();
-        $inProgressCount = collect($casesList)->filter(fn($c) => in_array(strtolower($c['status_badge']), ['in progress', 'under investigation', 'under multi-unit processing']))->count();
-        $approvedCount = collect($casesList)->filter(fn($c) => in_array(strtolower($c['status_badge']), ['approved', 'completed', 'authorized']))->count();
+        $casesCol = collect($casesList);
+        $totalCases = $casesCol->count();
+        $pendingCount = $casesCol->filter(fn($c) => in_array(strtolower($c['status_badge']), ['pending', 'awaiting sign-off', 'pending approval']))->count();
+        $inProgressCount = $casesCol->filter(fn($c) => in_array(strtolower($c['status_badge']), ['in progress', 'under investigation', 'under multi-unit processing', 'active']))->count();
+        $approvedCount = $casesCol->filter(fn($c) => in_array(strtolower($c['status_badge']), ['approved', 'completed', 'authorized']))->count();
+        $criticalHighCount = $casesCol->filter(fn($c) => in_array($c['priority'], ['CRITICAL', 'HIGH'], true))->count();
+        $mediumCount = $casesCol->where('priority', 'MEDIUM')->count();
+        $lowCount = $casesCol->where('priority', 'LOW')->count();
         $totalExhibitsCount = Exhibit::count();
 
-        $vaultValuation = collect($casesList)->sum('total_amount_raw');
-        $avgTurnaroundDays = !empty($completedTurnarounds) ? round(array_sum($completedTurnarounds) / count($completedTurnarounds)) : null;
+        // Build rolling 6-month historical series strictly from real database timestamps
+        $monthBuckets = [];
+        for ($m = 5; $m >= 0; $m--) {
+            $dt = Carbon::now()->startOfMonth()->subMonths($m);
+            $monthBuckets[$dt->format('Y-m')] = [
+                'label'       => $dt->format('M'),
+                'total'       => 0,
+                'pending'     => 0,
+                'in_progress' => 0,
+                'approved'    => 0,
+                'exhibits'    => 0,
+            ];
+        }
+
+        foreach ($casesList as $item) {
+            $ym = $item['created_at_month'] ?? null;
+            if ($ym && isset($monthBuckets[$ym])) {
+                $monthBuckets[$ym]['total']++;
+                $st = strtolower($item['status_badge']);
+                if (in_array($st, ['pending', 'awaiting sign-off', 'pending approval'], true)) {
+                    $monthBuckets[$ym]['pending']++;
+                } elseif (in_array($st, ['approved', 'completed', 'authorized'], true)) {
+                    $monthBuckets[$ym]['approved']++;
+                } else {
+                    $monthBuckets[$ym]['in_progress']++;
+                }
+            }
+        }
+
+        $exhibitsDates = Exhibit::query()->select(['created_at'])->get();
+        foreach ($exhibitsDates as $exRow) {
+            if ($exRow->created_at) {
+                $ym = Carbon::parse($exRow->created_at)->format('Y-m');
+                if (isset($monthBuckets[$ym])) {
+                    $monthBuckets[$ym]['exhibits']++;
+                }
+            }
+        }
+
+        $unitCounts = $casesCol->groupBy(fn($c) => $c['unit_name'] ?: 'Forensic Directorate')
+            ->map->count()
+            ->sortDesc()
+            ->toArray();
+
+        $vaultValuation = $casesCol->sum('total_amount_raw');
+        $avgTurnaroundDays = !empty($completedTurnarounds) ? (int) round(array_sum($completedTurnarounds) / count($completedTurnarounds)) : null;
+        $completionRate = $totalCases > 0 ? (int) round(($approvedCount / $totalCases) * 100) : 0;
 
         // WHY Fix Issue 6 & 8 & 26: Return N/A when data is unavailable. Never return fake numbers.
         return [
             'success'   => true,
             'timestamp' => now()->toIso8601String(),
             'metrics'   => [
-                'total_cases'       => $totalCases,
-                'pending_cases'     => $pendingCount,
-                'in_progress_cases' => $inProgressCount,
-                'approved_cases'    => $approvedCount,
-                'total_exhibits'    => $totalExhibitsCount,
-                'overdue_amount'    => $overdueCount > 0 ? '$' . number_format($overdueSum, 2) : 'N/A',
-                'overdue_trend'     => 'N/A',
-                'next_month_amount' => 'N/A',
-                'next_month_trend'  => 'N/A',
-                'turnaround_days'   => $avgTurnaroundDays !== null ? "{$avgTurnaroundDays} days" : 'N/A',
-                'turnaround_trend'  => 'N/A',
-                'vault_amount'      => '$' . number_format($vaultValuation, 2),
-                'vault_trend'       => 'N/A',
+                'total_cases'        => $totalCases,
+                'pending_cases'      => $pendingCount,
+                'in_progress_cases'  => $inProgressCount,
+                'approved_cases'     => $approvedCount,
+                'completion_rate'    => $completionRate,
+                'high_priority_cases'=> $criticalHighCount,
+                'medium_cases'       => $mediumCount,
+                'low_cases'          => $lowCount,
+                'total_exhibits'     => $totalExhibitsCount,
+                'overdue_amount'     => $overdueCount > 0 ? '$' . number_format($overdueSum, 2) : 'N/A',
+                'overdue_trend'      => 'N/A',
+                'next_month_amount'  => 'N/A',
+                'next_month_trend'   => 'N/A',
+                'turnaround_days'    => $avgTurnaroundDays !== null ? "{$avgTurnaroundDays} days" : 'N/A',
+                'turnaround_days_raw'=> $avgTurnaroundDays,
+                'turnaround_trend'   => 'N/A',
+                'vault_amount'       => '$' . number_format($vaultValuation, 2),
+                'vault_trend'        => 'N/A',
             ],
             'chart_data' => [
-                'months'       => ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                'monthly_bars' => [0, 0, 0, 0, 0, $totalCases],
-                'sparkline'    => [0, 0, 0, 0, 0, $totalCases],
+                'months'              => array_values(array_column($monthBuckets, 'label')),
+                'monthly_bars'        => array_values(array_column($monthBuckets, 'total')),
+                'sparkline'           => array_values(array_column($monthBuckets, 'total')),
+                'monthly_pending'     => array_values(array_column($monthBuckets, 'pending')),
+                'monthly_in_progress' => array_values(array_column($monthBuckets, 'in_progress')),
+                'monthly_approved'    => array_values(array_column($monthBuckets, 'approved')),
+                'monthly_exhibits'    => array_values(array_column($monthBuckets, 'exhibits')),
+            ],
+            'breakdowns' => [
+                'severity' => [
+                    'high'   => $criticalHighCount,
+                    'medium' => $mediumCount,
+                    'low'    => $lowCount,
+                ],
+                'status' => [
+                    'pending'     => $pendingCount,
+                    'in_progress' => $inProgressCount,
+                    'approved'    => $approvedCount,
+                ],
+                'units' => $unitCounts,
             ],
             'region_counts' => $regionCounts,
             'cases'         => $casesList,

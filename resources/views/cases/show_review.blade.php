@@ -225,7 +225,7 @@
         if (str_contains($cat, 'non-drug') || str_contains($type, 'non-drug')) {
             return false;
         }
-        $nonDrugCategories = ['electronic', 'digital', 'device', 'phone', 'laptop', 'computer', 'weapon', 'vehicle', 'currency', 'cash', 'gold', 'sim card'];
+        $nonDrugCategories = ['electronic', 'digital', 'device', 'phone', 'laptop', 'computer', 'weapon', 'vehicle', 'currency', 'cash', 'gold', 'precious', 'stone', 'diamond', 'sim card'];
         foreach ($nonDrugCategories as $ndc) {
             if (str_contains($cat, $ndc) && empty($dName)) {
                 return false;
@@ -607,7 +607,7 @@
         }
 
         if (str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'vehicle')
-            || str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold')
+            || str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold') || str_contains($cat, 'precious') || str_contains($cat, 'stone')
             || str_contains($sName, 'weapon') || str_contains($sName, 'vehicle') || str_contains($sName, 'car') || str_contains($sName, 'cash')
         ) {
             $suspectHasCrimeScene = true;
@@ -760,11 +760,9 @@
     //    (added exhibits, submitted findings/examinations, or progressed the workflow)
     //    must appear.
     //
-    // TWO ALWAYS-VISIBLE DEFAULT CARDS:
-    // 1. Evidence Management: Required for all cases as the final operational stage
-    //    before directorate sign-off. Always appended at the end of $unitsList.
-    // 2. Head of Forensic Directorate: Final sign-off step, permanently visible as the
-    //    dedicated HOF node in the pipeline immediately following $unitsList.
+    // ONE ALWAYS-VISIBLE DEFAULT CARD:
+    // 1. Evidence Management: Required for all cases as the final operational stage.
+    //    Always appended at the end of $unitsList.
     //
     // DEFINITION OF INVOLVEMENT:
     // A unit is considered involved if any of the following 6 criteria are met:
@@ -892,7 +890,7 @@
     $cssInvolved = $isCreatorCss
         || $unitHasActiveProgress($cssUnit)
         || $unitHasRecordedOfficer($cssUnit)
-        || $suspectHasCrimeSceneExhibit;
+        || (!$isCreatorEvidence && $suspectHasCrimeSceneExhibit);
 
     $labInvolved = $isCreatorLab
         || $unitHasActiveProgress($labUnit)
@@ -925,8 +923,7 @@
         $creatorUnit = $dpfUnit;
         $dpfInvolved = true;
     } elseif ($isCreatorEvidence) {
-        // Evidence Management is the case creator unit. It is appended in Step 3 as the final operational stage.
-        $creatorUnit = null;
+        $creatorUnit = $emUnit;
     } else {
         $creatorUnit = $cssUnit;
         $isCreatorCss = true;
@@ -952,8 +949,8 @@
         }
     }
 
-    // Step 3: Evidence Management always appended last
-    if (!in_array($emUnit, $unitsList, true)) {
+    // Step 3: Evidence Management appended if not creator
+    if (!$isCreatorEvidence && !in_array($emUnit, $unitsList, true)) {
         $unitsList[] = $emUnit;
     }
 
@@ -1055,16 +1052,6 @@
                 'notes' => $evCompleted
                     ? 'Processed via Evidence Management & Custody Vault Workspace'
                     : 'Awaiting evidence receipt and vault custody intake',
-            ];
-        } elseif ($uKey === 'Head of Forensic Directorate') {
-            $hofCompleted = $case->status === 'Approved' || !empty($docketData['hof_approved']);
-            $unitProgress[$uKey] = [
-                'status' => $hofCompleted ? 'COMPLETED' : 'PENDING',
-                'officer' => $hofCompleted ? ($case->approved_by ?? 'Head of Forensic Directorate') : null,
-                'updated_at' => $hofCompleted ? optional($case->updated_at)->toDateTimeString() : null,
-                'notes' => $hofCompleted
-                    ? 'Multi-Unit Directorate Docket Approved & Signed Off'
-                    : 'Awaiting final directorate approval sign-off',
             ];
         }
     }
@@ -2074,9 +2061,8 @@
                                 'Pending Approval',
                                 'Pending',
                             ])->count();
-                            $pendingUsersNotif = (int) \App\Models\User::where('is_approved', false)->count();
                             $pendingHandoversNotif = (int) \App\Models\CaseHandover::whereNull('acknowledged_at')->count();
-                            $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0) + ($pendingUsersNotif > 0 ? 1 : 0) + ($pendingHandoversNotif > 0 ? 1 : 0);
+                            $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0) + ($pendingHandoversNotif > 0 ? 1 : 0);
                         @endphp
                         <button type="button" id="notificationBellBtn" onclick="toggleNotificationDropdown()"
                             class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors relative border-none bg-transparent cursor-pointer">
@@ -2141,42 +2127,6 @@
                                                 Pending findings certificates and official seal approval required.
                                             @else
                                                 No outstanding case dossier sign-offs pending.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
-                                <!-- ALERT 2: USER ACCOUNT APPROVALS -->
-                                <a href="{{ url('/Forensic_Head/approvals') }}"
-                                    class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account
-                                                Control</span>
-                                            <span
-                                                class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingUsersNotif > 0)
-                                                {{ $pendingUsersNotif }} Pending User Account Approval(s)
-                                            @else
-                                                Personnel Roster Fully Verified
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingUsersNotif > 0)
-                                                Staff or Unit Head registrations awaiting directorate access clearance.
-                                            @else
-                                                All registered system accounts are authorized and active.
                                             @endif
                                         </div>
                                     </div>
@@ -2363,8 +2313,7 @@
                                 {{ $totalUnitsCount }}-Unit Directorate Progress &amp; Inter-Unit Workflow
                             </h2>
                             <p class="text-[11px] text-slate-500 font-medium leading-snug">
-                                All {{ $totalUnitsCount }} units build on this case. HOF approval triggers once all
-                                units complete their analysis.
+                                All {{ $totalUnitsCount }} units collaborate on this case. Real-time progress updates across specialized directorate units.
                             </p>
                         </div>
 
@@ -2510,87 +2459,6 @@
                                         @endif
                                     </div>
                                 @endforeach
-
-                                {{-- ── HOF Final Approval node ── --}}
-                                @php
-                                    $hofDone = $completedUnitsCount >= $totalUnitsCount;
-                                @endphp
-                                <div class="flex items-stretch gap-0">
-                                    {{-- Arrow into HOF --}}
-                                    <div class="flex items-center justify-center w-8 shrink-0 select-none">
-                                        <div class="flex flex-col items-center">
-                                            <div
-                                                class="w-6 border-t-2 border-dashed {{ $hofDone ? 'border-emerald-400' : 'border-slate-300' }}">
-                                            </div>
-                                            <svg class="w-3.5 h-3.5 -ml-1 {{ $hofDone ? 'text-emerald-500' : 'text-slate-300' }}"
-                                                fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd"
-                                                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-                                                    clip-rule="evenodd" />
-                                            </svg>
-                                        </div>
-                                    </div>
-
-                                    {{-- HOF card --}}
-                                    <div class="w-52 flex flex-col rounded-2xl border-2 overflow-hidden transition-all duration-300"
-                                        style="{{ $hofDone
-                                            ? 'background:linear-gradient(135deg,#0f172a,#1e293b);border-color:#334155;'
-                                            : 'background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-color:#cbd5e1;' }}">
-
-                                        <div class="px-3.5 pt-3.5 pb-2.5 border-b flex items-center justify-between gap-2"
-                                            style="{{ $hofDone ? 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);' : 'border-color:rgba(0,0,0,0.06);background:rgba(255,255,255,0.6);' }}">
-                                            <span
-                                                class="text-[9px] font-mono-code font-black uppercase tracking-widest {{ $hofDone ? 'text-slate-400' : 'text-slate-600' }}">
-                                                FINAL STEP
-                                            </span>
-                                            @if ($hofDone)
-                                                <span
-                                                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold font-mono-code uppercase border bg-emerald-900/60 text-emerald-300 border-emerald-700">
-                                                    UNLOCKED
-                                                </span>
-                                            @else
-                                                <span
-                                                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-black font-mono-code uppercase border bg-slate-200 text-slate-700 border-slate-400">
-                                                    LOCKED
-                                                </span>
-                                            @endif
-                                        </div>
-
-                                        <div class="flex-1 px-3.5 py-3 space-y-1.5">
-                                            <div
-                                                class="font-extrabold text-[12px] leading-snug {{ $hofDone ? 'text-white' : 'text-slate-800' }}">
-                                                Head of Forensic Directorate
-                                            </div>
-                                            <div class="flex items-center gap-1.5">
-                                                <svg class="w-3 h-3 {{ $hofDone ? 'text-emerald-400' : 'text-slate-500' }} shrink-0"
-                                                    fill="none" stroke="currentColor" stroke-width="2"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                                </svg>
-                                                <span
-                                                    class="text-[11px] {{ $hofDone ? 'text-emerald-300' : 'text-slate-600 font-semibold' }}">Executive
-                                                    Sign-off &amp; Approval</span>
-                                            </div>
-                                            @if (!$hofDone)
-                                                <div class="text-[10px] text-slate-600 font-semibold italic mt-1">
-                                                    Awaiting all units to complete</div>
-                                            @else
-                                                <div class="text-[10px] text-emerald-400 font-bold mt-1">✓ All units
-                                                    submitted — ready for sign-off</div>
-                                            @endif
-                                        </div>
-
-                                        <div class="px-3.5 py-2 border-t"
-                                            style="{{ $hofDone ? 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);' : 'border-color:rgba(0,0,0,0.06);background:rgba(255,255,255,0.5);' }}">
-                                            <div
-                                                class="text-[9.5px] font-mono-code {{ $hofDone ? 'text-emerald-400' : 'text-slate-600 font-bold italic' }}">
-                                                {{ $hofDone ? 'Docket ready for HOF review' : 'Pending unit completions' }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                             </div>{{-- end flex pipeline --}}
                         </div>{{-- end overflow wrapper --}}
                     </div>{{-- end px-6 py-5 --}}
@@ -2727,13 +2595,13 @@
                                 </h4>
                                 <p class="text-[11px] text-slate-600 mt-0.5">
                                     All {{ $totalUnitsCount }} specialized units have completed and saved their
-                                    findings. Docket is submitted for HOF executive sign-off.
+                                    findings.
                                 </p>
                             </div>
                         </div>
                         <span
                             class="px-3 py-1.5 rounded-full text-[10px] font-mono-code font-extrabold uppercase tracking-wider shrink-0 bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
-                            AWAITING HOF SIGN-OFF
+                            ALL UNITS COMPLETED
                         </span>
                     </div>
 
@@ -2755,7 +2623,12 @@
                             </span>
                         @endif
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    @php
+                        $dispLabNumber = !empty($case->laboratory_number) && $case->laboratory_number !== 'Pending Assignment'
+                            ? $case->laboratory_number
+                            : (!empty($savedLabNumber) && $savedLabNumber !== 'N/A' && $savedLabNumber !== 'Pending Assignment' ? $savedLabNumber : null);
+                    @endphp
+                    <div class="grid grid-cols-1 md:grid-cols-{{ !empty($dispLabNumber) ? '4' : '3' }} gap-4 text-xs">
                         <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                             <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Case Name /
                                 Legal Title</div>
@@ -2773,6 +2646,27 @@
                             <div class="font-bold text-slate-800 text-sm mt-1">
                                 {{ $case->operation_code_name ?: $case->operation_code ?? 'N/A' }}</div>
                         </div>
+                        @if (!empty($case->search_warrant_document))
+                            <div class="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200">
+                                <div class="text-[10px] font-mono-code font-bold text-blue-700 uppercase">Search Warrant Document</div>
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($case->search_warrant_document) }}" target="_blank" rel="noopener"
+                                    class="inline-flex items-center space-x-1.5 mt-1 text-xs font-extrabold text-blue-700 hover:text-blue-900 underline">
+                                    <span>View / Download Warrant</span>
+                                </a>
+                            </div>
+                        @endif
+                        @if (!empty($dispLabNumber))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Laboratory Number</div>
+                                <div class="font-extrabold text-emerald-700 font-mono-code text-sm mt-1">{{ $dispLabNumber }}</div>
+                            </div>
+                        @endif
+                        @if (!empty($case->description_of_exhibits))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 md:col-span-{{ !empty($dispLabNumber) ? '4' : '3' }}">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Description of Exhibit(s)</div>
+                                <div class="font-bold text-slate-900 text-sm mt-1 leading-relaxed">{{ $case->description_of_exhibits }}</div>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -3453,30 +3347,47 @@
                                 ($sNum == 1
                                     ? $case->dependents ?? ($docketData['dependents'] ?? 'No Children')
                                     : 'No Children'));
-                        $sRaid =
+                        $isUnassignedSuspectBlade = \App\Models\ForensicCase::isUnassignedSuspectName($sName)
+                            || !empty($case->no_suspect)
+                            || !empty($docketData['no_suspect']);
+                        $rawRaidCandidate =
                             $sItem['raid_location'] ??
                             ($sItem['location'] ??
                                 ($sDocketSuspect['raid_location'] ??
                                     ($sDocketSuspect['location'] ??
-                                        ($case->raid_location ?: ($case->location ?: $docketData['raid_location'] ?? 'N/A')))));
-                        $sArrestDate =
-                            $sItem['date_of_arrest'] ??
-                            ($sItem['arrest_date'] ??
-                                ($sDocketSuspect['date_of_arrest'] ??
-                                    ($sDocketSuspect['arrest_date'] ??
-                                        ($case->arrest_date ??
-                                            ($docketData['arrest_date'] ??
-                                                ($docketData['date_of_arrest'] ??
-                                                    ($case->incident_date
-                                                        ? substr((string) $case->incident_date, 0, 10)
-                                                        : null)))))));
-                        $sArrestTime =
-                            $sItem['time_of_arrest'] ??
-                            ($sItem['arrest_time'] ??
-                                ($sDocketSuspect['time_of_arrest'] ??
-                                    ($sDocketSuspect['arrest_time'] ??
-                                        ($case->arrest_time ??
-                                            ($docketData['arrest_time'] ?? ($docketData['time_of_arrest'] ?? null))))));
+                                        ($case->raid_location ?: ($case->location ?: $docketData['raid_location'] ?? null)))));
+                        $sRaid = \App\Models\ForensicCase::resolveRaidLocationForDisplay(
+                            is_string($rawRaidCandidate) || is_numeric($rawRaidCandidate) ? (string) $rawRaidCandidate : null,
+                            $isUnassignedSuspectBlade,
+                            \App\Models\ForensicCase::extractSeizureLocations($case, $docketData, $sItem)
+                        );
+                        $pickArrestValue = static function (array $candidates): ?string {
+                            foreach ($candidates as $candidate) {
+                                $val = trim((string) ($candidate ?? ''));
+                                if ($val !== '' && !in_array(strtoupper($val), ['N/A', 'NA', '-', 'NULL', 'UNSPECIFIED'], true)) {
+                                    return $val;
+                                }
+                            }
+                            return null;
+                        };
+                        $sArrestDate = $pickArrestValue([
+                            $sItem['date_of_arrest'] ?? null,
+                            $sItem['arrest_date'] ?? null,
+                            $sDocketSuspect['date_of_arrest'] ?? null,
+                            $sDocketSuspect['arrest_date'] ?? null,
+                            $case->arrest_date ?? null,
+                            $docketData['arrest_date'] ?? null,
+                            $docketData['date_of_arrest'] ?? null,
+                        ]);
+                        $sArrestTime = $pickArrestValue([
+                            $sItem['time_of_arrest'] ?? null,
+                            $sItem['arrest_time'] ?? null,
+                            $sDocketSuspect['time_of_arrest'] ?? null,
+                            $sDocketSuspect['arrest_time'] ?? null,
+                            $case->arrest_time ?? null,
+                            $docketData['arrest_time'] ?? null,
+                            $docketData['time_of_arrest'] ?? null,
+                        ]);
                         $sFacility =
                             $sItem['holding_facility'] ??
                             ($sItem['facility'] ??
@@ -3917,8 +3828,8 @@
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest Date &amp; Time</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
-                                        {{ $sArrestDate ? \Carbon\Carbon::parse($sArrestDate)->format('M d, Y') : 'N/A' }}
-                                        {{ $sArrestTime ? "@ {$sArrestTime}" : '' }}
+                                        {{ !empty($sArrestDate) ? \Carbon\Carbon::parse($sArrestDate)->format('M d, Y') : 'N/A' }}
+                                        {{ !empty($sArrestTime) ? "@ {$sArrestTime}" : '' }}
                                     </div>
                                 </div>
                             </div>
@@ -3995,8 +3906,8 @@
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest
                                         Date &amp; Time</div>
                                     <div class="font-bold text-slate-900 text-sm">
-                                        {{ $sArrestDate ? \Carbon\Carbon::parse($sArrestDate)->format('M d, Y') : 'N/A' }}
-                                        {{ $sArrestTime ? "@ {$sArrestTime}" : '' }}
+                                        {{ !empty($sArrestDate) ? \Carbon\Carbon::parse($sArrestDate)->format('M d, Y') : 'N/A' }}
+                                        {{ !empty($sArrestTime) ? "@ {$sArrestTime}" : '' }}
                                     </div>
                                 </div>
                                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -4111,20 +4022,35 @@
                                                     {{ $aEx['category'] ?? ($aEx['exhibit_category'] ?? 'Associate Exhibit') }}
                                                 </div>
                                             </div>
+                                            @php
+                                                $aExCatVal = $aEx['category'] ?? ($aEx['exhibit_category'] ?? '');
+                                                $isMoneyExA = in_array(strtolower(trim((string)$aExCatVal)), ['money', 'currency', 'cash']);
+                                                $rawSeizureNameA = $aEx['seizure_name'] ?? null;
+                                                $rawCommodityNameA = $aEx['commodity_name'] ?? ($aEx['seizure_name_currency'] ?? null);
+                                                if (!empty($rawCommodityNameA) && (empty($rawSeizureNameA) || in_array(strtolower(trim((string)$rawSeizureNameA)), ['exhibit', 'exhibits', 'general exhibit', 'confiscated exhibit']))) {
+                                                    $displayNameA = $rawCommodityNameA;
+                                                } else {
+                                                    $displayNameA = (!empty($rawCommodityNameA) && !in_array(strtolower(trim((string)$rawCommodityNameA)), ['exhibit', 'exhibits']))
+                                                        ? $rawCommodityNameA
+                                                        : ($rawSeizureNameA ?? ($aEx['name'] ?? 'N/A'));
+                                                }
+                                            @endphp
                                             <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
                                                 <div
                                                     class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                                                     Exhibit / Commodity Name</div>
                                                 <div class="font-extrabold text-slate-900 text-xs mt-0.5">
-                                                    {{ $aEx['seizure_name'] ?? ($aEx['name'] ?? 'N/A') }}</div>
+                                                    {{ $displayNameA }}</div>
                                             </div>
                                             <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
                                                 <div
                                                     class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                    Quantity / Weight</div>
+                                                    {{ $isMoneyExA || !empty($aEx['amount']) ? 'Amount / Quantity' : 'Quantity / Weight' }}</div>
                                                 <div
                                                     class="font-extrabold text-slate-900 font-mono-code text-xs mt-0.5">
-                                                    @if (!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
+                                                    @if ($isMoneyExA || !empty($aEx['amount']))
+                                                        {{ !empty($aEx['amount']) ? "Amount: {$aEx['amount']}" : (!empty($aEx['seizure_quantity']) ? "Amount: {$aEx['seizure_quantity']}" : 'N/A') }}
+                                                    @elseif (!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
                                                         {{ implode(' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
                                                     @else
                                                         N/A
@@ -5240,15 +5166,26 @@
                                 $allGsaForReview,
                                 $sItem['id'] ?? null,
                                 $sName,
-                            )->merge(
-                                \App\Models\SuspectNlrReport::filterForSuspect(
-                                    $allNlrForReview,
-                                    $sItem['id'] ?? null,
-                                    $sName,
-                                )
-                            )->unique(function ($item) {
-                                return get_class($item) . '_' . $item->id;
+                            );
+                            if (!empty($currSuspectHasDrug)) {
+                                $sGsaFiles = $sGsaFiles->merge(
+                                    \App\Models\SuspectNlrReport::filterForSuspect(
+                                        $allNlrForReview,
+                                        $sItem['id'] ?? null,
+                                        $sName,
+                                    )
+                                );
+                            }
+                            $sGsaFiles = $sGsaFiles->unique(function ($item) {
+                                return !empty($item->file_path) ? $item->file_path : (get_class($item) . '_' . $item->id);
                             })->values();
+                            $renderedSuspectReportKeys = $renderedSuspectReportKeys ?? [];
+                            foreach ($sGsaFiles as $rf) {
+                                $renderedSuspectReportKeys[get_class($rf) . '_' . ($rf->id ?? spl_object_id($rf))] = true;
+                                if (!empty($rf->file_path)) {
+                                    $renderedSuspectReportKeys['path:' . (string) $rf->file_path] = true;
+                                }
+                            }
                         @endphp
                         @include('partials.gsa_report_files', ['gsaFiles' => $sGsaFiles, 'gsaForName' => $sName])
 
@@ -5536,9 +5473,18 @@
                             $case->case_number ?? $case->id ?? null,
                             $case->id ?? null,
                         );
-                        $jointCaseReportFiles = $allGsaForReview->merge($allNlrForReview)->unique(function ($item) {
-                            return get_class($item) . '_' . $item->id;
-                        })->values();
+                        $renderedSuspectReportKeys = $renderedSuspectReportKeys ?? [];
+                        $jointCaseReportFiles = $allGsaForReview->merge($allNlrForReview)
+                            ->unique(function ($item) {
+                                return !empty($item->file_path) ? $item->file_path : (get_class($item) . '_' . $item->id);
+                            })
+                            ->reject(function ($item) use ($renderedSuspectReportKeys) {
+                                $idKey = get_class($item) . '_' . ($item->id ?? spl_object_id($item));
+                                $pathKey = !empty($item->file_path) ? ('path:' . (string) $item->file_path) : null;
+                                return isset($renderedSuspectReportKeys[$idKey])
+                                    || ($pathKey !== null && isset($renderedSuspectReportKeys[$pathKey]));
+                            })
+                            ->values();
                     @endphp
                     @if (!empty($jointCaseReportFiles) && count($jointCaseReportFiles) > 0)
                         @include('partials.gsa_report_files', [
@@ -5548,232 +5494,28 @@
                     @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
-                    @if (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']) && $activeSuspectHasDrugExhibit)
-                        @include('partials.lab_examination_result_card', [
-                            'labExam' => $savedJointLabExam,
+                    @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
+                        @foreach ($savedJointLabExamCards as $labCard)
+                            @include('partials.lab-examination-card', [
+                                'labExam' => $labCard,
+                                'labHeadingName' => $labCard['labHeadingName'] ?? ($savedJointLabHeadingName ?? $jointDossierHeadingName),
+                                'case' => $case,
+                            ])
+                        @endforeach
+                    @elseif (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']))
+                        @include('partials.lab-examination-card', [
+                            'labExam' => $savedJointLabExamCard ?? $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
                             'case' => $case,
                         ])
                     @endif
                 @endif
 
-                @if (!empty($allCaseExhibits) && count($allCaseExhibits) > 0)
-                    <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
-                    <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm mt-4">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-                            <div>
-                                <h3 class="text-sm font-black text-slate-900">Seizures (Commodities Inventory)</h3>
-                                <p class="text-[11px] text-slate-500">Master record of confiscated substances,
-                                    exhibits, and vault allocation for all suspects</p>
-                            </div>
-                            <span
-                                class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                {{ count($allCaseExhibits) }} ITEM(S) LOGGED
-                            </span>
-                        </div>
-
-                        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
-                                    <tr>
-                                        <th class="py-2.5 px-4 font-bold">Item #</th>
-                                        <th class="py-2.5 px-4 font-bold">Exhibit Image</th>
-                                        <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
-                                        <th class="py-2.5 px-4 font-bold">Category</th>
-                                        <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
-                                        <th class="py-2.5 px-4 font-bold">Source of Exhibits</th>
-                                        <th class="py-2.5 px-4 font-bold">Quantity</th>
-                                        <th class="py-2.5 px-4 font-bold">Weight / Unit</th>
-                                        <th class="py-2.5 px-4 font-bold">Packaging</th>
-                                        <th class="py-2.5 px-4 font-bold">Est. Value</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-800">
-                                    @foreach ($allCaseExhibits as $eIdx => $szItem)
-                                        @php
-                                            $szCat =
-                                                $szItem['category'] ??
-                                                ($szItem['exhibit_category'] ?? 'General Exhibit');
-                                            $szNameVal =
-                                                $szItem['seizure_name'] ??
-                                                ($szItem['commodity_name'] ??
-                                                    ($szItem['name'] ?? ($szItem['weapon_model'] ?? 'N/A')));
-                                            $szQtyVal = $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A');
-                                            $szWtVal =
-                                                !empty($szItem['seizure_weight']) || !empty($szItem['weight'])
-                                                    ? ($szItem['seizure_weight'] ?? $szItem['weight']) .
-                                                        ' ' .
-                                                        ($szItem['seizure_unit'] ?? ($szItem['unit'] ?? ''))
-                                                    : 'N/A';
-                                            $szPkgVal = $szItem['seizure_packaging'] ?? ($szItem['packaging'] ?? 'N/A');
-                                            $rawSzVal = $szItem['seizure_value'] ?? ($szItem['value'] ?? 'N/A');
-                                            $szValueVal =
-                                                !empty($rawSzVal) &&
-                                                !str_contains($rawSzVal, 'Item #') &&
-                                                !str_contains($rawSzVal, "\n")
-                                                    ? trim($rawSzVal)
-                                                    : 'N/A';
-                                            $szOwnerVal =
-                                                $szItem['resolved_owner'] ?? ($case->suspect_name ?? 'Primary Suspect');
-
-                                            $itemPhotos = $extractAllPhotosHelper($szItem);
-                                            if (empty($itemPhotos) && isset($case->id)) {
-                                                try {
-                                                    $dbMatch = \App\Models\Exhibit::where(function ($q) use ($case, $isMultiCase) {
-                                                        if ($isMultiCase) {
-                                                            $q->where('multiple_suspect_case_id', $case->id);
-                                                        } else {
-                                                            $q->where('single_suspect_case_id', $case->id);
-                                                        }
-                                                    })
-                                                        ->where(function ($q) use ($szItem) {
-                                                            if (!empty($szItem['exhibit_number'])) {
-                                                                $q->where('exhibit_number', $szItem['exhibit_number']);
-                                                            }
-                                                            if (!empty($szItem['seizure_name'])) {
-                                                                $q->orWhere('commodity_name', $szItem['seizure_name']);
-                                                            }
-                                                            if (!empty($szItem['name'])) {
-                                                                $q->orWhere('commodity_name', $szItem['name']);
-                                                            }
-                                                        })
-                                                        ->first();
-                                                    if ($dbMatch && !empty($dbMatch->evidence_photos)) {
-                                                        $itemPhotos = is_array($dbMatch->evidence_photos)
-                                                            ? $dbMatch->evidence_photos
-                                                            : (json_decode($dbMatch->evidence_photos, true) ?:
-                                                            []);
-                                                    }
-                                                } catch (\Throwable $e) {
-                                                }
-                                            }
-                                        @endphp
-                                        <tr>
-                                            <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">
-                                                #{{ $eIdx + 1 }}</td>
-                                            <td class="py-2.5 px-4">
-                                                @if (!empty($itemPhotos) && count($itemPhotos) > 0)
-                                                    @php
-                                                        $firstImg = $itemPhotos[0];
-                                                        $imgSrc = $formatPhotoUrlHelper($firstImg);
-                                                    @endphp
-                                                    <div class="relative group inline-block">
-                                                        <img src="{{ $imgSrc }}" alt="{{ $szNameVal }}"
-                                                            data-img-src="{{ $imgSrc }}"
-                                                            data-img-title="{{ $szNameVal }} — {{ $szOwnerVal }}"
-                                                            class="h-12 w-12 object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform"
-                                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
-                                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
-                                                        @if (count($itemPhotos) > 1)
-                                                            <span
-                                                                class="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[9px] font-mono-code font-bold px-1 rounded-full shadow">
-                                                                +{{ count($itemPhotos) - 1 }}
-                                                            </span>
-                                                        @endif
-                                                    </div>
-                                                @else
-                                                    <span
-                                                        class="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-mono-code rounded border border-slate-200">No
-                                                        Photo</span>
-                                                @endif
-                                            </td>
-                                            <td class="py-2.5 px-4 font-mono-code font-black text-slate-950">
-                                                {{ $szOwnerVal }}</td>
-                                            <td class="py-2.5 px-4 font-bold font-mono-code text-amber-700">
-                                                {{ $szCat }}</td>
-                                            <td class="py-2.5 px-4 font-extrabold text-slate-900">
-                                                <div>{{ $szNameVal }}</div>
-                                                @if(!empty($szItem['veh_reg_no']) || !empty($szItem['veh_vin']) || !empty($szItem['veh_condition']) || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage']) || !empty($szItem['veh_doc_ref']) || !empty($szItem['veh_owner_contact']) || !empty($szItem['veh_mods']) || !empty($szItem['veh_features']))
-                                                    <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
-                                                        @if(!empty($szItem['veh_reg_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">Reg: {{ $szItem['veh_reg_no'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_vin'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">VIN: {{ $szItem['veh_vin'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['veh_condition'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_doc_ref'])) <span class="bg-purple-100 text-purple-900 px-1.5 py-0.5 rounded">Doc: {{ $szItem['veh_doc_ref'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_owner_contact'])) <span class="bg-indigo-100 text-indigo-900 px-1.5 py-0.5 rounded">Contact: {{ $szItem['veh_owner_contact'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_fuel'])) <span class="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded">Fuel: {{ $szItem['veh_fuel'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_damage'])) <span class="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded">Dmg: {{ \Illuminate\Support\Str::limit($szItem['veh_damage'], 35) }}</span> @endif
-                                                        @if(!empty($szItem['veh_mods'])) <span class="bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded">Mods: {{ $szItem['veh_mods'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_features'])) <span class="bg-cyan-50 text-cyan-900 px-1.5 py-0.5 rounded">Features: {{ $szItem['veh_features'] }}</span> @endif
-                                                    </div>
-                                                @elseif(!empty($szItem['wpn_serial_no']) || !empty($szItem['wpn_calibre']) || !empty($szItem['wpn_loaded_status']) || !empty($szItem['wpn_condition']) || !empty($szItem['wpn_marks']) || !empty($szItem['wpn_location_found']))
-                                                    <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
-                                                        @if(!empty($szItem['wpn_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['wpn_serial_no'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_calibre'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">Cal: {{ $szItem['wpn_calibre'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_loaded_status'])) <span class="bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">{{ $szItem['wpn_loaded_status'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">{{ $szItem['wpn_condition'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_marks'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">Marks: {{ $szItem['wpn_marks'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_location_found'])) <span class="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">Loc: {{ $szItem['wpn_location_found'] }}</span> @endif
-                                                    </div>
-                                                @elseif(!empty($szItem['dev_serial_no']) || !empty($szItem['dev_imei1']) || !empty($szItem['dev_storage']))
-                                                    <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
-                                                        @if(!empty($szItem['dev_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['dev_serial_no'] }}</span> @endif
-                                                        @if(!empty($szItem['dev_imei1'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">IMEI: {{ $szItem['dev_imei1'] }}</span> @endif
-                                                        @if(!empty($szItem['dev_storage'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['dev_storage'] }}</span> @endif
-                                                    </div>
-                                                @elseif(!empty($szItem['other_exhibit_description']) || !empty($szItem['other_description']))
-                                                    <div class="mt-1 text-[11px] text-slate-600 font-normal italic">
-                                                        {{ \Illuminate\Support\Str::limit($szItem['other_exhibit_description'] ?? $szItem['other_description'], 60) }}
-                                                    </div>
-                                                @endif
-                                                @if(!empty($szItem['exhibit_remark']) || !empty($szItem['remark']))
-                                                    <div class="mt-1 text-[11px] text-slate-600 font-medium italic flex items-start gap-1">
-                                                        <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 uppercase not-italic">Remark:</span>
-                                                        <span>{{ $szItem['exhibit_remark'] ?? $szItem['remark'] }}</span>
-                                                    </div>
-                                                @endif
-                                            </td>
-                                            <td class="py-2.5 px-4 font-mono-code text-slate-700">
-                                                {{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szQtyVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szWtVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szPkgVal }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code font-bold text-emerald-700">
-                                                {{ $szValueVal }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                        @if (!empty($allCaseExhibitPhotos) && count($allCaseExhibitPhotos) > 0)
-                            <div class="pt-3 border-t border-slate-100">
-                                <h4
-                                    class="text-xs font-bold text-slate-700 uppercase font-mono-code mb-2 flex items-center gap-1.5">
-                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    Exhibit Photo Gallery ({{ count($allCaseExhibitPhotos) }} images)
-                                </h4>
-                                <div class="flex flex-wrap gap-2">
-                                    @foreach ($allCaseExhibitPhotos as $pIdx => $gPhoto)
-                                        @php
-                                            $gSrc = $formatPhotoUrlHelper($gPhoto);
-                                        @endphp
-                                        <div class="relative group cursor-pointer"
-                                            data-img-src="{{ $gSrc }}"
-                                            data-img-title="Exhibit Image #{{ $pIdx + 1 }}"
-                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))">
-                                            <img src="{{ $gSrc }}"
-                                                class="h-16 w-16 object-cover rounded-xl border border-slate-200 shadow-2xs group-hover:border-emerald-500 group-hover:scale-105 transition-all"
-                                                onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
-                                            <div
-                                                class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center">
-                                                <svg class="w-4 h-4 text-white" fill="none"
-                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                </svg>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                @endif
+                @include('partials.exhibit-table', [
+                    'exhibits' => $allCaseExhibits,
+                    'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
+                    'case' => $case,
+                ])
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
                 @if ($isLabAnalysis)
@@ -6451,7 +6193,7 @@
                             <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
                                 <div class="flex items-center space-x-3">
                                     <div
-                                        class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                                        class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round"
@@ -6987,7 +6729,7 @@
                         <!-- MANIFEST HEADER BAR WITH DYNAMIC SEIZED ITEMS NUMBER INPUT -->
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-300/60 pb-4 mb-6 gap-3">
                             <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 </div>
                                 <div>
@@ -7233,13 +6975,13 @@
                                                             </button>
                                                         </li>
                                                         <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Gold', event)">
+                                                            onclick="selectExhibitCategory('Precious Stones', event)">
                                                             <button type="button"
                                                                 class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
                                                                 <div>
-                                                                    <div class="font-extrabold text-slate-900">Gold</div>
+                                                                    <div class="font-extrabold text-slate-900">Precious Stones</div>
                                                                     <div class="text-[10px] text-slate-500 font-normal">
-                                                                        Bullion, Bars, Smuggled Metals</div>
+                                                                        Diamonds, Gemstones, Gold, Bullion</div>
                                                                 </div>
                                                                 <span
                                                                     class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
@@ -7783,8 +7525,8 @@
                                                 <div class="relative flex items-center group">
                                                     <span
                                                         class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                    <input type="number" step="0.01" id="newSeizureQuantity"
-                                                        placeholder="e.g. 10"
+                                                    <input type="text" inputmode="decimal" id="newSeizureQuantity"
+                                                        placeholder="e.g. 10 or 50,000"
                                                         class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
@@ -8827,6 +8569,36 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- INVESTIGATING OFFICER -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Investigating Officer
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
+                                    <!-- SOURCE / REQUESTING UNIT -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Source/Requesting Unit
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
 
@@ -10298,83 +10070,6 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
         updateClock();
         setInterval(updateClock, 1000);
 
-        /* ── Approve Case Action ─────────────────────── */
-        async function approveCaseAction(ref) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch(`/cases/${ref}/approve`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    }
-                });
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    // Update UI status
-                    const badge = document.getElementById('headerStatusBadge');
-                    if (badge) {
-                        badge.innerHTML =
-                            `<span class="status-badge status-done"><svg class="w-3 h-3 mr-1 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> Authorized</span>`;
-                    }
-
-                    // Hide approve/decline buttons and display signed badge
-                    const container = document.getElementById('executiveActionContainer');
-                    if (container) {
-                        container.innerHTML =
-                            `<div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-300 font-mono-code font-bold text-xs shadow-sm"><svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> OFFICIALLY APPROVED &amp; SIGNED BY DIRECTORATE HEAD</div>`;
-                    }
-
-                    showToast(
-                        `✔ Case ${ref} has been officially APPROVED and signed off by ${officerName} (${officerRole}).`
-                    );
-                } else {
-                    showToast(`❌ Error approving case: ${data.message || 'Server error'}`);
-                }
-            } catch (e) {
-                showToast(`❌ Error connecting to server.`);
-            }
-        }
-
-        /* ── Decline Case Action ─────────────────────── */
-        async function declineCaseAction(ref) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch(`/cases/${ref}/decline`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    }
-                });
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    // Update UI status
-                    const badge = document.getElementById('headerStatusBadge');
-                    if (badge) {
-                        badge.innerHTML =
-                            `<span class="status-badge status-declined">Declined</span>`;
-                    }
-
-                    const container = document.getElementById('executiveActionContainer');
-                    if (container) {
-                        container.innerHTML =
-                            `<div class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-800 border border-red-300 font-mono-code font-bold text-xs shadow-sm">CASE DECLINED BY DIRECTORATE HEAD</div>`;
-                    }
-
-                    showToast(`❌ Case ${ref} has been officially DECLINED by ${officerName} (${officerRole}).`);
-                } else {
-                    showToast(`❌ Error declining case: ${data.message || 'Server error'}`);
-                }
-            } catch (e) {
-                showToast(`❌ Error connecting to server.`);
-            }
-        }
-
         /* ── Toast Notification (Bootstrap Design) ──────────────────────── */
         function showToast(msg) {
             let container = document.getElementById('bsToastContainer');
@@ -10606,7 +10301,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                                 `<span class="status-badge bg-white text-slate-900 border border-slate-300">Awaiting Sign-off</span>`;
                         }
                         showToast(
-                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`
+                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings.`
                         );
                     } else {
                         showToast(
@@ -10972,18 +10667,25 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             }
 
             let presumptive;
+            let presumptivePresence = null;
+            let presumptivePercentage = null;
             if (checkedRadio.value === 'NO') {
-                presumptive = 'NO (Negative Reaction)';
+                presumptive = 'NO';
             } else {
                 const rows = document.querySelectorAll(
                     '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
                 const validDetails = [];
+                const presList = [];
+                const pctList = [];
 
                 rows.forEach((row) => {
                     const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
                     const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
                     if (presence && percent) {
-                        validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${percent}%`);
+                        const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
+                        validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
+                        presList.push(presence);
+                        pctList.push(pctFormatted);
                     }
                 });
 
@@ -11009,6 +10711,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 presumptive = validDetails.length > 1
                     ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
                     : `YES (${validDetails[0]})`;
+                presumptivePresence = presList.join('; ');
+                presumptivePercentage = pctList.join('; ');
             }
 
             // ── Confirmatory Test validation (no mock default) ──
@@ -11062,8 +10766,13 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         lab_exhibit_number: document.getElementById('labExhibitNumberInput')?.value ||
                             '',
                         laboratory_number: document.getElementById('formLabNumber')?.value || '',
+                        purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || '',
+                        preliminary_exam_procedure: document.getElementById('labPreliminaryExamProcedureInput')?.value || '',
+                        screening_method: Array.from(document.querySelectorAll('#screeningMethodsContainer .screening-method-input')).map(el => el.value.trim()).filter(Boolean).join(', '),
                         lab_unit: labUnit,
                         presumptive_result: presumptive,
+                        presumptive_presence: presumptivePresence,
+                        presumptive_percentage: presumptivePercentage,
                         confirmatory_test_result: confirmatory,
                         sample_weight_description: document.getElementById(
                             'sampleWeightDescriptionReview')?.value || '',
@@ -11084,6 +10793,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         confirmatory_specifications: document.getElementById(
                             'confirmatorySpecificationsReview')?.value || '',
                         confirmatory_remark: document.getElementById('confirmatoryRemarkReview')
+                            ?.value || '',
+                        disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')
                             ?.value || '',
                         lab_date_received: dateReceived,
                         lab_date_started: dateStarted,
@@ -11395,6 +11106,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
+                    const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                    const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                     const devModel = block.querySelector('#newDevModel')?.value || '';
                     const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -11509,6 +11222,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             source_of_exhibits: sourceOfExhibits,
                             exhibit_remark: exhibitRemark,
                             seizure_officer: seizingOfficer,
+                            investigating_officer: investigatingOfficer,
+                            source_requesting_unit: sourceRequestingUnit,
                             dev_model: devModel,
                             dev_serial_no: devSerialNo,
                             dev_imei1: devImei1,
@@ -11679,18 +11394,25 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                     }
 
                     let presumptive;
+                    let presumptivePresence = null;
+                    let presumptivePercentage = null;
                     if (checkedRadio.value === 'NO') {
-                        presumptive = 'NO (Negative Reaction)';
+                        presumptive = 'NO';
                     } else {
                         const rows = document.querySelectorAll(
                             '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
                         const validDetails = [];
+                        const presList = [];
+                        const pctList = [];
 
                         rows.forEach((row) => {
                             const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
                             const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
                             if (presence && percent) {
-                                validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${percent}%`);
+                                const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
+                                validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
+                                presList.push(presence);
+                                pctList.push(pctFormatted);
                             }
                         });
 
@@ -11722,6 +11444,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         presumptive = validDetails.length > 1
                             ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
                             : `YES (${validDetails[0]})`;
+                        presumptivePresence = presList.join('; ');
+                        presumptivePercentage = pctList.join('; ');
                     }
 
                     // ── Confirmatory Test validation (no mock default) ──
@@ -11773,8 +11497,13 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             lab_exhibit_number: document.getElementById('labExhibitNumberInput')?.value ||
                                 '',
                             laboratory_number: document.getElementById('formLabNumber')?.value || '',
+                            purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || '',
+                            preliminary_exam_procedure: document.getElementById('labPreliminaryExamProcedureInput')?.value || '',
+                            screening_method: Array.from(document.querySelectorAll('#screeningMethodsContainer .screening-method-input')).map(el => el.value.trim()).filter(Boolean).join(', '),
                             lab_unit: labUnit,
                             presumptive_result: presumptive,
+                            presumptive_presence: presumptivePresence,
+                            presumptive_percentage: presumptivePercentage,
                             confirmatory_test_result: confirmatory,
                             sample_weight_description: document.getElementById(
                                 'sampleWeightDescriptionReview')?.value || '',
@@ -11795,6 +11524,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                             confirmatory_specifications: document.getElementById(
                                 'confirmatorySpecificationsReview')?.value || '',
                             confirmatory_remark: document.getElementById('confirmatoryRemarkReview')
+                                ?.value || '',
+                            disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')
                                 ?.value || '',
                             lab_date_received: dateReceived,
                             lab_date_started: dateStarted,
@@ -13376,6 +13107,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
@@ -14701,6 +14434,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                 const location = block.querySelector('#newSeizureLocation')?.value || '';
                 const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                 const seizingOfficer = getSeizureOfficersFormatted(block);
+                const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                 const devModel = block.querySelector('#newDevModel')?.value || '';
                 const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -14805,6 +14540,7 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         name: seizureName,
                         seizure_quantity: quantity,
                         quantity: quantity,
+                        amount: (category === 'Money' || category === 'Currency' || category === 'Cash') ? (quantity || value || '') : (block.querySelector('#newSeizureAmount')?.value || ''),
                         seizure_weight: weight,
                         weight: weight,
                         seizure_unit: unit,
@@ -14820,6 +14556,8 @@ $secondaryBadgeBg = $isCoSuspect ? 'bg-blue-600' : 'bg-amber-600';
                         source_of_exhibits: sourceOfExhibits,
                         exhibit_remark: exhibitRemark,
                         seizure_officer: seizingOfficer,
+                        investigating_officer: investigatingOfficer,
+                        source_requesting_unit: sourceRequestingUnit,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,

@@ -7,6 +7,52 @@ use Closure;
 class DrugExhibitClassifier
 {
     /**
+     * Standard list of controlled substances recognized by the Forensic Directorate.
+     */
+    public const KNOWN_CONTROLLED_SUBSTANCES = [
+        'Tapentadol',
+        'Tramadol',
+        'Heroin',
+        'Cocaine',
+        'Cannabis',
+        'Methamphetamine',
+        'MDMA',
+        'Ephedrine',
+        'Morphine',
+        'Codeine',
+        'Fentanyl',
+        'Ketamine',
+        'Methaqualone',
+        'Hashish',
+        'Opium',
+        'Diazepam',
+        'Pregabalin',
+        'Amphetamine',
+        'Marijuana',
+        'Rohypnol',
+        'Diacetylmorphine',
+        'Ecstasy',
+        'Barbiturate',
+        'Benzodiazepine',
+    ];
+
+    /**
+     * Extract a known controlled substance from a descriptive text string.
+     */
+    public static function extractKnownSubstance(?string $text): ?string
+    {
+        if (empty($text)) {
+            return null;
+        }
+        foreach (self::KNOWN_CONTROLLED_SUBSTANCES as $known) {
+            if (stripos($text, $known) !== false) {
+                return $known;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Determine whether an exhibit/seizure item is a drug exhibit.
      */
     public function isDrugExhibit(mixed $item): bool
@@ -14,15 +60,20 @@ class DrugExhibitClassifier
         if (empty($item)) {
             return false;
         }
+        if ($item instanceof \App\Models\ForensicCase) {
+            return $item->isDrugCase();
+        }
         if (is_object($item)) {
-            $item = (array) $item;
+            $item = method_exists($item, 'toArray') ? $item->toArray() : (array) $item;
         }
         if (!is_array($item)) {
             return false;
         }
-        $cat = strtolower(trim((string) ($item['exhibit_category'] ?? ($item['category'] ?? ''))));
-        $type = strtolower(trim((string) ($item['exhibit_type'] ?? ($item['type'] ?? ''))));
-        $dName = strtolower(trim((string) ($item['seizure_name_drug'] ?? '')));
+        $cat = strtolower(trim((string) ($item['exhibit_category'] ?? ($item['category'] ?? ($item['seizure_category'] ?? '')))));
+        $type = strtolower(trim((string) ($item['exhibit_type'] ?? ($item['type'] ?? ($item['seizure_type'] ?? '')))));
+        $dName = strtolower(trim((string) ($item['seizure_name_drug'] ?? ($item['drug_type'] ?? ''))));
+        $dClass = strtolower(trim((string) ($item['drug_classification'] ?? '')));
+        $substance = strtolower(trim((string) ($item['substance_identification'] ?? '')));
 
         if (str_contains($cat, 'non-drug') || str_contains($type, 'non-drug')) {
             return false;
@@ -39,6 +90,9 @@ class DrugExhibitClassifier
             'currency',
             'cash',
             'gold',
+            'precious',
+            'stone',
+            'diamond',
             'sim card',
         ];
         foreach ($nonDrugCategories as $ndc) {
@@ -49,8 +103,32 @@ class DrugExhibitClassifier
         if (!empty($dName) && !in_array($dName, ['n/a', 'none', 'null', '-', 'unknown'], true)) {
             return true;
         }
+
+        if (!empty($substance) && !in_array($substance, ['n/a', 'none', 'null', '-', 'unknown', 'unspecified'], true)) {
+            if (self::extractKnownSubstance($substance) !== null) {
+                return true;
+            }
+        }
+
+        $searchContext = ($item['commodity_name'] ?? '') . ' ' .
+            ($item['seizure_name'] ?? '') . ' ' .
+            ($item['name'] ?? '') . ' ' .
+            ($item['exhibit_name'] ?? '') . ' ' .
+            ($item['contents'] ?? '') . ' ' .
+            ($item['seizure_contents'] ?? '') . ' ' .
+            ($item['description'] ?? '') . ' ' .
+            ($item['substance_identification'] ?? '') . ' ' .
+            ($item['drug_classification'] ?? '');
+
+        if (self::extractKnownSubstance($searchContext) !== null) {
+            return true;
+        }
+
         return str_contains($cat, 'drug')
             || str_contains($cat, 'narcotic')
+            || str_contains($dClass, 'drug')
+            || str_contains($dClass, 'narcotic')
+            || str_contains($dClass, 'psychotropic')
             || (str_contains($type, 'drug') && !str_contains($type, 'non-drug'));
     }
 
@@ -197,6 +275,8 @@ class DrugExhibitClassifier
     {
         $suspectHasDrug = false;
         $suspectHasElectronic = false;
+        $suspectHasWeaponOrVehicle = false;
+        $suspectHasMoneyOrGold = false;
         $suspectHasCrimeScene = false;
 
         foreach ($suspectLinkedExhibits as $ex) {
@@ -221,13 +301,21 @@ class DrugExhibitClassifier
 
             if (
                 str_contains($cat, 'weapon') || str_contains($cat, 'ammunition') || str_contains($cat, 'vehicle')
-                || str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold')
-                || str_contains($sName, 'weapon') || str_contains($sName, 'vehicle') || str_contains($sName, 'car') || str_contains($sName, 'cash')
+                || str_contains($sName, 'weapon') || str_contains($sName, 'vehicle') || preg_match('/\bcar\b/i', $sName)
             ) {
-                $suspectHasCrimeScene = true;
+                $suspectHasWeaponOrVehicle = true;
+            }
+
+            if (
+                str_contains($cat, 'currency') || str_contains($cat, 'cash') || str_contains($cat, 'money') || str_contains($cat, 'gold')
+                || str_contains($cat, 'precious') || str_contains($cat, 'stone')
+                || str_contains($sName, 'cash')
+            ) {
+                $suspectHasMoneyOrGold = true;
             }
         }
 
+        $suspectHasCrimeScene = $suspectHasWeaponOrVehicle || $suspectHasMoneyOrGold;
         $activeSuspectHasDrugExhibit = (bool) !empty($suspectHasDrug);
         $hasAnySpecialistUnit = $suspectHasCrimeScene || $suspectHasDrug || $suspectHasElectronic;
 
@@ -235,6 +323,8 @@ class DrugExhibitClassifier
             'suspectHasDrug' => $suspectHasDrug,
             'suspectHasElectronic' => $suspectHasElectronic,
             'suspectHasCrimeScene' => $suspectHasCrimeScene,
+            'suspectHasWeaponOrVehicle' => $suspectHasWeaponOrVehicle,
+            'suspectHasMoneyOrGold' => $suspectHasMoneyOrGold,
             'activeSuspectHasDrugExhibit' => $activeSuspectHasDrugExhibit,
             'hasAnySpecialistUnit' => $hasAnySpecialistUnit,
         ];

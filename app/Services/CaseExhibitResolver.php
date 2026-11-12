@@ -119,6 +119,17 @@ class CaseExhibitResolver
             $exNo = $item['exhibit_number'] ?? null;
             $dbId = $item['id'] ?? null;
             $cat = $item['category'] ?? ($item['exhibit_category'] ?? 'General Exhibit');
+            $rawSeizureName = $item['seizure_name'] ?? null;
+            $rawCommodity = $item['commodity_name'] ?? ($item['seizure_name_currency'] ?? null);
+            if (!empty($rawCommodity) && (empty($rawSeizureName) || in_array(strtolower(trim((string)$rawSeizureName)), ['exhibit', 'exhibits']))) {
+                $item['seizure_name'] = $rawCommodity;
+            }
+            if (empty($item['commodity_name']) && !empty($rawCommodity)) {
+                $item['commodity_name'] = $rawCommodity;
+            }
+            if (!isset($item['amount']) && in_array(strtolower(trim((string)$cat)), ['money', 'currency', 'cash'])) {
+                $item['amount'] = $item['seizure_quantity'] ?? ($item['quantity'] ?? null);
+            }
             $name =
                 $item['seizure_name'] ??
                 ($item['commodity_name'] ??
@@ -189,7 +200,11 @@ class CaseExhibitResolver
         foreach ($dbExsList as $dbE) {
             $arr = $dbE->toArray();
             $arr['category'] = $dbE->exhibit_category ?? 'General Exhibit';
-            $arr['seizure_name'] = $dbE->commodity_name ?? ($dbE->wpn_model ?? 'Confiscated Exhibit');
+            $arr['commodity_name'] = $dbE->commodity_name;
+            $arr['amount'] = $dbE->amount ?? (in_array(strtolower(trim((string)$dbE->exhibit_category)), ['money', 'currency', 'cash']) ? $dbE->seizure_quantity : null);
+            $arr['seizure_name'] = (!empty($dbE->commodity_name) && !in_array(strtolower(trim((string)$dbE->commodity_name)), ['exhibit', 'exhibits']))
+                ? $dbE->commodity_name
+                : ($dbE->wpn_model ?? ($dbE->commodity_name ?? 'Confiscated Exhibit'));
             $arr['owner_name'] = $dbE->suspect
                 ? $dbE->suspect->suspect_name
                 : ($dbE->associated_person ?? ($dbE->veh_owner ?? ($dbE->wpn_owner ?? ($dbE->dev_owner ?? null))));

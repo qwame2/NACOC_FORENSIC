@@ -37,7 +37,7 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
         $html = $response->getContent();
 
         // 1. Manifest Enhancements
-        $this->assertStringContainsString('Packaging as Received / Commodity Name', $html, 'Expected "Packaging as Received / Commodity Name" label.');
+        $this->assertStringContainsString('Packaging as Received', $html, 'Expected "Packaging as Received" label.');
         $this->assertStringContainsString('Contents (Visual)', $html, 'Expected "Contents (Visual)" label.');
         $this->assertStringContainsString('id="newSeizureContents"', $html, 'Expected "newSeizureContents" input id.');
         $this->assertStringContainsString('id="manifestDescriptionOfExhibits"', $html, 'Expected "manifestDescriptionOfExhibits" textarea id.');
@@ -71,6 +71,9 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
         $this->assertStringContainsString('function addPresumptiveSpecimenRow', $html);
         $this->assertStringContainsString('function addConfirmatoryDetectedSubstanceRow', $html);
         $this->assertStringContainsString('function updateConfirmatorySampleReserved', $html);
+
+        // Exhibit ID placeholder
+        $this->assertStringContainsString('placeholder="A, B...Ai, Aii, Bi, Bii...., A1, A2, B1, B2"', $html);
     }
 
     #[Test]
@@ -108,11 +111,44 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
         $response->assertStatus(200);
         $html = $response->getContent();
 
-        $this->assertStringContainsString('Packaging as Received / Commodity Name', $html);
+        $this->assertStringContainsString('Packaging as Received', $html);
         $this->assertStringContainsString('Contents (Visual)', $html);
         $this->assertStringContainsString('id="newSeizureContents"', $html);
         $this->assertStringContainsString('id="manifestDescriptionOfExhibits"', $html);
         $this->assertStringContainsString('Description of Exhibit(s)', $html);
+
+        // Section 5 Dynamic Containers on show_review
+        $this->assertStringContainsString('id="labExhibitCardsContainer"', $html, 'Expected "labExhibitCardsContainer" in show_review.');
+        $this->assertStringContainsString('id="presumptiveTestExhibitsContainer"', $html, 'Expected "presumptiveTestExhibitsContainer" in show_review.');
+        $this->assertStringContainsString('id="confirmatoryTestExhibitsContainer"', $html, 'Expected "confirmatoryTestExhibitsContainer" in show_review.');
+
+        // Shared Confirmatory Test Info on show_review
+        $this->assertStringContainsString('Shared Confirmatory Test Information', $html, 'Expected shared confirmatory section in show_review.');
+        $this->assertStringContainsString('id="confirmatoryTestMethods"', $html, 'Expected shared test methods input in show_review.');
+        $this->assertStringContainsString('id="confirmatorySpecifications"', $html, 'Expected shared specifications input in show_review.');
+        $this->assertStringContainsString('id="confirmatoryRemark"', $html, 'Expected shared remark input in show_review.');
+
+        $confirmatoryPos = strpos($html, 'Confirmatory Test (Laboratory Verification)');
+        $sharedConfPos = strpos($html, 'Shared Confirmatory Test Information');
+        $confContainerPos = strpos($html, 'id="confirmatoryTestExhibitsContainer"');
+        $this->assertNotFalse($confirmatoryPos);
+        $this->assertNotFalse($sharedConfPos);
+        $this->assertNotFalse($confContainerPos);
+        $this->assertGreaterThan($confirmatoryPos, $sharedConfPos, 'Shared Confirmatory section should follow Confirmatory Test section.');
+        $this->assertGreaterThan($confContainerPos, $sharedConfPos, 'Shared Confirmatory section should be outside and after confirmatoryTestExhibitsContainer.');
+
+        // JS functions on show_review
+        $this->assertStringContainsString('function syncSection4ExhibitsToLabSection', $html);
+        $this->assertStringContainsString('function selectLabExhibitCard', $html);
+        $this->assertStringContainsString('function syncPresumptiveContainerForExhibit', $html);
+        $this->assertStringContainsString('function syncConfirmatoryContainerForExhibit', $html);
+        $this->assertStringContainsString('function addPresumptiveSpecimenRow', $html);
+        $this->assertStringContainsString('function addConfirmatoryDetectedSubstanceRow', $html);
+        $this->assertStringContainsString('function updateConfirmatorySampleReserved', $html);
+
+        // Exhibit ID placeholder and empty initial value
+        $this->assertStringContainsString('placeholder="A, B...Ai, Aii, Bi, Bii...., A1, A2, B1, B2"', $html);
+        $this->assertStringContainsString('id="labCardExhibitNo_1"', $html);
     }
 
     #[Test]
@@ -240,5 +276,40 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
             'case_number' => 'NFC-2026-ASSOC-EX01',
             'description_of_exhibits' => 'Consignment examined under chain of custody ref #9988',
         ]);
+    }
+
+    #[Test]
+    public function lab_analysis_create_page_safely_removes_location_seized_input_only_for_lab_analysis(): void
+    {
+        $officer = $this->createLabOfficer();
+
+        $responseLab = $this->actingAs($officer)->get('/Lab_Analysis/create');
+        $responseLab->assertStatus(200);
+
+        // Verify Location Seized input is NOT present on Lab Analysis create page
+        $responseLab->assertDontSee('Location Seized', false);
+        $responseLab->assertDontSee('id="newSeizureLocation"', false);
+
+        // Verify Location Seized input remains present on other unit create pages
+        $responseDpf = $this->actingAs($officer)->get('/Digital_Forensics/create');
+        $responseDpf->assertStatus(200);
+        $responseDpf->assertSee('Location Seized', false);
+        $responseDpf->assertSee('id="newSeizureLocation"', false);
+
+        $responseCss = $this->actingAs($officer)->get('/Crime_Scene_Support/head/create');
+        $responseCss->assertStatus(200);
+        $responseCss->assertSee('Location Seized', false);
+        $responseCss->assertSee('id="newSeizureLocation"', false);
+
+        // Verify Source of Exhibits is placed on the right side of Time Seized and is required
+        $content = $responseLab->getContent();
+        $this->assertStringContainsString('Source of Exhibits <span class="text-red-600 font-bold">*</span>', $content);
+        $this->assertMatchesRegularExpression('/id="newSeizureSourceOfExhibits"[^>]*required/', $content);
+
+        $timePos = strpos($content, 'id="newSeizureTime"');
+        $sourcePos = strpos($content, 'id="newSeizureSourceOfExhibits"');
+        $this->assertNotFalse($timePos);
+        $this->assertNotFalse($sourcePos);
+        $this->assertLessThan($sourcePos, $timePos, 'Source of Exhibits must appear after (to the right of) Time Seized');
     }
 }

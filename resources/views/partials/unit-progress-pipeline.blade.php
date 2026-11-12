@@ -1,6 +1,6 @@
 {{--
     Partial: partials/unit-progress-pipeline.blade.php
-    Description: Renders the multi-unit directorate progress tracker, pipeline cards, HOF approval node, and status toolbar.
+    Description: Renders the multi-unit directorate progress tracker, pipeline cards, and status toolbar.
     Required Inputs (@props):
       - $unitProgress (array): Map of unit name => ['status', 'officer', 'updated_at', 'notes'].
       - $unitsList (array<int, string>): Ordered list of involved unit names.
@@ -58,8 +58,7 @@
                                 {{ $totalUnitsCount }}-Unit Directorate Progress &amp; Inter-Unit Workflow
                             </h2>
                             <p class="text-[11px] text-slate-500 font-medium leading-snug">
-                                All {{ $totalUnitsCount }} units build on this case. HOF approval triggers once all
-                                units complete their analysis.
+                                All {{ $totalUnitsCount }} units collaborate on this case. Real-time progress updates across specialized directorate units.
                             </p>
                         </div>
 
@@ -165,84 +164,6 @@
                                         @endif
                                     </div>
                                 @endforeach
-
-                                {{-- ── HOF Final Approval node ── --}}
-                                                                <div class="flex items-stretch gap-0">
-                                    {{-- Arrow into HOF --}}
-                                    <div class="flex items-center justify-center w-8 shrink-0 select-none">
-                                        <div class="flex flex-col items-center">
-                                            <div
-                                                class="w-6 border-t-2 border-dashed {{ $hofDone ? 'border-emerald-400' : 'border-slate-300' }}">
-                                            </div>
-                                            <svg class="w-3.5 h-3.5 -ml-1 {{ $hofDone ? 'text-emerald-500' : 'text-slate-300' }}"
-                                                fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd"
-                                                    d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-                                                    clip-rule="evenodd" />
-                                            </svg>
-                                        </div>
-                                    </div>
-
-                                    {{-- HOF card --}}
-                                    <div class="w-52 flex flex-col rounded-2xl border-2 overflow-hidden transition-all duration-300"
-                                        style="{{ $hofDone
-                                            ? 'background:linear-gradient(135deg,#0f172a,#1e293b);border-color:#334155;'
-                                            : 'background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-color:#cbd5e1;' }}">
-
-                                        <div class="px-3.5 pt-3.5 pb-2.5 border-b flex items-center justify-between gap-2"
-                                            style="{{ $hofDone ? 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);' : 'border-color:rgba(0,0,0,0.06);background:rgba(255,255,255,0.6);' }}">
-                                            <span
-                                                class="text-[9px] font-mono-code font-black uppercase tracking-widest {{ $hofDone ? 'text-slate-400' : 'text-slate-600' }}">
-                                                FINAL STEP
-                                            </span>
-                                            @if ($hofDone)
-                                                <span
-                                                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold font-mono-code uppercase border bg-emerald-900/60 text-emerald-300 border-emerald-700">
-                                                    UNLOCKED
-                                                </span>
-                                            @else
-                                                <span
-                                                    class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8.5px] font-black font-mono-code uppercase border bg-slate-200 text-slate-700 border-slate-400">
-                                                    LOCKED
-                                                </span>
-                                            @endif
-                                        </div>
-
-                                        <div class="flex-1 px-3.5 py-3 space-y-1.5">
-                                            <div
-                                                class="font-extrabold text-[12px] leading-snug {{ $hofDone ? 'text-white' : 'text-slate-800' }}">
-                                                Head of Forensic Directorate
-                                            </div>
-                                            <div class="flex items-center gap-1.5">
-                                                <svg class="w-3 h-3 {{ $hofDone ? 'text-emerald-400' : 'text-slate-500' }} shrink-0"
-                                                    fill="none" stroke="currentColor" stroke-width="2"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                                </svg>
-                                                <span
-                                                    class="text-[11px] {{ $hofDone ? 'text-emerald-300' : 'text-slate-600 font-semibold' }}">Executive
-                                                    Sign-off &amp; Approval</span>
-                                            </div>
-                                            @if (!$hofDone)
-                                                <div class="text-[10px] text-slate-600 font-semibold italic mt-1">
-                                                    Awaiting all units to complete</div>
-                                            @else
-                                                <div class="text-[10px] text-emerald-400 font-bold mt-1">✓ All units
-                                                    submitted — ready for sign-off</div>
-                                            @endif
-                                        </div>
-
-                                        <div class="px-3.5 py-2 border-t"
-                                            style="{{ $hofDone ? 'border-color:rgba(255,255,255,0.08);background:rgba(255,255,255,0.05);' : 'border-color:rgba(0,0,0,0.06);background:rgba(255,255,255,0.5);' }}">
-                                            <div
-                                                class="text-[9.5px] font-mono-code {{ $hofDone ? 'text-emerald-400' : 'text-slate-600 font-bold italic' }}">
-                                                {{ $hofDone ? 'Docket ready for HOF review' : 'Pending unit completions' }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                             </div>{{-- end flex pipeline --}}
                         </div>{{-- end overflow wrapper --}}
                     </div>{{-- end px-6 py-5 --}}
@@ -379,13 +300,13 @@
                                 </h4>
                                 <p class="text-[11px] text-slate-600 mt-0.5">
                                     All {{ $totalUnitsCount }} specialized units have completed and saved their
-                                    findings. Docket is submitted for HOF executive sign-off.
+                                    findings.
                                 </p>
                             </div>
                         </div>
                         <span
                             class="px-3 py-1.5 rounded-full text-[10px] font-mono-code font-extrabold uppercase tracking-wider shrink-0 bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-2xs">
-                            AWAITING HOF SIGN-OFF
+                            ALL UNITS COMPLETED
                         </span>
                     </div>
 

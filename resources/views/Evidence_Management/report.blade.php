@@ -114,7 +114,7 @@
 
         /* Professional Print Media Formatting */
         @media print {
-            aside, header, #reportFilterConsole, #paginationSection, #printActionButtons, #dossierModal, .no-print {
+            aside, header, #reportFilterConsole, #paginationSection, #printActionButtons, #dossierModal, #reportNotesModal, .no-print {
                 display: none !important;
             }
             body, .report-print-container {
@@ -127,12 +127,23 @@
             .print-only-header {
                 display: block !important;
             }
+            * {
+                scrollbar-width: none !important;
+                -ms-overflow-style: none !important;
+            }
+            ::-webkit-scrollbar {
+                display: none !important;
+            }
+            .overflow-x-auto {
+                overflow: visible !important;
+            }
             table {
                 width: 100% !important;
                 border-collapse: collapse !important;
+                border: 2px solid #0f172a !important;
             }
             th, td {
-                border: 1px solid #cbd5e1 !important;
+                border: 1.5px solid #475569 !important;
                 padding: 6px 8px !important;
             }
             tr {
@@ -181,7 +192,7 @@
                         <span>Exhibit Vault</span>
                     </a>
 
-                    <button type="button" onclick="window.print()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-emerald-900/30 cursor-pointer">
+                    <button type="button" onclick="openReportNotesModal('print')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-emerald-900/30 cursor-pointer">
                         <i data-lucide="printer" class="w-4 h-4"></i>
                         <span>Print / Export PDF</span>
                     </button>
@@ -329,7 +340,7 @@
                                     <label for="searchInput" class="block text-[11px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Search Exhibit / Case / Suspect
                                     </label>
-                                    <div class="relative">
+                                    <div class="relative flex items-center">
                                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
                                             <i data-lucide="search" class="w-3.5 h-3.5"></i>
                                         </span>
@@ -338,7 +349,12 @@
                                                id="searchInput" 
                                                value="{{ $search }}" 
                                                placeholder="Search exhibit #, property ID, commodity, suspect..." 
-                                               class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-all">
+                                               class="w-full pl-9 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 transition-all">
+                                        <button type="submit" 
+                                                title="Search"
+                                                class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer">
+                                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -347,7 +363,7 @@
                                     <label for="categorySelect" class="block text-[11px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Category
                                     </label>
-                                    <select name="category" id="categorySelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all cursor-pointer">
+                                    <select name="category" id="categorySelect" onchange="this.form.submit()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all cursor-pointer">
                                         <option value="all" {{ ($category === 'all' || empty($category)) ? 'selected' : '' }}>All Categories ({{ $totalExhibitsCount }})</option>
                                         <option value="drug" {{ str_contains(strtolower($category), 'drug') ? 'selected' : '' }}>Drugs &amp; Narcotics ({{ $drugsCount }})</option>
                                         <option value="weapon" {{ str_contains(strtolower($category), 'weapon') ? 'selected' : '' }}>Weapons &amp; Firearms ({{ $weaponsCount }})</option>
@@ -363,7 +379,7 @@
                                     <label for="actionStatusSelect" class="block text-[11px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Vault Status
                                     </label>
-                                    <select name="action_status" id="actionStatusSelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all cursor-pointer">
+                                    <select name="action_status" id="actionStatusSelect" onchange="this.form.submit()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all cursor-pointer">
                                         <option value="all" {{ ($actionStatus === 'all' || empty($actionStatus)) ? 'selected' : '' }}>All Statuses</option>
                                         <option value="completed" {{ $actionStatus === 'completed' ? 'selected' : '' }}>✓ Tagged &amp; Classified ({{ $classifiedCount }})</option>
                                         <option value="pending" {{ $actionStatus === 'pending' ? 'selected' : '' }}>⚠️ Needs QR / Classify ({{ $pendingCount }})</option>
@@ -382,6 +398,7 @@
                                            id="fromDate" 
                                            value="{{ $fromDate }}" 
                                            placeholder="mm/dd/yyyy"
+                                           onchange="document.getElementById('periodInput').value = '';"
                                            class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all">
                                 </div>
 
@@ -395,6 +412,7 @@
                                            id="toDate" 
                                            value="{{ $toDate }}" 
                                            placeholder="mm/dd/yyyy"
+                                           onchange="document.getElementById('periodInput').value = '';"
                                            class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-all">
                                 </div>
 
@@ -412,7 +430,7 @@
                             <!-- RIGHT ACTION: GENERATE FILTERED PDF REPORT BUTTON -->
                             <div class="shrink-0 space-y-1.5">
                                 <button type="button" 
-                                        onclick="triggerGenerateFilteredPdf()" 
+                                        onclick="openReportNotesModal('filtered')" 
                                         class="w-full xl:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-emerald-700/30 cursor-pointer whitespace-nowrap">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -426,16 +444,29 @@
                         <!-- Secondary Row: Sort, Per Page, Actions -->
                         <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
                             
-                            <div class="flex items-center gap-2 flex-wrap">
-                               
+                            <div class="flex items-center gap-2.5 flex-wrap">
+                                <!-- Sort Order -->
+                                <div class="flex items-center gap-1.5">
+                                    <label for="sortSelect" class="text-[11px] font-extrabold text-slate-500 font-mono-code uppercase">Sort:</label>
+                                    <select name="sort" id="sortSelect" onchange="this.form.submit()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer">
+                                        <option value="newest" {{ ($sort ?? 'newest') === 'newest' ? 'selected' : '' }}>Newest Lodged</option>
+                                        <option value="oldest" {{ ($sort ?? '') === 'oldest' ? 'selected' : '' }}>Oldest Lodged</option>
+                                        <option value="value_desc" {{ ($sort ?? '') === 'value_desc' ? 'selected' : '' }}>Highest Value (GH₵)</option>
+                                        <option value="value_asc" {{ ($sort ?? '') === 'value_asc' ? 'selected' : '' }}>Lowest Value (GH₵)</option>
+                                        <option value="name_asc" {{ ($sort ?? '') === 'name_asc' ? 'selected' : '' }}>Commodity Name (A-Z)</option>
+                                    </select>
+                                </div>
 
                                 <!-- Per Page -->
-                                <select name="per_page" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500">
-                                    <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25 per page</option>
-                                    <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50 per page</option>
-                                    <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100 per page</option>
-                                    <option value="200" {{ $perPage == 200 ? 'selected' : '' }}>200 per page</option>
-                                </select>
+                                <div class="flex items-center gap-1.5">
+                                    <label for="perPageSelect" class="text-[11px] font-extrabold text-slate-500 font-mono-code uppercase">Show:</label>
+                                    <select name="per_page" id="perPageSelect" onchange="this.form.submit()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer">
+                                        <option value="25" {{ $perPage == 25 ? 'selected' : '' }}>25 per page</option>
+                                        <option value="50" {{ $perPage == 50 ? 'selected' : '' }}>50 per page</option>
+                                        <option value="100" {{ $perPage == 100 ? 'selected' : '' }}>100 per page</option>
+                                        <option value="200" {{ $perPage == 200 ? 'selected' : '' }}>200 per page</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div class="flex items-center gap-2">
@@ -719,8 +750,164 @@
         </div>
     </div>
 
+    @php
+        $systemTablesList = !empty($systemGeneratedTableNames) && $systemGeneratedTableNames->isNotEmpty() 
+            ? $systemGeneratedTableNames->values()->all() 
+            : ['Precious Stones Exhibit Log', 'Weapons Exhibit Log', 'Ammunition Exhibit Log'];
+        $notesByTitleMap = !empty($recentNotesByTitle) ? $recentNotesByTitle->toArray() : [];
+    @endphp
+
+    <!-- ========================================================== -->
+    <!-- 5. TABLE NOTES MODAL (PROMPT BEFORE PDF / PRINT)           -->
+    <!-- ========================================================== -->
+    <div id="reportNotesModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto no-print">
+        <div class="bg-white rounded-3xl max-w-5xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+            
+            <!-- Modal Header -->
+            <div class="px-6 py-4.5 bg-white text-slate-900 flex items-center justify-between shrink-0 border-b border-slate-200">
+                <div class="flex items-center space-x-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">
+                        <i data-lucide="file-signature" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-base font-extrabold tracking-wide uppercase font-serif-header text-slate-900">Report Table Notes</h2>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono-code uppercase">Optional</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 font-sans mt-0.5">
+                            Optionally append official notes beneath specific ledger tables before generating the dossier.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeReportNotesModal()" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 bg-white text-slate-800 text-xs">
+                
+                <!-- Notice Banner -->
+                <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3">
+                    <i data-lucide="info" class="w-5 h-5 text-emerald-700 shrink-0 mt-0.5"></i>
+                    <p class="text-xs text-emerald-950 leading-relaxed">
+                        Audit notes entered here will be formatted directly beneath their corresponding tables in the official PDF ledger and stored in the Central Evidence database.
+                    </p>
+                </div>
+
+                <!-- Section: Physical Assets & Non-Drug Seized Property Log -->
+                <div class="p-4 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                            <h3 class="font-bold text-slate-900 text-xs sm:text-[13px] uppercase tracking-wide">
+                                Physical Assets &amp; Non-Drug Seized Property Log
+                            </h3>
+                        </div>
+                        <span class="text-[10px] font-mono-code font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
+                            Table 2
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">
+                        Vehicles, Electronic Devices, and non-drug physical property seized during operations.
+                    </p>
+                    <textarea id="modalNoteAssets" 
+                              rows="3" 
+                              class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-400 font-sans leading-relaxed"
+                              placeholder="Enter optional audit note for Physical Assets & Non-Drug Seized Property Log...">{{ $recentNotes['assets']->note ?? '' }}</textarea>
+                </div>
+
+                <!-- Section: Seized Currency & Money Received Register -->
+                <div class="p-4 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-2.5">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <h3 class="font-bold text-slate-900 text-xs sm:text-[13px] uppercase tracking-wide">
+                                Seized Currency &amp; Money Received Register
+                            </h3>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                                <span class="text-[9.5px] uppercase font-semibold text-emerald-600">Total:</span>
+                                <span>GH₵ {{ number_format($totalMoneyAmount ?? 0, 2) }}</span>
+                            </span>
+                        </div>
+                        <span class="text-[10px] font-mono-code font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
+                            Table 3
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">
+                        Monetary funds, cash notes, foreign currencies, and Central Vault lodgments.
+                    </p>
+                    <textarea id="modalNoteMoney" 
+                              rows="3" 
+                              class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-amber-500 transition-all placeholder:text-slate-400 font-sans leading-relaxed"
+                              placeholder="Enter optional audit note for Seized Currency & Money Received Register...">{{ $recentNotes['money']->note ?? '' }}</textarea>
+                </div>
+
+                <!-- Newly Generated & Additional Tables Container -->
+                <div class="space-y-3 pt-1">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-xs uppercase tracking-wide flex items-center gap-1.5">
+                                <i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i>
+                                <span>Newly Generated Tables</span>
+                            </h3>
+                            <div class="text-[11px] text-slate-500 flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span>System-assigned tables:</span>
+                                @foreach($systemTablesList as $tName)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        {{ $tName }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                        <button type="button" 
+                                id="addNewTableNoteBtn"
+                                onclick="addDynamicTableNoteRow()" 
+                                class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-md shadow-emerald-700/20">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>Add Note</span>
+                        </button>
+                    </div>
+
+                    <!-- List of dynamic notes added via Add Note button -->
+                    <div id="dynamicNotesContainer" class="space-y-3"></div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <button type="button" 
+                        onclick="proceedWithoutNotes()" 
+                        class="px-4 py-2.5 text-slate-600 hover:text-slate-900 font-semibold text-xs rounded-xl hover:bg-slate-100 transition-colors cursor-pointer">
+                    Skip &bull; Generate Without Notes
+                </button>
+
+                <div class="flex items-center gap-2.5">
+                    <button type="button" 
+                            onclick="closeReportNotesModal()" 
+                            class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                        Cancel
+                    </button>
+                    <button type="button" 
+                            id="submitNotesBtn"
+                            onclick="submitReportWithNotes()" 
+                            class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-700/20 cursor-pointer flex items-center gap-2">
+                        <i data-lucide="file-check-2" class="w-4 h-4" id="submitNotesIcon"></i>
+                        <span id="submitNotesText">Save Notes &amp; Generate PDF</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- JavaScript Interactions -->
     <script>
+        window.systemAssignedTableNames = @json($systemTablesList);
+        window.recentNotesByTitle = @json($notesByTitleMap);
+        let currentReportModalMode = 'filtered'; // 'filtered' or 'print'
+
         document.addEventListener('DOMContentLoaded', () => {
             if (window.lucide) {
                 window.lucide.createIcons();
@@ -734,7 +921,267 @@
             document.getElementById('reportFilterForm').submit();
         }
 
-        function triggerGenerateFilteredPdf() {
+        function openReportNotesModal(mode = 'filtered') {
+            currentReportModalMode = mode;
+            const modal = document.getElementById('reportNotesModal');
+            if (!modal) return;
+
+            const submitBtnText = document.getElementById('submitNotesText');
+            if (submitBtnText) {
+                submitBtnText.textContent = (mode === 'print') 
+                    ? 'Save Notes & Print / Export PDF' 
+                    : 'Save Notes & Generate PDF';
+            }
+
+            modal.classList.remove('hidden');
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function closeReportNotesModal() {
+            const modal = document.getElementById('reportNotesModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function getNextSystemAssignedTableName() {
+            const systemTables = window.systemAssignedTableNames || [
+                'Precious Stones Exhibit Log',
+                'Weapons Exhibit Log',
+                'Ammunition Exhibit Log'
+            ];
+
+            // Inspect which tables have already been picked in current dynamic note rows
+            const currentlyPicked = Array.from(document.querySelectorAll('.dynamic-note-item .dyn-table-name-val'))
+                .map(input => input.value.trim());
+
+            for (const name of systemTables) {
+                if (!currentlyPicked.includes(name)) {
+                    return name;
+                }
+            }
+
+            return systemTables[0] || 'General Exhibits Log';
+        }
+
+        function addDynamicTableNoteRow(forcedTitle = '', defaultNote = '') {
+            const container = document.getElementById('dynamicNotesContainer');
+            if (!container) return;
+
+            const rowId = 'dynNoteRow_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            const systemTables = window.systemAssignedTableNames || [
+                'Precious Stones Exhibit Log',
+                'Weapons Exhibit Log',
+                'Ammunition Exhibit Log'
+            ];
+
+            // Automatically pick the name the system will assign to the table
+            const autoTableName = forcedTitle ? forcedTitle : getNextSystemAssignedTableName();
+            const isKnown = systemTables.includes(autoTableName);
+            const isCustom = !isKnown;
+
+            const optionsHtml = systemTables.map(t => {
+                const sel = (t === autoTableName) ? 'selected' : '';
+                return `<option value="${t}" ${sel}>${t}</option>`;
+            }).join('') + `<option value="__custom__" ${isCustom ? 'selected' : ''}>Other Custom Table...</option>`;
+
+            // Check if there is a previously saved note for this table
+            const prefillNote = defaultNote || (window.recentNotesByTitle || {})[autoTableName.toLowerCase().trim()] || '';
+
+            const card = document.createElement('div');
+            card.id = rowId;
+            card.className = 'dynamic-note-item p-4 bg-slate-50/60 border border-slate-200/90 rounded-2xl shadow-xs space-y-2.5 animate-in fade-in duration-150';
+            card.innerHTML = `
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div class="flex-1 flex flex-wrap items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <label class="text-[11px] font-bold text-slate-500 uppercase font-mono-code shrink-0">Target Table:</label>
+                        
+                        <!-- Automatically Picked System-Assigned Table Name Badge -->
+                        <span class="dyn-table-picked-badge text-xs sm:text-[13px] font-extrabold text-emerald-950 uppercase font-mono-code bg-emerald-50 text-emerald-900 border border-emerald-300 px-3 py-1 rounded-xl shadow-xs">
+                            ${autoTableName}
+                        </span>
+
+                        <input type="hidden" class="dyn-table-name-val" value="${autoTableName}">
+
+                        <select onchange="handleDynTableChange(this, '${rowId}')" 
+                                class="dyn-table-select bg-white border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer">
+                            ${optionsHtml}
+                        </select>
+
+                        <input type="text" 
+                               oninput="handleDynCustomNameInput(this, '${rowId}')"
+                               class="dyn-table-custom-input ${isCustom ? '' : 'hidden'} bg-white border border-slate-200 rounded-xl px-3 py-1 text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-500 flex-1 min-w-[200px]" 
+                               placeholder="Type exact table title" 
+                               value="${isCustom ? autoTableName : ''}">
+                    </div>
+                    <button type="button" 
+                            onclick="document.getElementById('${rowId}').remove()" 
+                            class="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-1.5 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        <span>Remove</span>
+                    </button>
+                </div>
+                <textarea rows="2" 
+                          class="dyn-note-text w-full bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-emerald-500 transition-all placeholder:text-slate-400 font-sans leading-relaxed"
+                          placeholder="Enter optional audit note for ${autoTableName}...">${prefillNote}</textarea>
+            `;
+
+            container.appendChild(card);
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function handleDynTableChange(selectEl, rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+
+            const customInput = row.querySelector('.dyn-table-custom-input');
+            const badge = row.querySelector('.dyn-table-picked-badge');
+            const hiddenInput = row.querySelector('.dyn-table-name-val');
+            const textarea = row.querySelector('.dyn-note-text');
+
+            if (selectEl.value === '__custom__') {
+                if (customInput) {
+                    customInput.classList.remove('hidden');
+                    customInput.focus();
+                }
+                const customVal = customInput ? customInput.value.trim() : 'Custom Table Log';
+                if (badge) badge.textContent = customVal || 'Custom Table Log';
+                if (hiddenInput) hiddenInput.value = customVal || 'Custom Table Log';
+            } else {
+                if (customInput) customInput.classList.add('hidden');
+                const selectedVal = selectEl.value;
+                if (badge) badge.textContent = selectedVal;
+                if (hiddenInput) hiddenInput.value = selectedVal;
+
+                if (textarea) {
+                    textarea.placeholder = `Enter optional audit note for ${selectedVal}...`;
+                    const savedNote = (window.recentNotesByTitle || {})[selectedVal.toLowerCase().trim()];
+                    if (savedNote && !textarea.value.trim()) {
+                        textarea.value = savedNote;
+                    }
+                }
+            }
+        }
+
+        function handleDynCustomNameInput(inputEl, rowId) {
+            const row = document.getElementById(rowId);
+            if (!row) return;
+            const val = inputEl.value.trim() || 'Custom Table Log';
+            const badge = row.querySelector('.dyn-table-picked-badge');
+            const hiddenInput = row.querySelector('.dyn-table-name-val');
+            const textarea = row.querySelector('.dyn-note-text');
+            if (badge) badge.textContent = val;
+            if (hiddenInput) hiddenInput.value = val;
+            if (textarea) textarea.placeholder = `Enter optional audit note for ${val}...`;
+        }
+
+        async function submitReportWithNotes() {
+            const btn = document.getElementById('submitNotesBtn');
+            const btnText = document.getElementById('submitNotesText');
+            const originalText = btnText ? btnText.innerText : 'Save Notes & Generate PDF';
+
+            const notesPayload = [];
+
+            // Table 2: Physical Assets
+            const assetNote = document.getElementById('modalNoteAssets')?.value?.trim();
+            if (assetNote) {
+                notesPayload.push({
+                    table_key: 'assets',
+                    table_title: 'Physical Assets & Non-Drug Seized Property Log',
+                    note: assetNote
+                });
+            }
+
+            // Table 3: Seized Currency
+            const moneyNote = document.getElementById('modalNoteMoney')?.value?.trim();
+            if (moneyNote) {
+                notesPayload.push({
+                    table_key: 'money',
+                    table_title: 'Seized Currency & Money Received Register',
+                    note: moneyNote
+                });
+            }
+
+            // Newly Generated Dynamic Notes (using automatically picked system table name)
+            const dynItems = document.querySelectorAll('.dynamic-note-item');
+            dynItems.forEach(item => {
+                const title = item.querySelector('.dyn-table-name-val')?.value?.trim()
+                    || item.querySelector('.dyn-table-select')?.value?.trim()
+                    || 'Generated Table Log';
+                const textarea = item.querySelector('.dyn-note-text');
+                const noteVal = textarea ? textarea.value.trim() : '';
+                if (!noteVal || !title) return;
+
+                const slugKey = 'dyn_' + title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+                notesPayload.push({
+                    table_key: slugKey,
+                    table_title: title,
+                    note: noteVal
+                });
+            });
+
+            const period = document.getElementById('periodInput')?.value || 'general';
+            const search = document.getElementById('searchInput')?.value || '';
+            const category = document.getElementById('categorySelect')?.value || 'all';
+            const actionStatus = document.getElementById('actionStatusSelect')?.value || 'all';
+            const from = document.getElementById('fromDate')?.value || '';
+            const to = document.getElementById('toDate')?.value || '';
+            const sort = document.querySelector('select[name="sort"]')?.value || 'newest';
+
+            let batchId = null;
+
+            if (notesPayload.length > 0) {
+                try {
+                    if (btnText) btnText.innerText = 'Saving Notes to Database...';
+                    if (btn) btn.disabled = true;
+
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+                        || '{{ csrf_token() }}';
+
+                    const response = await fetch('{{ url("/Evidence_Management/report/notes") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({
+                            notes: notesPayload,
+                            period: period,
+                            from_date: from,
+                            to_date: to
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (data && data.success && data.batch_id) {
+                        batchId = data.batch_id;
+                    }
+                } catch (err) {
+                    console.error('Failed to save table notes:', err);
+                } finally {
+                    if (btnText) btnText.innerText = originalText;
+                    if (btn) btn.disabled = false;
+                }
+            }
+
+            // Build URL for report_pdf
+            const params = new URLSearchParams();
+            if (period && period !== 'general') params.set('period', period);
+            if (search) params.set('search', search);
+            if (category && category !== 'all') params.set('category', category);
+            if (actionStatus && actionStatus !== 'all') params.set('action_status', actionStatus);
+            if (from) params.set('from_date', from);
+            if (to) params.set('to_date', to);
+            if (sort && sort !== 'newest') params.set('sort', sort);
+            if (batchId) params.set('batch_id', batchId);
+            if (currentReportModalMode === 'print') params.set('autoprint', '1');
+
+            closeReportNotesModal();
+            const targetUrl = '{{ url("/Evidence_Management/report_pdf") }}?' + params.toString();
+            window.open(targetUrl, '_blank');
+        }
+
+        function proceedWithoutNotes() {
             const period = document.getElementById('periodInput')?.value || 'general';
             const search = document.getElementById('searchInput')?.value || '';
             const category = document.getElementById('categorySelect')?.value || 'all';
@@ -751,9 +1198,15 @@
             if (from) params.set('from_date', from);
             if (to) params.set('to_date', to);
             if (sort && sort !== 'newest') params.set('sort', sort);
+            if (currentReportModalMode === 'print') params.set('autoprint', '1');
 
+            closeReportNotesModal();
             const targetUrl = '{{ url("/Evidence_Management/report_pdf") }}?' + params.toString();
             window.open(targetUrl, '_blank');
+        }
+
+        function triggerGenerateFilteredPdf() {
+            openReportNotesModal('filtered');
         }
 
         function openReportExhibitDetails(exhibit) {
@@ -782,11 +1235,18 @@
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeReportDossierModal();
+            if (e.key === 'Escape') {
+                closeReportDossierModal();
+                closeReportNotesModal();
+            }
         });
 
         document.getElementById('dossierModal')?.addEventListener('click', (e) => {
             if (e.target.id === 'dossierModal') closeReportDossierModal();
+        });
+
+        document.getElementById('reportNotesModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'reportNotesModal') closeReportNotesModal();
         });
     </script>
 </body>

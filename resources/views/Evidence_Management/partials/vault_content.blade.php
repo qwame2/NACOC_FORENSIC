@@ -27,7 +27,25 @@
                         <!-- ============================================== -->
                         <!-- A. TACTICAL GRID / CARDS VIEW                  -->
                         <!-- ============================================== -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" id="exhibitsGridContainer">
+                        <style>
+                            #exhibitsGridContainer {
+                                display: grid !important;
+                                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                                gap: 1.25rem !important;
+                                width: 100% !important;
+                            }
+                            @media (max-width: 900px) {
+                                #exhibitsGridContainer {
+                                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                                }
+                            }
+                            @media (max-width: 600px) {
+                                #exhibitsGridContainer {
+                                    grid-template-columns: 1fr !important;
+                                }
+                            }
+                        </style>
+                        <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-3 gap-5 exhibits-grid-3cols" id="exhibitsGridContainer" style="display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 1.25rem !important; width: 100% !important;">
                             @foreach($exhibits as $exhibit)
                                 @php
                                     $suspects = $exhibit->associated_suspects;
@@ -159,6 +177,8 @@
                                                     <span class="font-bold text-slate-800 font-mono-code">
                                                         @if($exhibit->seizure_weight)
                                                             {{ $exhibit->seizure_weight }} {{ $exhibit->seizure_unit ?: 'kg' }}
+                                                        @elseif($exhibit->amount)
+                                                            {{ $exhibit->amount }}
                                                         @elseif($exhibit->seizure_quantity)
                                                             {{ $exhibit->seizure_quantity }} {{ $exhibit->seizure_unit ?: 'pcs' }}
                                                         @else
@@ -175,8 +195,10 @@
                                                 <div>
                                                     <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Estimated Value</span>
                                                     <span class="font-extrabold text-emerald-700 font-mono-code">
-                                                        @if($exhibit->seizure_value)
-                                                            GH₵ {{ number_format((float)$exhibit->seizure_value, 2) }}
+                                                        @if($exhibit->seizure_value && $exhibit->seizure_value !== 'N/A')
+                                                            GH₵ {{ is_numeric($exhibit->seizure_value) ? number_format((float)$exhibit->seizure_value, 2) : $exhibit->seizure_value }}
+                                                        @elseif($exhibit->amount)
+                                                            GH₵ {{ is_numeric(str_replace(',', '', $exhibit->amount)) ? number_format((float)str_replace(',', '', $exhibit->amount), 2) : $exhibit->amount }}
                                                         @else
                                                             <span class="text-slate-400 font-normal">Pending Valuation</span>
                                                         @endif
@@ -489,6 +511,8 @@
                                                 <td class="py-3 px-3.5 font-mono-code font-semibold text-slate-800 whitespace-nowrap">
                                                     @if($exhibit->seizure_weight)
                                                         {{ $exhibit->seizure_weight }} {{ $exhibit->seizure_unit ?: 'kg' }}
+                                                    @elseif($exhibit->amount)
+                                                        {{ $exhibit->amount }}
                                                     @elseif($exhibit->seizure_quantity)
                                                         {{ $exhibit->seizure_quantity }} {{ $exhibit->seizure_unit ?: 'pcs' }}
                                                     @else
@@ -498,8 +522,10 @@
 
                                                 <!-- Value -->
                                                 <td class="py-3 px-3.5 font-mono-code font-bold text-emerald-700 whitespace-nowrap">
-                                                    @if($exhibit->seizure_value)
-                                                        GH₵ {{ number_format((float)$exhibit->seizure_value, 2) }}
+                                                    @if($exhibit->seizure_value && $exhibit->seizure_value !== 'N/A')
+                                                        GH₵ {{ is_numeric($exhibit->seizure_value) ? number_format((float)$exhibit->seizure_value, 2) : $exhibit->seizure_value }}
+                                                    @elseif($exhibit->amount)
+                                                        GH₵ {{ is_numeric(str_replace(',', '', $exhibit->amount)) ? number_format((float)str_replace(',', '', $exhibit->amount), 2) : $exhibit->amount }}
                                                     @else
                                                         <span class="text-slate-400 font-normal">--</span>
                                                     @endif

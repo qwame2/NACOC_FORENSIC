@@ -42,6 +42,28 @@
         .badge-category-device { background-color: #f5f3ff; color: #5b21b6; border: 1px solid #ddd6fe; }
         .badge-category-money { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
         .badge-category-other { background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+        .vault-stats-horizontal-row {
+            display: grid !important;
+            grid-template-columns: repeat(7, minmax(120px, 1fr)) !important;
+            gap: 10px !important;
+            width: 100% !important;
+            align-items: stretch !important;
+        }
+        .exhibits-grid-3cols {
+            display: grid !important;
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            gap: 1.25rem !important;
+        }
+        @media (max-width: 768px) {
+            .exhibits-grid-3cols {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+        }
+        @media (max-width: 520px) {
+            .exhibits-grid-3cols {
+                grid-template-columns: 1fr !important;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800 antialiased flex flex-col">
@@ -61,7 +83,7 @@
             <!-- TOP WORKSPACE BAR -->
             <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
                 <div class="flex items-center space-x-3">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-sm">
+                    <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-emerald-600 border border-slate-200/90 shadow-md shadow-slate-200/60">
                         <i data-lucide="archive" class="w-5 h-5"></i>
                     </div>
                     <div>
@@ -80,9 +102,9 @@
                         <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-slate-500"></i>
                         <span>Dashboard</span>
                     </a>
-                    <a href="{{ url('/Evidence_Management/create') }}" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors">
+                    <a href="{{ url('/Evidence_Management/add-exhibit') }}" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors">
                         <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-white"></i>
-                        <span>New Lodgement</span>
+                        <span>Add Exhibit</span>
                     </a>
                     <div class="h-6 w-px bg-slate-200"></div>
                     <div class="flex items-center space-x-2 pl-1">
@@ -100,98 +122,112 @@
                 @include('partials.flash')
 
                 <!-- ==================================================== -->
-                <!-- 3. TOP TELEMETRY STATS CARDS                         -->
+                <!-- 3. TOP TELEMETRY STATS CARDS (HORIZONTAL ROW)       -->
                 <!-- ==================================================== -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-                    
-                    <!-- TOTAL EXHIBITS -->
-                    <div onclick="selectCategory('all'); selectActionStatus('all');" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group" title="Click to view all vault exhibits">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider group-hover:text-emerald-700 transition-colors">All Exhibits</span>
-                            <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                <i data-lucide="box" class="w-3.5 h-3.5"></i>
+                <div class="w-full overflow-x-auto pb-2 custom-scrollbar" style="overflow-x: auto; width: 100%;">
+                    <div class="vault-stats-horizontal-row" style="display: grid !important; grid-template-columns: repeat(7, minmax(120px, 1fr)) !important; gap: 10px !important; width: 100% !important; align-items: stretch !important;">
+                        
+                        <!-- TOTAL EXHIBITS -->
+                        <div onclick="selectCategory('all'); selectActionStatus('all');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to view all vault exhibits">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-emerald-700 transition-colors truncate">All Exhibits</span>
+                                <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="box" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-extrabold text-slate-900 font-mono-code leading-none">{{ number_format($totalExhibitsCount) }}</div>
+                                <div class="text-[10px] text-emerald-600 font-semibold mt-1 truncate">Active Vault Items</div>
                             </div>
                         </div>
-                        <div class="text-xl font-extrabold text-slate-900 font-mono-code">{{ number_format($totalExhibitsCount) }}</div>
-                        <div class="text-[10px] text-emerald-600 font-semibold mt-0.5">Active Vault Items</div>
-                    </div>
 
-                    <!-- NEEDS QR / CLASSIFY (ALERT CARD) -->
-                    <div onclick="selectActionStatus('pending');" class="bg-white rounded-2xl p-4 border {{ $pendingCount > 0 ? 'border-amber-300 bg-amber-50/20 shadow-amber-500/5' : 'border-slate-200' }} shadow-2xs hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer group" title="Click to filter exhibits pending QR code or classification">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800 group-hover:text-amber-900 transition-colors flex items-center space-x-1">
-                                <span>Pending Intake</span>
-                            </span>
-                            <div class="w-6 h-6 rounded-lg {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-slate-100 text-slate-500' }} flex items-center justify-center">
-                                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                        <!-- NEEDS QR / CLASSIFY (ALERT CARD) -->
+                        <div onclick="selectActionStatus('pending');" class="bg-white rounded-2xl p-3.5 border {{ $pendingCount > 0 ? 'border-amber-300 bg-amber-50/20 shadow-amber-500/5' : 'border-slate-200' }} shadow-2xs hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter exhibits pending QR code or classification">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 group-hover:text-amber-900 transition-colors truncate">Pending Intake</span>
+                                <div class="w-6 h-6 rounded-lg {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-slate-100 text-slate-500' }} flex items-center justify-center shrink-0">
+                                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-extrabold text-amber-700 font-mono-code leading-none">{{ number_format($pendingCount) }}</div>
+                                <div class="text-[10px] text-amber-700 font-semibold mt-1 truncate">Needs QR / Classify</div>
                             </div>
                         </div>
-                        <div class="text-xl font-extrabold text-amber-700 font-mono-code">{{ number_format($pendingCount) }}</div>
-                        <div class="text-[10px] text-amber-700 font-semibold mt-0.5">Needs QR / Classify</div>
-                    </div>
 
-                    <!-- TOTAL ESTIMATED VALUE -->
-                    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs hover:border-emerald-300 transition-colors">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider">Total Value</span>
-                            <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-                                <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5"></i>
+                        <!-- TOTAL ESTIMATED VALUE -->
+                        <div class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-emerald-300 transition-colors flex flex-col justify-between min-w-0" style="min-width: 0;" title="Estimated Seizure Value: GH₵ {{ number_format($totalSeizureValue, 2) }}">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider truncate">Total Value</span>
+                                <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-base sm:text-lg font-extrabold text-slate-900 font-mono-code truncate leading-none" title="GH₵ {{ number_format($totalSeizureValue, 2) }}">
+                                    GH₵ {{ number_format($totalSeizureValue, 0) }}
+                                </div>
+                                <div class="text-[10px] text-teal-600 font-semibold mt-1 truncate">Estimated Value</div>
                             </div>
                         </div>
-                        <div class="text-lg font-extrabold text-slate-900 font-mono-code truncate" title="GH₵ {{ number_format($totalSeizureValue, 2) }}">
-                            GH₵ {{ number_format($totalSeizureValue, 0) }}
-                        </div>
-                        <div class="text-[10px] text-teal-600 font-semibold mt-0.5">Estimated Seizure Value</div>
-                    </div>
 
-                    <!-- DRUGS -->
-                    <div onclick="selectCategory('drug');" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group" title="Click to filter narcotics">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider group-hover:text-emerald-700 transition-colors">Narcotics</span>
-                            <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                <i data-lucide="pill" class="w-3.5 h-3.5"></i>
+                        <!-- DRUGS -->
+                        <div onclick="selectCategory('drug');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter narcotics">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-emerald-700 transition-colors truncate">Narcotics</span>
+                                <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="pill" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-extrabold text-emerald-700 font-mono-code leading-none">{{ $drugsCount }}</div>
+                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Drug Consignments</div>
                             </div>
                         </div>
-                        <div class="text-xl font-extrabold text-emerald-700 font-mono-code">{{ $drugsCount }}</div>
-                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Drug Consignments</div>
-                    </div>
 
-                    <!-- WEAPONS -->
-                    <div onclick="selectCategory('weapon');" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer group" title="Click to filter weapons">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider group-hover:text-amber-700 transition-colors">Weapons</span>
-                            <div class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                                <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+                        <!-- WEAPONS -->
+                        <div onclick="selectCategory('weapon');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter weapons">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-amber-700 transition-colors truncate">Weapons</span>
+                                <div class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-extrabold text-amber-700 font-mono-code leading-none">{{ $weaponsCount }}</div>
+                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Guns &amp; Ammunition</div>
                             </div>
                         </div>
-                        <div class="text-xl font-extrabold text-amber-700 font-mono-code">{{ $weaponsCount }}</div>
-                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Guns &amp; Ammunition</div>
-                    </div>
 
-                    <!-- VEHICLES -->
-                    <div onclick="selectCategory('vehicle');" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs hover:border-blue-300 hover:shadow-xs transition-all cursor-pointer group" title="Click to filter vehicles">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider group-hover:text-blue-700 transition-colors">Vehicles</span>
-                            <div class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                                <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+                        <!-- VEHICLES -->
+                        <div onclick="selectCategory('vehicle');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-blue-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter vehicles">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-700 transition-colors truncate">Vehicles</span>
+                                <div class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-extrabold text-blue-700 font-mono-code leading-none">{{ $vehiclesCount }}</div>
+                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Cars &amp; Transports</div>
                             </div>
                         </div>
-                        <div class="text-xl font-extrabold text-blue-700 font-mono-code">{{ $vehiclesCount }}</div>
-                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Cars &amp; Transports</div>
-                    </div>
 
-                    <!-- DIGITAL & ELECTRONICS -->
-                    <div onclick="selectCategory('device');" class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs hover:border-purple-300 hover:shadow-xs transition-all cursor-pointer group" title="Click to filter electronics">
-                        <div class="flex items-center justify-between text-slate-500 mb-1">
-                            <span class="text-[11px] font-bold uppercase tracking-wider group-hover:text-purple-700 transition-colors">Electronics</span>
-                            <div class="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                                <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                        <!-- DIGITAL & ELECTRONICS -->
+                        <div onclick="selectCategory('device');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-purple-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter electronics">
+                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-purple-700 transition-colors truncate">Electronics</span>
+                                <div class="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-xl font-extrabold text-purple-700 font-mono-code leading-none">{{ $devicesCount }}</div>
+                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Phones, PCs &amp; Media</div>
                             </div>
                         </div>
-                        <div class="text-xl font-extrabold text-purple-700 font-mono-code">{{ $devicesCount }}</div>
-                        <div class="text-[10px] text-slate-500 font-semibold mt-0.5">Phones, PCs &amp; Media</div>
-                    </div>
 
+                    </div>
                 </div>
 
                 <!-- ==================================================== -->
@@ -316,7 +352,7 @@
                     <!-- Skeleton Loader State (shown during AJAX updates) -->
                     <div id="vaultSkeletonContainer" class="hidden transition-opacity duration-200">
                         <!-- Skeleton Grid View -->
-                        <div id="skeletonGridView" class="{{ $viewMode === 'table' ? 'hidden' : 'grid' }} grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 animate-pulse">
+                        <div id="skeletonGridView" class="{{ $viewMode === 'table' ? 'hidden' : 'grid' }} exhibits-grid-3cols gap-5 animate-pulse" style="display: {{ $viewMode === 'table' ? 'none' : 'grid' }} !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 1.25rem !important; width: 100% !important;">
                             @for ($i = 0; $i < 6; $i++)
                                 <div class="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
                                     <div class="h-48 bg-slate-200/80 relative">
@@ -379,267 +415,142 @@
     <!-- ========================================================== -->
     <!-- 7. EXPANDED FULL-DETAIL EXHIBIT INSPECTION MODAL           -->
     <!-- ========================================================== -->
-    <div id="exhibitModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3 md:p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl max-w-7xl xl:max-w-[94vw] 2xl:max-w-[96vw] w-full h-[96vh] border border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+    <div id="exhibitModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+        <div class="bg-white rounded-3xl max-w-7xl xl:max-w-[94vw] 2xl:max-w-[96vw] w-full h-[96vh] border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
             
             <!-- Modal Header (Sticky) -->
-            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+            <div class="px-5 sm:px-6 py-4 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-between shrink-0 border-b border-slate-800 shadow-sm">
+                <div class="flex items-center space-x-3.5 min-w-0">
+                    <div class="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
                         <i data-lucide="archive" class="w-5 h-5"></i>
                     </div>
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <h2 class="text-base font-extrabold tracking-tight text-white" id="modalExhibitTitle">Exhibit Log</h2>
+                    <div class="min-w-0">
+                        <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
+                            <h2 class="text-base font-black tracking-tight text-white truncate max-w-md" id="modalExhibitTitle">Exhibit Log</h2>
                             <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono-code font-bold uppercase border border-emerald-500/30" id="modalCategoryBadge">
                                 General
                             </span>
+                            <span class="text-[11px] font-mono-code font-extrabold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-0.5 rounded-md" id="modalExhibitNumber">
+                                EXH-0000
+                            </span>
                         </div>
-                        <div class="flex items-center space-x-2 mt-0.5 text-xs text-slate-400 font-mono-code">
-                            <span class="text-emerald-400 font-bold" id="modalExhibitNumber">EXH-0000</span>
+                        <div class="flex items-center space-x-2 mt-1 text-xs text-slate-400 font-mono-code">
+                            <span class="text-blue-400 font-bold" id="modalCaseSubtitle">Case: Unassigned</span>
                             <span>•</span>
-                            <span id="modalCaseSubtitle">Case: Unassigned</span>
+                            <span class="text-slate-400">NACOC National Evidence Vault</span>
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <button type="button" onclick="closeExhibitModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+                <div class="flex items-center space-x-2 shrink-0">
+                    <button type="button" onclick="closeExhibitModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center justify-center cursor-pointer" title="Close Inspection">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- Modal Body (Scrollable Large Canvas) -->
-            <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/50">
+            <!-- Modal Body (Scrollable Master Workspace) -->
+            <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/60">
                 
                 <!-- TOP STATS METRIC BANNER (4 Cards) -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-                        <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Quantity &amp; Weight</span>
-                        <span class="text-sm font-extrabold text-slate-900 font-mono-code block mt-0.5" id="modalQuantity">N/A</span>
-                        <span class="text-[11px] text-slate-500 truncate block" id="modalPackaging">N/A</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
+                        <div class="flex items-center justify-between text-slate-400 mb-1">
+                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Quantity &amp; Weight</span>
+                            <i data-lucide="scale" class="w-3.5 h-3.5 text-slate-400"></i>
+                        </div>
+                        <span class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-code block truncate" id="modalQuantity">N/A</span>
+                        <span class="text-[11px] text-slate-500 truncate block mt-0.5 font-medium" id="modalPackaging">N/A</span>
                     </div>
-                    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-                        <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Estimated Seizure Value</span>
-                        <span class="text-sm font-extrabold text-emerald-700 font-mono-code block mt-0.5" id="modalValue">N/A</span>
-                        <span class="text-[11px] text-slate-500 block">Valuation on Seizure</span>
+
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
+                        <div class="flex items-center justify-between text-slate-400 mb-1">
+                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Estimated Valuation</span>
+                            <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5 text-emerald-500"></i>
+                        </div>
+                        <span class="text-sm sm:text-base font-black text-emerald-700 font-mono-code block truncate" id="modalValue">N/A</span>
+                        <span class="text-[11px] text-slate-500 block mt-0.5 font-medium">Valuation on Seizure</span>
                     </div>
-                    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-                        <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Seizure Date &amp; Time</span>
-                        <span class="text-sm font-extrabold text-slate-900 font-mono-code block mt-0.5" id="modalDateTime">N/A</span>
-                        <span class="text-[11px] text-slate-500 truncate block" id="modalLocationQuick">N/A</span>
+
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
+                        <div class="flex items-center justify-between text-slate-400 mb-1">
+                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Seizure Date &amp; Time</span>
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-500"></i>
+                        </div>
+                        <span class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-code block truncate" id="modalDateTime">N/A</span>
+                        <span class="text-[11px] text-slate-500 truncate block mt-0.5 font-medium" id="modalLocationQuick">N/A</span>
                     </div>
-                    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
-                        <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Seizing Officer &amp; Source</span>
-                        <span class="text-sm font-extrabold text-slate-900 truncate block mt-0.5" id="modalOfficer">N/A</span>
-                        <span class="text-[11px] text-emerald-700 font-semibold truncate block" id="modalSource">N/A</span>
+
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
+                        <div class="flex items-center justify-between text-slate-400 mb-1">
+                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Seizing Officer &amp; Source</span>
+                            <i data-lucide="shield" class="w-3.5 h-3.5 text-purple-500"></i>
+                        </div>
+                        <span class="text-sm sm:text-base font-extrabold text-slate-900 truncate block" id="modalOfficer">N/A</span>
+                        <span class="text-[11px] text-emerald-700 font-semibold truncate block mt-0.5" id="modalSource">N/A</span>
                     </div>
                 </div>
 
-                <!-- ==================================================== -->
-                <!-- SEIZED PROPERTY BADGE SPECIFICATION PREVIEW CARD     -->
-                <!-- ==================================================== -->
-                <div id="inspectBadgePreviewCard" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-                        <div class="flex items-center space-x-3">
-                            <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0 shadow-2xs">
-                                <i data-lucide="qr-code" class="w-5 h-5"></i>
-                            </div>
-                            <div>
-                                <div class="flex items-center space-x-2">
-                                    <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">
-                                        Seized Property Badge Specification Preview
-                                    </h3>
-                                    <span id="inspectBadgeStatusPill" class="text-[10px] font-mono-code font-bold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                        Officially Tagged
-                                    </span>
-                                </div>
-                                <p class="text-xs text-slate-500 mt-0.5">
-                                    Standard NACOC Seized Property Physical Tag • Dimensions: 780 × 330 px • High-Res PNG
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-1">
-                            <button type="button" 
-                                    id="inspectDownloadQrBtn"
-                                    onclick="downloadInspectQrCodePNG()" 
-                                    class="px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 font-bold text-xs border border-emerald-300 shadow-2xs flex items-center space-x-1.5 transition-colors cursor-pointer"
-                                    title="Download Standalone Branded QR Code PNG (Scans to view exhibit details)">
-                                <i data-lucide="qr-code" class="w-4 h-4 text-emerald-600"></i>
-                                <span>Save QR (PNG)</span>
-                            </button>
-
-                            <button type="button" 
-                                    id="inspectDownloadBadgeBtn"
-                                    onclick="downloadInspectBadgePNG()" 
-                                    class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-bold text-xs border border-slate-200 shadow-2xs flex items-center space-x-1.5 transition-colors cursor-pointer"
-                                    title="Download High-Res Seized Property Badge PNG">
-                                <i data-lucide="download" class="w-4 h-4 text-slate-500"></i>
-                                <span>Download PNG Badge</span>
-                            </button>
-
-
-                            <button type="button" 
-                                    id="inspectOpenQrModalBtn"
-                                    onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)" 
-                                    class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
-                                    title="Open Official Seized Property Tag Modal">
-                                <i data-lucide="tag" class="w-4 h-4 text-white"></i>
-                                <span id="inspectOpenQrModalBtnText">Assign / View QR Tag</span>
-                            </button>
-
-                            <button type="button" 
-                                    id="inspectClassifyBtn"
-                                    onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)" 
-                                    class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 flex items-center space-x-1.5 transition-all cursor-pointer"
-                                    title="Classify Drug Schedule & Exhibit Type">
-                                <i data-lucide="sliders" class="w-4 h-4 text-emerald-600"></i>
-                                <span>Classify &amp; Set Type</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Badge Preview Frame -->
-                    <div class="bg-slate-100/80 p-4 sm:p-5 rounded-3xl border border-slate-200 flex flex-col items-center justify-center overflow-hidden">
-                        <div class="w-full max-w-[760px] aspect-[780/330] bg-white rounded-2xl shadow-md border border-slate-300 relative flex items-center justify-center overflow-hidden transition-all duration-200 group">
-                            <canvas id="inspectBadgeCanvas" width="780" height="330" class="w-full h-full object-contain cursor-zoom-in" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview"></canvas>
-                            <img id="inspectBadgeImg" src="" class="w-full h-full object-contain cursor-zoom-in hidden" alt="Seized Property Badge Specification" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview">
-                            
-                            <!-- Hover zoom hint overlay -->
-                            <div class="absolute bottom-2.5 right-3 px-2 py-1 bg-slate-900/70 hover:bg-slate-900/90 text-white text-[10px] font-semibold rounded-lg backdrop-blur-xs flex items-center space-x-1 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                                <i data-lucide="zoom-in" class="w-3 h-3"></i>
-                                <span>Click to inspect full resolution</span>
-                            </div>
-                        </div>
-                        <div class="mt-2.5 flex items-center space-x-2 text-[11px] text-slate-500 font-mono-code">
-                            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
-                            <span id="inspectBadgeNoticeText">Official QR Code • Scans to display instant exhibit details</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ==================================================== -->
-                <!-- UNASSIGNED QR TAG NOTICE (WHEN NO QR ASSIGNED YET)   -->
-                <!-- ==================================================== -->
-                <div id="inspectBadgeUnassignedCard" class="hidden bg-white rounded-3xl p-5 border border-dashed border-amber-300 bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 shadow-2xs space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-11 h-11 rounded-2xl bg-amber-100/80 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
-                                <i data-lucide="qr-code" class="w-6 h-6"></i>
-                            </div>
-                            <div>
-                                <div class="flex items-center space-x-2">
-                                    <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">
-                                        Seized Property QR Tag Status
-                                    </h3>
-                                    <span class="text-[10px] font-mono-code font-bold uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                        Tag Not Assigned
-                                    </span>
-                                </div>
-                                <p class="text-xs text-slate-600 mt-0.5">
-                                    This exhibit has not been assigned an official Seized Property QR code tag yet. Assign a tag to generate the sealed badge specification preview.
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-1">
-                            <button type="button" 
-                                    id="inspectUnassignedAssignQrBtn"
-                                    onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)" 
-                                    class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer"
-                                    title="Assign Official Seized Property QR Tag">
-                                <i data-lucide="tag" class="w-4 h-4 text-white"></i>
-                                <span>Assign QR Tag</span>
-                            </button>
-
-                            <button type="button" 
-                                    id="inspectUnassignedClassifyBtn"
-                                    onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)" 
-                                    class="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200 shadow-2xs flex items-center space-x-1.5 transition-all cursor-pointer"
-                                    title="Classify Drug Schedule & Exhibit Type">
-                                <i data-lucide="sliders" class="w-4 h-4 text-emerald-600"></i>
-                                <span>Classify &amp; Set Type</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ============================================== -->
-                <!-- EXHIBIT EVIDENCE PHOTOS & MEDIA GALLERY        -->
-                <!-- ============================================== -->
-                <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div class="flex items-center space-x-2">
-                            <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                <i data-lucide="camera" class="w-4 h-4"></i>
-                            </div>
-                            <h3 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
-                                Exhibit Evidence Photographs &amp; Media Gallery
-                            </h3>
-                        </div>
-                        <span class="text-[11px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full" id="modalPhotosCountBadge">
-                            0 Photos
-                        </span>
-                    </div>
-
-                    <div id="modalPhotosGallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
-                        <!-- Populated by JavaScript -->
-                    </div>
-                </div>
-
-                <!-- CORE PARTICULARS (TWO COLUMN DETAILED GRID) -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <!-- MASTER TWO-COLUMN INSPECTION GRID -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     
-                    <!-- LEFT COLUMN: Seizure Chain & Forensic Specs -->
-                    <div class="space-y-5">
+                    <!-- LEFT COLUMN (7 Cols): Exhibit Particulars, Technical Specs, Photos & Remarks -->
+                    <div class="lg:col-span-7 space-y-6">
                         
-                        <!-- Seizure & Custody Particulars -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
-                            <div class="flex items-center space-x-2 border-b border-slate-100 pb-2.5">
-                                <div class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                        <!-- 1. Seizure & Custody Particulars -->
+                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                                    </div>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Seizure &amp; Custody Details</h4>
                                 </div>
-                                <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Seizure &amp; Custody Details</h4>
+                                <span class="text-[10px] font-mono-code text-slate-400 uppercase font-bold">Dossier File</span>
                             </div>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700">
-                                <div class="p-2.5 bg-slate-50 rounded-xl">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Case Reference</span>
-                                    <span class="font-extrabold text-slate-900 font-mono-code text-xs" id="modalCaseNumberDetail">N/A</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Case Reference</span>
+                                    <span class="font-extrabold text-blue-600 font-mono-code text-xs mt-0.5 block" id="modalCaseNumberDetail">N/A</span>
                                 </div>
-                                <div class="p-2.5 bg-slate-50 rounded-xl">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Commodity / Item</span>
-                                    <span class="font-extrabold text-slate-900 text-xs" id="modalCommodityName">N/A</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Commodity / Item</span>
+                                    <span class="font-extrabold text-slate-900 text-xs mt-0.5 block" id="modalCommodityName">N/A</span>
                                 </div>
-                                <div class="p-2.5 bg-slate-50 rounded-xl">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Exhibit Type</span>
-                                    <span class="font-bold text-slate-800" id="modalExhibitType">N/A</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Exhibit Type</span>
+                                    <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalExhibitType">N/A</span>
                                 </div>
-                                <div class="p-2.5 bg-slate-50 rounded-xl">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Seizure Location</span>
-                                    <span class="font-bold text-slate-800" id="modalLocation">N/A</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Seizure Location</span>
+                                    <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalLocation">N/A</span>
                                 </div>
-                                <div class="p-2.5 bg-slate-50 rounded-xl">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Concealment Method</span>
-                                    <span class="font-bold text-slate-800" id="modalConcealment">N/A</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Concealment Method</span>
+                                    <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalConcealment">N/A</span>
                                 </div>
-                                <div class="p-2.5 bg-slate-50 rounded-xl">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold block">Seizure Reason</span>
-                                    <span class="font-bold text-slate-800" id="modalReason">N/A</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Seizure Reason</span>
+                                    <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalReason">N/A</span>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Investigating Officer</span>
+                                    <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalInvestigatingOfficer">N/A</span>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Source / Requesting Unit</span>
+                                    <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalSourceRequestingUnit">N/A</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Category-Specific Forensic Attributes -->
-                        <div id="modalCategorySpecsContainer" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
-                            <div class="flex items-center space-x-2 border-b border-slate-100 pb-2.5">
-                                <div class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                                    <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                        <!-- 2. Category-Specific Forensic Attributes -->
+                        <div id="modalCategorySpecsContainer" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
+                            <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
+                                <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                    <i data-lucide="cpu" class="w-4 h-4"></i>
                                 </div>
-                                <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider" id="modalCategorySpecsTitle">
+                                <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider" id="modalCategorySpecsTitle">
                                     Category Technical Specifications
                                 </h4>
                             </div>
@@ -648,19 +559,212 @@
                             </div>
                         </div>
 
+                        <!-- 3. Exhibit Evidence Photographs & Media Gallery -->
+                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                        <i data-lucide="camera" class="w-4 h-4"></i>
+                                    </div>
+                                    <h3 class="text-xs font-black text-slate-900 uppercase tracking-wider">
+                                        Exhibit Evidence Photographs &amp; Media Gallery
+                                    </h3>
+                                </div>
+                                <span class="text-[11px] font-mono-code font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200" id="modalPhotosCountBadge">
+                                    0 Photos
+                                </span>
+                            </div>
+
+                            <div id="modalPhotosGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                                <!-- Populated by JavaScript -->
+                            </div>
+                        </div>
+
+                        <!-- 4. Remarks & Custody Notes -->
+                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
+                            <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
+                                <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                                    <i data-lucide="message-square" class="w-4 h-4"></i>
+                                </div>
+                                <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Remarks &amp; Custody Notes</h4>
+                            </div>
+
+                            <!-- Exhibit Remark -->
+                            <div class="space-y-1">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 font-mono-code block">Exhibit Lodgement Remark:</span>
+                                <div class="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/90 text-xs text-slate-800 italic leading-relaxed" id="modalRemark">
+                                    No remark recorded.
+                                </div>
+                            </div>
+
+                            <!-- Lab Remark (if any) -->
+                            <div id="modalLabRemarkContainer" class="space-y-1 hidden">
+                                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-800 font-mono-code block">Laboratory Analyst Remark:</span>
+                                <div class="bg-teal-50/70 p-3.5 rounded-2xl border border-teal-200/90 text-xs text-slate-800 italic leading-relaxed" id="modalLabRemark">
+                                    No laboratory remarks.
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
-                    <!-- RIGHT COLUMN: Associated Suspects & Remarks -->
-                    <div class="space-y-5">
+                    <!-- RIGHT COLUMN (5 Cols): Official QR Badge, Custodial Management & Suspects -->
+                    <div class="lg:col-span-5 space-y-6">
                         
-                        <!-- Associated Suspects Dossier -->
+                        <!-- 1. SEIZED PROPERTY BADGE SPECIFICATION PREVIEW CARD -->
+                        <div id="inspectBadgePreviewCard" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-4">
+                            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3.5">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <i data-lucide="qr-code" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center space-x-2">
+                                            <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">
+                                                Seized Property Badge Specification Preview
+                                            </h3>
+                                        </div>
+                                        <span id="inspectBadgeStatusPill" class="text-[9.5px] font-mono-code font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 inline-block mt-1">
+                                            Officially Tagged
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button type="button" 
+                                        onclick="openInspectLivePortal()" 
+                                        class="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200 flex items-center space-x-1 transition-colors cursor-pointer shrink-0" 
+                                        title="Open public scan verification page">
+                                    <i data-lucide="external-link" class="w-3.5 h-3.5 text-blue-600"></i>
+                                    <span>Live Portal</span>
+                                </button>
+                            </div>
+
+                            <!-- Badge Preview Frame -->
+                            <div class="bg-slate-100/90 p-3 sm:p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center overflow-hidden">
+                                <div class="w-full aspect-[780/330] bg-white rounded-xl shadow-sm border border-slate-300 relative flex items-center justify-center overflow-hidden transition-all duration-200 group">
+                                    <canvas id="inspectBadgeCanvas" width="780" height="330" class="w-full h-full object-contain cursor-zoom-in" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview"></canvas>
+                                    <img id="inspectBadgeImg" src="" class="w-full h-full object-contain cursor-zoom-in hidden" alt="Seized Property Badge Specification" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview">
+                                    
+                                    <!-- Hover zoom hint overlay -->
+                                    <div class="absolute bottom-2 right-2 px-2 py-1 bg-slate-900/80 text-white text-[9px] font-semibold rounded-md backdrop-blur-xs flex items-center space-x-1 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
+                                        <i data-lucide="zoom-in" class="w-3 h-3"></i>
+                                        <span>Click to enlarge</span>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-center text-[10px] text-slate-500 font-mono-code" id="inspectBadgeNoticeText">
+                                    Official QR Code • Scans to display instant exhibit details
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons Toolbar -->
+                            <div class="grid grid-cols-2 gap-2 pt-1">
+                                <button type="button" 
+                                        id="inspectOpenQrModalBtn"
+                                        onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)" 
+                                        class="col-span-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                                        title="Open Official Seized Property Tag Modal">
+                                    <i data-lucide="tag" class="w-4 h-4 text-white"></i>
+                                    <span id="inspectOpenQrModalBtnText">Assign / View QR Tag</span>
+                                </button>
+
+                                <button type="button" 
+                                        id="inspectDownloadQrBtn"
+                                        onclick="downloadInspectQrCodePNG()" 
+                                        class="px-3 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 font-bold text-xs border border-emerald-300 shadow-2xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                                        title="Download Standalone QR Code PNG">
+                                    <i data-lucide="qr-code" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                    <span>Save QR</span>
+                                </button>
+
+                                <button type="button" 
+                                        id="inspectDownloadBadgeBtn"
+                                        onclick="downloadInspectBadgePNG()" 
+                                        class="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200 shadow-2xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                                        title="Download High-Res Seized Property Badge PNG">
+                                    <i data-lucide="download" class="w-3.5 h-3.5 text-slate-500"></i>
+                                    <span>Save Badge</span>
+                                </button>
+
+                                <button type="button" 
+                                        id="inspectClassifyBtn"
+                                        onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)" 
+                                        class="col-span-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
+                                        title="Classify Drug Schedule & Exhibit Type">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-emerald-600"></i>
+                                    <span>Classify &amp; Set Type</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 2. UNASSIGNED QR TAG NOTICE (WHEN NO QR ASSIGNED YET) -->
+                        <div id="inspectBadgeUnassignedCard" class="hidden bg-white rounded-3xl p-5 border border-dashed border-amber-300 bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 shadow-2xs space-y-4">
+                            <div class="flex items-start space-x-3.5">
+                                <div class="w-10 h-10 rounded-2xl bg-amber-100/80 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                    <i data-lucide="qr-code" class="w-5 h-5"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">
+                                            Tag Not Assigned
+                                        </h3>
+                                        <span class="text-[9.5px] font-mono-code font-bold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                            Pending QR
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                                        This exhibit does not have an official QR tag yet. Assign a tag to generate the sealed badge preview.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-2 pt-1">
+                                <button type="button" 
+                                        id="inspectUnassignedAssignQrBtn"
+                                        onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)" 
+                                        class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                                        title="Assign Official Seized Property QR Tag">
+                                    <i data-lucide="tag" class="w-4 h-4 text-white"></i>
+                                    <span>Assign QR Tag</span>
+                                </button>
+
+                                <button type="button" 
+                                        id="inspectUnassignedClassifyBtn"
+                                        onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)" 
+                                        class="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200 shadow-2xs flex items-center space-x-1.5 transition-all cursor-pointer"
+                                        title="Classify Drug Schedule & Exhibit Type">
+                                    <i data-lucide="sliders" class="w-4 h-4 text-emerald-600"></i>
+                                    <span>Classify</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 3. OFFICIAL CUSTODIAL STATE DISPLAY -->
                         <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                                        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                                    </div>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Vault Custodial State</h4>
+                                </div>
+                                <span class="text-[10px] font-mono-code font-bold uppercase text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200" id="inspectCustodialStatusLabel">
+                                    Seized (Active Vault Custody)
+                                </span>
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 flex items-center space-x-2.5">
+                                <i data-lucide="lock" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                                <span class="leading-relaxed">Official Seizure custody is locked and secured under NACOC Evidence Management protocols. Status is automatically synchronized across the central registry and live scan verification.</span>
+                            </div>
+                        </div>
+
+                        <!-- 4. Associated Suspect(s) Profile -->
+                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                                 <div class="flex items-center space-x-2">
                                     <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
                                         <i data-lucide="users" class="w-3.5 h-3.5"></i>
                                     </div>
-                                    <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Associated Suspect(s) Profile</h4>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Associated Suspect(s) Profile</h4>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <span class="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" id="modalSuspectsCountBadge">0 Suspect(s)</span>
@@ -673,32 +777,6 @@
                             </div>
                         </div>
 
-                        <!-- Exhibit Remarks & Notes Box -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
-                            <div class="flex items-center space-x-2 border-b border-slate-100 pb-2.5">
-                                <div class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                                    <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
-                                </div>
-                                <h4 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Remarks &amp; Custody Notes</h4>
-                            </div>
-
-                            <!-- Exhibit Remark -->
-                            <div class="space-y-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">Exhibit Remark (Lodgement Record):</span>
-                                <div class="bg-amber-50/60 p-3 rounded-2xl border border-amber-200/80 text-xs text-slate-800 italic" id="modalRemark">
-                                    No remark recorded.
-                                </div>
-                            </div>
-
-                            <!-- Lab Remark (if any) -->
-                            <div id="modalLabRemarkContainer" class="space-y-1 hidden">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-800 block">Laboratory Analyst Remark:</span>
-                                <div class="bg-teal-50/60 p-3 rounded-2xl border border-teal-200/80 text-xs text-slate-800 italic" id="modalLabRemark">
-                                    No laboratory remarks.
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
 
                 </div>
@@ -707,14 +785,15 @@
 
             <!-- Modal Footer (Sticky) -->
             <div class="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0 shadow-xs">
-                <div class="text-[11px] text-slate-500 font-mono-code hidden sm:block">
-                    National Evidence Vault Directorate • NACOC Central Custody
+                <div class="flex items-center space-x-2 text-[11px] text-slate-500 font-mono-code hidden sm:flex">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+                    <span>National Evidence Vault Directorate • NACOC Central Custody</span>
                 </div>
                 <div class="flex items-center space-x-3 ml-auto">
-                    <button type="button" onclick="closeExhibitModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors">
+                    <button type="button" onclick="closeExhibitModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
                         Close
                     </button>
-                    <a href="#" id="modalOpenCaseBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-2">
+                    <a href="#" id="modalOpenCaseBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-2 cursor-pointer no-underline">
                         <i data-lucide="folder-open" class="w-4 h-4 text-white"></i>
                         <span>Open Case File</span>
                     </a>
@@ -768,7 +847,7 @@
                 <!-- Sealed / Locked Alert Banner when QR Tag is already generated -->
                 <div id="vaultQrLockedAlert" class="hidden p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900 shadow-2xs">
                     <div class="flex items-center space-x-2.5 min-w-0">
-                        <div class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                        <div class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-sm shadow-slate-200/50">
                             <i data-lucide="lock" class="w-4 h-4"></i>
                         </div>
                         <div class="min-w-0">
@@ -1298,14 +1377,18 @@
             let qty = 'N/A';
             if (exhibit.seizure_weight) {
                 qty = exhibit.seizure_weight + ' ' + (exhibit.seizure_unit || 'kg');
+            } else if (exhibit.amount) {
+                qty = exhibit.amount;
             } else if (exhibit.seizure_quantity) {
                 qty = exhibit.seizure_quantity + ' ' + (exhibit.seizure_unit || 'pcs');
             }
             document.getElementById('modalQuantity').textContent = qty;
             document.getElementById('modalPackaging').textContent = 'Packaging: ' + (exhibit.seizure_packaging || 'N/A');
 
-            document.getElementById('modalValue').textContent = exhibit.seizure_value 
-                ? 'GH₵ ' + Number(exhibit.seizure_value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})
+            const valRaw = (exhibit.seizure_value && exhibit.seizure_value !== 'N/A') ? exhibit.seizure_value : exhibit.amount;
+            const cleanVal = valRaw ? String(valRaw).replace(/,/g, '').trim() : '';
+            document.getElementById('modalValue').textContent = valRaw
+                ? (!isNaN(Number(cleanVal)) && cleanVal !== '' ? 'GH₵ ' + Number(cleanVal).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : valRaw)
                 : 'Unspecified';
 
             const seizureDate = exhibit.seizure_date || (exhibit.created_at ? exhibit.created_at.substring(0, 10) : 'N/A');
@@ -1322,6 +1405,17 @@
             document.getElementById('modalLocation').textContent = exhibit.seizure_location || 'N/A';
             document.getElementById('modalConcealment').textContent = exhibit.seizure_concealment || 'None';
             document.getElementById('modalReason').textContent = exhibit.seizure_reason || 'N/A';
+
+            const invOfficerEl = document.getElementById('modalInvestigatingOfficer');
+            if (invOfficerEl) invOfficerEl.textContent = exhibit.investigating_officer || exhibit.seizure_officer || 'N/A';
+            const srcUnitEl = document.getElementById('modalSourceRequestingUnit');
+            if (srcUnitEl) srcUnitEl.textContent = exhibit.source_requesting_unit || exhibit.source_of_exhibits || 'N/A';
+
+            // Custodial Status Management
+            const statusSelect = document.getElementById('inspectQuickStatusSelect');
+            if (statusSelect) statusSelect.value = exhibit.custodial_status || 'In Vault Custody';
+            const statusLabel = document.getElementById('inspectCustodialStatusLabel');
+            if (statusLabel) statusLabel.textContent = exhibit.custodial_status || 'In Vault Custody';
 
             // ==========================================
             // EVIDENCE PHOTOS GALLERY POPULATION
@@ -1426,7 +1520,7 @@
                     </div>
                 `;
             } else if (cat.includes('drug') || cat.includes('narcotic') || exhibit.drug_classification) {
-                specsTitle.textContent = 'Narcotics Classification & Chemical Profile';
+                specsTitle.textContent = 'Narcotics Classification & Profile';
                 specsBody.innerHTML = `
                     <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
                         <div><strong class="text-slate-400 block text-[10px]">Drug Classification</strong><span class="font-bold text-emerald-800 font-mono-code">${exhibit.drug_classification || 'N/A'}</span></div>
@@ -1658,14 +1752,20 @@
             let qtyStr = '';
             if (exhibit.seizure_weight) {
                 qtyStr = clean(exhibit.seizure_weight + ' ' + (exhibit.seizure_unit || 'kg'), 40);
+            } else if (exhibit.amount) {
+                qtyStr = clean(String(exhibit.amount), 40);
             } else if (exhibit.seizure_quantity) {
                 qtyStr = clean(exhibit.seizure_quantity + ' ' + (exhibit.seizure_unit || 'pcs'), 40);
             }
 
             // Value
             let valStr = '';
-            if (exhibit.seizure_value) {
-                valStr = 'GHS ' + Number(exhibit.seizure_value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const rawValForTag = (exhibit.seizure_value && exhibit.seizure_value !== 'N/A') ? exhibit.seizure_value : exhibit.amount;
+            if (rawValForTag) {
+                const cleanTagVal = String(rawValForTag).replace(/,/g, '').trim();
+                valStr = !isNaN(Number(cleanTagVal)) && cleanTagVal !== ''
+                    ? 'GHS ' + Number(cleanTagVal).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})
+                    : 'GHS ' + rawValForTag;
             }
 
             // Packaging, Concealment, Location, Officer, Date
@@ -2108,6 +2208,8 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     ex.custodial_status = newStatus;
+                    const statusLabel = document.getElementById('inspectCustodialStatusLabel');
+                    if (statusLabel) statusLabel.textContent = newStatus;
                     showVaultToast(`Custodial status updated to '${newStatus}'! Live QR scan page is automatically synchronized.`, 'success');
                     renderInspectBadgePreview(ex);
                     updateExhibitDomBadges(ex);

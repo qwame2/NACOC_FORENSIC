@@ -54,65 +54,12 @@
     $headName = $dbLabHead ? $dbLabHead->fullname : 'N/A';
 
     // Unified Presumptive Result Parser Helper
-    $parsePresumptiveResult = function ($raw) use ($drugName) {
-        $fallback = [['result' => '—', 'presence' => 'No test reaction recorded', 'purity' => '—']];
-        if (empty($raw) || !is_string($raw)) {
-            return $fallback;
-        }
-        $raw = trim($raw);
-        if ($raw === '' || strtoupper($raw) === 'N/A') {
-            return $fallback;
-        }
-
-        $overallResult = 'N/A';
-        if (preg_match('/^(YES|POS|POSITIVE)/i', $raw)) {
-            $overallResult = 'YES';
-        } elseif (preg_match('/^(NO|NEG|NEGATIVE)/i', $raw)) {
-            $overallResult = 'NO';
-        }
-
-        if ($overallResult === 'NO') {
-            $presence = 'Negative Reaction';
-            if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $raw, $m)) {
-                $inner = trim($m[1]);
-                if (!empty($inner)) {
-                    $presence = $inner;
-                }
-            }
-            return [['result' => 'NO', 'presence' => $presence, 'purity' => '—']];
-        }
-
-        $innerContent = $raw;
-        if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $raw, $m)) {
-            $innerContent = trim($m[1]);
-        } else {
-            if (in_array(strtoupper($raw), ['YES', 'POS', 'POSITIVE'])) {
-                return [['result' => 'YES', 'presence' => 'Positive Colorimetric Reaction', 'purity' => '—']];
-            }
-        }
-
-        $items = array_map('trim', explode(';', $innerContent));
-        $rows = [];
-        foreach ($items as $item) {
-            if (empty($item)) continue;
-            $presence = $item;
-            $purity = '—';
-            if (preg_match('/Presence of:\s*([^-\s]+.*?)(?:\s*-\s*Purity\/Percentage:\s*(.*))?$/i', $item, $pm)) {
-                $presence = trim($pm[1]);
-                if (!empty($pm[2])) {
-                    $purity = trim($pm[2]);
-                }
-            } elseif (preg_match('/(.*?)\s*\((.*?)\)$/', $item, $pm)) {
-                $presence = trim($pm[1]);
-                $purity = trim($pm[2]);
-            }
-            $rows[] = [
-                'result'   => $overallResult !== 'N/A' ? $overallResult : 'YES',
-                'presence' => $presence,
-                'purity'   => $purity,
-            ];
-        }
-        return !empty($rows) ? $rows : [['result' => 'YES', 'presence' => $innerContent, 'purity' => '—']];
+    $parsePresumptiveResult = function ($raw, $presence = null, $percentage = null) {
+        return \App\Models\ForensicCase::parsePresumptiveData(
+            is_string($raw) ? $raw : null,
+            $presence,
+            $percentage
+        )['rows'];
     };
 
     // Helper to compare suspect names flexibly
@@ -124,44 +71,7 @@
         return str_contains($c1, $c2) || str_contains($c2, $c1);
     };
 
-    $checkIsDrugExhibit = function ($ex) {
-        if (empty($ex)) return false;
-        $exArr = is_array($ex) ? $ex : (method_exists($ex, 'toArray') ? $ex->toArray() : (array)$ex);
-        $cat = strtolower($exArr['exhibit_category'] ?? ($exArr['category'] ?? ''));
-        $name = strtolower($exArr['commodity_name'] ?? ($exArr['seizure_name'] ?? ($exArr['seizure_name_drug'] ?? '')));
-        $class = strtolower($exArr['drug_classification'] ?? '');
-        $substance = strtolower($exArr['substance_identification'] ?? '');
-
-        $nonDrugKw = ['weapon', 'pistol', 'rifle', 'firearm', 'gun', 'vehicle', 'car', 'truck', 'cash', 'usd', 'ghs', 'laptop', 'phone', 'automobile', 'vessel', 'device', 'motorcycle', 'boat'];
-        $drugKw = ['cocaine', 'heroin', 'cannabis', 'weed', 'hemp', 'tramadol', 'meth', 'narcotic', 'drug', 'substance', 'precursor', 'ephedrine', 'hashish', 'diacetylmorphine', 'amphetamine', 'mdma', 'ecstasy'];
-
-        if (!empty($substance) && in_array(strtolower($substance), $drugKw)) return true;
-
-        $isNonDrug = false;
-        foreach ($nonDrugKw as $nk) {
-            if (str_contains($cat, $nk) || str_contains($name, $nk)) {
-                $isNonDrug = true;
-                break;
-            }
-        }
-
-        if ($isNonDrug) {
-            foreach ($drugKw as $dk) {
-                if ($dk !== 'drug' && $dk !== 'substance' && $dk !== 'narcotic' && $dk !== 'precursor' && (str_contains($cat, $dk) || str_contains($name, $dk))) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        foreach ($drugKw as $dk) {
-            if (str_contains($cat, $dk) || str_contains($name, $dk) || str_contains($class, $dk)) {
-                return true;
-            }
-        }
-
-        return false;
-    };
+    $checkIsDrugExhibit = app(\App\Services\DrugExhibitClassifier::class)->getClosure();
 
     // Gather suspect records
     $rawSuspects = [];
@@ -452,7 +362,11 @@
             'date_started' => $dateStart,
             'date_completed' => $dateComp,
             'presumptive_raw' => $presumptiveText,
-            'presumptive_rows' => $parsePresumptiveResult($presumptiveText),
+            'presumptive_rows' => $parsePresumptiveResult(
+                $presumptiveText,
+                $labExamData['presumptive_presence'] ?? null,
+                $labExamData['presumptive_percentage'] ?? null
+            ),
             'confirmatory' => $confirmatoryVal !== 'NO' ? 'YES' : 'NO',
             'sample_weight' => [
                 'description' => $sw['description'] ?? ($s['exhibit_description'] ?? $drugName),

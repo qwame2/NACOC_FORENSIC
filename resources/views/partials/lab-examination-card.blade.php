@@ -17,7 +17,7 @@
         <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
             <div class="flex items-center space-x-3">
                 <div
-                    class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                    class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -71,6 +71,16 @@
                         {{ $labExam['card_exhibit_description'] ?? ($labExam['exhibit_description'] ?? ($labExam['description'] ?? ($labExam['sample_weight']['description'] ?? 'N/A'))) }}
                     </td>
                 </tr>
+                @if (!empty($labExam['purpose_of_examination']) && $labExam['purpose_of_examination'] !== 'N/A')
+                    <tr class="bg-slate-100/90 border-b border-slate-300">
+                        <td
+                            class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                            Purpose of Examination:</td>
+                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
+                            {{ $labExam['purpose_of_examination'] }}
+                        </td>
+                    </tr>
+                @endif
                 <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
@@ -91,6 +101,16 @@
                         </div>
                     </td>
                 </tr>
+                @if (!empty($labExam['preliminary_exam_procedure']) && $labExam['preliminary_exam_procedure'] !== 'N/A')
+                    <tr class="border-b border-slate-300">
+                        <td
+                            class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                            Preliminary Exam Procedure:</td>
+                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
+                            {{ $labExam['preliminary_exam_procedure'] }}
+                        </td>
+                    </tr>
+                @endif
                 <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
@@ -204,9 +224,10 @@
                                                                         <span
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
                                         <span>{{ $cSub['name'] ?? 'Unknown' }}</span>
-                                        @if (!empty($cSub['purity']))
+                                        @php $detPct = $cSub['pct'] ?? ($cSub['purity'] ?? null); @endphp
+                                        @if (!empty($detPct))
                                             <span
-                                                class="text-emerald-800 font-mono font-extrabold">({{ $cSub['purity'] }}%)</span>
+                                                class="text-emerald-800 font-mono font-extrabold">({{ $detPct }}%)</span>
                                         @endif
                                         @if (!empty($cSub['method']))
                                             <span
@@ -215,6 +236,27 @@
                                     </span>
                                 @endforeach
                             </div>
+                        </td>
+                    </tr>
+                @endif
+                @php
+                    $screeningMethodsVal = $labExam['screening_method'] ?? null;
+                    if (is_string($screeningMethodsVal) && (str_starts_with(trim($screeningMethodsVal), '[') || str_starts_with(trim($screeningMethodsVal), '{'))) {
+                        $decoded = json_decode($screeningMethodsVal, true);
+                        if (is_array($decoded)) {
+                            $screeningMethodsVal = implode(', ', array_filter(array_map('trim', $decoded)));
+                        }
+                    } elseif (is_array($screeningMethodsVal)) {
+                        $screeningMethodsVal = implode(', ', array_filter(array_map('trim', $screeningMethodsVal)));
+                    }
+                @endphp
+                @if (!empty($screeningMethodsVal) && $screeningMethodsVal !== 'N/A')
+                    <tr class="bg-slate-100/90 border-b border-slate-300">
+                        <td
+                            class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                            Screening Method / Instrument:</td>
+                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
+                            {{ $screeningMethodsVal }}
                         </td>
                     </tr>
                 @endif
@@ -232,6 +274,16 @@
                     <td class="p-2.5 font-bold text-slate-900" colspan="3">
                         {{ $labExam['remark'] ?? 'N/A' }}</td>
                 </tr>
+                @if (!empty($labExam['disposition_of_exhibit']) && $labExam['disposition_of_exhibit'] !== 'N/A')
+                    <tr class="border-b border-slate-300">
+                        <td
+                            class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                            Disposition of Exhibit:</td>
+                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
+                            {{ $labExam['disposition_of_exhibit'] }}
+                        </td>
+                    </tr>
+                @endif
                 <tr class="bg-slate-900 text-white">
                     <td
                         class="p-2.5 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">

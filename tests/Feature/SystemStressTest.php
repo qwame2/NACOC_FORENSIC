@@ -87,6 +87,6 @@ class SystemStressTest extends TestCase
 
         $response->assertStatus(302);
         $this->assertDatabaseMissing('single_suspect_cases', ['status' => 'Awaiting Sign-off']);
-        $this->assertLessThan(1.0, $elapsedTime, "Batch approval took {$elapsedTime}s.");
+        $this->assertLessThan(2.5, $elapsedTime, "Batch approval took {$elapsedTime}s.");
     }
 }

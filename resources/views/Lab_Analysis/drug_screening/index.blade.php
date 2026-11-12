@@ -259,26 +259,25 @@
                 @endif
 
                 <!-- HERO BANNER -->
-                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
-                    <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-md shadow-slate-200/60 relative overflow-hidden">
                     <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="px-2.5 py-0.5 bg-teal-500 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">LAB ANALYSIS</span>
                                 <span class="text-xs text-slate-400">&bull;</span>
-                                <span class="text-xs font-bold text-teal-400 font-mono-code">SUSPECT SCREENING</span>
+                                <span class="text-xs font-bold text-teal-600 font-mono-code">SUSPECT SCREENING</span>
                             </div>
-                            <h1 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                            <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
                                 <span>Drug Screening</span>
                             </h1>
-                            <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                            <p class="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
                                 Official Forensic Laboratory register displaying all suspect drug screening outcomes, clinical assessment purposes, and laboratory examination findings for arrested persons and suspects in custody.
                             </p>
                         </div>
                         <div class="flex items-center gap-3 shrink-0">
                             <div class="text-right">
                                 <div class="text-[10px] font-mono-code uppercase text-slate-400">Analysis Officer</div>
-                                <div class="text-xs font-bold text-teal-300 font-mono-code">{{ $headName }}</div>
+                                <div class="text-xs font-bold text-teal-600 font-mono-code">{{ $headName }}</div>
                             </div>
                         </div>
                     </div>

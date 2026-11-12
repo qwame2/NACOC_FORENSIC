@@ -274,42 +274,6 @@
                                     </div>
                                 </a>
 
-                                <!-- ALERT 2: USER ACCOUNT APPROVALS -->
-                                <a href="{{ url('/Forensic_Head/approvals') }}"
-                                    class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account
-                                                Control</span>
-                                            <span
-                                                class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingUsersNotif > 0)
-                                                {{ $pendingUsersNotif }} Pending User Account Approval(s)
-                                            @else
-                                                Personnel Roster Fully Verified
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingUsersNotif > 0)
-                                                Staff or Unit Head registrations awaiting directorate access clearance.
-                                            @else
-                                                All registered system accounts are authorized and active.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
                                 <!-- ALERT 3: EVIDENCE VAULT TRANSFERS -->
                                 <a href="{{ url('/Forensic_Head/cases') }}"
                                     class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
@@ -495,7 +459,12 @@
                             </span>
                         @endif
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    @php
+                        $dispLabNumber = !empty($case->laboratory_number) && $case->laboratory_number !== 'Pending Assignment'
+                            ? $case->laboratory_number
+                            : (!empty($savedLabNumber) && $savedLabNumber !== 'N/A' && $savedLabNumber !== 'Pending Assignment' ? $savedLabNumber : null);
+                    @endphp
+                    <div class="grid grid-cols-1 md:grid-cols-{{ !empty($dispLabNumber) ? '4' : '3' }} gap-4 text-xs">
                         <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                             <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Case Name /
                                 Legal Title</div>
@@ -513,6 +482,27 @@
                             <div class="font-bold text-slate-800 text-sm mt-1">
                                 {{ $case->operation_code_name ?: $case->operation_code ?? 'N/A' }}</div>
                         </div>
+                        @if (!empty($case->search_warrant_document))
+                            <div class="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200">
+                                <div class="text-[10px] font-mono-code font-bold text-blue-700 uppercase">Search Warrant Document</div>
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($case->search_warrant_document) }}" target="_blank" rel="noopener"
+                                    class="inline-flex items-center space-x-1.5 mt-1 text-xs font-extrabold text-blue-700 hover:text-blue-900 underline">
+                                    <span>View / Download Warrant</span>
+                                </a>
+                            </div>
+                        @endif
+                        @if (!empty($dispLabNumber))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Laboratory Number</div>
+                                <div class="font-extrabold text-emerald-700 font-mono-code text-sm mt-1">{{ $dispLabNumber }}</div>
+                            </div>
+                        @endif
+                        @if (!empty($case->description_of_exhibits))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 md:col-span-{{ !empty($dispLabNumber) ? '4' : '3' }}">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Description of Exhibit(s)</div>
+                                <div class="font-bold text-slate-900 text-sm mt-1 leading-relaxed">{{ $case->description_of_exhibits }}</div>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -557,7 +547,15 @@
                     @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
-                    @if (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']) && $activeSuspectHasDrugExhibit)
+                    @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
+                        @foreach ($savedJointLabExamCards as $labCard)
+                            @include('partials.lab-examination-card', [
+                                'labExam' => $labCard,
+                                'labHeadingName' => $labCard['labHeadingName'] ?? ($savedJointLabHeadingName ?? $jointDossierHeadingName),
+                                'case' => $case,
+                            ])
+                        @endforeach
+                    @elseif (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']))
                         @include('partials.lab-examination-card', [
                             'labExam' => $savedJointLabExamCard ?? $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
@@ -569,6 +567,7 @@
                                     @include('partials.exhibit-table', [
                                         'exhibits' => $allCaseExhibits,
                                         'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
+                                        'case' => $case,
                                     ])
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
@@ -622,7 +621,7 @@
                         <!-- MANIFEST HEADER BAR WITH DYNAMIC SEIZED ITEMS NUMBER INPUT -->
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-300/60 pb-4 mb-6 gap-3">
                             <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 </div>
                                 <div>
@@ -765,13 +764,13 @@
                                                             </button>
                                                         </li>
                                                         <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Gold', event)">
+                                                            onclick="selectExhibitCategory('Precious Stones', event)">
                                                             <button type="button"
                                                                 class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
                                                                 <div>
-                                                                    <div class="font-extrabold text-slate-900">Gold</div>
+                                                                    <div class="font-extrabold text-slate-900">Precious Stones</div>
                                                                     <div class="text-[10px] text-slate-500 font-normal">
-                                                                        Bullion, Bars, Smuggled Metals</div>
+                                                                        Diamonds, Gemstones, Gold, Bullion</div>
                                                                 </div>
                                                                 <span
                                                                     class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
@@ -1314,8 +1313,8 @@
                                                 <div class="relative flex items-center group">
                                                     <span
                                                         class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                    <input type="number" step="0.01" id="newSeizureQuantity"
-                                                        placeholder="e.g. 10"
+                                                    <input type="text" inputmode="decimal" id="newSeizureQuantity"
+                                                        placeholder="e.g. 10 or 50,000"
                                                         class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
@@ -2275,26 +2274,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- SOURCE OF EXHIBITS -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
-                                                placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
-                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-
                                     <!-- SEIZING OFFICERS (MULTI-ROW) -->
                                     <div class="col-span-full">
                                         <div class="flex items-center justify-between mb-1.5">
@@ -2358,6 +2337,36 @@
                                                     </div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- INVESTIGATING OFFICER -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Investigating Officer
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
+                                    <!-- SOURCE / REQUESTING UNIT -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Source/Requesting Unit
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
 
@@ -3193,7 +3202,7 @@
                                 `<span class="status-badge bg-white text-slate-900 border border-slate-300">Awaiting Sign-off</span>`;
                         }
                         showToast(
-                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`
+                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings.`
                         );
                     } else {
                         showToast(
@@ -3979,9 +3988,11 @@
                     const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                     const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                     const location = block.querySelector('#newSeizureLocation')?.value || '';
-                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.dataset?.preservedSourceOfExhibits || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
+                    const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                    const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                     const devModel = block.querySelector('#newDevModel')?.value || '';
                     const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -4096,6 +4107,8 @@
                             source_of_exhibits: sourceOfExhibits,
                             exhibit_remark: exhibitRemark,
                             seizure_officer: seizingOfficer,
+                            investigating_officer: investigatingOfficer,
+                            source_requesting_unit: sourceRequestingUnit,
                             dev_model: devModel,
                             dev_serial_no: devSerialNo,
                             dev_imei1: devImei1,
@@ -5963,6 +5976,11 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            if (data.source_of_exhibits || data.source) {
+                block.dataset.preservedSourceOfExhibits = data.source_of_exhibits || data.source;
+            }
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
@@ -7031,26 +7049,7 @@
             rows.forEach(row => {
                 const nameInput = row.querySelector('.seizure-officer-name');
                 const idInput = row.querySelector('.seizure-officer-service-id');
-                const name = nameInput ? nameInput.value.trim() : '';
-                const svcId = idInput ? idInput.value.trim() : '';
-                if (name && svcId) {
-                    list.push(`${name} (${svcId})`);
-                } else if (name) {
-                    list.push(name);
-                } else if (svcId) {
-                    list.push(`(ID: ${svcId})`);
-                }
-            });
-            return list.length > 0 ? list.join('; ') : null;
-        }
-
-        function triggerSeizurePhotoUpload(el) {
-            const block = el ? el.closest('.seizure-block') : document;
-            const input = block.querySelector('.fileSeizurePhoto');
-            if (input) input.click();
-        }
-
-        function handleSeizureDrop(e, dropzoneEl) {
+      
             if (e.preventDefault) e.preventDefault();
             if (e.stopPropagation) e.stopPropagation();
             const block = dropzoneEl ? dropzoneEl.closest('.seizure-block') : document;
@@ -7286,8 +7285,10 @@
                 const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                 const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                 const location = block.querySelector('#newSeizureLocation')?.value || '';
-                const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.dataset?.preservedSourceOfExhibits || '';
                 const seizingOfficer = getSeizureOfficersFormatted(block);
+                const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                 const devModel = block.querySelector('#newDevModel')?.value || '';
                 const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -7392,6 +7393,7 @@
                         name: seizureName,
                         seizure_quantity: quantity,
                         quantity: quantity,
+                        amount: (category === 'Money' || category === 'Currency' || category === 'Cash') ? (quantity || value || '') : (block.querySelector('#newSeizureAmount')?.value || ''),
                         seizure_weight: weight,
                         weight: weight,
                         seizure_unit: unit,
@@ -7407,6 +7409,8 @@
                         source_of_exhibits: sourceOfExhibits,
                         exhibit_remark: exhibitRemark,
                         seizure_officer: seizingOfficer,
+                        investigating_officer: investigatingOfficer,
+                        source_requesting_unit: sourceRequestingUnit,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,

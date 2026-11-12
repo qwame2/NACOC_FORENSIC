@@ -1295,7 +1295,7 @@
                                     <!-- DYNAMIC CONDITIONAL SPOUSE / PARTNER RECORD CARD -->
                                     <div id="relationshipDetailsBox" class="{{ (str_contains(strtolower($suspectMarital), 'married') || str_contains(strtolower($suspectMarital), 'dating') || str_contains(strtolower($suspectMarital), 'relationship')) ? '' : 'hidden' }} sm:col-span-2 lg:col-span-3 p-5 bg-emerald-50/50 rounded-2xl border border-slate-200/90 space-y-4">
                                         <div class="flex items-center space-x-2.5">
-                                            <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                            <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                                             </div>
                                             <div>
@@ -1938,24 +1938,20 @@
                         @endif
 
                         <!-- LIVE LAB DOSSIER HERO BANNER -->
-                        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-5 text-white border border-slate-700/60 shadow-xl">
-                            <!-- Glowing Background Accents -->
-                            <div class="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
-                            <div class="absolute left-1/3 -bottom-10 w-48 h-48 rounded-full bg-teal-600/10 blur-2xl pointer-events-none"></div>
-
+                        <div class="relative overflow-hidden rounded-2xl bg-white p-5 text-slate-900 border border-slate-200/90 shadow-md shadow-slate-200/60">
                             <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <!-- Left Section Info -->
                                 <div class="flex items-start gap-3.5">
                                     <div>
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            <span class="text-xs font-black font-mono-code uppercase tracking-widest text-emerald-400">LABORATORY CHEMICAL EXAMINATION DOSSIER</span>
-                                            <span id="tab3_live_suspect_role" class="px-2 py-0.5 rounded text-[10px] font-mono-code font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                                            <span class="text-xs font-black font-mono-code uppercase tracking-widest text-teal-700">LABORATORY CHEMICAL EXAMINATION DOSSIER</span>
+                                            <span id="tab3_live_suspect_role" class="px-2.5 py-0.5 rounded text-[10px] font-mono-code font-extrabold bg-teal-50 text-teal-800 border border-teal-200 uppercase">
                                                 PRIMARY SUSPECT
                                             </span>
                                         </div>
-                                        <div class="text-sm font-extrabold text-slate-100 flex items-center gap-1.5 mt-0.5">
+                                        <div class="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 mt-0.5">
                                             <span>Linked Suspect:</span>
-                                            <span id="tab3_live_suspect_name" class="text-emerald-300 underline decoration-emerald-500/40 underline-offset-4">
+                                            <span id="tab3_live_suspect_name" class="text-teal-700 underline decoration-teal-500/40 underline-offset-4">
                                                 {{ $suspectObj['suspect_name'] ?? 'PRIMARY SUSPECT' }}
                                             </span>
                                         </div>
@@ -1963,10 +1959,10 @@
                                 </div>
 
                                 <!-- Right Dynamic Data Badges -->
-                                <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-700/50">
-                                    <div class="px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 flex flex-col justify-center min-w-[130px]">
-                                        <span class="text-[9px] font-mono-code font-bold text-slate-400 uppercase tracking-wider">Lab Docket No.</span>
-                                        <span id="tab3_live_lab_no" class="text-xs font-black text-emerald-300 font-mono-code truncate max-w-[150px]">
+                                <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200">
+                                    <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-center min-w-[130px]">
+                                        <span class="text-[9px] font-mono-code font-bold text-slate-500 uppercase tracking-wider">Lab Docket No.</span>
+                                        <span id="tab3_live_lab_no" class="text-xs font-black text-teal-700 font-mono-code truncate max-w-[150px]">
                                             {{ $case->laboratory_number ?: 'Pending Assignment' }}
                                         </span>
                                     </div>

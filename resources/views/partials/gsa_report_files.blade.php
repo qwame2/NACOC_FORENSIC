@@ -5,7 +5,12 @@
       $gsaFiles     — iterable of App\Models\SuspectGsaReport (already filtered to the suspect)
       $gsaForName   — (optional) suspect name shown in the heading
 --}}
-@if (!empty($gsaFiles) && count($gsaFiles) > 0)
+@php
+    $gsaFiles = collect($gsaFiles ?? [])
+        ->reject(fn ($gsaF) => \App\Models\SuspectGsaReport::isWitnessStatementAttachment($gsaF))
+        ->values();
+@endphp
+@if ($gsaFiles->count() > 0)
     <div class="gsa-attached-files mt-4 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
         <div class="flex items-center justify-between gap-2 flex-wrap">
             <span class="flex items-center gap-2 text-xs font-black text-blue-900 font-mono-code uppercase tracking-tight">
@@ -29,10 +34,18 @@
                             </a>
                         @else
                             @php
-                                $isNlr = ($gsaF instanceof \App\Models\SuspectNlrReport) || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR');
+                                $isPrelimOrNlr = ($gsaF instanceof \App\Models\SuspectPreliminaryReport)
+                                    || ($gsaF instanceof \App\Models\SuspectNlrReport) 
+                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'PRELIM')
+                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR');
+                                $isDpfReport = ($gsaF instanceof \App\Models\DpfReport)
+                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'EXTRACTION')
+                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'STATUS LOG')
+                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'DPF')
+                                    || str_contains(strtoupper($gsaF->file_path ?? ''), 'DPF-REPORT-PDF');
                             @endphp
-                            <div class="w-9 h-9 {{ $isNlr ? 'bg-emerald-600' : 'bg-blue-600' }} text-white rounded-lg flex items-center justify-center font-mono-code text-[10px] font-bold shrink-0">
-                                {{ $isNlr ? 'NLR' : strtoupper(substr($gsaF->file_extension ?? 'PDF', 0, 4)) }}
+                            <div class="w-9 h-9 {{ $isPrelimOrNlr ? 'bg-emerald-600' : ($isDpfReport ? 'bg-indigo-600' : 'bg-blue-600') }} text-white rounded-lg flex items-center justify-center font-mono-code text-[9px] font-bold shrink-0 text-center" title="{{ $isPrelimOrNlr ? 'Preliminary Report' : ($isDpfReport ? 'Extraction & Investigation Status Log Report' : 'PDF Report') }}">
+                                {{ $isPrelimOrNlr ? 'PRELIM' : ($isDpfReport ? 'DPF' : strtoupper(substr($gsaF->file_extension ?? 'PDF', 0, 4))) }}
                             </div>
                         @endif
                         <div class="min-w-0">
@@ -52,10 +65,18 @@
                         </div>
                     </div>
                     @php
-                        $isNlrBtn = ($gsaF instanceof \App\Models\SuspectNlrReport) || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR');
+                        $isPrelimBtn = ($gsaF instanceof \App\Models\SuspectPreliminaryReport)
+                            || ($gsaF instanceof \App\Models\SuspectNlrReport) 
+                            || str_contains(strtoupper($gsaF->original_filename ?? ''), 'PRELIM')
+                            || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR');
+                        $isDpfBtn = ($gsaF instanceof \App\Models\DpfReport)
+                            || str_contains(strtoupper($gsaF->original_filename ?? ''), 'EXTRACTION')
+                            || str_contains(strtoupper($gsaF->original_filename ?? ''), 'STATUS LOG')
+                            || str_contains(strtoupper($gsaF->original_filename ?? ''), 'DPF')
+                            || str_contains(strtoupper($gsaF->file_path ?? ''), 'DPF-REPORT-PDF');
                     @endphp
                     <a href="{{ $gsaF->url }}" target="_blank"
-                        class="no-print px-2.5 py-1 {{ $isNlrBtn ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700' }} text-white text-[10px] font-extrabold font-mono-code rounded-lg transition-colors shrink-0">
+                        class="no-print px-2.5 py-1 {{ $isPrelimBtn ? 'bg-emerald-600 hover:bg-emerald-700' : ($isDpfBtn ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-600 hover:bg-blue-700') }} text-white text-[10px] font-extrabold font-mono-code rounded-lg transition-colors shrink-0">
                         Open
                     </a>
                 </div>

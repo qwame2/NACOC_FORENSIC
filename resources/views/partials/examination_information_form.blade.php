@@ -9,7 +9,7 @@
 
         <div class="flex items-center space-x-3">
             <div
-                class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
+                class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -44,727 +44,569 @@
         <input type="hidden" id="labFormExhibitOwner" name="exhibit_owner_name"
             value="{{ $activeSuspectName }}">
 
-        <!-- EXHIBIT SELECTOR CARD FROM SECTION 4 MANIFEST -->
-        <div
-            class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- SUB-SECTION 5A: EXAMINATION INFORMATION -->
+        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
+            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                <h4
+                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span
+                        class="w-5 h-5 rounded-full bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] flex items-center justify-center font-bold">5A</span>
+                    <span>Examination Information</span>
+                </h4>
+            </div>
 
-                <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
-                <div class="md:col-span-2">
-                    <label
-                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                        <span class="flex items-center space-x-2">
-                            <svg class="w-4 h-4 text-emerald-600" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            <span>Select Seized Exhibit to Examine (Manifest Sync)</span> <span
-                                class="text-emerald-700 font-semibold text-[10px]">(Type of Drug)</span>
-                            <span class="text-red-600 font-bold">*</span>
-                        </span>
-                        <span id="labExhibitCountBadge"
-                            class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
-                            {{ !empty($drugExhibits) ? count($drugExhibits) . ' Drug Exhibit(s) Synced' : '0 Drug Exhibits Linked' }}
-                        </span>
-                    </label>
-                    <select id="labExhibitSelect" name="exhibit_id"
-                        onchange="onReviewLabExhibitChange(this)"
-                        class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                        {{ empty($drugExhibits) ? 'disabled' : '' }}>
-                        <option value="" {{ empty($drugExhibits) ? 'selected' : '' }}>-- Select Seized Exhibit --</option>
-                        @if (!empty($drugExhibits))
-                            @foreach ($drugExhibits as $dEx)
-                                @php
-                                    $exTitle =
-                                        $dEx['name'] ??
-                                        ($dEx['cat'] ?? 'Exhibit #' . ($loop->index + 1));
-                                    $exMetrics = !empty($dEx['qty'])
-                                        ? ' — ' .
-                                            $dEx['qty'] .
-                                            (!empty($dEx['unit']) &&
-                                            !str_contains(
-                                                strtolower($dEx['qty']),
-                                                strtolower($dEx['unit']),
-                                            )
-                                                ? ' ' . $dEx['unit']
-                                                : '')
-                                        : (!empty($dEx['weight'])
+            <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 4 MANIFEST -->
+            <div
+                class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
+                <div class="space-y-2">
+                    <!-- SEIZED EXHIBIT SELECTOR FROM SECTION 4 MANIFEST -->
+                    <div>
+                        <label
+                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                            <span class="flex items-center space-x-2">
+                                <svg class="w-4 h-4 text-emerald-600" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <span>Select Seized Exhibit to Examine (Manifest Sync)</span> <span
+                                    class="text-emerald-700 font-semibold text-[10px]">(Type of Drug)</span>
+                                <span class="text-red-600 font-bold">*</span>
+                            </span>
+                            <span id="labExhibitCountBadge"
+                                class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                                {{ !empty($drugExhibits) ? count($drugExhibits) . ' Drug Exhibit(s) Synced' : '0 Drug Exhibits Linked' }}
+                            </span>
+                        </label>
+                        <select id="labExhibitSelect" name="exhibit_id"
+                            onchange="if(typeof onLabExhibitSelected === 'function') { onLabExhibitSelected(); } if(typeof onReviewLabExhibitChange === 'function') { onReviewLabExhibitChange(this); }"
+                            class="hidden">
+                            <option value="" {{ empty($drugExhibits) ? 'selected' : '' }}>-- Select Seized Exhibit --</option>
+                            @if (!empty($drugExhibits))
+                                @foreach ($drugExhibits as $dEx)
+                                    @php
+                                        $exTitle =
+                                            $dEx['name'] ??
+                                            ($dEx['cat'] ?? 'Exhibit #' . ($loop->index + 1));
+                                        $exMetrics = !empty($dEx['qty'])
                                             ? ' — ' .
-                                                $dEx['weight'] .
+                                                $dEx['qty'] .
                                                 (!empty($dEx['unit']) &&
                                                 !str_contains(
-                                                    strtolower($dEx['weight']),
+                                                    strtolower($dEx['qty']),
                                                     strtolower($dEx['unit']),
                                                 )
                                                     ? ' ' . $dEx['unit']
                                                     : '')
-                                            : '');
-                                    $rawDescBlade = $dEx['pkg'] ?? ($dEx['description'] ?? '');
-                                    $cleanDescBlade = $rawDescBlade;
-                                    if (!empty($cleanDescBlade) && !empty($exTitle)) {
-                                        if (
-                                            str_starts_with(
-                                                strtolower($cleanDescBlade),
-                                                strtolower($exTitle),
-                                            )
-                                        ) {
+                                            : (!empty($dEx['weight'])
+                                                ? ' — ' .
+                                                    $dEx['weight'] .
+                                                    (!empty($dEx['unit']) &&
+                                                    !str_contains(
+                                                        strtolower($dEx['weight']),
+                                                        strtolower($dEx['unit']),
+                                                    )
+                                                        ? ' ' . $dEx['unit']
+                                                        : '')
+                                                : '');
+                                        $rawDescBlade = $dEx['pkg'] ?? ($dEx['description'] ?? '');
+                                        $cleanDescBlade = $rawDescBlade;
+                                        if (!empty($cleanDescBlade) && !empty($exTitle)) {
+                                            if (
+                                                str_starts_with(
+                                                    strtolower($cleanDescBlade),
+                                                    strtolower($exTitle),
+                                                )
+                                            ) {
+                                                $cleanDescBlade = trim(
+                                                    substr($cleanDescBlade, strlen($exTitle)),
+                                                );
+                                            }
                                             $cleanDescBlade = trim(
-                                                substr($cleanDescBlade, strlen($exTitle)),
+                                                preg_replace('/^[\s\—\-\:\(\)]+/', '', $cleanDescBlade),
+                                                ') ',
                                             );
                                         }
-                                        $cleanDescBlade = trim(
-                                            preg_replace('/^[\s\—\-\:\(\)]+/', '', $cleanDescBlade),
-                                            ') ',
-                                        );
-                                    }
-                                    $exPkgStr = !empty($cleanDescBlade)
-                                        ? ' (' . $cleanDescBlade . ')'
-                                        : '';
-                                    $exOwnerStr = !empty($dEx['owner'])
-                                        ? ' [Owner: ' . $dEx['owner'] . ']'
-                                        : '';
-                                @endphp
-                                <option value="{{ $dEx['id'] ?? $dEx['index'] }}"
-                                    {{ $loop->first ? 'selected' : '' }}
-                                    data-ex-id="{{ $dEx['id'] ?? '' }}"
-                                    data-index="{{ $dEx['index'] }}"
-                                    data-name="{{ $dEx['name'] }}"
-                                    data-owner="{{ $dEx['owner'] ?? '' }}"
-                                    data-qty="{{ $dEx['qty'] ?? '' }}"
-                                    data-weight="{{ $dEx['weight'] ?? '' }}"
-                                    data-unit="{{ $dEx['unit'] ?? '' }}"
-                                    data-pkg="{{ $dEx['pkg'] ?? '' }}"
-                                    data-description="{{ $dEx['description'] ?? '' }}"
-                                    data-is-associate="{{ !empty($dEx['is_associate']) ? '1' : '0' }}"
-                                    data-has-saved="{{ !empty($dEx['has_saved_lab']) ? 'true' : 'false' }}"
-                                    data-confirmatory="{{ $dEx['confirmatory_result'] ?? 'YES' }}"
-                                    data-substance-id="{{ $dEx['substance_identification'] ?? '' }}"
-                                    data-test-methods="{{ $dEx['test_methods'] ?? '' }}"
-                                    data-specifications="{{ $dEx['specifications'] ?? '' }}"
-                                    data-remark="{{ $dEx['remark'] ?? '' }}"
-                                    data-sample-taken="{{ $dEx['sample_taken'] ?? '' }}"
-                                    data-sample-reserved="{{ $dEx['sample_reserved'] ?? '' }}"
-                                    data-detected-substances="{{ is_array($dEx['detected_substances'] ?? null) ? json_encode($dEx['detected_substances']) : $dEx['detected_substances'] ?? '' }}"
-                                    data-findings="{{ $dEx['findings'] ?? '' }}"
-                                    data-purpose-of-examination="{{ $dEx['purpose_of_examination'] ?? ($initialPurposeOfExamination ?? '') }}">
-                                    {{ $exTitle }}{{ $exMetrics }}{{ $exPkgStr }}{{ $exOwnerStr }}
-                                </option>
-                            @endforeach
-                        @endif
-                    </select>
-                </div>
+                                        $exPkgStr = !empty($cleanDescBlade)
+                                            ? ' (' . $cleanDescBlade . ')'
+                                            : '';
+                                        $exOwnerStr = !empty($dEx['owner'])
+                                            ? ' [Owner: ' . $dEx['owner'] . ']'
+                                            : '';
+                                    @endphp
+                                    <option value="{{ $dEx['id'] ?? $dEx['index'] }}"
+                                        {{ $loop->first ? 'selected' : '' }}
+                                        data-ex-id="{{ $dEx['id'] ?? '' }}"
+                                        data-index="{{ $dEx['index'] }}"
+                                        data-name="{{ $dEx['name'] }}"
+                                        data-cat="{{ $dEx['cat'] ?? 'Drugs' }}"
+                                        data-owner="{{ $dEx['owner'] ?? '' }}"
+                                        data-qty="{{ $dEx['qty'] ?? '' }}"
+                                        data-weight="{{ $dEx['weight'] ?? '' }}"
+                                        data-unit="{{ $dEx['unit'] ?? '' }}"
+                                        data-pkg="{{ $dEx['pkg'] ?? '' }}"
+                                        data-contents="{{ $dEx['contents'] ?? ($dEx['contents_visual'] ?? '') }}"
+                                        data-description="{{ $dEx['description'] ?? '' }}"
+                                        data-exhibit-number="{{ $dEx['exhibit_number'] ?? '' }}"
+                                        data-lab-exhibit-no="{{ $dEx['lab_exhibit_no'] ?? '' }}"
+                                        data-is-associate="{{ !empty($dEx['is_associate']) ? '1' : '0' }}"
+                                        data-has-saved="{{ !empty($dEx['has_saved_lab']) ? 'true' : 'false' }}"
+                                        data-confirmatory="{{ $dEx['confirmatory_result'] ?? 'YES' }}"
+                                        data-substance-id="{{ $dEx['substance_identification'] ?? '' }}"
+                                        data-test-methods="{{ $dEx['test_methods'] ?? '' }}"
+                                        data-specifications="{{ $dEx['specifications'] ?? '' }}"
+                                        data-remark="{{ $dEx['remark'] ?? '' }}"
+                                        data-sample-taken="{{ $dEx['sample_taken'] ?? '' }}"
+                                        data-sample-reserved="{{ $dEx['sample_reserved'] ?? '' }}"
+                                        data-detected-substances="{{ is_array($dEx['detected_substances'] ?? null) ? json_encode($dEx['detected_substances']) : $dEx['detected_substances'] ?? '' }}"
+                                        data-findings="{{ $dEx['findings'] ?? '' }}"
+                                        data-purpose-of-examination="{{ $dEx['purpose_of_examination'] ?? ($initialPurposeOfExamination ?? '') }}"
+                                        data-preliminary-exam-procedure="{{ $dEx['preliminary_exam_procedure'] ?? ($initialPreliminaryExamProcedure ?? '') }}"
+                                        data-screening-method="{{ is_array($dEx['screening_method'] ?? null) ? json_encode($dEx['screening_method']) : ($dEx['screening_method'] ?? (is_array($initialScreeningMethod ?? null) ? json_encode($initialScreeningMethod) : ($initialScreeningMethod ?? ''))) }}"
+                                        data-disposition-of-exhibit="{{ $dEx['disposition_of_exhibit'] ?? ($initialDispositionOfExhibit ?? '') }}">
+                                        {{ $exTitle }}{{ $exMetrics }}{{ $exPkgStr }}{{ $exOwnerStr }}
+                                    </option>
+                                @endforeach
+                            @endif
+                        </select>
 
-                <!-- EXHIBIT NO. INPUT IN SELECT SEIZED EXHIBIT (MANIFEST SYNC) -->
+                        <!-- DYNAMIC EXHIBIT SELECTION CONTAINERS -->
+                        <div id="labExhibitCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                            @if (!empty($drugExhibits))
+                                @foreach ($drugExhibits as $dEx)
+                                    @php
+                                        $itemNum = $loop->iteration;
+                                        $exTitle = $dEx['name'] ?? ($dEx['cat'] ?? 'Exhibit #' . $itemNum);
+                                        $catName = $dEx['cat'] ?? 'Exhibit';
+                                        $exMetrics = !empty($dEx['qty'])
+                                            ? $dEx['qty'] . (!empty($dEx['pkg']) ? ' ' . $dEx['pkg'] : (!empty($dEx['unit']) ? ' ' . $dEx['unit'] : ''))
+                                            : (!empty($dEx['weight']) ? $dEx['weight'] . (!empty($dEx['unit']) ? ' ' . $dEx['unit'] : '') : 'No metrics specified');
+                                        $contentsVisual = $dEx['contents'] ?? ($dEx['contents_visual'] ?? ($dEx['pkg'] ?? 'N/A'));
+                                        $ownerName = $dEx['owner'] ?? $activeSuspectName;
+                                        $currentYear = date('Y');
+                                        $paddedIdx = str_pad($itemNum, 3, '0', STR_PAD_LEFT);
+                                        $systemExhibitId = !empty($dEx['exhibit_number']) ? $dEx['exhibit_number'] : sprintf('EXH-%05d', $itemNum);
+                                        $cardExhNo = $dEx['lab_exhibit_no'] ?? '';
+                                    @endphp
+                                    <div class="lab-exhibit-card p-3.5 rounded-xl border transition-all cursor-pointer shadow-2xs {{ $loop->first ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/40' : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/70' }}"
+                                        data-exhibit-index="{{ $itemNum }}"
+                                        data-system-exhibit-number="{{ $systemExhibitId }}"
+                                        data-lab-exhibit-no="{{ $cardExhNo }}"
+                                        onclick="selectLabExhibitCard({{ $itemNum }})">
+                                        <div class="flex items-center justify-between mb-1.5 gap-1.5">
+                                            <div class="flex items-center gap-1.5 min-w-0">
+                                                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-md uppercase shrink-0">Exhibit #{{ $itemNum }}</span>
+                                                <span class="text-[10px] text-slate-400 font-medium truncate max-w-[110px]">{{ $catName }}</span>
+                                            </div>
+                                            <span class="lab-card-system-exhibit-id text-emerald-700 text-[10px] font-mono-code font-extrabold tracking-wider uppercase shrink-0" data-system-exhibit-number="{{ $systemExhibitId }}" title="System-Generated Exhibit ID">{{ $systemExhibitId }}</span>
+                                        </div>
+                                        <div class="font-extrabold text-slate-900 text-xs truncate mb-1" title="{{ $exTitle }}">{{ $exTitle }}</div>
+                                        <div class="text-[11px] text-slate-600 font-medium flex items-center gap-1 mb-1 truncate" title="Visual Contents: {{ $contentsVisual }}">
+                                            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                            <span class="truncate"><strong class="font-semibold text-slate-700">Contents:</strong> {{ $contentsVisual }}</span>
+                                        </div>
+                                        <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono-code border-t border-slate-100 pt-1.5 mt-1">
+                                            <span class="truncate font-semibold text-emerald-800">{{ $exMetrics }}</span>
+                                            <span class="truncate text-slate-400 max-w-[90px]">{{ $ownerName }}</span>
+                                        </div>
+                                        <div class="mt-2.5 pt-2 border-t border-slate-100" onclick="event.stopPropagation()">
+                                            <label class="block text-slate-800 font-extrabold text-[10px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Exhibit No.</span>
+                                                <span class="text-[8px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Exhibit ID</span>
+                                            </label>
+                                            <input type="text"
+                                                id="labCardExhibitNo_{{ $itemNum }}"
+                                                name="lab_exhibit_nos[]"
+                                                data-field="lab_exhibit_no"
+                                                value="{{ $cardExhNo }}"
+                                                placeholder="A, B...Ai, Aii, Bi, Bii...., A1, A2, B1, B2"
+                                                class="card-exhibit-no-input w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30 shadow-2xs"
+                                                onclick="event.stopPropagation()"
+                                                oninput="onCardExhibitNoChange(this, {{ $itemNum }})"
+                                            >
+                                        </div>
+                                    </div>
+                                @endforeach
+                            @else
+                                <div class="p-3 bg-white/80 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-slate-400 italic">
+                                    No exhibits logged in manifest yet.
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <p
+                    class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
+                    <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Each seized exhibit is synchronized from the manifest. Click an exhibit card to select it for focus or view examination specifics below.</span>
+                </p>
+            </div>
+
+            <!-- REFERENCE NUMBER FIELDS -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <!-- Analysis/Examination Reference -->
                 <div>
                     <label
                         class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                        <span>Exhibit No.</span>
+                        <span>Analysis / Examination Reference</span>
                         <span
-                            class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Exhibit ID</span>
+                            class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
                     </label>
-                    <input type="text" id="labExhibitNumberInput" name="lab_exhibit_number"
-                        value="{{ $isLabCompleted ? '' : $labExhibitNo }}"
-                        placeholder="e.g. EXH-2026-001-NFC"
-                        class="w-full px-3.5 py-3 bg-white border border-emerald-300 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                    <input type="text" id="labExamReferenceInput" name="lab_exam_reference" value="{{ $isLabCompleted ? '' : $labExamRef }}"
+                        readonly
+                        class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
                 </div>
-            </div>
-            <p class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
-                <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none"
-                    stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Select a drug type and exhibit above to load Section 4 manifest details
-                    and process forensic examination.</span>
-            </p>
-        </div>
 
-        <!-- REFERENCE NUMBER FIELDS -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <!-- Analysis/Examination Reference -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                    <span>Analysis / Examination Reference</span>
-                    <span
-                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
-                </label>
-                <input type="text" id="labExamReferenceInput" value="{{ $isLabCompleted ? '' : $labExamRef }}"
-                    readonly
-                    class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
-            </div>
-
-            <!-- Case Reference -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                    <span>Case Reference</span>
-                    <span
-                        class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
-                </label>
-                <input type="text" id="labCaseReferenceInput" value="{{ $isLabCompleted ? '' : $labCaseRef }}"
-                    readonly
-                    class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
-            </div>
-        </div>
-
-        <!-- EXHIBIT DESCRIPTION, LAB UNIT & ANALYST / EXAMINER -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <!-- Exhibit Description -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                    <span>Exhibit Description</span>
-                    <span
-                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched
-                        from Manifest</span>
-                </label>
-                <textarea id="labExhibitDescriptionInput" rows="3"
-                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">{{ $isLabCompleted ? '' : ($initialLabDesc ?? '') }}</textarea>
-            </div>
-
-            <!-- Laboratory Number -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                    <span>Laboratory Number</span>
-                    <span
-                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
-                </label>
-                <input type="text" id="formLabNumber" name="laboratory_number"
-                    value="{{ $isLabCompleted ? '' : $labNumber }}" readonly
-                    class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
-            </div>
-
-            <!-- Analyst / Examiner -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                    <span>Analyst / Examiner</span>
-                    <span
-                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner
-                        Name</span>
-                </label>
-                <input type="text" id="formLabAnalyst" value=""
-                    class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
-                    placeholder="Examiner / Analyst Name">
-            </div>
-        </div>
-
-        <!-- DATES TIMELINE -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
-            <!-- Date Received -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                    Date Received <span class="text-red-600 font-bold">*</span>
-                </label>
-                <input type="date" id="labDateReceivedInput" value="{{ $isLabCompleted ? '' : $labDateReceived }}"
-                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
-            </div>
-
-            <!-- Date Examination Started -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                    Date Examination Started <span class="text-red-600 font-bold">*</span>
-                </label>
-                <input type="date" id="labDateStartedInput" value="{{ $isLabCompleted ? '' : $labDateStarted }}"
-                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
-            </div>
-
-            <!-- Date Examination Completed -->
-            <div>
-                <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                    Date Examination Completed <span class="text-red-600 font-bold">*</span>
-                </label>
-                <input type="date" id="labDateCompletedInput" value="{{ $isLabCompleted ? '' : $labDateCompleted }}"
-                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
-            </div>
-        </div>
-    </div>
-
-    <!-- PURPOSE OF EXAMINATION CARD -->
-    <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-2xs space-y-4">
-        <div class="pb-3 border-b border-emerald-100 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div
-                    class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                </div>
+                <!-- Case Reference -->
                 <div>
-                    <h3 class="font-extrabold text-slate-900 text-sm">Purpose of Examination</h3>
-                    <p class="text-[11px] text-emerald-700 font-semibold">Formal purpose and analytical scope of the examination</p>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                        <span>Case Reference</span>
+                        <span
+                            class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
+                    </label>
+                    <input type="text" id="labCaseReferenceInput" name="lab_case_reference" value="{{ $isLabCompleted ? '' : $labCaseRef }}"
+                        readonly
+                        class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                </div>
+
+                <!-- Hidden Exhibit Number input synced from active card for form submission -->
+                <input type="hidden" id="labExhibitNumberInput" name="lab_exhibit_no"
+                    value="{{ $isLabCompleted ? '' : ($drugExhibits[0]['lab_exhibit_no'] ?? '') }}">
+            </div>
+
+            <!-- EXHIBIT DESCRIPTION, LAB NUMBER & ANALYST / EXAMINER -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <!-- Exhibit Description -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                        <span>Exhibit Description</span>
+                        <span
+                            class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Fetched
+                            from Manifest</span>
+                    </label>
+                    <textarea id="labExhibitDescriptionInput" name="lab_exhibit_description" rows="3"
+                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">{{ $isLabCompleted ? '' : ($initialLabDesc ?? '') }}</textarea>
+                </div>
+
+                <!-- Laboratory Number -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                        <span>Laboratory Number</span>
+                        <span
+                            class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
+                    </label>
+                    <input type="text" id="formLabNumber" name="laboratory_number"
+                        value="{{ $isLabCompleted ? '' : $labNumber }}" readonly
+                        class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
+                </div>
+
+                <!-- Analyst / Examiner -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                        <span>Analyst / Examiner</span>
+                        <span
+                            class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Examiner
+                            Name</span>
+                    </label>
+                    <input type="text" id="formLabAnalyst" name="lab_analyst"
+                        value="{{ auth()->user()->fullname ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : '')) }}"
+                        class="w-full px-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-extrabold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs text-xs"
+                        placeholder="Examiner / Analyst Name">
                 </div>
             </div>
-            <span
-                class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                MANDATORY / SCOPE
-            </span>
-        </div>
-        <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200">
-            <label
-                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                <span>Purpose of Examination</span>
-                <span
-                    class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Mandatory / Scope</span>
-            </label>
-            <textarea id="labPurposeOfExaminationInput" name="purpose_of_examination" rows="3"
-                placeholder="State the purpose of examination (e.g. Qualitative and quantitative chemical analysis to identify controlled substances and determine purity percentage)..."
-                class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs resize-none placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($initialPurposeOfExamination ?? '') }}</textarea>
-        </div>
-    </div>
 
-        <!-- SECTION 6: PRESUMPTIVE TEST CARD -->
-        <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-2xs space-y-4">
-            <div class="pb-3 border-b border-emerald-100 flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <div
-                        class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="font-extrabold text-slate-900 text-sm">Presumptive Test
-                        </h3>
-                        <p class="text-[11px] text-emerald-700 font-semibold">Initial chemical
-                            field screening &amp; colorimetric reaction validation</p>
-                    </div>
+            <!-- DATES TIMELINE -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-slate-100">
+                <!-- Date Received -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                        Date Received <span class="text-red-600 font-bold">*</span>
+                    </label>
+                    <input type="date" id="labDateReceivedInput" name="lab_date_received" value="{{ $isLabCompleted ? '' : $labDateReceived }}"
+                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
                 </div>
+
+                <!-- Date Examination Started -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                        Date Examination Started <span class="text-red-600 font-bold">*</span>
+                    </label>
+                    <input type="date" id="labDateStartedInput" name="lab_date_started" value="{{ $isLabCompleted ? '' : $labDateStarted }}"
+                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                </div>
+
+                <!-- Date Examination Completed -->
+                <div>
+                    <label
+                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                        Date Examination Completed <span class="text-red-600 font-bold">*</span>
+                    </label>
+                    <input type="date" id="labDateCompletedInput" name="lab_date_completed" value="{{ $isLabCompleted ? '' : $labDateCompleted }}"
+                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
+                </div>
+            </div>
+        </div>
+
+        <!-- LEGACY FALLBACK COMPATIBILITY HIDDEN FIELDS -->
+        <div class="hidden" style="display:none;" aria-hidden="true">
+            <input type="checkbox" id="presumptiveTestYes" name="presumptive_test_yes" value="YES">
+            <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO" checked>
+            <input type="hidden" id="presumptiveReactionResultInput" name="presumptive_reaction_result_input" value="">
+            <input type="checkbox" id="confirmatoryTestYes" name="confirmatory_test_yes" value="YES">
+            <input type="checkbox" id="confirmatoryTestNo" name="confirmatory_test_no" value="NO" checked>
+            <input type="hidden" id="confirmatoryTestResultInput" name="confirmatory_test_result" value="NO">
+            <input type="text" id="sampleWeightDescription" name="sample_weight_description" value="">
+            <input type="text" id="sampleWeightUnits" name="sample_weight_units" value="">
+            <input type="text" id="sampleWeightGross" name="sample_weight_gross" value="">
+            <input type="text" id="sampleWeightTaken" name="sample_weight_taken" value="">
+            <input type="text" id="sampleWeightReserved" name="sample_weight_reserved" value="">
+            <input type="text" id="confirmatorySubstanceIdentification" name="confirmatory_substance_identification" value="">
+            <div id="presumptiveReactionDetailsContainer"></div>
+            <div id="presumptiveTestRowsContainer"></div>
+            <div id="sampleWeightContainer" class="hidden"></div>
+            <div id="detectedSubstancesListContainer"></div>
+            <!-- Review specific legacy aliases -->
+            <input type="radio" id="presumptiveTestYesReview" name="form_presumptive_radio" value="YES">
+            <input type="radio" id="presumptiveTestNoReview" name="form_presumptive_radio" value="NO">
+            <div id="presumptiveReactionDetailsContainerReview"></div>
+            <div id="presumptiveTestRowsContainerReview"></div>
+            <input type="hidden" id="presumptiveReactionResultInputReview" value="">
+            <input type="radio" id="confirmatoryTestYesReview" name="form_confirmatory_radio" value="YES">
+            <input type="radio" id="confirmatoryTestNoReview" name="form_confirmatory_radio" value="NO">
+            <div id="sampleWeightContainerReview" class="hidden"></div>
+            <input type="text" id="sampleWeightDescriptionReview" name="sample_weight_description_review" value="">
+            <input type="text" id="sampleWeightUnitsReview" name="sample_weight_units_review" value="">
+            <input type="text" id="sampleWeightGrossReview" name="sample_weight_gross_review" value="">
+            <input type="text" id="sampleWeightTakenReview" name="sample_weight_taken_review" value="">
+            <span id="sampleWeightTakenUnitAddonReview"></span>
+            <p id="sampleWeightTakenErrorReview" class="hidden"></p>
+            <input type="text" id="sampleWeightReservedReview" name="sample_weight_reserved_review" value="">
+            <input type="text" id="confirmatorySubstanceIdentificationReview" name="confirmatory_substance_identification_review" value="">
+            <div id="detectedSubstancesListContainerReview"></div>
+            <textarea id="labPreliminaryExamProcedureReview" class="hidden">{{ $isLabCompleted ? '' : ($initialPreliminaryExamProcedure ?? ($savedLabPreliminaryExamProcedure ?? '')) }}</textarea>
+            <input type="hidden" id="confirmatoryScreeningMethodReview" value="{{ is_array($initialScreeningMethod ?? null) ? json_encode($initialScreeningMethod) : ($initialScreeningMethod ?? ($savedLabScreeningMethod ?? '')) }}">
+            <textarea id="confirmatoryDispositionOfExhibitReview" class="hidden">{{ $isLabCompleted ? '' : ($initialDispositionOfExhibit ?? ($savedLabDispositionOfExhibit ?? ($case->disposition_of_exhibit ?? ''))) }}</textarea>
+            <input type="text" id="labNumberInput" name="laboratory_number_alias" value="{{ $isLabCompleted ? '' : $labNumber }}">
+            <input type="text" id="labAnalystInput" name="lab_analyst_alias" value="{{ auth()->user()->fullname ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : '')) }}">
+        </div>
+
+        <!-- SUB-SECTION 5B: PURPOSE OF EXAMINATION -->
+        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                <h4
+                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span
+                        class="w-5 h-5 rounded-full bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] flex items-center justify-center font-bold">5B</span>
+                    <span>Purpose of Examination</span>
+                </h4>
                 <span
                     class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                    SCREENING RESULT
+                    MANDATORY / SCOPE
                 </span>
             </div>
+            <p class="text-[11px] text-slate-500 font-medium">State the formal purpose, scope, and specific analytical objectives of the forensic laboratory examination.</p>
 
-            <div>
+            <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                 <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
-                    Presumptive Test Reaction Result <span class="text-red-600 font-bold">*</span>
+                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                    <span>Purpose of Examination</span>
+                    <span
+                        class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Mandatory / Scope</span>
                 </label>
-
-                @php
-                    $pIsYes =
-                        !$isLabCompleted &&
-                        !empty($labPresumptive) &&
-                        (str_starts_with(strtoupper($labPresumptive), 'YES') ||
-                            str_starts_with(strtoupper($labPresumptive), 'POS'));
-                    $pIsNo =
-                        !$isLabCompleted &&
-                        !empty($initialHasSaved) &&
-                        !($pIsYes ?? false) &&
-                        ($labPresumptive ?? 'N/A') !== 'N/A';
-                @endphp
-                <div class="flex items-center space-x-3">
-                    <!-- YES CHECKBOX -->
-                    <label id="labelPresumptiveYes"
-                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $pIsYes ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
-                        <input type="radio" id="presumptiveTestYesReview"
-                            name="form_presumptive_radio" value="YES"
-                            {{ $pIsYes ? 'checked' : '' }}
-                            onchange="onPresumptiveRadioChange('YES')"
-                            class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                        <div class="flex items-center space-x-1.5">
-                            <span
-                                class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
-                        </div>
-                    </label>
-
-                    <!-- NO CHECKBOX -->
-                    <label id="labelPresumptiveNo"
-                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $pIsNo ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
-                        <input type="radio" id="presumptiveTestNoReview"
-                            name="form_presumptive_radio" value="NO"
-                            {{ $pIsNo ? 'checked' : '' }}
-                            onchange="onPresumptiveRadioChange('NO')"
-                            class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer">
-                        <div class="flex items-center space-x-1.5">
-                            <span
-                                class="font-black text-xs text-slate-900 font-mono-code uppercase">NO</span>
-                        </div>
-                    </label>
-                </div>
-
-                <!-- DROPDOWN INPUT BOXES FOR PRESUMPTIVE TEST REACTION DETAILS -->
-                <div id="presumptiveReactionDetailsContainerReview"
-                    class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 {{ !$pIsYes ? 'hidden' : '' }}">
-                    <div
-                        class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
-                        <div
-                            class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
-                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                            </svg>
-                            <span>Presumptive Test Reaction Result Details &amp; Field
-                                Spec</span>
-                        </div>
-                        <span
-                            class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                            MULTIPLE SPECIMEN SUPPORT
-                        </span>
-                    </div>
-
-                    <!-- DYNAMIC TEST ROWS CONTAINER -->
-                    <div id="presumptiveTestRowsContainerReview" class="space-y-3">
-                        <div
-                            class="presumptive-test-row-review p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2.5">
-                            <div
-                                class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
-                                <span class="test-row-title-review">Test Result #1</span>
-                                <button type="button"
-                                    onclick="removePresumptiveTestRowReview(this)"
-                                    class="remove-test-row-btn-review hidden px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
-                                    &times; Remove
-                                </button>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                    <label
-                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                        Presence of <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <input type="text"
-                                        class="presumptive-presence-input-review w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
-                                        onchange="updatePresumptiveReactionTextReview()"
-                                        oninput="updatePresumptiveReactionTextReview()"
-                                        placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine">
-                                </div>
-                                <div>
-                                    <label
-                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                        Percentage (%) <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <div
-                                        class="flex items-center rounded-xl shadow-2xs overflow-hidden">
-                                        <input type="text"
-                                            class="presumptive-percentage-input-review w-full pl-3.5 pr-2 py-2.5 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code"
-                                            onchange="updatePresumptiveReactionTextReview()"
-                                            oninput="updatePresumptiveReactionTextReview()"
-                                            placeholder="e.g. 85.5 or 80-90">
-                                        <span
-                                            class="inline-flex items-center px-3 py-2.5 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ADD MORE TEST RESULT BUTTON -->
-                    <div class="pt-1 flex items-center justify-between">
-                        <button type="button" onclick="addPresumptiveTestRowReview()"
-                            class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border-none space-x-1.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2.5" d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span>+ Add More Test Result</span>
-                        </button>
-                        <span class="text-[10px] text-slate-500 font-medium italic">Click to
-                            log additional chemical/substance reaction test results</span>
-                    </div>
-
-                    <!-- Hidden Presumptive Reaction Result for Form Submission -->
-                    <input type="hidden" id="presumptiveReactionResultInputReview"
-                        value="{{ (!$isLabCompleted && !empty($initialHasSaved) && ($labPresumptive ?? 'N/A') !== 'N/A') ? $labPresumptive : '' }}">
-                </div>
+                <textarea id="labPurposeOfExaminationInput" name="purpose_of_examination" rows="3"
+                    placeholder="State the purpose of examination (e.g. Qualitative and quantitative chemical analysis to identify controlled substances and determine purity percentage)..."
+                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs resize-none placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($initialPurposeOfExamination ?? '') }}</textarea>
             </div>
         </div>
 
-        <!-- CONFIRMATORY TEST CARD (UNDERNEATH PRESUMPTIVE TEST SECTION) -->
-        <div class="bg-white p-5 rounded-2xl border border-emerald-200 shadow-2xs space-y-4">
-            <div class="pb-3 border-b border-emerald-100 flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <div
-                        class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                            viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="font-extrabold text-slate-900 text-sm">Confirmatory Test
-                        </h3>
-                        <p class="text-[11px] text-emerald-700 font-semibold">Instrumental
-                            &amp; Spectrometry Laboratory Confirmation (GC-MS / FTIR)</p>
-                    </div>
-                </div>
+        <!-- SUB-SECTION 5C: DYNAMIC PRESUMPTIVE TEST SECTIONS (Requirement 3) -->
+        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                <h4
+                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span
+                        class="w-5 h-5 rounded-full bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] flex items-center justify-center font-bold">5C</span>
+                    <span>Presumptive Test (Screening Analysis)</span>
+                </h4>
                 <span
                     class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
-                    LAB VERIFICATION
+                    DYNAMIC PER-EXHIBIT SCREENING
                 </span>
             </div>
+            <p class="text-[11px] text-slate-500 font-medium">Independent presumptive chemical reaction test containers generated dynamically for each seized exhibit in the manifest.</p>
 
-            <div>
+            <!-- DYNAMIC PRESUMPTIVE CONTAINERS FOR EACH SEIZED EXHIBIT -->
+            <div id="presumptiveTestExhibitsContainer" class="space-y-6">
+                <!-- Populated dynamically via syncSection4ExhibitsToLabSection() -->
+            </div>
+        </div>
+
+        <!-- SUB-SECTION 5D: DYNAMIC CONFIRMATORY TEST SECTIONS (Requirement 4) -->
+        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-6">
+            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                <h4
+                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span
+                        class="w-5 h-5 rounded-full bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] flex items-center justify-center font-bold">5D</span>
+                    <span>Confirmatory Test (Laboratory Verification)</span>
+                </h4>
+                <span
+                    class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                    DYNAMIC PER-EXHIBIT LAB VERIFICATION
+                </span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-medium">Independent confirmatory analysis, metrology & mass, and purity determination for each seized exhibit.</p>
+
+            <!-- DYNAMIC CONFIRMATORY CONTAINERS FOR EACH SEIZED EXHIBIT -->
+            <div id="confirmatoryTestExhibitsContainer" class="space-y-6">
+                <!-- Populated dynamically via syncSection4ExhibitsToLabSection() -->
+            </div>
+        </div>
+
+        <!-- SUB-SECTION 5E: PRELIMINARY EXAMINATION PROCEDURE -->
+        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                <h4
+                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span
+                        class="w-5 h-5 rounded-full bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] flex items-center justify-center font-bold">5E</span>
+                    <span>Preliminary Examination Procedure</span>
+                </h4>
+                <span
+                    class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                    PRELIMINARY / PROCEDURE
+                </span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-medium">Record the detailed preliminary examination procedures, physical inspection protocols, and visual screening methodology applied to the exhibit(s).</p>
+
+            <div class="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
                 <label
-                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-3">
-                    Confirmatory Test Conducted <span class="text-red-600 font-bold">*</span>
+                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                    <span>PRELIMINARY EXAMINATION PROCEDURE</span>
+                    <span
+                        class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Procedure</span>
                 </label>
+                <textarea id="labPreliminaryExamProcedureInput" name="preliminary_exam_procedure" rows="3"
+                    placeholder="Enter the preliminary examination procedure..."
+                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs resize-none placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($initialPreliminaryExamProcedure ?? ($savedLabPreliminaryExamProcedure ?? '')) }}</textarea>
+            </div>
+        </div>
 
-                @php
-                    $rawCurConf = !empty($savedLabConfirmatory)
-                        ? $savedLabConfirmatory
-                        : (!empty($labConfirmatory)
-                            ? $labConfirmatory
-                            : (!empty($case->confirmatory_test_result)
-                                ? $case->confirmatory_test_result
-                                : null));
-                    $isConfNo = !$isLabCompleted && !empty($initialHasSaved) && !empty($rawCurConf) && strtoupper(trim((string) $rawCurConf)) === 'NO';
-                    $isConfYes = !$isLabCompleted && !empty($initialHasSaved) && !empty($rawCurConf) && strtoupper(trim((string) $rawCurConf)) === 'YES';
-                @endphp
-                <div class="flex items-center space-x-3">
-                    <!-- YES RADIO -->
-                    <label id="labelConfirmatoryYesReview"
-                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $isConfYes ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50' }}">
-                        <input type="radio" id="confirmatoryTestYesReview"
-                            name="form_confirmatory_radio" value="YES"
-                            {{ $isConfYes ? 'checked' : '' }}
-                            onchange="toggleConfirmatoryTestReview('YES')"
-                            class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                        <div class="flex items-center space-x-1.5">
-                            <span
-                                class="font-black text-xs text-emerald-900 font-mono-code uppercase">YES</span>
-                        </div>
-                    </label>
+        <!-- SUB-SECTION 5F: SHARED CONFIRMATORY TEST INFORMATION (Requirement 5) -->
+        <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-4">
+            <div class="pb-2 border-b border-slate-200 flex items-center justify-between">
+                <h4
+                    class="font-extrabold text-slate-900 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span
+                        class="w-5 h-5 rounded-full bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] flex items-center justify-center font-bold">5F</span>
+                    <span>Shared Confirmatory Test Information</span>
+                </h4>
+                <span
+                    class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase tracking-wider">
+                    APPLICABLE TO ALL EXHIBITS
+                </span>
+            </div>
+            <p class="text-[11px] text-slate-500 font-medium">Standard test methods, specifications, and overall remarks applicable across all examined exhibits.</p>
 
-                    <!-- NO RADIO -->
-                    <label id="labelConfirmatoryNoReview"
-                        class="relative inline-flex items-center px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer select-none space-x-2 {{ $isConfNo ? 'border-red-500 bg-red-50/80 ring-2 ring-red-500/20' : 'border-slate-200 bg-slate-50' }}">
-                        <input type="radio" id="confirmatoryTestNoReview"
-                            name="form_confirmatory_radio" value="NO"
-                            {{ $isConfNo ? 'checked' : '' }}
-                            onchange="toggleConfirmatoryTestReview('NO')"
-                            class="w-4 h-4 text-red-600 border-slate-300 focus:ring-red-500 cursor-pointer">
-                        <div class="flex items-center space-x-1.5">
-                            <span
-                                class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+            <div class="p-5 bg-white rounded-2xl border border-emerald-300 shadow-2xs space-y-4">
+                <div class="space-y-4">
+                    <!-- 0. SCREENING METHOD / INSTRUMENT USED INPUT (DYNAMIC REPEATABLE) -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                <span>Screening method/Instrument Used</span>
+                            </label>
+                            <button type="button" onclick="addScreeningMethodRow()"
+                                class="inline-flex items-center px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg shadow-xs transition-all cursor-pointer border-none space-x-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                <span>+ Add More</span>
+                            </button>
                         </div>
-                    </label>
-                </div>
-
-                <!-- SAMPLE WEIGHT GROUP INPUT CONTAINER (DYNAMICALLY SHOWN WHEN CONFIRMATORY TEST IS YES) -->
-                <div id="sampleWeightContainerReview"
-                    class="mt-4 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 transition-all duration-300 {{ $isConfYes ? '' : 'hidden' }}">
-                    <div
-                        class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
-                        <div
-                            class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
-                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none"
-                                stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                            </svg>
-                            <span>SAMPLE WEIGHT</span>
+                        <div id="screeningMethodsContainer" class="space-y-2">
+                            @php
+                                $screeningMethodVals = [];
+                                if (!empty($initialScreeningMethod)) {
+                                    $screeningMethodVals = is_array($initialScreeningMethod) ? $initialScreeningMethod : (is_string($initialScreeningMethod) && str_starts_with(trim($initialScreeningMethod), '[') ? json_decode($initialScreeningMethod, true) : array_filter(array_map('trim', explode(',', $initialScreeningMethod))));
+                                } elseif (!empty($savedLabScreeningMethod) && $savedLabScreeningMethod !== 'N/A') {
+                                    $screeningMethodVals = is_array($savedLabScreeningMethod) ? $savedLabScreeningMethod : (is_string($savedLabScreeningMethod) && str_starts_with(trim($savedLabScreeningMethod), '[') ? json_decode($savedLabScreeningMethod, true) : array_filter(array_map('trim', explode(',', $savedLabScreeningMethod))));
+                                }
+                                if (empty($screeningMethodVals)) {
+                                    $screeningMethodVals = [''];
+                                }
+                            @endphp
+                            @foreach ($screeningMethodVals as $sVal)
+                                <div class="screening-method-row flex items-center space-x-2">
+                                    <input type="text" name="screening_method[]" id="screeningMethodInput"
+                                        value="{{ $isLabCompleted ? '' : $sVal }}"
+                                        placeholder="e.g. Gas Chromatography-Mass Spectrometry (GC-MS), FTIR, Raman..."
+                                        class="screening-method-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                                    <button type="button" onclick="removeScreeningMethodRow(this)"
+                                        class="remove-screening-method-btn {{ count($screeningMethodVals) > 1 ? '' : 'hidden' }} p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Method">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </div>
+                            @endforeach
                         </div>
-                        <span
-                            class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                            CONFIRMATORY METROLOGY &amp; MASS
-                        </span>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- DESCRIPTION -->
-                        <div class="md:col-span-2">
-                            <label
-                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                <span>Description <span class="text-red-600 font-bold">*</span></span>
-                                <span
-                                    class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                            </label>
-                            <input type="text" id="sampleWeightDescriptionReview"
-                                name="sample_weight_description" value="{{ $isConfYes ? $labSampleDesc : '' }}"
-                                readonly placeholder="Fetched from drug manifest"
-                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed">
-                        </div>
+                    <!-- 1. TEST METHODS INPUT -->
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                            <span>Test Methods <span class="text-red-600 font-bold">*</span></span>
+                            <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Standard Protocol</span>
+                        </label>
+                        <input type="text" id="confirmatoryTestMethods" name="confirmatory_test_methods"
+                            value="{{ $isLabCompleted ? '' : ($savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: ''))) }}"
+                            placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                        <input type="hidden" id="confirmatoryTestMethodsReview" value="{{ $isLabCompleted ? '' : ($savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: ''))) }}">
+                    </div>
 
-                        <!-- NUMBER OF UNITS -->
-                        <div>
-                            <label
-                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                <span>Number of Units <span
-                                        class="text-red-600 font-bold">*</span></span>
-                                <span
-                                    class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                            </label>
-                            <input type="text" id="sampleWeightUnitsReview"
-                                name="sample_weight_units" value="{{ $isConfYes ? $labSampleUnits : '' }}" readonly
-                                placeholder="Fetched from drug manifest"
-                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
-                        </div>
+                    <!-- 2. SPECIFICATIONS TEXTAREA INPUT -->
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                            <span>Specifications <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span></span>
+                            <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Standards Matched</span>
+                        </label>
+                        <textarea id="confirmatorySpecifications" name="confirmatory_specifications" rows="2"
+                            placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: ''))) }}</textarea>
+                        <textarea id="confirmatorySpecificationsReview" class="hidden">{{ $isLabCompleted ? '' : ($savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: ''))) }}</textarea>
+                    </div>
 
-                        <!-- GROSS WEIGHT -->
-                        <div>
-                            <label
-                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                <span>Gross Weight <span
-                                        class="text-red-600 font-bold">*</span></span>
-                                <span
-                                    class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                            </label>
-                            <input type="text" id="sampleWeightGrossReview"
-                                name="sample_weight_gross" value="{{ $isConfYes ? $labSampleGross : '' }}" readonly
-                                placeholder="Fetched from drug manifest"
-                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
-                        </div>
+                    <!-- 3. REMARK TEXTAREA INPUT -->
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                            <span>Remark <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span></span>
+                            <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">General Observations</span>
+                        </label>
+                        <textarea id="confirmatoryRemark" name="confirmatory_remark" rows="2"
+                            placeholder="Enter any overall remarks or observations regarding the confirmatory analysis across all exhibits..."
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: ''))) }}</textarea>
+                        <textarea id="confirmatoryRemarkReview" class="hidden">{{ $isLabCompleted ? '' : ($savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: ''))) }}</textarea>
+                    </div>
 
-                        <!-- SAMPLE TAKEN -->
-                        <div>
-                            <label
-                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                Sample Taken <span class="text-red-600 font-bold">*</span>
-                            </label>
-                            <div class="relative flex rounded-xl shadow-2xs">
-                                <input type="text" id="sampleWeightTakenReview"
-                                    name="sample_weight_taken" value="{{ $isConfYes ? $labSampleTaken : '' }}"
-                                    placeholder="e.g. 10"
-                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0">
-                                <span id="sampleWeightTakenUnitAddonReview"
-                                    class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0 transition-colors duration-200">
-                                    {{ $isConfYes ? $labSampleUnit : '' }}
-                                </span>
-                            </div>
-                            <p id="sampleWeightTakenErrorReview"
-                                class="text-[11px] text-red-600 font-extrabold mt-1.5 hidden flex items-center space-x-1 animate-in fade-in duration-200">
-                                <svg class="w-3.5 h-3.5 shrink-0 text-red-600" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        stroke-width="2.5"
-                                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>Sample taken cannot exceed the gross weight</span>
-                            </p>
-                        </div>
-
-                        <!-- RESERVED SAMPLES -->
-                        <div>
-                            <label
-                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                <span>Reserved Samples <span
-                                        class="text-red-600 font-bold">*</span></span>
-                                <span
-                                    class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
-                            </label>
-                            <input type="text" id="sampleWeightReservedReview"
-                                name="sample_weight_reserved" value="{{ $isConfYes ? $labSampleReserved : '' }}"
-                                readonly placeholder="Auto-calculated (Gross Weight - Sample Taken)"
-                                class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed">
-                        </div>
-
-                        <!-- RESULT SECTION (UNDERNEATH SAMPLE WEIGHT) -->
-                        <div class="md:col-span-2 pt-4 border-t border-emerald-200/80 space-y-4">
-                            <div
-                                class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
-                                <div
-                                    class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
-                                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none"
-                                        stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span>RESULT / CONFIRMATORY ANALYSIS</span>
-                                </div>
-                                <span
-                                    class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
-                                    ANALYTICAL FINDINGS &amp; SPECS
-                                </span>
-                            </div>
-
-                            <div class="space-y-4">
-                                <!-- 1. SUBSTANCE IDENTIFICATION -->
-                                <div>
-                                    <label
-                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                        <span>Substance Identification <span
-                                                class="text-red-600 font-bold">*</span></span>
-                                        <span
-                                            class="text-[9px] font-mono-code font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">EDITABLE SPECIFICATION</span>
-                                    </label>
-                                    <input type="text"
-                                        id="confirmatorySubstanceIdentificationReview"
-                                        name="confirmatory_substance_identification"
-                                        value="{{ $isConfYes ? ($savedLabSubstanceId ?: ($labSubstanceId ?: ($case->confirmatory_substance_identification ?: ''))) : '' }}"
-                                        placeholder="Enter substance identification (e.g. Heroin, Cocaine, Cannabis)"
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans">
-                                </div>
-
-                                <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
-                                <div class="space-y-2">
-                                    <div class="flex items-center justify-between">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                            Result (Detected Substances &amp; Purity %) <span
-                                                class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <button type="button"
-                                            onclick="addDetectedSubstanceRowReview()"
-                                            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-2xs transition-all flex items-center space-x-1 border-none cursor-pointer">
-                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            <span>Add More</span>
-                                        </button>
-                                    </div>
-                                    <div id="detectedSubstancesListContainerReview"
-                                        class="space-y-2.5">
-                                        <!-- Dynamic rows added via JS -->
-                                    </div>
-                                </div>
-
-                                <!-- 3. TEST METHODS INPUT -->
-                                <div>
-                                    <label
-                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                        Test Methods <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <input type="text" id="confirmatoryTestMethodsReview"
-                                        name="confirmatory_test_methods"
-                                        value="{{ $isConfYes ? ($savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: ''))) : '' }}"
-                                        placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
-                                </div>
-
-                                <!-- 4. SPECIFICATIONS TEXTAREA INPUT -->
-                                <div>
-                                    <label
-                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                        Specifications <span
-                                            class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
-                                    </label>
-                                    <textarea id="confirmatorySpecificationsReview" name="confirmatory_specifications" rows="3"
-                                        placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isConfYes ? ($savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: ''))) : '' }}</textarea>
-                                </div>
-
-                                <!-- 5. REMARK TEXTAREA INPUT -->
-                                <div>
-                                    <label
-                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                        Remark <span
-                                            class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span>
-                                    </label>
-                                    <textarea id="confirmatoryRemarkReview" name="confirmatory_remark" rows="3"
-                                        placeholder="Enter any additional remarks or observations regarding the confirmatory analysis..."
-                                        class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isConfYes ? ($savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: ''))) : '' }}</textarea>
-                                </div>
-                            </div>
-                        </div>
+                    <!-- 4. DISPOSITION OF EXHIBIT(S) TEXTAREA INPUT -->
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                            <span>Disposition Of Exhibit(s) <span class="text-slate-400 font-normal text-[10px] lowercase normal-case">(optional)</span></span>
+                            <span class="text-[9px] font-mono-code text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded font-bold uppercase">Chain of Custody / Vault</span>
+                        </label>
+                        <textarea id="confirmatoryDispositionOfExhibit" name="disposition_of_exhibit" rows="2"
+                            placeholder="Enter the disposition of exhibit(s) (e.g. Retained in forensic vault, Returned to seizing agency, Scheduled for destruction)..."
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($initialDispositionOfExhibit ?? ($savedLabDispositionOfExhibit ?? ($case->disposition_of_exhibit ?? ''))) }}</textarea>
                     </div>
                 </div>
             </div>
@@ -776,7 +618,7 @@
                 class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                 Laboratory Analytical Findings &amp; Examination Log
             </label>
-            <textarea id="formLabNotes" rows="3"
+            <textarea id="formLabNotes" name="lab_findings" rows="3"
                 class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
                 placeholder="Enter chemical reaction results, purity percentage, spectrometry verification notes, etc.">{{ $isLabCompleted ? '' : $labFindings }}</textarea>
         </div>

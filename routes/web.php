@@ -14,6 +14,11 @@ use App\Http\Controllers\DigitalForensicsCaseController;
 use App\Http\Controllers\EvidenceManagementCaseController;
 use App\Http\Controllers\CrimeSceneSupportCaseController;
 use App\Http\Controllers\ForensicHeadCaseController;
+use App\Http\Controllers\CourtEvidenceController;
+use App\Http\Controllers\PersonnelRosterController;
+use App\Http\Controllers\FieldOfficersController;
+use App\Http\Controllers\NotificationsController;
+use App\Http\Controllers\UnitPermissionsController;
 use App\Models\User;
 use App\Models\ForensicCase;
 use App\Http\Middleware\EnsureHeadOfficer;
@@ -95,6 +100,37 @@ Route::middleware(['auth'])->group(function () {
     Route::match(['delete', 'post'], '/profile/avatar/remove', [ProfileController::class, 'removeAvatar'])->name('profile.avatar.remove');
     Route::match(['delete', 'post'], '/profile/signature/remove', [ProfileController::class, 'removeSignature'])->name('profile.signature.remove');
 
+    // FIELD OFFICERS & UNIT-HEAD STAFF APPROVAL WORKFLOW
+    Route::get('/field-officers', [FieldOfficersController::class, 'index'])->name('field_officers.index');
+    Route::get('/Crime_Scene_Support/field-officers', [FieldOfficersController::class, 'index'])->name('crime_scene.field_officers');
+    Route::get('/Lab_Analysis/field-officers', [FieldOfficersController::class, 'index'])->name('lab_analysis.field_officers');
+    Route::get('/Evidence_Management/field-officers', [FieldOfficersController::class, 'index'])->name('evidence_management.field_officers');
+    Route::get('/Digital_Forensics/field-officers', [FieldOfficersController::class, 'index'])->name('digital_forensics.field_officers');
+    Route::post('/field-officers/{id}/approve', [FieldOfficersController::class, 'approve'])->name('field_officers.approve');
+    Route::post('/field-officers/{id}/revoke', [FieldOfficersController::class, 'revoke'])->name('field_officers.revoke');
+    Route::get('/api/auth/account-status', [FieldOfficersController::class, 'accountStatus'])->name('api.auth.account_status');
+
+    // UNIT HEAD STAFF PERMISSIONS MANAGEMENT
+    Route::middleware([EnsureHeadOfficer::class])->group(function () {
+        Route::get('/permissions', [UnitPermissionsController::class, 'index'])->name('permissions.index');
+        Route::get('/Crime_Scene_Support/permissions', [UnitPermissionsController::class, 'index'])->name('crime_scene.permissions');
+        Route::get('/Lab_Analysis/permissions', [UnitPermissionsController::class, 'index'])->name('lab_analysis.permissions');
+        Route::get('/Evidence_Management/permissions', [UnitPermissionsController::class, 'index'])->name('evidence_management.permissions');
+        Route::get('/Digital_Forensics/permissions', [UnitPermissionsController::class, 'index'])->name('digital_forensics.permissions');
+        Route::get('/Forensic_Head/permissions', [UnitPermissionsController::class, 'index'])->name('forensic_head.permissions');
+        Route::post('/permissions/{id}/update', [UnitPermissionsController::class, 'update'])->name('permissions.update');
+    });
+
+    // UNIT HEAD & DIRECTORATE NOTIFICATIONS
+    Route::get('/notifications', [NotificationsController::class, 'index'])->name('notifications.index');
+    Route::get('/Crime_Scene_Support/notifications', [NotificationsController::class, 'index'])->name('crime_scene.notifications');
+    Route::get('/Lab_Analysis/notifications', [NotificationsController::class, 'index'])->name('lab_analysis.notifications');
+    Route::get('/Evidence_Management/notifications', [NotificationsController::class, 'index'])->name('evidence_management.notifications');
+    Route::get('/Digital_Forensics/notifications', [NotificationsController::class, 'index'])->name('digital_forensics.notifications');
+    Route::get('/Forensic_Head/notifications', [NotificationsController::class, 'index'])->name('forensic_head.notifications');
+    Route::post('/notifications/mark-read', [NotificationsController::class, 'markRead'])->name('notifications.mark_read');
+    Route::post('/notifications/handovers/{id}/acknowledge', [NotificationsController::class, 'acknowledgeHandover'])->name('notifications.handovers.acknowledge');
+
     // MASTER CASE DIRECTORY & HISTORY ROUTES
     Route::get('/history', function (\Illuminate\Http\Request $request) {
         $user = auth()->user();
@@ -111,9 +147,14 @@ Route::middleware(['auth'])->group(function () {
         if ($search !== '') {
             $sLower = strtolower($search);
             $filtered = $filtered->filter(function ($c) use ($sLower) {
+                $suspectNames = '';
+                if (!empty($c->docket_data['suspects']) && is_array($c->docket_data['suspects'])) {
+                    $suspectNames = collect($c->docket_data['suspects'])->pluck('suspect_name')->filter()->implode(' ');
+                }
                 return str_contains(strtolower($c->case_number ?? ''), $sLower) ||
                        str_contains(strtolower($c->title ?? ''), $sLower) ||
                        str_contains(strtolower($c->suspect_name ?? ''), $sLower) ||
+                       str_contains(strtolower($suspectNames), $sLower) ||
                        str_contains(strtolower($c->submitting_officer ?? ''), $sLower) ||
                        str_contains(strtolower($c->incident_scene ?? ''), $sLower) ||
                        str_contains(strtolower($c->exhibits_summary ?? ''), $sLower);
@@ -174,9 +215,14 @@ Route::middleware(['auth'])->group(function () {
         if ($search !== '') {
             $sLower = strtolower($search);
             $filtered = $filtered->filter(function ($c) use ($sLower) {
+                $suspectNames = '';
+                if (!empty($c->docket_data['suspects']) && is_array($c->docket_data['suspects'])) {
+                    $suspectNames = collect($c->docket_data['suspects'])->pluck('suspect_name')->filter()->implode(' ');
+                }
                 return str_contains(strtolower($c->case_number ?? ''), $sLower) ||
                        str_contains(strtolower($c->title ?? ''), $sLower) ||
                        str_contains(strtolower($c->suspect_name ?? ''), $sLower) ||
+                       str_contains(strtolower($suspectNames), $sLower) ||
                        str_contains(strtolower($c->submitting_officer ?? ''), $sLower) ||
                        str_contains(strtolower($c->incident_scene ?? ''), $sLower) ||
                        str_contains(strtolower($c->exhibits_summary ?? ''), $sLower);
@@ -269,7 +315,7 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('cases.edit', ['id' => $id, 'from' => 'Evidence_Management']);
     })->name('evidence.cases.edit');
     Route::get('/Forensic_Head/cases/{id}/edit', function ($id) {
-        return redirect()->route('cases.edit', ['id' => $id, 'from' => 'Forensic_Head']);
+        return redirect()->route('forensic_head.cases.review', ['id' => $id])->with('error', 'Directorate Head is not permitted to edit cases. Directorate Heads only review and approve cases.');
     })->name('forensic_head.cases.edit');
 
     // CASE CREATION & UNIT PROGRESS UPDATES
@@ -287,11 +333,15 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/cases/{id}/handover/initiate', [CaseWorkflowController::class, 'initiateHandover']);
     Route::post('/cases/{id}/handover/respond', [CaseWorkflowController::class, 'respondHandover']);
     Route::post('/cases/{id}/upload-gsa-report', [CaseDocumentController::class, 'storeGsaReports']);
+    Route::post('/cases/{id}/upload-search-warrant', [CaseDocumentController::class, 'storeSearchWarrantDocument']);
     Route::post('/Lab_Analysis/gsa-reports/store', [CaseDocumentController::class, 'storeGsaReports']);
     Route::get('/cases/{id}/audit-trail', [CaseWorkflowController::class, 'getAuditTrail']);
 
     // GENERAL DOCKET & EVENT ROUTES
-    Route::get('/cases/create', function () {
+    Route::get('/cases/create', function (\Illuminate\Http\Request $request) {
+        if ($request->query('from') === 'Forensic_Head' || $request->query('from') === 'Forensic Head') {
+            return redirect('/Forensic_Head/cases')->with('error', 'Directorate Head is not permitted to create cases. Cases originate from operational units.');
+        }
         return view('cases.create');
     })->name('cases.create');
 
@@ -403,6 +453,14 @@ Route::middleware(['auth'])->group(function () {
         return view('Crime_Scene_Support.head.head');
     });
 
+    // CRIME SCENE SUPPORT UNIT DEDICATED REPORT ROUTES
+    Route::get('/Crime_Scene_Support/report', [CrimeSceneSupportCaseController::class, 'report'])->name('crime_scene.report');
+    Route::get('/crime-scene-support/report', [CrimeSceneSupportCaseController::class, 'report']);
+    Route::post('/Crime_Scene_Support/report/notes', [CrimeSceneSupportCaseController::class, 'saveReportNotes'])->name('crime_scene.report_notes.store');
+    Route::post('/crime-scene-support/report/notes', [CrimeSceneSupportCaseController::class, 'saveReportNotes']);
+    Route::get('/Crime_Scene_Support/report_pdf', [CrimeSceneSupportCaseController::class, 'reportPdf'])->name('crime_scene.report_pdf');
+    Route::get('/crime-scene-support/report_pdf', [CrimeSceneSupportCaseController::class, 'reportPdf']);
+
     // LAB ANALYSIS UNIT DEDICATED ROUTES
     Route::get('/Lab_Analysis', function () {
         return view('Lab_Analysis.lab_analysis');
@@ -430,6 +488,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/lab-nlr-pdf/{id}', [CaseDocumentController::class, 'showNlrReportPdf']);
     Route::post('/Lab_Analysis/nlr-reports/store', [CaseDocumentController::class, 'storeNlrReport'])->name('lab.nlr.store');
 
+    // Dedicated Preliminary Exhibit Analysis Report PDF / Printable View
+    Route::get('/Lab_Analysis/preliminary-report-pdf/{id}', [CaseReportController::class, 'preliminaryReportPdf'])->name('lab.preliminary_report.pdf');
+    Route::get('/lab-preliminary-report-pdf/{id}', [CaseReportController::class, 'preliminaryReportPdf']);
+
     // Dedicated Laboratory Analysis Report & Drug Suspect Register Management Page
     Route::get('/Lab_Analysis/report', [CaseReportController::class, 'labReportPage'])->name('lab.report');
     Route::get('/lab-analysis/report', [CaseReportController::class, 'labReportPage']);
@@ -450,10 +512,12 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->to('/Digital_Forensics/multi_dpf_pdf');
         } elseif (str_contains($unitLower, 'evidence')) {
             return redirect()->to('/Evidence_Management/report');
+        } elseif (str_contains($unitLower, 'crime') || str_contains($unitLower, 'css') || str_contains($unitLower, 'scene') || str_contains($unitLower, 'field')) {
+            return redirect()->to('/Crime_Scene_Support/report');
         }
 
-        // Default to Lab Analysis Dedicated Report Page
-        return app(\App\Http\Controllers\CaseReportController::class)->labReportPage($request);
+        // Default to Crime Scene Support Report Page
+        return redirect()->to('/Crime_Scene_Support/report');
     })->name('general.report');
 
     Route::get('/Lab_Analysis/examination', function () {
@@ -500,6 +564,12 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'update'])->name('lab.drug_screening.update');
     Route::delete('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'destroy'])->name('lab.drug_screening.destroy');
 
+    // DEDICATED COURT EVIDENCE & SITREP REPOSITORY (ALL UNITS PDF REGISTRY)
+    Route::get('/court-evidence', [CourtEvidenceController::class, 'index'])->name('court_evidence.index');
+    Route::get('/court-evidence-sitrep', [CourtEvidenceController::class, 'index']);
+    Route::get('/court-evidence/download', [CourtEvidenceController::class, 'download'])->name('court_evidence.download');
+    Route::get('/Forensic_Head/court-evidence', [CourtEvidenceController::class, 'index'])->name('forensic_head.court_evidence');
+
     // Route shortcuts & API
     Route::get('/api/suspect/{id}/drug-screening', [DrugScreeningController::class, 'getBySuspect'])->name('api.suspect.drug_screening');
     Route::get('/drug-screening', [DrugScreeningController::class, 'index']);
@@ -513,11 +583,19 @@ Route::middleware(['auth'])->group(function () {
     // EVIDENCE MANAGEMENT UNIT DEDICATED ROUTES
     Route::get('/Evidence_Management/report', [EvidenceManagementController::class, 'report'])->name('evidence_management.report');
     Route::get('/evidence-management/report', [EvidenceManagementController::class, 'report']);
+    Route::post('/Evidence_Management/report/notes', [EvidenceManagementController::class, 'saveReportNotes'])->name('evidence_management.report_notes.store');
+    Route::post('/evidence-management/report/notes', [EvidenceManagementController::class, 'saveReportNotes']);
     Route::get('/Evidence_Management/report_pdf', [EvidenceManagementController::class, 'reportPdf'])->name('evidence_management.report_pdf');
     Route::get('/evidence-management/report_pdf', [EvidenceManagementController::class, 'reportPdf']);
     Route::get('/Evidence_Management/vault', [EvidenceManagementController::class, 'vault'])->name('evidence_management.vault');
     Route::get('/evidence-management/vault', [EvidenceManagementController::class, 'vault']);
     Route::get('/exhibit-vault', [EvidenceManagementController::class, 'vault'])->name('exhibit.vault');
+    Route::get('/Evidence_Management/add-exhibit', [EvidenceManagementController::class, 'createUnassignedExhibit'])->name('evidence_management.add_exhibit');
+    Route::get('/evidence-management/add-exhibit', [EvidenceManagementController::class, 'createUnassignedExhibit']);
+    Route::post('/Evidence_Management/exhibits/store-unassigned', [EvidenceManagementController::class, 'storeUnassignedExhibits'])->name('evidence_management.exhibits.store_unassigned');
+    Route::post('/evidence-management/exhibits/store-unassigned', [EvidenceManagementController::class, 'storeUnassignedExhibits']);
+    Route::get('/api/exhibits/unassigned', [EvidenceManagementController::class, 'getUnassignedExhibits'])->name('api.exhibits.unassigned');
+    Route::get('/api/unit-exhibit-alerts', [EvidenceManagementController::class, 'getUnitExhibitAlerts'])->name('api.unit.exhibit_alerts');
     Route::post('/Evidence_Management/exhibits/{id}/update', [EvidenceManagementController::class, 'updateExhibit'])->name('evidence_management.exhibit.update');
     Route::post('/evidence-management/exhibits/{id}/update', [EvidenceManagementController::class, 'updateExhibit']);
     Route::post('/exhibits/{id}/vault-update', [EvidenceManagementController::class, 'updateExhibit'])->name('exhibits.vault.update');
@@ -555,7 +633,13 @@ Route::middleware(['auth'])->group(function () {
                    ?? \App\Models\User::where('is_head', true)->first();
         $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
         $allCases = ForensicCase::allCases();
-        $digitalCases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+        $digitalCases = $allCases->filter(function ($c) {
+            if (!$c->isDigitalCase()) {
+                return false;
+            }
+            $elecSuspects = $c->getElectronicDeviceSuspects();
+            return !empty($elecSuspects);
+        })->values();
 
         $search = trim($request->input('search', ''));
         $from = trim($request->input('from', ''));
@@ -566,9 +650,15 @@ Route::middleware(['auth'])->group(function () {
         if ($search !== '') {
             $sLower = strtolower($search);
             $filtered = $filtered->filter(function ($c) use ($sLower) {
+                $elecSuspects = $c->getElectronicDeviceSuspects();
+                $userNames = implode(' ', array_filter(array_column($elecSuspects, 'suspect_name')));
+                $userAliases = implode(' ', array_filter(array_column($elecSuspects, 'suspect_alias')));
+
                 return str_contains(strtolower($c->case_number ?? ''), $sLower) ||
                        str_contains(strtolower($c->title ?? ''), $sLower) ||
                        str_contains(strtolower($c->suspect_name ?? ''), $sLower) ||
+                       str_contains(strtolower($userNames), $sLower) ||
+                       str_contains(strtolower($userAliases), $sLower) ||
                        str_contains(strtolower($c->submitting_officer ?? ''), $sLower) ||
                        str_contains(strtolower($c->incident_scene ?? ''), $sLower) ||
                        str_contains(strtolower($c->exhibits_summary ?? ''), $sLower);
@@ -1547,6 +1637,148 @@ Route::middleware(['auth'])->group(function () {
             $report = \App\Models\DpfReport::create($reportAttributes);
         }
 
+        // Locate case instance if not already resolved
+        if (!$singleCase && !$multiCase) {
+            $fCase = \App\Models\ForensicCase::allCases()->first(function($c) use ($cNo) {
+                return strtolower(trim($c->case_number ?? '')) === strtolower(trim($cNo))
+                    || strtolower(trim($c->laboratory_number ?? '')) === strtolower(trim($cNo));
+            });
+            if ($fCase) {
+                if ($fCase->underlyingRecord instanceof \App\Models\MultipleSuspectCase) {
+                    $multiCase = $fCase->underlyingRecord;
+                } elseif ($fCase->underlyingRecord instanceof \App\Models\SingleSuspectCase) {
+                    $singleCase = $fCase->underlyingRecord;
+                }
+            }
+        }
+
+        // Attach or detach Extraction & Investigation Status Log Report for the suspect case
+        $isRwYes = (strtoupper(trim($rwStatus)) === 'YES')
+            || (str_starts_with(strtoupper(trim($rwCombined)), 'YES'))
+            || (strtoupper(trim($request->input('report_witness_statement_status') ?? '')) === 'YES')
+            || (strtoupper(trim($request->input('report_witness_statement_sent') ?? '')) === 'YES');
+
+        if ($isRwYes) {
+            $targetSuspects = [];
+            if (!empty($suspectIdFromVal)) {
+                $specificSuspect = \App\Models\CaseSuspect::find((int)$suspectIdFromVal);
+                if ($specificSuspect) {
+                    $targetSuspects = [$specificSuspect];
+                }
+            }
+            if (empty($targetSuspects)) {
+                if ($multiCase) {
+                    $targetSuspects = \App\Models\CaseSuspect::where('multiple_suspect_case_id', $multiCase->id)->get()->all();
+                } elseif ($singleCase) {
+                    $sSuspect = \App\Models\CaseSuspect::firstOrCreate(
+                        ['single_suspect_case_id' => $singleCase->id],
+                        [
+                            'suspect_name'   => $singleCase->suspect_name ?: 'Primary Suspect',
+                            'role'           => 'Primary Suspect',
+                            'suspect_number' => 1,
+                        ]
+                    );
+                    $targetSuspects = [$sSuspect];
+                }
+            }
+            if ($multiCase && empty($targetSuspects)) {
+                $placeholder = \App\Models\CaseSuspect::create([
+                    'multiple_suspect_case_id' => $multiCase->id,
+                    'suspect_name'             => $multiCase->title ?: 'Primary Suspect',
+                    'role'                     => 'Primary Suspect',
+                    'suspect_number'           => 1,
+                ]);
+                $targetSuspects = [$placeholder];
+            }
+
+            $dpfReportUrl = '/Digital_Forensics/dpf-report-pdf/' . ($report->dpf_code ?: $cNo);
+            $dpfFilename  = 'Extraction & Investigation Status Log Report (' . ($report->dpf_code ?: $cNo) . ').pdf';
+            $dpfStored    = 'dpf_report_' . $report->id . '.pdf';
+
+            if (!empty($targetSuspects)) {
+                foreach ($targetSuspects as $targetSuspect) {
+                    $existingDpf = \App\Models\SuspectGsaReport::where('case_suspect_id', $targetSuspect->id)
+                        ->where(function ($q) {
+                            $q->where('file_path', 'LIKE', '%dpf-report-pdf%')
+                              ->orWhere('original_filename', 'LIKE', '%Extraction & Investigation Status Log Report%')
+                              ->orWhere('original_filename', 'LIKE', '%Status Log Report%');
+                        })
+                        ->first();
+
+                    $attachPayload = [
+                        'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+                        'single_suspect_case_id'   => $singleCase ? $singleCase->id : null,
+                        'case_suspect_id'          => $targetSuspect->id,
+                        'case_number'              => $cNo,
+                        'original_filename'        => $dpfFilename,
+                        'stored_filename'          => $dpfStored,
+                        'file_path'                => $dpfReportUrl,
+                        'file_type'                => 'application/pdf',
+                        'file_extension'           => 'pdf',
+                        'file_size'                => 0,
+                        'exhibit_type'             => 'Digital Forensics',
+                        'notes'                    => 'Attached Extraction & Investigation Status Log Report (' . ($report->dpf_code ?: $cNo) . ')',
+                        'uploaded_by'              => auth()->id() ?? $report->user_id,
+                        'status'                   => 'active',
+                    ];
+
+                    if ($existingDpf) {
+                        $existingDpf->update($attachPayload);
+                    } else {
+                        \App\Models\SuspectGsaReport::create($attachPayload);
+                    }
+                }
+            } else {
+                $existingDpf = \App\Models\SuspectGsaReport::where(function ($q) use ($multiCase, $singleCase, $cNo) {
+                    if ($multiCase) $q->orWhere('multiple_suspect_case_id', $multiCase->id);
+                    if ($singleCase) $q->orWhere('single_suspect_case_id', $singleCase->id);
+                    if ($cNo) $q->orWhere('case_number', $cNo);
+                })
+                ->where(function ($q) {
+                    $q->where('file_path', 'LIKE', '%dpf-report-pdf%')
+                      ->orWhere('original_filename', 'LIKE', '%Extraction & Investigation Status Log Report%')
+                      ->orWhere('original_filename', 'LIKE', '%Status Log Report%');
+                })
+                ->first();
+
+                $attachPayload = [
+                    'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
+                    'single_suspect_case_id'   => $singleCase ? $singleCase->id : null,
+                    'case_suspect_id'          => null,
+                    'case_number'              => $cNo,
+                    'original_filename'        => $dpfFilename,
+                    'stored_filename'          => $dpfStored,
+                    'file_path'                => $dpfReportUrl,
+                    'file_type'                => 'application/pdf',
+                    'file_extension'           => 'pdf',
+                    'file_size'                => 0,
+                    'exhibit_type'             => 'Digital Forensics',
+                    'notes'                    => 'Attached Extraction & Investigation Status Log Report (' . ($report->dpf_code ?: $cNo) . ')',
+                    'uploaded_by'              => auth()->id() ?? $report->user_id,
+                    'status'                   => 'active',
+                ];
+
+                if ($existingDpf) {
+                    $existingDpf->update($attachPayload);
+                } else {
+                    \App\Models\SuspectGsaReport::create($attachPayload);
+                }
+            }
+        } else {
+            // If the status is NOT YES, detach any previously attached Extraction & Investigation Status Log Report
+            \App\Models\SuspectGsaReport::where(function ($q) use ($multiCase, $singleCase, $cNo) {
+                if ($multiCase) $q->orWhere('multiple_suspect_case_id', $multiCase->id);
+                if ($singleCase) $q->orWhere('single_suspect_case_id', $singleCase->id);
+                if ($cNo) $q->orWhere('case_number', $cNo);
+            })
+            ->where(function ($q) {
+                $q->where('file_path', 'LIKE', '%dpf-report-pdf%')
+                  ->orWhere('original_filename', 'LIKE', '%Extraction & Investigation Status Log Report%')
+                  ->orWhere('original_filename', 'LIKE', '%Status Log Report%');
+            })
+            ->delete();
+        }
+
         $reportData = $report->toArray();
         $reportData['case_section_label'] = $caseSectionLabel;
         $reportData['court_order_files'] = $courtOrderFilePaths;
@@ -1580,7 +1812,13 @@ Route::middleware(['auth'])->group(function () {
                    ?? \App\Models\User::where('is_head', true)->first();
         $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
         $allCases = ForensicCase::allCases();
-        $cases = $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+        $cases = $allCases->filter(function ($c) {
+            if (!$c->isDigitalCase()) {
+                return false;
+            }
+            $elecSuspects = $c->getElectronicDeviceSuspects();
+            return !empty($elecSuspects);
+        })->values();
         return view('Digital_Forensics.cases', compact('cases', 'headName'));
     });
 
@@ -1628,21 +1866,42 @@ Route::middleware(['auth'])->group(function () {
             }
 
             if ($status !== '' && strtoupper($status) !== 'ALL') {
-                $filtered = $filtered->filter(function ($c) use ($status) {
-                    if ($status === 'Awaiting Sign-off' || $status === 'Pending') {
-                        return in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']);
+                $sLower = strtolower($status);
+                $filtered = $filtered->filter(function ($c) use ($sLower) {
+                    $cStat = strtolower($c->status ?? '');
+                    if (str_contains($sLower, 'await') || str_contains($sLower, 'pending')) {
+                        return str_contains($cStat, 'await') || str_contains($cStat, 'pending') || str_contains($cStat, 'multi-unit');
                     }
-                    if ($status === 'Court Ready') {
-                        return in_array($c->status, ['Approved', 'Authorized', 'Certified', 'Completed', 'Court Ready']);
+                    if (str_contains($sLower, 'authoriz') || str_contains($sLower, 'approv') || str_contains($sLower, 'court')) {
+                        return str_contains($cStat, 'approv') || str_contains($cStat, 'authoriz') || str_contains($cStat, 'court') || str_contains($cStat, 'completed') || str_contains($cStat, 'certified');
                     }
-                    return strcasecmp($c->status ?? '', $status) === 0;
+                    if (str_contains($sLower, 'vault')) {
+                        return str_contains($cStat, 'vault') || str_contains(strtolower($c->unit_name ?? ''), 'evidence');
+                    }
+                    if (str_contains($sLower, 'lab')) {
+                        return str_contains($cStat, 'lab') || str_contains(strtolower($c->unit_name ?? ''), 'lab');
+                    }
+                    return strcasecmp($c->status ?? '', $sLower) === 0 || str_contains($cStat, $sLower);
                 })->values();
             }
 
-            if ($unit !== '' && $unit !== 'ALL') {
+            if ($unit !== '' && strtoupper($unit) !== 'ALL') {
                 $uLower = strtolower($unit);
                 $filtered = $filtered->filter(function ($c) use ($uLower) {
-                    return str_contains(strtolower($c->unit_name ?? ''), $uLower);
+                    $cUnit = strtolower($c->unit_name ?? '');
+                    if (str_contains($uLower, 'crime') || str_contains($uLower, 'scene') || $uLower === 'css') {
+                        return str_contains($cUnit, 'crime') || str_contains($cUnit, 'scene') || $cUnit === 'css';
+                    }
+                    if (str_contains($uLower, 'evidence')) {
+                        return str_contains($cUnit, 'evidence');
+                    }
+                    if (str_contains($uLower, 'lab')) {
+                        return str_contains($cUnit, 'lab');
+                    }
+                    if (str_contains($uLower, 'digital') || str_contains($uLower, 'physical')) {
+                        return str_contains($cUnit, 'digital') || str_contains($cUnit, 'physical') || str_contains($cUnit, 'dpf');
+                    }
+                    return str_contains($cUnit, $uLower);
                 })->values();
             }
 
@@ -1662,6 +1921,7 @@ Route::middleware(['auth'])->group(function () {
 
         Route::get('/Forensic_Head/cases/{id}/review', [ForensicHeadCaseController::class, 'showReview'])->name('forensic_head.cases.review');
         Route::get('/Forensic_Head/cases/{id}/pdf', [CaseController::class, 'showPdf']);
+        Route::get('/Forensic_Head/personnel-roster', [PersonnelRosterController::class, 'index'])->name('forensic_head.personnel_roster');
 
         Route::get('/api/head-stats', function () {
             $allC = ForensicCase::allCases();
@@ -1682,69 +1942,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cases/batch-approve', [CaseController::class, 'batchApprove']);
         Route::post('/cases/{id}/approve', [CaseController::class, 'approve']);
         Route::post('/cases/{id}/decline', [CaseController::class, 'decline']);
-
-        Route::get('/Forensic_Head/approvals', function (\Illuminate\Http\Request $request) {
-            $perPage = (int) $request->input('per_page', 15);
-            if ($perPage < 1) $perPage = 15;
-            if ($perPage > 100) $perPage = 100;
-
-            $query = User::orderBy('created_at', 'desc');
-
-            if ($request->filled('search')) {
-                $s = trim($request->input('search'));
-                $query->where(function ($q) use ($s) {
-                    $q->where('fullname', 'LIKE', "%{$s}%")
-                      ->orWhere('service_id', 'LIKE', "%{$s}%")
-                      ->orWhere('username', 'LIKE', "%{$s}%")
-                      ->orWhere('unit', 'LIKE', "%{$s}%")
-                      ->orWhere('phone_number', 'LIKE', "%{$s}%");
-                });
-            }
-
-            if ($request->filled('unit') && $request->input('unit') !== 'ALL') {
-                $query->where('unit', $request->input('unit'));
-            }
-
-            if ($request->filled('status')) {
-                $st = strtoupper(trim($request->input('status')));
-                if ($st === 'PENDING') {
-                    $query->where('is_approved', false);
-                } elseif ($st === 'ACTIVE') {
-                    $query->where('is_approved', true);
-                } elseif ($st === 'HEADS_ONLY' || $st === 'HEADS') {
-                    $query->where('is_head', true);
-                }
-            }
-
-            $users = $query->paginate($perPage)->withQueryString();
-
-            $pendingCount = User::where('is_approved', false)->count();
-            $activeCount = User::where('is_approved', true)->count();
-            $headsCount = User::where('is_head', true)->count();
-            $totalCount = User::count();
-
-            $allC = ForensicCase::allCases();
-            $pendingCasesCount = $allC->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
-
-            if ($request->ajax()) {
-                return view('Forensic_Head.partials.approvals_table', compact('users'));
-            }
-
-            if ($request->wantsJson()) {
-                return response()->json(compact('users', 'pendingCount', 'activeCount', 'headsCount', 'totalCount', 'pendingCasesCount'));
-            }
-
-            return view('Forensic_Head.approvals', compact(
-                'users',
-                'pendingCount',
-                'activeCount',
-                'headsCount',
-                'totalCount',
-                'pendingCasesCount'
-            ));
-        });
-
-        Route::post('/Forensic_Head/users/{id}/approve', [AuthController::class, 'approveUser']);
-        Route::post('/Forensic_Head/users/{id}/deactivate', [AuthController::class, 'deactivateUser']);
+        Route::post('/Forensic_Head/cases/{id}/approve', [CaseController::class, 'approve']);
+        Route::post('/Forensic_Head/cases/{id}/decline', [CaseController::class, 'decline']);
     });
 });

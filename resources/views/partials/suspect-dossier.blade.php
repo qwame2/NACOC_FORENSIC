@@ -191,9 +191,22 @@
                                 </div>
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest Date &amp; Time</div>
+                                    @php
+                                        $rawArrestDate = trim((string) ($suspect['resolved_view']['sArrestDate'] ?? ''));
+                                        $rawArrestTime = trim((string) ($suspect['resolved_view']['sArrestTime'] ?? ''));
+                                        $formattedArrestDate = null;
+                                        if ($rawArrestDate !== '' && !in_array(strtoupper($rawArrestDate), ['N/A', 'NA', '-', 'NULL', 'UNSPECIFIED'], true)) {
+                                            try {
+                                                $formattedArrestDate = \Carbon\Carbon::parse($rawArrestDate)->format('M d, Y');
+                                            } catch (\Throwable $e) {
+                                                $formattedArrestDate = $rawArrestDate;
+                                            }
+                                        }
+                                        $hasValidTime = $rawArrestTime !== '' && !in_array(strtoupper($rawArrestTime), ['N/A', 'NA', '-', 'NULL', 'UNSPECIFIED'], true);
+                                    @endphp
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
-                                        {{ $suspect['resolved_view']['sArrestDate'] ? \Carbon\Carbon::parse($suspect['resolved_view']['sArrestDate'])->format('M d, Y') : 'N/A' }}
-                                        {{ $suspect['resolved_view']['sArrestTime'] ? "@ {$suspect['resolved_view']['sArrestTime']}" : '' }}
+                                        {{ $formattedArrestDate ?: 'N/A' }}
+                                        {{ $hasValidTime ? "@ {$rawArrestTime}" : '' }}
                                     </div>
                                 </div>
                             </div>
@@ -270,8 +283,8 @@
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest
                                         Date &amp; Time</div>
                                     <div class="font-bold text-slate-900 text-sm">
-                                        {{ $suspect['resolved_view']['sArrestDate'] ? \Carbon\Carbon::parse($suspect['resolved_view']['sArrestDate'])->format('M d, Y') : 'N/A' }}
-                                        {{ $suspect['resolved_view']['sArrestTime'] ? "@ {$suspect['resolved_view']['sArrestTime']}" : '' }}
+                                        {{ $formattedArrestDate ?: 'N/A' }}
+                                        {{ $hasValidTime ? "@ {$rawArrestTime}" : '' }}
                                     </div>
                                 </div>
                                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
@@ -327,20 +340,35 @@
                                                     {{ $aEx['category'] ?? ($aEx['exhibit_category'] ?? 'Associate Exhibit') }}
                                                 </div>
                                             </div>
+                                            @php
+                                                $aExCatVal = $aEx['category'] ?? ($aEx['exhibit_category'] ?? '');
+                                                $isMoneyExA = in_array(strtolower(trim((string)$aExCatVal)), ['money', 'currency', 'cash']);
+                                                $rawSeizureNameA = $aEx['seizure_name'] ?? null;
+                                                $rawCommodityNameA = $aEx['commodity_name'] ?? ($aEx['seizure_name_currency'] ?? null);
+                                                if (!empty($rawCommodityNameA) && (empty($rawSeizureNameA) || in_array(strtolower(trim((string)$rawSeizureNameA)), ['exhibit', 'exhibits', 'general exhibit', 'confiscated exhibit']))) {
+                                                    $displayNameA = $rawCommodityNameA;
+                                                } else {
+                                                    $displayNameA = (!empty($rawCommodityNameA) && !in_array(strtolower(trim((string)$rawCommodityNameA)), ['exhibit', 'exhibits']))
+                                                        ? $rawCommodityNameA
+                                                        : ($rawSeizureNameA ?? ($aEx['name'] ?? 'N/A'));
+                                                }
+                                            @endphp
                                             <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
                                                 <div
                                                     class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                                                     Exhibit / Commodity Name</div>
                                                 <div class="font-extrabold text-slate-900 text-xs mt-0.5">
-                                                    {{ $aEx['seizure_name'] ?? ($aEx['name'] ?? 'N/A') }}</div>
+                                                    {{ $displayNameA }}</div>
                                             </div>
                                             <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
                                                 <div
                                                     class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                    Quantity / Weight</div>
+                                                    {{ $isMoneyExA || !empty($aEx['amount']) ? 'Amount / Quantity' : 'Quantity / Weight' }}</div>
                                                 <div
                                                     class="font-extrabold text-slate-900 font-mono-code text-xs mt-0.5">
-                                                    @if (!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
+                                                    @if ($isMoneyExA || !empty($aEx['amount']))
+                                                        {{ !empty($aEx['amount']) ? "Amount: {$aEx['amount']}" : (!empty($aEx['seizure_quantity']) ? "Amount: {$aEx['seizure_quantity']}" : 'N/A') }}
+                                                    @elseif (!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
                                                         {{ implode(' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
                                                     @else
                                                         N/A
@@ -1147,16 +1175,23 @@
                                                     @endif
 
 
-                                                @if (
-                            $suspect['resolved_view']['currSuspectHasDrug'] && 
-                            $suspect['resolved_view']['sDossierHasSavedLab'])
-                            
-                            @if (!$suspect['resolved_view']['sDossierIsJointLab'] && $suspect['resolved_view']['sDossierHasSavedLab'])
-                                @include('partials.lab-examination-card', [
-                                    'labExam' => $suspect['resolved_view']['sDossierLabExamCard'] ?? ($suspect['resolved_view']['sDossierLabExam'] ?? []),
-                                    'labHeadingName' => $suspect['resolved_view']['labExamHeadingName'],
-                                    'case' => $case,
-                                ])
+                        @if (!empty($suspect['resolved_view']['sDossierHasSavedLab']))
+                            @if (empty($suspect['resolved_view']['sDossierIsJointLab']))
+                                @if (!empty($suspect['resolved_view']['sDossierLabExamCards']) && count($suspect['resolved_view']['sDossierLabExamCards']) > 0)
+                                    @foreach ($suspect['resolved_view']['sDossierLabExamCards'] as $sCard)
+                                        @include('partials.lab-examination-card', [
+                                            'labExam' => $sCard,
+                                            'labHeadingName' => $sCard['labHeadingName'] ?? $suspect['resolved_view']['labExamHeadingName'],
+                                            'case' => $case,
+                                        ])
+                                    @endforeach
+                                @else
+                                    @include('partials.lab-examination-card', [
+                                        'labExam' => $suspect['resolved_view']['sDossierLabExamCard'] ?? ($suspect['resolved_view']['sDossierLabExam'] ?? []),
+                                        'labHeadingName' => $suspect['resolved_view']['labExamHeadingName'],
+                                        'case' => $case,
+                                    ])
+                                @endif
                             @endif
                         @endif
                         {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT --}}

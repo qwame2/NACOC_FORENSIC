@@ -21,13 +21,10 @@
         $isDrugCase = false;
         $activeSuspectHasSavedResult = false;
         if (isset($case)) {
-            $exCat = strtolower($case->exhibit_category ?? '');
-            $szDrug = $case->seizure_name_drug ?? '';
-            $szName = strtolower($case->seizure_name ?? '');
-            $exSum = strtolower($case->exhibits_summary ?? '');
-            if (!empty($szDrug) || str_contains($exCat, 'drug') || str_contains($exCat, 'narcotic') || str_contains($exCat, 'substance') || str_contains($szName, 'cocaine') || str_contains($szName, 'heroin') || str_contains($szName, 'cannabis') || str_contains($szName, 'drug') || str_contains($exSum, 'cocaine') || str_contains($exSum, 'heroin') || str_contains($exSum, 'cannabis') || str_contains($exSum, 'drug')) {
-                $isDrugCase = true;
-            }
+            $classifier = app(\App\Services\DrugExhibitClassifier::class);
+            $docketDataCase = is_array($case->docket_data ?? null) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            $classification = $classifier->classifyCase($case, $docketDataCase);
+            $isDrugCase = $classification['is_drug_case'] || $classifier->isDrugExhibit($case);
 
             $dbExamExists = false;
             if (!empty($case->id)) {
@@ -425,6 +422,8 @@
                         </div>
                     </div>
 
+                    @include('partials.search_warrant_upload_section')
+
                     <!-- SECTION 2: MUGSHOT PHOTO UPLOAD -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-40">
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -777,16 +776,16 @@
                                             <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
                                             <span>Select Gender</span>
                                         </button>
-                                        <button type="button" onclick="selectGender('Male', '♂', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
+                                        <button type="button" onclick="selectGender('Male', 'â™‚', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">â™‚</span>
                                             <span>Male</span>
                                         </button>
-                                        <button type="button" onclick="selectGender('Female', '♀', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                            <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">♀</span>
+                                        <button type="button" onclick="selectGender('Female', 'â™€', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                            <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">â™€</span>
                                             <span>Female</span>
                                         </button>
-                                        <button type="button" onclick="selectGender('Other / Non-Binary', '⚧', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                            <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">⚧</span>
+                                        <button type="button" onclick="selectGender('Other / Non-Binary', 'âš§', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                            <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">âš§</span>
                                             <span>Other / Non-Binary</span>
                                         </button>
                                         <button type="button" onclick="selectGender('N/A', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
@@ -1254,9 +1253,6 @@
                             </div>
                         </div>
                     </div>
-                    </div>
-                    </div>
-                    </div>
 
                     <!-- SECTION 4: SEIZURES (COMMODITIES) -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
@@ -1276,6 +1272,8 @@
                             </span>
                         </div>
                     </div>
+
+                    @include('partials.unassigned_exhibits_selector', ['selectorTargetUnit' => $userUnit ?? request()->query('unit') ?? request()->query('from') ?? 'general'])
 
                     <!-- SEIZURE STATUS CHECKBOX CARD -->
                     <div class="space-y-2.5">
@@ -1785,8 +1783,8 @@
                                                 <ul id="currencyList" class="py-1.5 space-y-0.5 px-1.5">
                                                     <!-- West Africa -->
                                                     <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">West Africa</li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Ghana Cedi (GHS ₵)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ghana Cedi</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GHS ₵</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Nigerian Naira (NGN ₦)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Nigerian Naira</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">NGN ₦</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Ghana Cedi (GHS â‚µ)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ghana Cedi</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GHS â‚µ</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Nigerian Naira (NGN â‚¦)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Nigerian Naira</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">NGN â‚¦</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('CFA Franc BCEAO (XOF)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>CFA Franc (BCEAO)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">XOF</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Sierra Leonean Leone (SLL)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Sierra Leonean Leone</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SLL</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Liberian Dollar (LRD)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Liberian Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">LRD</span></button></li>
@@ -1795,21 +1793,21 @@
                                                     <!-- Major Global -->
                                                     <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">Major Global Currencies</li>
                                                     <li class="currency-item" onclick="selectCurrencyType('US Dollar (USD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>US Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">USD $</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Euro (EUR €)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Euro</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EUR €</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('British Pound Sterling (GBP £)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>British Pound Sterling</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GBP £</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Euro (EUR â‚¬)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Euro</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EUR â‚¬</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('British Pound Sterling (GBP Â£)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>British Pound Sterling</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">GBP Â£</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Swiss Franc (CHF)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Swiss Franc</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CHF</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Japanese Yen (JPY ¥)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Japanese Yen</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">JPY ¥</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Chinese Yuan Renminbi (CNY ¥)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Chinese Yuan (Renminbi)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CNY ¥</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Japanese Yen (JPY Â¥)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Japanese Yen</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">JPY Â¥</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Chinese Yuan Renminbi (CNY Â¥)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Chinese Yuan (Renminbi)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CNY Â¥</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Canadian Dollar (CAD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Canadian Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">CAD $</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Australian Dollar (AUD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Australian Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AUD $</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('UAE Dirham (AED)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>UAE Dirham</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AED</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Saudi Riyal (SAR)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Saudi Riyal</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SAR</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Indian Rupee (INR ₹)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Indian Rupee</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">INR ₹</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('South Korean Won (KRW ₩)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South Korean Won</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KRW ₩</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Indian Rupee (INR â‚¹)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Indian Rupee</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">INR â‚¹</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('South Korean Won (KRW â‚©)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South Korean Won</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KRW â‚©</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Singapore Dollar (SGD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Singapore Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">SGD $</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Hong Kong Dollar (HKD $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Hong Kong Dollar</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">HKD $</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Russian Ruble (RUB ₽)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Russian Ruble</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">RUB ₽</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Turkish Lira (TRY ₺)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Turkish Lira</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TRY ₺</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Russian Ruble (RUB â‚½)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Russian Ruble</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">RUB â‚½</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Turkish Lira (TRY â‚º)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Turkish Lira</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TRY â‚º</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Brazilian Real (BRL R$)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Brazilian Real</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">BRL R$</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Mexican Peso (MXN $)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Mexican Peso</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MXN $</span></button></li>
 
@@ -1818,7 +1816,7 @@
                                                     <li class="currency-item" onclick="selectCurrencyType('South African Rand (ZAR R)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>South African Rand</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ZAR R</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Kenyan Shilling (KES)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Kenyan Shilling</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">KES</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Ethiopian Birr (ETB)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethiopian Birr</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">ETB</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Egyptian Pound (EGP £)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Egyptian Pound</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EGP £</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Egyptian Pound (EGP Â£)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Egyptian Pound</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">EGP Â£</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Tanzanian Shilling (TZS)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tanzanian Shilling</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">TZS</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Moroccan Dirham (MAD)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Moroccan Dirham</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">MAD</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Angolan Kwanza (AOA)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Angolan Kwanza</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">AOA</span></button></li>
@@ -1827,10 +1825,10 @@
 
                                                     <!-- Crypto -->
                                                     <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-emerald-500 uppercase tracking-widest">Cryptocurrencies</li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Bitcoin (BTC ₿)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Bitcoin</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">BTC ₿</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Ethereum (ETH Ξ)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethereum</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">ETH Ξ</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Bitcoin (BTC â‚¿)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Bitcoin</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">BTC â‚¿</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Ethereum (ETH Îž)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Ethereum</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">ETH Îž</span></button></li>
                                                     <li class="currency-item" onclick="selectCurrencyType('Tether (USDT)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Tether (Stablecoin)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">USDT</span></button></li>
-                                                    <li class="currency-item" onclick="selectCurrencyType('Monero (XMR – Privacy Coin)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Monero (Privacy Coin)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">XMR</span></button></li>
+                                                    <li class="currency-item" onclick="selectCurrencyType('Monero (XMR â€“ Privacy Coin)')"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-800 rounded-xl transition-colors flex items-center justify-between"><span>Monero (Privacy Coin)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">XMR</span></button></li>
                                                 </ul>
                                             </div>
                                         </div>
@@ -2126,7 +2124,7 @@
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Estimated Street Value</label>
                                         <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">₵</span>
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">â‚µ</span>
                                             <input type="text" id="newSeizureValue" placeholder="e.g. GHS 1,500,000 / $120,000" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
@@ -2145,7 +2143,7 @@
                                                 <label id="quantityLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Quantity</label>
                                                 <div class="relative flex items-center group">
                                                     <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                    <input type="number" step="0.01" id="newSeizureQuantity" placeholder="e.g. 10" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                    <input type="text" inputmode="decimal" id="newSeizureQuantity" placeholder="e.g. 10 or 50,000" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
 
@@ -2211,7 +2209,7 @@
                                             <div>
                                                 <label id="weightLabel" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Weight</label>
                                                 <div class="relative flex items-center group">
-                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">⚖</span>
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">âš–</span>
                                                     <input type="number" step="0.01" id="newSeizureWeight" placeholder="e.g. 25.50" class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
@@ -2302,7 +2300,7 @@
                                             <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                             </span>
-                                            <input type="text" id="newSeizureLocation" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            <input type="text" id="newSeizureLocation" placeholder="e.g. Tema Port, Gate 4 â€” Container Terminal" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
 
@@ -2345,6 +2343,8 @@
                                         </div>
                                     </div>
 
+                                    @include('partials.seized_item_source_custody_fields')
+
                                     <!-- REASON FOR SEIZURE -->
                                     <div class="col-span-full md:col-span-1">
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason for Seizure <span class="text-red-600 font-bold">*</span></label>
@@ -2352,7 +2352,7 @@
                                             <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                             </span>
-                                            <textarea id="newSeizureReason" rows="3" placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            <textarea id="newSeizureReason" rows="3" placeholder="e.g. Suspected drug trafficking â€” commodity found concealed in vehicle false compartment during routine checkpoint stop." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
                                         </div>
                                     </div>
 
@@ -2717,6 +2717,7 @@
                                 
                                 </div>
                             </div>
+                        </div>
                         <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
                         <div class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div class="flex items-center space-x-3">
@@ -2726,7 +2727,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">Sections 1–4 Docket Actions</h4>
+                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">Sections 1â€“4 Docket Actions</h4>
                                     <p class="text-[11px] text-slate-500 font-medium">Save case file or store as Draft to resume Sections 1 to 4 operations later.</p>
                                 </div>
                             </div>
@@ -2765,7 +2766,7 @@
                                     </div>
                                     <div>
                                         <h3 class="font-extrabold text-slate-900 text-base">Section 5: Forensic Examination &amp; Laboratory Analysis</h3>
-                                        <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis Directorate — Forensic Examination, Screening &amp; Confirmatory Testing Log</p>
+                                        <p class="text-xs text-emerald-700 font-semibold">Laboratory Analysis Directorate â€” Forensic Examination, Screening &amp; Confirmatory Testing Log</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center space-x-2 shrink-0">
@@ -2836,7 +2837,7 @@
                                 </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <!-- Analysis/Examination Reference — auto-generated -->
+                                    <!-- Analysis/Examination Reference â€” auto-generated -->
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                             <span>Analysis / Examination Reference</span>
@@ -2854,7 +2855,7 @@
                                         </div>
                                     </div>
 
-                                    <!-- Case Reference — auto-linked -->
+                                    <!-- Case Reference â€” auto-linked -->
                                     <div>
                                         <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
                                             <span>Case Reference</span>
@@ -3300,21 +3301,7 @@
                                                 </div>
 
                                                 <div class="space-y-4">
-                                                    <!-- 1. SUBSTANCE IDENTIFICATION -->
-                                                    <div>
-                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                            <span>Substance Identification <span class="text-red-600 font-bold">*</span></span>
-                                                            <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
-                                                        </label>
-                                                        <input 
-                                                            type="text" 
-                                                            id="confirmatorySubstanceIdentification" 
-                                                            name="confirmatory_substance_identification" 
-                                                            readonly
-                                                            placeholder="Fetched from drug manifest"
-                                                            class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-sans cursor-not-allowed"
-                                                        >
-                                                    </div>
+                                                    <input type="hidden" id="confirmatorySubstanceIdentification" name="confirmatory_substance_identification" value="">
 
                                                     <!-- 2. RESULT (INPUT BOX WITH ADD MORE) -->
                                                     <div class="space-y-2">
@@ -4042,16 +4029,16 @@
                                     <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold">?</span>
                                     <span>Select Gender</span>
                                 </button>
-                                <button type="button" onclick="selectDynamicGender(this, 'Male', '♂', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                    <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">♂</span>
+                                <button type="button" onclick="selectDynamicGender(this, 'Male', 'â™‚', 'bg-emerald-100 text-emerald-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-bold">â™‚</span>
                                     <span>Male</span>
                                 </button>
-                                <button type="button" onclick="selectDynamicGender(this, 'Female', '♀', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                    <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">♀</span>
+                                <button type="button" onclick="selectDynamicGender(this, 'Female', 'â™€', 'bg-rose-100 text-rose-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-[10px] font-bold">â™€</span>
                                     <span>Female</span>
                                 </button>
-                                <button type="button" onclick="selectDynamicGender(this, 'Other / Non-Binary', '⚧', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
-                                    <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">⚧</span>
+                                <button type="button" onclick="selectDynamicGender(this, 'Other / Non-Binary', 'âš§', 'bg-purple-100 text-purple-700', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
+                                    <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-bold">âš§</span>
                                     <span>Other / Non-Binary</span>
                                 </button>
                                 <button type="button" onclick="selectDynamicGender(this, 'N/A', '?', 'bg-slate-100 text-slate-600', event)" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center space-x-2 transition-colors">
@@ -5206,6 +5193,9 @@
                 const seizureTime = block.querySelector('#newSeizureTime')?.value || '';
                 const seizureLocation = block.querySelector('#newSeizureLocation')?.value || '';
                 const seizureOfficer = getSeizureOfficersFormatted(block);
+                const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.querySelector('.seizure-source-of-exhibits-input')?.value || block.querySelector('[name="source_of_exhibits"]')?.value || '';
+                const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
                 const seizureReason = block.querySelector('#newSeizureReason')?.value || '';
 
                 // Device fields
@@ -5307,6 +5297,9 @@
                     seizure_time: seizureTime,
                     seizure_location: seizureLocation,
                     seizure_officer: seizureOfficer,
+                    source_of_exhibits: sourceOfExhibits,
+                    investigating_officer: investigatingOfficer,
+                    source_requesting_unit: sourceRequestingUnit,
                     seizure_reason: seizureReason,
                     dev_model: devModel,
                     dev_serial_no: devSerialNo,
@@ -5497,6 +5490,8 @@
                 },
                 body: JSON.stringify({
                     case_number: caseRef,
+                    linked_exhibit_ids: (typeof jQuery !== 'undefined' ? jQuery('#linkedUnassignedExhibitsSelect').val() : (document.getElementById('linkedUnassignedExhibitsSelect') ? Array.from(document.getElementById('linkedUnassignedExhibitsSelect').selectedOptions).map(o => o.value) : [])) || [],
+                    link_suspect_to_locked_exhibit: document.getElementById('linkSuspectToLockedExhibitCheckbox')?.checked ? 1 : 0,
                     title: caseTitle,
                     unit_name: @json($userUnit),
                     operation_code_name: document.getElementById('operationTypeSelect')?.value || document.getElementById('operationCodeNameInput')?.value || null,
@@ -5566,6 +5561,9 @@
                     seizure_time: primarySeizure.seizure_time || null,
                     seizure_location: primarySeizure.seizure_location || null,
                     seizure_officer: primarySeizure.seizure_officer || null,
+                    source_of_exhibits: primarySeizure.source_of_exhibits || null,
+                    investigating_officer: primarySeizure.investigating_officer || null,
+                    source_requesting_unit: primarySeizure.source_requesting_unit || null,
                     seizure_reason: primarySeizure.seizure_reason || null,
                     exhibit_type: primarySeizure.exhibit_type || null,
                     drug_classification: primarySeizure.drug_classification || null,
@@ -5668,8 +5666,11 @@
                 }
                 return data;
             })
-            .then(data => {
+            .then(async data => {
                 setSubmittingState(false);
+                if (typeof uploadStagedSearchWarrantFile === 'function') {
+                    await uploadStagedSearchWarrantFile(data);
+                }
                 const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                 const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
 
@@ -5714,6 +5715,11 @@
                 }
 
                 clearDocketFormDraft();
+                if (typeof window.afterCaseSavedRefreshUnassignedSelector === 'function') {
+                    window.afterCaseSavedRefreshUnassignedSelector();
+                } else if (typeof window.refreshUnassignedExhibitsSelector === 'function') {
+                    window.refreshUnassignedExhibitsSelector();
+                }
                 showSuccessPopover(finalRef);
             })
             .catch(err => {
@@ -5850,6 +5856,10 @@
                     }
                 }
 
+                if (typeof toggleSearchWarrantUploadSection === 'function') {
+                    toggleSearchWarrantUploadSection(document.getElementById('operationTypeSelect')?.value || '');
+                }
+
                 if (restoredCount > 0) {
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
@@ -5865,6 +5875,9 @@
 
         function clearDocketFormDraftAndReset() {
             clearDocketFormDraft();
+            if (typeof toggleSearchWarrantUploadSection === 'function') {
+                toggleSearchWarrantUploadSection('');
+            }
             seizedExhibitDataUrls = [];
             renderSeizurePhotosGrid();
             const notice = document.getElementById('docketDraftNotice');
@@ -6045,6 +6058,9 @@
             }
             
             closeAllDropdowns();
+            if (typeof window.toggleSearchWarrantUploadSection === 'function') {
+                window.toggleSearchWarrantUploadSection(val);
+            }
             if (typeof window.handleCargoParcelOperationTypeSwitch === 'function') {
                 window.handleCargoParcelOperationTypeSwitch(val);
             }
@@ -6700,6 +6716,8 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';

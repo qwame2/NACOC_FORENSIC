@@ -7,6 +7,7 @@
 --}}@props([
     'exhibits' => [],
     'defaultOwnerName' => 'Primary Suspect',
+    'case' => null,
 ])
                 @if (!empty($exhibits) && count($exhibits) > 0)
                     <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
@@ -22,6 +23,24 @@
                                 {{ count($exhibits) }} ITEM(S) LOGGED
                             </span>
                         </div>
+
+                        @php
+                            $manifestDesc = $case->description_of_exhibits ?? null;
+                            if (empty($manifestDesc)) {
+                                foreach ($exhibits as $ex) {
+                                    if (!empty($ex['description_of_exhibits'])) {
+                                        $manifestDesc = $ex['description_of_exhibits'];
+                                        break;
+                                    }
+                                }
+                            }
+                        @endphp
+                        @if (!empty($manifestDesc))
+                            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                                <span class="font-mono-code font-bold text-slate-500 uppercase text-[10px]">Description of Exhibit(s):</span>
+                                <div class="font-medium text-slate-800 mt-0.5 leading-relaxed">{{ $manifestDesc }}</div>
+                            </div>
+                        @endif
 
                         <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
                             <table class="w-full text-left border-collapse text-xs">
@@ -71,7 +90,29 @@
                                             <td class="py-2.5 px-4 font-bold font-mono-code text-amber-700">
                                                 {{ $szItem['category'] ?? ($szItem['exhibit_category'] ?? 'General Exhibit') }}</td>
                                             <td class="py-2.5 px-4 font-extrabold text-slate-900">
-                                                <div>{{ $szItem['seizure_name'] ?? ($szItem['commodity_name'] ?? ($szItem['name'] ?? ($szItem['weapon_model'] ?? 'N/A'))) }}</div>
+                                                @php
+                                                    $rawSzNameT = $szItem['seizure_name'] ?? null;
+                                                    $rawCommT = $szItem['commodity_name'] ?? ($szItem['seizure_name_currency'] ?? null);
+                                                    if (!empty($rawCommT) && (empty($rawSzNameT) || in_array(strtolower(trim((string)$rawSzNameT)), ['exhibit', 'exhibits', 'general exhibit', 'confiscated exhibit']))) {
+                                                        $dispNameT = $rawCommT;
+                                                    } else {
+                                                        $dispNameT = (!empty($rawCommT) && !in_array(strtolower(trim((string)$rawCommT)), ['exhibit', 'exhibits']))
+                                                            ? $rawCommT
+                                                            : ($rawSzNameT ?? ($szItem['name'] ?? ($szItem['weapon_model'] ?? 'N/A')));
+                                                    }
+                                                @endphp
+                                                <div>{{ $dispNameT }}</div>
+                                                @if(!empty($szItem['lab_exhibit_no']))
+                                                    <div class="mt-1">
+                                                        <span class="bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded font-mono font-bold text-[10px]">Lab Exh: {{ $szItem['lab_exhibit_no'] }}</span>
+                                                    </div>
+                                                @endif
+                                                @if(!empty($szItem['contents']))
+                                                    <div class="mt-1 text-[11px] text-slate-700 font-bold flex items-center gap-1">
+                                                        <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 uppercase not-italic">Contents:</span>
+                                                        <span>{{ $szItem['contents'] }}</span>
+                                                    </div>
+                                                @endif
                                                 @if(!empty($szItem['veh_reg_no']) || !empty($szItem['veh_vin']) || !empty($szItem['veh_condition']) || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage']) || !empty($szItem['veh_doc_ref']) || !empty($szItem['veh_owner_contact']) || !empty($szItem['veh_mods']) || !empty($szItem['veh_features']))
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
                                                         @if(!empty($szItem['veh_reg_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">Reg: {{ $szItem['veh_reg_no'] }}</span> @endif
@@ -112,8 +153,21 @@
                                                 @endif
                                             </td>
                                             <td class="py-2.5 px-4 font-mono-code text-slate-700">
-                                                {{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</td>
-                                            <td class="py-2.5 px-4 font-mono-code">{{ $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A') }}</td>
+                                                <div>{{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</div>
+                                                @if (!empty($szItem['source_requesting_unit']))
+                                                    <div class="text-[10px] text-slate-500 font-sans mt-0.5"><span class="font-bold">Unit:</span> {{ $szItem['source_requesting_unit'] }}</div>
+                                                @endif
+                                                @if (!empty($szItem['investigating_officer']))
+                                                    <div class="text-[10px] text-slate-500 font-sans mt-0.5"><span class="font-bold">IO:</span> {{ $szItem['investigating_officer'] }}</div>
+                                                @endif
+                                            </td>
+                                            <td class="py-2.5 px-4 font-mono-code">
+                                                @if(in_array(strtolower(trim((string)($szItem['category'] ?? ($szItem['exhibit_category'] ?? '')))), ['money', 'currency', 'cash']) || !empty($szItem['amount']))
+                                                    <span class="font-bold text-emerald-800">{{ $szItem['amount'] ?? ($szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A')) }}</span>
+                                                @else
+                                                    {{ $szItem['seizure_quantity'] ?? ($szItem['quantity'] ?? 'N/A') }}
+                                                @endif
+                                            </td>
                                             <td class="py-2.5 px-4 font-mono-code">{{ !empty($szItem['seizure_weight']) || !empty($szItem['weight']) ? ($szItem['seizure_weight'] ?? $szItem['weight']) . ' ' . ($szItem['seizure_unit'] ?? ($szItem['unit'] ?? '')) : 'N/A' }}</td>
                                             <td class="py-2.5 px-4 font-mono-code">{{ $szItem['seizure_packaging'] ?? ($szItem['packaging'] ?? 'N/A') }}</td>
                                             <td class="py-2.5 px-4 font-mono-code font-bold text-emerald-700">

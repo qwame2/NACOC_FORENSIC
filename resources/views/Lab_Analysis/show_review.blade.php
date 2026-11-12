@@ -274,42 +274,6 @@
                                     </div>
                                 </a>
 
-                                <!-- ALERT 2: USER ACCOUNT APPROVALS -->
-                                <a href="{{ url('/Forensic_Head/approvals') }}"
-                                    class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account
-                                                Control</span>
-                                            <span
-                                                class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingUsersNotif > 0)
-                                                {{ $pendingUsersNotif }} Pending User Account Approval(s)
-                                            @else
-                                                Personnel Roster Fully Verified
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingUsersNotif > 0)
-                                                Staff or Unit Head registrations awaiting directorate access clearance.
-                                            @else
-                                                All registered system accounts are authorized and active.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
                                 <!-- ALERT 3: EVIDENCE VAULT TRANSFERS -->
                                 <a href="{{ url('/Forensic_Head/cases') }}"
                                     class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
@@ -495,7 +459,12 @@
                             </span>
                         @endif
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    @php
+                        $dispLabNumber = !empty($case->laboratory_number) && $case->laboratory_number !== 'Pending Assignment'
+                            ? $case->laboratory_number
+                            : (!empty($savedLabNumber) && $savedLabNumber !== 'N/A' && $savedLabNumber !== 'Pending Assignment' ? $savedLabNumber : null);
+                    @endphp
+                    <div class="grid grid-cols-1 md:grid-cols-{{ !empty($dispLabNumber) ? '4' : '3' }} gap-4 text-xs">
                         <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                             <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Case Name /
                                 Legal Title</div>
@@ -513,6 +482,27 @@
                             <div class="font-bold text-slate-800 text-sm mt-1">
                                 {{ $case->operation_code_name ?: $case->operation_code ?? 'N/A' }}</div>
                         </div>
+                        @if (!empty($case->search_warrant_document))
+                            <div class="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200">
+                                <div class="text-[10px] font-mono-code font-bold text-blue-700 uppercase">Search Warrant Document</div>
+                                <a href="{{ \Illuminate\Support\Facades\Storage::url($case->search_warrant_document) }}" target="_blank" rel="noopener"
+                                    class="inline-flex items-center space-x-1.5 mt-1 text-xs font-extrabold text-blue-700 hover:text-blue-900 underline">
+                                    <span>View / Download Warrant</span>
+                                </a>
+                            </div>
+                        @endif
+                        @if (!empty($dispLabNumber))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Laboratory Number</div>
+                                <div class="font-extrabold text-emerald-700 font-mono-code text-sm mt-1">{{ $dispLabNumber }}</div>
+                            </div>
+                        @endif
+                        @if (!empty($case->description_of_exhibits))
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 md:col-span-{{ !empty($dispLabNumber) ? '4' : '3' }}">
+                                <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Description of Exhibit(s)</div>
+                                <div class="font-bold text-slate-900 text-sm mt-1 leading-relaxed">{{ $case->description_of_exhibits }}</div>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -557,7 +547,15 @@
                     @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
-                    @if (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']) && $activeSuspectHasDrugExhibit)
+                    @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
+                        @foreach ($savedJointLabExamCards as $labCard)
+                            @include('partials.lab-examination-card', [
+                                'labExam' => $labCard,
+                                'labHeadingName' => $labCard['labHeadingName'] ?? ($savedJointLabHeadingName ?? $jointDossierHeadingName),
+                                'case' => $case,
+                            ])
+                        @endforeach
+                    @elseif (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']))
                         @include('partials.lab-examination-card', [
                             'labExam' => $savedJointLabExamCard ?? $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
@@ -569,6 +567,7 @@
                                     @include('partials.exhibit-table', [
                                         'exhibits' => $allCaseExhibits,
                                         'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
+                                        'case' => $case,
                                     ])
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
@@ -588,7 +587,7 @@
                             <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
                                 <div class="flex items-center space-x-3">
                                     <div
-                                        class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                                        class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round"
@@ -840,7 +839,7 @@
                                     <tr class="border-b border-slate-300">
                                         <td
                                             class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Test Methods:</td>
+                                            Test / Examination Conducted:</td>
                                         <td class="p-3 font-mono-code font-black text-slate-900 bg-white"
                                             colspan="3" id="section5TestMethodsDisplay">
                                             {{ $savedLabTestMethods ?: 'N/A' }}</td>
@@ -938,7 +937,7 @@
                         <!-- MANIFEST HEADER BAR WITH DYNAMIC SEIZED ITEMS NUMBER INPUT -->
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-300/60 pb-4 mb-6 gap-3">
                             <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 </div>
                                 <div>
@@ -1574,8 +1573,8 @@
                                                 <div class="relative flex items-center group">
                                                     <span
                                                         class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                    <input type="number" step="0.01" id="newSeizureQuantity"
-                                                        placeholder="e.g. 10"
+                                                    <input type="text" inputmode="decimal" id="newSeizureQuantity"
+                                                        placeholder="e.g. 10 or 50,000"
                                                         class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                 </div>
                                             </div>
@@ -2621,6 +2620,36 @@
                                         </div>
                                     </div>
 
+                                    <!-- INVESTIGATING OFFICER -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Investigating Officer
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
+                                    <!-- SOURCE / REQUESTING UNIT -->
+                                    <div class="col-span-full md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Source/Requesting Unit
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            </span>
+                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        </div>
+                                    </div>
+
                                     <!-- REMARKS / EXHIBIT REMARK -->
                                     <div class="col-span-full pt-2 border-t border-slate-300/60">
                                         <label
@@ -3149,7 +3178,7 @@
                         <tr class="border-b border-amber-200">
                             <td
                                 class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-amber-200 bg-amber-50/70">
-                                Test Methods:</td>
+                                Test / Examination Conducted:</td>
                             <td class="p-3 font-mono-code font-black text-slate-900 bg-white" colspan="3">
                                 {{ $assocMethodsVal }}</td>
                         </tr>
@@ -3695,7 +3724,7 @@
                                 `<span class="status-badge bg-white text-slate-900 border border-slate-300">Awaiting Sign-off</span>`;
                         }
                         showToast(
-                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings. Docket is submitted for HOF executive sign-off.`
+                            `✔ Multi-Unit Processing Complete (${totalUnits}/${totalUnits} Units)! All ${totalUnits} specialized units have completed findings.`
                         );
                     } else {
                         showToast(
@@ -4061,18 +4090,25 @@
             }
 
             let presumptive;
+            let presumptivePresence = null;
+            let presumptivePercentage = null;
             if (checkedRadio.value === 'NO') {
-                presumptive = 'NO (Negative Reaction)';
+                presumptive = 'NO';
             } else {
                 const rows = document.querySelectorAll(
                     '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
                 const validDetails = [];
+                const presList = [];
+                const pctList = [];
 
                 rows.forEach((row) => {
                     const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
                     const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
                     if (presence && percent) {
-                        validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${percent}%`);
+                        const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
+                        validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
+                        presList.push(presence);
+                        pctList.push(pctFormatted);
                     }
                 });
 
@@ -4098,6 +4134,8 @@
                 presumptive = validDetails.length > 1
                     ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
                     : `YES (${validDetails[0]})`;
+                presumptivePresence = presList.join('; ');
+                presumptivePercentage = pctList.join('; ');
             }
 
             // ── Confirmatory Test validation (no mock default) ──
@@ -4148,12 +4186,18 @@
                         exhibit_is_associate: exhibitIsAssociate,
                         lab_exam_reference: document.getElementById('labExamReferenceInput')?.value ||
                             '',
+                        lab_exhibit_no: document.getElementById('labExhibitNumberInput')?.value ||
+                            '',
                         lab_exhibit_number: document.getElementById('labExhibitNumberInput')?.value ||
                             '',
                         laboratory_number: document.getElementById('formLabNumber')?.value || '',
                         purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || '',
+                        preliminary_exam_procedure: document.getElementById('labPreliminaryExamProcedureInput')?.value || '',
+                        screening_method: Array.from(document.querySelectorAll('#screeningMethodsContainer .screening-method-input')).map(el => el.value.trim()).filter(Boolean).join(', '),
                         lab_unit: labUnit,
                         presumptive_result: presumptive,
+                        presumptive_presence: presumptivePresence,
+                        presumptive_percentage: presumptivePercentage,
                         confirmatory_test_result: confirmatory,
                         sample_weight_description: document.getElementById(
                             'sampleWeightDescriptionReview')?.value || '',
@@ -4174,6 +4218,8 @@
                         confirmatory_specifications: document.getElementById(
                             'confirmatorySpecificationsReview')?.value || '',
                         confirmatory_remark: document.getElementById('confirmatoryRemarkReview')
+                            ?.value || '',
+                        disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')
                             ?.value || '',
                         lab_date_received: dateReceived,
                         lab_date_started: dateStarted,
@@ -4498,6 +4544,8 @@
                     const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
+                    const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                    const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                     const devModel = block.querySelector('#newDevModel')?.value || '';
                     const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -4612,6 +4660,8 @@
                             source_of_exhibits: sourceOfExhibits,
                             exhibit_remark: exhibitRemark,
                             seizure_officer: seizingOfficer,
+                            investigating_officer: investigatingOfficer,
+                            source_requesting_unit: sourceRequestingUnit,
                             dev_model: devModel,
                             dev_serial_no: devSerialNo,
                             dev_imei1: devImei1,
@@ -4974,18 +5024,25 @@
                     }
 
                     let presumptive;
+                    let presumptivePresence = null;
+                    let presumptivePercentage = null;
                     if (checkedRadio.value === 'NO') {
-                        presumptive = 'NO (Negative Reaction)';
+                        presumptive = 'NO';
                     } else {
                         const rows = document.querySelectorAll(
                             '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
                         const validDetails = [];
+                        const presList = [];
+                        const pctList = [];
 
                         rows.forEach((row) => {
                             const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
                             const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
                             if (presence && percent) {
-                                validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${percent}%`);
+                                const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
+                                validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
+                                presList.push(presence);
+                                pctList.push(pctFormatted);
                             }
                         });
 
@@ -5017,6 +5074,8 @@
                         presumptive = validDetails.length > 1
                             ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
                             : `YES (${validDetails[0]})`;
+                        presumptivePresence = presList.join('; ');
+                        presumptivePercentage = pctList.join('; ');
                     }
 
                     // ── Confirmatory Test validation (no mock default) ──
@@ -5065,11 +5124,18 @@
                             exhibit_is_associate: exhibitIsAssociate,
                             lab_exam_reference: document.getElementById('labExamReferenceInput')?.value ||
                                 '',
+                            lab_exhibit_no: document.getElementById('labExhibitNumberInput')?.value ||
+                                '',
                             lab_exhibit_number: document.getElementById('labExhibitNumberInput')?.value ||
                                 '',
                             laboratory_number: document.getElementById('formLabNumber')?.value || '',
+                            purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || '',
+                            preliminary_exam_procedure: document.getElementById('labPreliminaryExamProcedureInput')?.value || '',
+                            screening_method: Array.from(document.querySelectorAll('#screeningMethodsContainer .screening-method-input')).map(el => el.value.trim()).filter(Boolean).join(', '),
                             lab_unit: labUnit,
                             presumptive_result: presumptive,
+                            presumptive_presence: presumptivePresence,
+                            presumptive_percentage: presumptivePercentage,
                             confirmatory_test_result: confirmatory,
                             sample_weight_description: document.getElementById(
                                 'sampleWeightDescriptionReview')?.value || '',
@@ -5090,6 +5156,8 @@
                             confirmatory_specifications: document.getElementById(
                                 'confirmatorySpecificationsReview')?.value || '',
                             confirmatory_remark: document.getElementById('confirmatoryRemarkReview')
+                                ?.value || '',
+                            disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')
                                 ?.value || '',
                             lab_date_received: dateReceived,
                             lab_date_started: dateStarted,
@@ -6585,6 +6653,13 @@
         function populateSeizureBlock(block, data) {
             if (!block || !data) return;
 
+            if (data.exhibit_number) {
+                block.dataset.exhibitNumber = data.exhibit_number;
+            }
+            if (data.lab_exhibit_no !== undefined && data.lab_exhibit_no !== null) {
+                block.dataset.labExhibitNo = data.lab_exhibit_no;
+            }
+
             const owner = data.resolved_owner || data.associated_person || data.suspect_name || data.owner_name || '';
             const assocSelect = block.querySelector('.seizure-associated-person-select');
             if (assocSelect && owner) {
@@ -6683,6 +6758,8 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
@@ -8016,6 +8093,8 @@
                 const location = block.querySelector('#newSeizureLocation')?.value || '';
                 const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
                 const seizingOfficer = getSeizureOfficersFormatted(block);
+                const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
                 const devModel = block.querySelector('#newDevModel')?.value || '';
                 const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
@@ -8120,6 +8199,7 @@
                         name: seizureName,
                         seizure_quantity: quantity,
                         quantity: quantity,
+                        amount: (category === 'Money' || category === 'Currency' || category === 'Cash') ? (quantity || value || '') : (block.querySelector('#newSeizureAmount')?.value || ''),
                         seizure_weight: weight,
                         weight: weight,
                         seizure_unit: unit,
@@ -8135,6 +8215,8 @@
                         source_of_exhibits: sourceOfExhibits,
                         exhibit_remark: exhibitRemark,
                         seizure_officer: seizingOfficer,
+                        investigating_officer: investigatingOfficer,
+                        source_requesting_unit: sourceRequestingUnit,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,
@@ -8237,6 +8319,8 @@
                             condition: wpnCondition
                         },
                         contents: block.querySelector('#newSeizureContents')?.value || block.querySelector('.seizure-contents-input')?.value || '',
+                        exhibit_number: block.dataset.exhibitNumber || null,
+                        lab_exhibit_no: document.getElementById(`labCardExhibitNo_${idx + 1}`)?.value || block.dataset.labExhibitNo || '',
                         description_of_exhibits: document.getElementById('manifestDescriptionOfExhibits')?.value || ''
                     });
                 }
@@ -9118,6 +9202,1046 @@
                 }
             }
         });
+
+        /* ── SECTION 5: Dynamic Lab Exhibit & Examination Functions ── */
+        window.activeLabExhibitIndex = window.activeLabExhibitIndex || 1;
+        window.labExhibitUserEdits = window.labExhibitUserEdits || {};
+
+        function computeReservedSample(grossStr, takenStr) {
+            if (typeof computeReservedSampleReview === 'function') {
+                return computeReservedSampleReview(grossStr, takenStr);
+            }
+            return { reserved: '0', isOverflow: false };
+        }
+
+        function getPerExhibitLabData(idx) {
+            const yesBox = document.getElementById(`presumptiveTestYes_${idx}`) || (idx === 1 ? document.getElementById('presumptiveTestYes') : null);
+            const noBox = document.getElementById(`presumptiveTestNo_${idx}`) || (idx === 1 ? document.getElementById('presumptiveTestNo') : null);
+            let presVal = null;
+            if (noBox && noBox.checked) {
+                presVal = 'NO (Negative Reaction)';
+            } else if (yesBox && yesBox.checked) {
+                const customResult = document.getElementById(`presumptiveReactionResultInput_${idx}`)?.value ||
+                                     (idx === 1 ? document.getElementById('presumptiveReactionResultInput')?.value : '');
+                presVal = customResult && customResult.trim() !== '' ? customResult.trim() : 'YES (Presumptive Positive)';
+            }
+
+            const confYes = document.getElementById(`confirmatoryTestYes_${idx}`) || (idx === 1 ? document.getElementById('confirmatoryTestYes') : null);
+            const confNo = document.getElementById(`confirmatoryTestNo_${idx}`) || (idx === 1 ? document.getElementById('confirmatoryTestNo') : null);
+            let confVal = 'NO';
+            if (confYes && confYes.checked) confVal = 'YES';
+            else if (confNo && confNo.checked) confVal = 'NO';
+
+            const desc = document.getElementById(`sampleWeightDescription_${idx}`)?.value || (idx === 1 ? document.getElementById('sampleWeightDescription')?.value : '') || '';
+            const units = document.getElementById(`sampleWeightUnits_${idx}`)?.value || (idx === 1 ? document.getElementById('sampleWeightUnits')?.value : '') || '';
+            const gross = document.getElementById(`sampleWeightGross_${idx}`)?.value || (idx === 1 ? document.getElementById('sampleWeightGross')?.value : '') || '';
+            const taken = document.getElementById(`sampleWeightTaken_${idx}`)?.value || (idx === 1 ? document.getElementById('sampleWeightTaken')?.value : '') || '';
+            const reserved = document.getElementById(`sampleWeightReserved_${idx}`)?.value || (idx === 1 ? document.getElementById('sampleWeightReserved')?.value : '') || '';
+
+            const substanceId = document.getElementById(`confirmatorySubstanceIdentification_${idx}`)?.value || (idx === 1 ? document.getElementById('confirmatorySubstanceIdentification')?.value : '') || '';
+            const detSubs = typeof getDetectedSubstancesDataForExhibit === 'function' ? getDetectedSubstancesDataForExhibit(idx) : [];
+
+            const methods = document.getElementById(`confirmatoryTestMethods_${idx}`)?.value || document.getElementById('confirmatoryTestMethods')?.value || '';
+            const specs = document.getElementById(`confirmatorySpecifications_${idx}`)?.value || document.getElementById('confirmatorySpecifications')?.value || '';
+            const remark = document.getElementById(`confirmatoryRemark_${idx}`)?.value || document.getElementById('confirmatoryRemark')?.value || '';
+
+            const cardLabExNo = document.getElementById(`labCardExhibitNo_${idx}`)?.value || '';
+
+            const hasSaved = (yesBox && yesBox.checked) || (noBox && noBox.checked) || (confYes && confYes.checked) || (confNo && confNo.checked) || !!taken || !!gross || !!substanceId || (detSubs && detSubs.length > 0) || !!cardLabExNo;
+
+            const scData = typeof getScreeningMethodsData === 'function' ? getScreeningMethodsData() : '';
+            const scStr = Array.isArray(scData) ? scData.join(', ') : (scData || '');
+
+            return {
+                lab_exhibit_no: cardLabExNo,
+                presumptive_result: presVal,
+                confirmatory_result: confVal,
+                substance_identification: substanceId,
+                sample_weight_description: desc,
+                sample_weight_units: units,
+                sample_weight_gross: gross,
+                sample_weight_taken: taken,
+                sample_weight_reserved: reserved,
+                sample_taken: taken,
+                sample_reserved: reserved,
+                sample_description: desc,
+                sample_units: units,
+                sample_gross: gross,
+                sample_weight: {
+                    description: desc,
+                    units_packaging: units,
+                    gross_weight: gross,
+                    sample_taken: taken,
+                    reserved_samples: reserved
+                },
+                detected_substances: detSubs,
+                test_methods: methods,
+                specifications: specs,
+                remark: remark,
+                purpose_of_examination: document.getElementById('labPurposeOfExaminationInput')?.value || '',
+                preliminary_exam_procedure: document.getElementById('labPreliminaryExamProcedureInput')?.value || '',
+                screening_method: scStr,
+                disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')?.value || '',
+                has_saved_lab: hasSaved
+            };
+        }
+
+        function selectLabExhibitCard(idx) {
+            window.activeLabExhibitIndex = idx;
+            const selectEl = document.getElementById('labExhibitSelect');
+            if (selectEl) {
+                if (selectEl.options.length >= idx) {
+                    selectEl.selectedIndex = idx - 1;
+                } else {
+                    selectEl.value = idx.toString();
+                }
+                if (typeof onLabExhibitSelected === 'function') onLabExhibitSelected();
+                if (typeof onReviewLabExhibitChange === 'function') onReviewLabExhibitChange(selectEl);
+            }
+
+            const cardExhNoInput = document.getElementById(`labCardExhibitNo_${idx}`);
+            const hiddenInput = document.getElementById('labExhibitNumberInput');
+            if (cardExhNoInput && hiddenInput) {
+                hiddenInput.value = cardExhNoInput.value;
+            }
+
+            document.querySelectorAll('.lab-exhibit-card').forEach(card => {
+                const cIdx = parseInt(card.getAttribute('data-exhibit-index'), 10);
+                if (cIdx === idx) {
+                    card.classList.remove('border-slate-200', 'bg-white');
+                    card.classList.add('border-emerald-500', 'ring-2', 'ring-emerald-500/30', 'bg-emerald-50/40');
+                } else {
+                    card.classList.remove('border-emerald-500', 'ring-2', 'ring-emerald-500/30', 'bg-emerald-50/40');
+                    card.classList.add('border-slate-200', 'bg-white');
+                }
+            });
+
+            const presCard = document.getElementById(`presumptiveTestExhibitCard_${idx}`);
+            if (presCard) {
+                presCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function togglePresumptiveTestForExhibit(idx, choice) {
+            const yesBox = document.getElementById(`presumptiveTestYes_${idx}`);
+            const noBox = document.getElementById(`presumptiveTestNo_${idx}`);
+            const detailsContainer = document.getElementById(`presumptiveReactionDetailsContainer_${idx}`);
+            const resultInput = document.getElementById(`presumptiveReactionResultInput_${idx}`);
+
+            if (choice === 'YES') {
+                if (yesBox) yesBox.checked = true;
+                if (noBox) noBox.checked = false;
+                if (detailsContainer) detailsContainer.classList.remove('hidden');
+                updatePresumptiveReactionTextForExhibit(idx);
+            } else {
+                if (yesBox) yesBox.checked = false;
+                if (noBox) noBox.checked = true;
+                if (detailsContainer) detailsContainer.classList.add('hidden');
+                if (resultInput) resultInput.value = 'NO (Negative Reaction)';
+            }
+
+            if (idx === 1) {
+                const legacyYes = document.getElementById('presumptiveTestYes');
+                const legacyNo = document.getElementById('presumptiveTestNo');
+                const legacyInput = document.getElementById('presumptiveReactionResultInput');
+                if (legacyYes) legacyYes.checked = (choice === 'YES');
+                if (legacyNo) legacyNo.checked = (choice === 'NO');
+                if (legacyInput && resultInput) legacyInput.value = resultInput.value;
+            }
+        }
+
+        function addPresumptiveSpecimenRow(idx, presence = '', percentage = '') {
+            return addPresumptiveTestRowForExhibit(idx, presence, percentage);
+        }
+
+        function addPresumptiveTestRowForExhibit(idx, presence = '', percentage = '') {
+            const container = document.getElementById(`presumptiveTestRowsContainer_${idx}`);
+            if (!container) return;
+            const currentRows = container.querySelectorAll('.presumptive-test-row');
+            const newRowNum = currentRows.length + 1;
+
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'presumptive-test-row p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2 animate-in fade-in duration-200';
+            rowDiv.innerHTML = `
+                <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                    <span class="test-row-title">Test Result #${newRowNum}</span>
+                    <button type="button" onclick="removePresumptiveTestRowForExhibit(this, ${idx})"
+                        class="remove-test-row-btn px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">
+                        &times; Remove
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                            Presence of <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <input type="text" class="presumptive-presence-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
+                            value="${presence}" oninput="updatePresumptiveReactionTextForExhibit(${idx})" placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine">
+                    </div>
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                            Percentage (%) <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <div class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                            <input type="text" class="presumptive-percentage-input w-full pl-3 pr-2 py-2 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code"
+                                value="${percentage}" oninput="updatePresumptiveReactionTextForExhibit(${idx})" placeholder="e.g. 85.5">
+                            <span class="inline-flex items-center px-3 py-2 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(rowDiv);
+            updatePresumptiveRowTitlesForExhibit(idx);
+            updatePresumptiveReactionTextForExhibit(idx);
+        }
+
+        function removePresumptiveTestRowForExhibit(btn, idx) {
+            const row = btn.closest('.presumptive-test-row');
+            const container = document.getElementById(`presumptiveTestRowsContainer_${idx}`);
+            if (row && container) {
+                const rows = container.querySelectorAll('.presumptive-test-row');
+                if (rows.length <= 1) return;
+                row.remove();
+                updatePresumptiveRowTitlesForExhibit(idx);
+                updatePresumptiveReactionTextForExhibit(idx);
+            }
+        }
+
+        function updatePresumptiveRowTitlesForExhibit(idx) {
+            const container = document.getElementById(`presumptiveTestRowsContainer_${idx}`);
+            if (!container) return;
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            rows.forEach((r, i) => {
+                const title = r.querySelector('.test-row-title');
+                if (title) title.innerText = `Test Result #${i + 1}`;
+                const removeBtn = r.querySelector('.remove-test-row-btn');
+                if (removeBtn) {
+                    if (rows.length <= 1) {
+                        removeBtn.classList.add('hidden');
+                    } else {
+                        removeBtn.classList.remove('hidden');
+                    }
+                }
+            });
+        }
+
+        function updatePresumptiveReactionTextForExhibit(idx) {
+            const container = document.getElementById(`presumptiveTestRowsContainer_${idx}`);
+            const resultInput = document.getElementById(`presumptiveReactionResultInput_${idx}`);
+            if (!container || !resultInput) return;
+
+            const rows = container.querySelectorAll('.presumptive-test-row');
+            const parts = [];
+            rows.forEach((r, i) => {
+                const pres = (r.querySelector('.presumptive-presence-input')?.value || '').trim();
+                const pct = (r.querySelector('.presumptive-percentage-input')?.value || '').trim();
+                if (pres || pct) {
+                    let part = `Test #${i + 1}: `;
+                    if (pres) part += `Presence of ${pres}`;
+                    if (pct) part += ` (${pct}%)`;
+                    parts.push(part);
+                }
+            });
+
+            if (parts.length > 0) {
+                resultInput.value = 'YES: ' + parts.join('; ');
+            } else {
+                resultInput.value = 'YES (Presumptive Positive)';
+            }
+
+            if (idx === 1) {
+                const legacyInput = document.getElementById('presumptiveReactionResultInput');
+                if (legacyInput) legacyInput.value = resultInput.value;
+            }
+        }
+
+        function toggleConfirmatoryTestForExhibit(idx, choice) {
+            const yesBox = document.getElementById(`confirmatoryTestYes_${idx}`);
+            const noBox = document.getElementById(`confirmatoryTestNo_${idx}`);
+            const weightContainer = document.getElementById(`sampleWeightContainer_${idx}`);
+            const resultInput = document.getElementById(`confirmatoryTestResultInput_${idx}`);
+
+            if (choice === 'YES') {
+                if (yesBox) yesBox.checked = true;
+                if (noBox) noBox.checked = false;
+                if (weightContainer) weightContainer.classList.remove('hidden');
+                if (resultInput) resultInput.value = 'YES';
+                updateSampleWeightReservedForExhibit(idx);
+            } else {
+                if (yesBox) yesBox.checked = false;
+                if (noBox) noBox.checked = true;
+                if (weightContainer) weightContainer.classList.add('hidden');
+                if (resultInput) resultInput.value = 'NO';
+            }
+
+            if (idx === 1) {
+                const legacyYes = document.getElementById('confirmatoryTestYes');
+                const legacyNo = document.getElementById('confirmatoryTestNo');
+                const legacyInput = document.getElementById('confirmatoryTestResultInput');
+                if (legacyYes) legacyYes.checked = (choice === 'YES');
+                if (legacyNo) legacyNo.checked = (choice === 'NO');
+                if (legacyInput && resultInput) legacyInput.value = resultInput.value;
+            }
+        }
+
+        function updateConfirmatorySampleReserved(idx) {
+            return updateSampleWeightReservedForExhibit(idx);
+        }
+
+        function updateSampleWeightReservedForExhibit(idx) {
+            const grossInput = document.getElementById(`sampleWeightGross_${idx}`);
+            const takenInput = document.getElementById(`sampleWeightTaken_${idx}`);
+            const addonInput = document.getElementById(`sampleWeightTakenUnitAddon_${idx}`);
+            const reservedInput = document.getElementById(`sampleWeightReserved_${idx}`);
+            const errorMsgEl = document.getElementById(`sampleWeightTakenError_${idx}`);
+
+            if (!grossInput || !reservedInput) return;
+
+            const grossStr = grossInput.value || '';
+            const takenStr = takenInput ? takenInput.value : '';
+
+            const result = computeReservedSample(grossStr, takenStr);
+            reservedInput.value = result.reserved;
+
+            if (result.isOverflow) {
+                if (errorMsgEl) errorMsgEl.classList.remove('hidden');
+                if (takenInput) {
+                    takenInput.classList.add('border-red-500', 'ring-2', 'ring-red-500/20');
+                    takenInput.classList.remove('border-slate-300');
+                }
+                if (addonInput) {
+                    addonInput.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
+                    addonInput.classList.remove('border-slate-300', 'bg-slate-100/90', 'text-slate-700');
+                }
+            } else {
+                if (errorMsgEl) errorMsgEl.classList.add('hidden');
+                if (takenInput) {
+                    takenInput.classList.remove('border-red-500', 'ring-2', 'ring-red-500/20');
+                    takenInput.classList.add('border-slate-300');
+                }
+                if (addonInput) {
+                    addonInput.classList.remove('border-red-500', 'bg-red-50', 'text-red-700');
+                    addonInput.classList.add('border-slate-300', 'bg-slate-100/90', 'text-slate-700');
+                }
+            }
+
+            if (idx === 1) {
+                const legacyTaken = document.getElementById('sampleWeightTaken');
+                const legacyReserved = document.getElementById('sampleWeightReserved');
+                if (legacyTaken && takenInput) legacyTaken.value = takenInput.value;
+                if (legacyReserved && reservedInput) legacyReserved.value = reservedInput.value;
+            }
+        }
+
+        function addConfirmatoryDetectedSubstanceRow(idx, substance = '', percentage = '') {
+            return addDetectedSubstanceRowForExhibit(idx, substance, percentage);
+        }
+
+        function addDetectedSubstanceRowForExhibit(idx, substance = '', percentage = '') {
+            const container = document.getElementById(`detectedSubstancesListContainer_${idx}`);
+            if (!container) return;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'detected-substance-row flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-xl border border-slate-300 shadow-2xs animate-in fade-in duration-200';
+            rowDiv.innerHTML = `
+                <div class="flex-1 w-full">
+                    <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Substance / Compound Detected</label>
+                    <input type="text" class="detected-substance-name w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-sans" placeholder="e.g. Cocaine Hydrochloride" value="${substance}">
+                </div>
+                <div class="w-full sm:w-48">
+                    <label class="block text-slate-700 font-bold text-[10px] uppercase mb-1">Purity / Percentage</label>
+                    <div class="flex items-center rounded-lg overflow-hidden shadow-2xs">
+                        <input type="text" class="detected-substance-percent w-full pl-3 pr-2 py-2 bg-slate-50 border border-y border-l border-slate-300 rounded-l-lg text-slate-900 font-extrabold text-xs focus:outline-none focus:border-emerald-600 font-mono-code" placeholder="e.g. 85.4" value="${percentage}">
+                        <span class="inline-flex items-center px-2.5 py-2 bg-slate-200/80 border border-slate-300 rounded-r-lg text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                    </div>
+                </div>
+                <button type="button" onclick="removeDetectedSubstanceRowForExhibit(this, ${idx})" class="mt-2 sm:mt-5 p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Row">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            `;
+            container.appendChild(rowDiv);
+            updateDetectedSubstanceRemoveButtonsForExhibit(idx);
+        }
+
+        function removeDetectedSubstanceRowForExhibit(btn, idx) {
+            const container = document.getElementById(`detectedSubstancesListContainer_${idx}`);
+            if (container) {
+                const rows = container.querySelectorAll('.detected-substance-row');
+                if (rows.length <= 1) return;
+            }
+            const row = btn.closest('.detected-substance-row');
+            if (row) {
+                row.remove();
+                updateDetectedSubstanceRemoveButtonsForExhibit(idx);
+            }
+        }
+
+        function updateDetectedSubstanceRemoveButtonsForExhibit(idx) {
+            const container = document.getElementById(`detectedSubstancesListContainer_${idx}`);
+            if (!container) return;
+            const rows = container.querySelectorAll('.detected-substance-row');
+            rows.forEach(r => {
+                const btn = r.querySelector('button[title="Remove Row"]');
+                if (btn) {
+                    if (rows.length <= 1) {
+                        btn.classList.add('hidden');
+                        btn.style.display = 'none';
+                    } else {
+                        btn.classList.remove('hidden');
+                        btn.style.display = '';
+                    }
+                }
+            });
+        }
+
+        function getDetectedSubstancesDataForExhibit(idx) {
+            const rows = document.querySelectorAll(`#detectedSubstancesListContainer_${idx} .detected-substance-row`);
+            const data = [];
+            rows.forEach(r => {
+                const sub = r.querySelector('.detected-substance-name')?.value || '';
+                const pct = r.querySelector('.detected-substance-percent')?.value || '';
+                if (sub.trim() !== '' || pct.trim() !== '') {
+                    data.push({
+                        substance: sub.trim(),
+                        percentage: pct.trim()
+                    });
+                }
+            });
+            return data;
+        }
+
+        function togglePresumptiveTest(choice) {
+            togglePresumptiveTestForExhibit(1, choice);
+        }
+        function addPresumptiveTestRow() {
+            addPresumptiveTestRowForExhibit(1);
+        }
+        function removePresumptiveTestRow(btn) {
+            const card = btn.closest('.presumptive-exhibit-card');
+            const idx = card ? parseInt(card.getAttribute('data-exhibit-index'), 10) : 1;
+            removePresumptiveTestRowForExhibit(btn, idx);
+        }
+        function updatePresumptiveReactionText() {
+            updatePresumptiveReactionTextForExhibit(1);
+        }
+        function toggleConfirmatoryTest(choice) {
+            toggleConfirmatoryTestForExhibit(1, choice);
+        }
+        function updateSampleWeightReserved() {
+            updateSampleWeightReservedForExhibit(1);
+        }
+        function addDetectedSubstanceRow(substance = '', percentage = '') {
+            addDetectedSubstanceRowForExhibit(1, substance, percentage);
+        }
+        function removeDetectedSubstanceRow(btn) {
+            const card = btn.closest('.confirmatory-exhibit-card');
+            const idx = card ? parseInt(card.getAttribute('data-exhibit-index'), 10) : 1;
+            removeDetectedSubstanceRowForExhibit(btn, idx);
+        }
+        function getDetectedSubstancesData() {
+            return getDetectedSubstancesDataForExhibit(1);
+        }
+
+        function addScreeningMethodRow(val = '') {
+            const container = document.getElementById('screeningMethodsContainer');
+            if (!container) return;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'screening-method-row flex items-center space-x-2 animate-in fade-in duration-200';
+            rowDiv.innerHTML = `
+                <input type="text" name="screening_method[]"
+                    placeholder="e.g. Gas Chromatography-Mass Spectrometry (GC-MS), FTIR, Raman..."
+                    value="${val ? String(val).replace(/"/g, '&quot;') : ''}"
+                    class="screening-method-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
+                <button type="button" onclick="removeScreeningMethodRow(this)"
+                    class="remove-screening-method-btn p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl border border-red-200 transition-colors shrink-0 cursor-pointer" title="Remove Method">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            `;
+            container.appendChild(rowDiv);
+            updateScreeningMethodRemoveButtons();
+        }
+
+        function removeScreeningMethodRow(btn) {
+            const container = document.getElementById('screeningMethodsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.screening-method-row');
+            if (rows.length <= 1) return;
+            const row = btn.closest('.screening-method-row');
+            if (row) {
+                row.remove();
+                updateScreeningMethodRemoveButtons();
+            }
+        }
+
+        function updateScreeningMethodRemoveButtons() {
+            const container = document.getElementById('screeningMethodsContainer');
+            if (!container) return;
+            const rows = container.querySelectorAll('.screening-method-row');
+            rows.forEach(r => {
+                const btn = r.querySelector('.remove-screening-method-btn');
+                if (btn) {
+                    if (rows.length > 1) {
+                        btn.classList.remove('hidden');
+                    } else {
+                        btn.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        function getScreeningMethodsData() {
+            const container = document.getElementById('screeningMethodsContainer');
+            if (!container) {
+                const single = document.getElementById('screeningMethodInput');
+                return single && single.value.trim() ? [single.value.trim()] : [];
+            }
+            const inputs = container.querySelectorAll('.screening-method-input');
+            const values = [];
+            inputs.forEach(inp => {
+                const v = inp.value.trim();
+                if (v) values.push(v);
+            });
+            return values;
+        }
+
+        function syncPresumptiveContainerForExhibit(idx, name) {
+            const container = document.getElementById('presumptiveTestExhibitsContainer');
+            if (!container) return;
+            let card = document.getElementById(`presumptiveTestExhibitCard_${idx}`);
+            const safeName = name || `Exhibit #${idx}`;
+
+            if (!card) {
+                card = document.createElement('div');
+                card.id = `presumptiveTestExhibitCard_${idx}`;
+                card.className = 'presumptive-exhibit-card p-5 bg-white rounded-2xl border border-slate-300/80 shadow-2xs space-y-4';
+                card.setAttribute('data-exhibit-index', idx);
+                card.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center">${idx}</span>
+                            <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider presumptive-card-title">Presumptive Test — Exhibit #${idx}: <span class="text-emerald-700">${safeName}</span></h5>
+                        </div>
+                        <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase">EXHIBIT #${idx}</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-2">
+                            Presumptive Test Reaction Result <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <div class="flex items-center space-x-3">
+                            <label class="relative inline-flex items-center px-4 py-2 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                <input type="checkbox" id="presumptiveTestYes_${idx}" name="presumptive_test_yes_${idx}" value="YES"
+                                    onchange="togglePresumptiveTestForExhibit(${idx}, 'YES')"
+                                    class="presumptive-yes-box w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                            </label>
+                            <label class="relative inline-flex items-center px-4 py-2 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                <input type="checkbox" id="presumptiveTestNo_${idx}" name="presumptive_test_no_${idx}" value="NO" checked
+                                    onchange="togglePresumptiveTestForExhibit(${idx}, 'NO')"
+                                    class="presumptive-no-box w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                            </label>
+                        </div>
+
+                        <input type="hidden" id="presumptiveReactionResultInput_${idx}" name="presumptive_reaction_result_input_${idx}" value="">
+
+                        <div id="presumptiveReactionDetailsContainer_${idx}" class="mt-3.5 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-3 hidden">
+                            <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                <div class="flex items-center space-x-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider">
+                                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                    <span>Presumptive Test Reaction Result Details &amp; Field Spec</span>
+                                </div>
+                                <span class="text-[10px] font-mono-code font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                    MULTIPLE SPECIMEN SUPPORT
+                                </span>
+                            </div>
+
+                            <div id="presumptiveTestRowsContainer_${idx}" class="space-y-2.5">
+                                <div class="presumptive-test-row p-3 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-2">
+                                    <div class="flex items-center justify-between text-[11px] font-extrabold text-slate-700 uppercase font-mono-code">
+                                        <span class="test-row-title">Test Result #1</span>
+                                        <button type="button" onclick="removePresumptiveTestRowForExhibit(this, ${idx})" class="remove-test-row-btn hidden px-2 py-0.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold border border-transparent hover:border-red-200 transition-colors cursor-pointer">&times; Remove</button>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Presence of <span class="text-red-600 font-bold">*</span></label>
+                                            <input type="text" class="presumptive-presence-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs"
+                                                oninput="updatePresumptiveReactionTextForExhibit(${idx})" placeholder="e.g. Cocaine, Heroin, THC, Methamphetamine">
+                                        </div>
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Percentage (%) <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="flex items-center rounded-xl shadow-2xs overflow-hidden">
+                                                <input type="text" class="presumptive-percentage-input w-full pl-3 pr-2 py-2 bg-white border border-y border-l border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code"
+                                                    oninput="updatePresumptiveReactionTextForExhibit(${idx})" placeholder="e.g. 85.5">
+                                                <span class="inline-flex items-center px-3 py-2 bg-slate-100 border border-slate-300 rounded-r-xl text-slate-700 font-extrabold text-xs font-mono-code shrink-0">%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-1 flex items-center justify-between">
+                                <button type="button" onclick="addPresumptiveTestRowForExhibit(${idx})" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border-none space-x-1.5">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                    <span>+ Add More Test Result</span>
+                                </button>
+                                <span class="text-[10px] text-slate-500 font-medium italic">Log additional reaction tests for Exhibit #${idx}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            } else {
+                const titleEl = card.querySelector('.presumptive-card-title');
+                if (titleEl) titleEl.innerHTML = `Presumptive Test — Exhibit #${idx}: <span class="text-emerald-700">${safeName}</span>`;
+            }
+        }
+
+        function syncConfirmatoryContainerForExhibit(idx, name, units, gross, unit) {
+            const container = document.getElementById('confirmatoryTestExhibitsContainer');
+            if (!container) return;
+            let card = document.getElementById(`confirmatoryTestExhibitCard_${idx}`);
+            const safeName = name || `Exhibit #${idx}`;
+            const safeUnits = units || 'N/A';
+            const safeGross = gross || 'N/A';
+            const safeUnit = unit || 'kg';
+
+            if (!card) {
+                card = document.createElement('div');
+                card.id = `confirmatoryTestExhibitCard_${idx}`;
+                card.className = 'confirmatory-exhibit-card p-5 bg-white rounded-2xl border border-slate-300/80 shadow-2xs space-y-4';
+                card.setAttribute('data-exhibit-index', idx);
+                card.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-6 h-6 rounded-full bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center">${idx}</span>
+                            <h5 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider confirmatory-card-title">Confirmatory Test — Exhibit #${idx}: <span class="text-emerald-700">${safeName}</span></h5>
+                        </div>
+                        <span class="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200 uppercase">EXHIBIT #${idx}</span>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-2">
+                            Confirmatory Test Conducted <span class="text-red-600 font-bold">*</span>
+                        </label>
+                        <div class="flex items-center space-x-3">
+                            <label class="relative inline-flex items-center px-4 py-2 rounded-xl border-2 border-slate-300 bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer select-none space-x-2 group">
+                                <input type="checkbox" id="confirmatoryTestYes_${idx}" name="confirmatory_test_yes_${idx}" value="YES"
+                                    onchange="toggleConfirmatoryTestForExhibit(${idx}, 'YES')"
+                                    class="confirmatory-yes-box w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                <span class="font-black text-xs text-slate-900 font-mono-code uppercase">YES</span>
+                            </label>
+                            <label class="relative inline-flex items-center px-4 py-2 rounded-xl border-2 border-red-300 bg-red-50/60 hover:bg-red-100/70 transition-all cursor-pointer select-none space-x-2 group">
+                                <input type="checkbox" id="confirmatoryTestNo_${idx}" name="confirmatory_test_no_${idx}" value="NO" checked
+                                    onchange="toggleConfirmatoryTestForExhibit(${idx}, 'NO')"
+                                    class="confirmatory-no-box w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer">
+                                <span class="font-black text-xs text-red-900 font-mono-code uppercase">NO</span>
+                            </label>
+                        </div>
+
+                        <input type="hidden" id="confirmatoryTestResultInput_${idx}" name="confirmatory_test_result_${idx}" value="NO">
+
+                        <div id="sampleWeightContainer_${idx}" class="mt-3.5 p-4 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-4 hidden">
+                            <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                                    <span>SAMPLE WEIGHT</span>
+                                </div>
+                                <span class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                    CONFIRMATORY METROLOGY &amp; MASS
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                                <div class="md:col-span-2">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                        <span>Description <span class="text-red-600 font-bold">*</span></span>
+                                        <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                    </label>
+                                    <input type="text" id="sampleWeightDescription_${idx}" name="sample_weight_description_${idx}" value="${safeName}" readonly
+                                        class="w-full px-3 py-2 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs cursor-not-allowed">
+                                </div>
+
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                        <span>Number of Units <span class="text-red-600 font-bold">*</span></span>
+                                        <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                    </label>
+                                    <input type="text" id="sampleWeightUnits_${idx}" name="sample_weight_units_${idx}" value="${safeUnits}" readonly
+                                        class="w-full px-3 py-2 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
+                                </div>
+
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                        <span>Gross Weight <span class="text-red-600 font-bold">*</span></span>
+                                        <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-FETCHED</span>
+                                    </label>
+                                    <input type="text" id="sampleWeightGross_${idx}" name="sample_weight_gross_${idx}" value="${safeGross}" readonly
+                                        class="w-full px-3 py-2 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs outline-none shadow-2xs font-mono-code cursor-not-allowed">
+                                </div>
+
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                        Sample Taken (Weight/Volume) <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                    <div class="relative flex rounded-xl shadow-2xs">
+                                        <input type="text" id="sampleWeightTaken_${idx}" name="sample_weight_taken_${idx}" placeholder="e.g. 5"
+                                            oninput="updateSampleWeightReservedForExhibit(${idx})"
+                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-l-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 font-mono-code placeholder:text-slate-400 border-r-0">
+                                        <span id="sampleWeightTakenUnitAddon_${idx}" class="inline-flex items-center px-3 py-2 rounded-r-xl border border-slate-300 bg-slate-100/90 text-slate-700 font-mono-code font-bold text-xs shrink-0 select-none cursor-not-allowed border-l-0">
+                                            ${safeUnit}
+                                        </span>
+                                    </div>
+                                    <p id="sampleWeightTakenError_${idx}" class="text-[11px] text-red-600 font-extrabold mt-1 hidden flex items-center space-x-1 animate-in fade-in duration-200">
+                                        <svg class="w-3.5 h-3.5 shrink-0 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Sample taken cannot exceed the gross weight</span>
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                        <span>Reserved Samples <span class="text-red-600 font-bold">*</span></span>
+                                        <span class="text-[9px] font-mono-code font-bold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">AUTO-CALCULATED</span>
+                                    </label>
+                                    <input type="text" id="sampleWeightReserved_${idx}" name="sample_weight_reserved_${idx}" readonly
+                                        placeholder="Auto-calculated (Gross Weight - Sample Taken)"
+                                        class="w-full px-3 py-2 bg-slate-100/90 border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none shadow-2xs font-mono-code placeholder:text-slate-400 cursor-not-allowed">
+                                </div>
+
+                                <div class="md:col-span-2 pt-3 border-t border-emerald-200/80 space-y-3.5">
+                                    <div class="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                                        <div class="flex items-center space-x-2 text-emerald-900 font-extrabold text-xs uppercase tracking-wider">
+                                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>RESULT / CONFIRMATORY ANALYSIS</span>
+                                        </div>
+                                        <span class="text-[10px] font-mono-code font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 uppercase">
+                                            ANALYTICAL FINDINGS &amp; SPECS
+                                        </span>
+                                    </div>
+
+                                    <input type="hidden" id="confirmatorySubstanceIdentification_${idx}" name="confirmatory_substance_identification_${idx}" value="${safeName}">
+
+                                    <div class="space-y-2">
+                                        <div class="flex items-center justify-between">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                Result (Detected Substances &amp; Purity %) <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <button type="button" onclick="addDetectedSubstanceRowForExhibit(${idx})"
+                                                class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-xl shadow-2xs transition-all flex items-center space-x-1 border-none cursor-pointer">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                <span>Add More</span>
+                                            </button>
+                                        </div>
+                                        <div id="detectedSubstancesListContainer_${idx}" class="space-y-2.5"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+                addDetectedSubstanceRowForExhibit(idx, '', '');
+            } else {
+                const titleEl = card.querySelector('.confirmatory-card-title');
+                if (titleEl) titleEl.innerHTML = `Confirmatory Test — Exhibit #${idx}: <span class="text-emerald-700">${safeName}</span>`;
+
+                const descInput = document.getElementById(`sampleWeightDescription_${idx}`);
+                if (descInput && !descInput.getAttribute('data-user-edited')) descInput.value = safeName;
+
+                const unitsInput = document.getElementById(`sampleWeightUnits_${idx}`);
+                if (unitsInput) unitsInput.value = safeUnits;
+
+                const grossInput = document.getElementById(`sampleWeightGross_${idx}`);
+                if (grossInput) grossInput.value = safeGross;
+
+                const addonInput = document.getElementById(`sampleWeightTakenUnitAddon_${idx}`);
+                if (addonInput) addonInput.textContent = safeUnit;
+
+                const subIdInput = document.getElementById(`confirmatorySubstanceIdentification_${idx}`);
+                if (subIdInput && !subIdInput.getAttribute('data-user-edited') && (!subIdInput.value || subIdInput.value.trim() === '')) {
+                    subIdInput.value = safeName;
+                }
+
+                updateSampleWeightReservedForExhibit(idx);
+            }
+        }
+
+        function syncSection4ExhibitsToLabSection() {
+            const selectEl = document.getElementById('labExhibitSelect');
+            const badgeEl = document.getElementById('labExhibitCountBadge');
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            const labSec = document.getElementById('labAnalysisExclusiveSections') || document.getElementById('section5FormContainer');
+            const cardsContainer = document.getElementById('labExhibitCardsContainer');
+            const presContainer = document.getElementById('presumptiveTestExhibitsContainer');
+            const confContainer = document.getElementById('confirmatoryTestExhibitsContainer');
+
+            const isLabUser = (typeof isLabAnalysis !== 'undefined' && isLabAnalysis) || {{ !empty($isLabAnalysis) ? 'true' : 'false' }};
+            const chk = document.getElementById('hasSeizuresCheckbox') || document.getElementById('toggleSeizureItemSectionCheckbox');
+            const seizuresDetailsContainer = document.getElementById('seizuresDetailsContainer') || document.getElementById('section4Seizures');
+            const hasSeizures = chk ? chk.checked : true;
+            const isDetailsVisible = seizuresDetailsContainer ? !seizuresDetailsContainer.classList.contains('hidden') : true;
+
+            const blocks = document.querySelectorAll('#seizuresListContainer .seizure-block');
+            const totalBlocks = blocks.length;
+
+            if (chk && (!hasSeizures || !isDetailsVisible) && totalBlocks === 0) {
+                if (selectEl) {
+                    selectEl.innerHTML = '<option value="">No exhibit saved yet</option>';
+                    selectEl.setAttribute('disabled', 'disabled');
+                }
+                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                if (descInput) descInput.value = 'No exhibit saved yet';
+                if (cardsContainer) cardsContainer.innerHTML = '<div class="p-3 bg-white/80 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-slate-400 italic">No exhibits logged in manifest yet.</div>';
+                if (presContainer) presContainer.innerHTML = '';
+                if (confContainer) confContainer.innerHTML = '';
+                return;
+            }
+
+            if (totalBlocks === 0) {
+                if (selectEl && selectEl.options.length > 0 && selectEl.options[0].value !== '') {
+                    Array.from(selectEl.options).forEach((opt, idx) => {
+                        const itemNum = idx + 1;
+                        const name = opt.getAttribute('data-name') || opt.text || `Exhibit #${itemNum}`;
+                        const qty = opt.getAttribute('data-qty') || '';
+                        const pkg = opt.getAttribute('data-pkg') || '';
+                        const weight = opt.getAttribute('data-weight') || '';
+                        const unit = opt.getAttribute('data-unit') || '';
+                        const unitsStr = qty ? `${qty} ${pkg}`.trim() : (pkg || '');
+                        const grossStr = weight ? `${weight} ${unit}`.trim() : (unit || '');
+                        syncPresumptiveContainerForExhibit(itemNum, name);
+                        syncConfirmatoryContainerForExhibit(itemNum, name, unitsStr, grossStr, unit);
+                    });
+                    return;
+                }
+
+                if (selectEl) {
+                    selectEl.innerHTML = '<option value="">No exhibit saved yet</option>';
+                    selectEl.setAttribute('disabled', 'disabled');
+                }
+                if (badgeEl) badgeEl.innerText = 'No exhibit saved yet';
+                if (descInput) descInput.value = 'No exhibit saved yet';
+                if (cardsContainer) cardsContainer.innerHTML = '<div class="p-3 bg-white/80 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-slate-400 italic">No exhibits logged in manifest yet.</div>';
+                if (presContainer) presContainer.innerHTML = '';
+                if (confContainer) confContainer.innerHTML = '';
+                return;
+            }
+
+            if (selectEl) {
+                selectEl.innerHTML = '';
+                selectEl.removeAttribute('disabled');
+            }
+            if (badgeEl) {
+                badgeEl.innerText = `${totalBlocks} Exhibit${totalBlocks > 1 ? 's' : ''} in Manifest`;
+            }
+
+            const prevLabExNos = {};
+            const prevSystemIds = {};
+            if (cardsContainer) {
+                cardsContainer.querySelectorAll('.lab-exhibit-card').forEach(existingCard => {
+                    const cIdx = existingCard.getAttribute('data-exhibit-index');
+                    const sysId = existingCard.getAttribute('data-system-exhibit-number');
+                    if (cIdx && sysId) prevSystemIds[cIdx] = sysId;
+                });
+                cardsContainer.querySelectorAll('.card-exhibit-no-input').forEach(existingInp => {
+                    const m = (existingInp.id || '').match(/labCardExhibitNo_(\d+)/);
+                    if (m) prevLabExNos[m[1]] = existingInp.value;
+                });
+                cardsContainer.innerHTML = '';
+            }
+
+            const baseExhibitSeq = {{ (int) \App\Models\Exhibit::getMaxExhibitSequence() }};
+
+            blocks.forEach((block, idx) => {
+                const itemNum = idx + 1;
+                const cat = block.querySelector('#newSeizureCategory')?.value || block.querySelector('#exhibitSearchInput')?.value || 'Exhibit';
+                let name = block.querySelector('#newSeizureNameDrug')?.value ||
+                           block.querySelector('#drugSearchInput')?.value ||
+                           block.querySelector('#newSeizureName')?.value ||
+                           block.querySelector('#weaponSearchInput')?.value ||
+                           block.querySelector('#currencySearchInput')?.value ||
+                           block.querySelector('#ammoSearchInput')?.value ||
+                           block.querySelector('#deviceSearchInput')?.value ||
+                           '';
+                if (!name || name.trim() === '') name = cat;
+
+                const contents = block.querySelector('.seizure-contents-input')?.value || block.querySelector('#newSeizureContents')?.value || '';
+                const qty = block.querySelector('#newSeizureQuantity')?.value || '';
+                const pkg = block.querySelector('#newSeizurePackaging')?.value || block.querySelector('#pkgSearchInput')?.value || '';
+                const weight = block.querySelector('#newSeizureWeight')?.value || '';
+                const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value || '';
+                const owner = block.querySelector('.seizure-associated-person-select')?.value || 'All Suspects';
+
+                const systemExhibitId = block.dataset.exhibitNumber || prevSystemIds[itemNum] || ('EXH-' + String(baseExhibitSeq + itemNum).padStart(5, '0'));
+                const exhNoVal = (prevLabExNos[itemNum] !== undefined) ? prevLabExNos[itemNum] : (block.dataset.labExhibitNo || '');
+
+                if (selectEl) {
+                    const opt = document.createElement('option');
+                    opt.value = itemNum.toString();
+                    opt.innerText = `Exhibit #${itemNum}: ${name}`;
+                    opt.setAttribute('data-name', name);
+                    opt.setAttribute('data-cat', cat);
+                    opt.setAttribute('data-qty', qty);
+                    opt.setAttribute('data-pkg', pkg);
+                    opt.setAttribute('data-weight', weight);
+                    opt.setAttribute('data-unit', unit);
+                    opt.setAttribute('data-contents', contents);
+                    opt.setAttribute('data-owner', owner);
+                    opt.setAttribute('data-exhibit-number', systemExhibitId);
+                    opt.setAttribute('data-lab-exhibit-no', exhNoVal);
+                    selectEl.appendChild(opt);
+                }
+
+                if (cardsContainer) {
+                    const cardDiv = document.createElement('div');
+                    const isActive = (window.activeLabExhibitIndex === itemNum);
+                    cardDiv.className = `lab-exhibit-card p-3.5 rounded-xl border transition-all cursor-pointer shadow-2xs ${isActive ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/40' : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-slate-50/70'}`;
+                    cardDiv.setAttribute('data-exhibit-index', itemNum);
+                    cardDiv.setAttribute('data-system-exhibit-number', systemExhibitId);
+                    cardDiv.setAttribute('data-lab-exhibit-no', exhNoVal);
+                    cardDiv.onclick = () => selectLabExhibitCard(itemNum);
+
+                    let metricStr = '';
+                    if (qty || pkg) metricStr += `${qty} ${pkg}`.trim();
+                    if (weight || unit) metricStr += (metricStr ? ' | ' : '') + `${weight} ${unit}`.trim();
+                    if (!metricStr) metricStr = 'No metrics specified';
+
+                    cardDiv.innerHTML = `
+                        <div class="flex items-center justify-between mb-1.5 gap-1.5">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold rounded-md uppercase shrink-0">Exhibit #${itemNum}</span>
+                                <span class="text-[10px] text-slate-400 font-medium truncate max-w-[110px]">${cat}</span>
+                            </div>
+                            <span class="lab-card-system-exhibit-id text-emerald-700 text-[10px] font-mono-code font-extrabold tracking-wider uppercase shrink-0" data-system-exhibit-number="${systemExhibitId}" title="System-Generated Exhibit ID">${systemExhibitId}</span>
+                        </div>
+                        <div class="font-extrabold text-slate-900 text-xs truncate mb-1" title="${name}">${name}</div>
+                        <div class="text-[11px] text-slate-600 font-medium flex items-center gap-1 mb-1 truncate" title="Visual Contents: ${contents || 'Not specified'}">
+                            <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <span class="truncate"><strong class="font-semibold text-slate-700">Contents:</strong> ${contents || 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono-code border-t border-slate-100 pt-1.5 mt-1">
+                            <span class="truncate font-semibold text-emerald-800">${metricStr}</span>
+                            <span class="truncate text-slate-400 max-w-[90px]">${owner}</span>
+                        </div>
+                        <div class="mt-2.5 pt-2 border-t border-slate-100" onclick="event.stopPropagation()">
+                            <label class="block text-slate-800 font-extrabold text-[10px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                <span>Exhibit No.</span>
+                                <span class="text-[8px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Exhibit ID</span>
+                            </label>
+                            <input type="text"
+                                id="labCardExhibitNo_${itemNum}"
+                                name="lab_exhibit_nos[]"
+                                data-field="lab_exhibit_no"
+                                value="${exhNoVal}"
+                                placeholder="A, B...Ai, Aii, Bi, Bii...., A1, A2, B1, B2"
+                                class="card-exhibit-no-input w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600/30 shadow-2xs"
+                                onclick="event.stopPropagation()"
+                                oninput="onCardExhibitNoChange(this, ${itemNum})"
+                            >
+                        </div>
+                    `;
+                    cardsContainer.appendChild(cardDiv);
+                }
+
+                syncPresumptiveContainerForExhibit(itemNum, name);
+
+                const unitsStr = qty ? `${qty} ${pkg}`.trim() : (pkg || '');
+                const grossStr = weight ? `${weight} ${unit}`.trim() : (unit || '');
+                syncConfirmatoryContainerForExhibit(itemNum, name, unitsStr, grossStr, unit);
+            });
+
+            if (presContainer) {
+                const presCards = presContainer.querySelectorAll('.presumptive-exhibit-card');
+                presCards.forEach(card => {
+                    const cIdx = parseInt(card.getAttribute('data-exhibit-index'), 10);
+                    if (cIdx > totalBlocks) card.remove();
+                });
+            }
+            if (confContainer) {
+                const confCards = confContainer.querySelectorAll('.confirmatory-exhibit-card');
+                confCards.forEach(card => {
+                    const cIdx = parseInt(card.getAttribute('data-exhibit-index'), 10);
+                    if (cIdx > totalBlocks) card.remove();
+                });
+            }
+
+            if (selectEl) {
+                if (selectEl.querySelector(`option[value="${window.activeLabExhibitIndex}"]`)) {
+                    selectEl.value = window.activeLabExhibitIndex.toString();
+                } else if (selectEl.options.length > 0) {
+                    selectEl.options[0].selected = true;
+                    window.activeLabExhibitIndex = 1;
+                }
+            }
+            onLabExhibitSelected();
+        }
+
+        function onCardExhibitNoChange(input, itemNum) {
+            const blocks = document.querySelectorAll('#seizuresListContainer .seizure-block');
+            if (blocks[itemNum - 1]) {
+                blocks[itemNum - 1].dataset.labExhibitNo = input.value;
+            }
+            if (window.activeLabExhibitIndex === itemNum) {
+                const hiddenInput = document.getElementById('labExhibitNumberInput');
+                if (hiddenInput) hiddenInput.value = input.value;
+            }
+        }
+
+        function onDrugTypeChangeCreate(selectEl) {
+            syncSection4ExhibitsToLabSection();
+        }
+
+        function onLabExhibitSelected() {
+            const selectEl = document.getElementById('labExhibitSelect');
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            const exhNumInput = document.getElementById('labExhibitNumberInput');
+            const examRefInput = document.getElementById('labExamReferenceInput');
+
+            if (!selectEl) return;
+            const selectedOption = selectEl.options[selectEl.selectedIndex];
+
+            if (!selectedOption || !selectEl.value || selectEl.value === '' || selectedOption.text ===
+                'No exhibit saved yet' || selectedOption.text.startsWith('Select Seized Exhibit')) {
+                if (descInput) descInput.value = 'No exhibit selected';
+                return;
+            }
+
+            const idx = selectEl.value || '1';
+            const paddedIdx = idx.padStart(3, '0');
+
+            const cardExhNoInput = document.getElementById(`labCardExhibitNo_${idx}`);
+            if (exhNumInput) exhNumInput.value = (cardExhNoInput && cardExhNoInput.value) ? cardExhNoInput.value : '';
+            if (examRefInput) {
+                if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
+                    const randNum = Math.floor(1000 + Math.random() * 9000);
+                    examRefInput.value = `NLA-FM-T${randNum}-F`;
+                } else if (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-')) {
+                    examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
+                }
+            }
+
+            const name = selectedOption.getAttribute('data-name') || '';
+            const cat = selectedOption.getAttribute('data-cat') || '';
+            const qty = selectedOption.getAttribute('data-qty') || '';
+            const pkg = selectedOption.getAttribute('data-pkg') || '';
+            const weight = selectedOption.getAttribute('data-weight') || '';
+            const unit = selectedOption.getAttribute('data-unit') || '';
+            const contents = selectedOption.getAttribute('data-contents') || '';
+            const owner = selectedOption.getAttribute('data-owner') || '';
+
+            let formattedDesc = name || cat || 'Exhibit';
+            if (cat) formattedDesc += ` | Category: ${cat}`;
+            if (contents) formattedDesc += ` | Contents: ${contents}`;
+            if (qty || pkg) formattedDesc += ` | Quantity/Packaging: ${qty} ${pkg}`.trim();
+            if (weight || unit) formattedDesc += ` | Net Weight/Metrics: ${weight} ${unit}`.trim();
+            if (owner) formattedDesc += ` | Suspect / Ownership: ${owner}`;
+
+            if (descInput) {
+                if (!window.labExhibitUserEdits || !window.labExhibitUserEdits[idx]) {
+                    descInput.value = formattedDesc;
+                } else {
+                    descInput.value = window.labExhibitUserEdits[idx];
+                }
+            }
+        }
 
         window.NACOC_DEBUG = localStorage.getItem('NACOC_DEBUG') === '1' || {{ config('app.debug') ? 'true' : 'false' }};
 

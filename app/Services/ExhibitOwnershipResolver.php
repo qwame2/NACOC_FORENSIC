@@ -377,7 +377,7 @@ class ExhibitOwnershipResolver
                     'age' => $case->age ?? ($docketData['age'] ?? null),
                     'height' => $case->height ?? ($docketData['height'] ?? null),
                     'eye_color' => $case->eye_color ?? ($docketData['eye_color'] ?? null),
-                    'nationality' => $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian'),
+                    'nationality' => $case->nationality ?? ($docketData['nationality'] ?? null),
                     'pob' => $case->pob ?? ($docketData['pob'] ?? null),
                     'phone' => $case->phone ?? ($docketData['phone'] ?? null),
                     'phones' => $case->phones ?? ($docketData['phones'] ?? ($docketData['additional_phones'] ?? null)),

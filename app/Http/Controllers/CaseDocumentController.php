@@ -86,51 +86,21 @@ class CaseDocumentController extends Controller
      * Fix Issue 7a: Strict 404 if case not found.
      * Fix Issue 19: repairExhibitAssociations with explicit save.
      */
+    /**
+     * Show Laboratory Analysis Report PDF.
+     * Generates and serves the official Preliminary Exhibit Analysis Report PDF.
+     */
     public function showNlrReportPdf($id)
     {
-        $nlrRecord = NlrReport::forCase($id, $id);
-        if (!$nlrRecord && is_numeric($id)) {
-            $nlrRecord = NlrReport::where('multiple_suspect_case_id', (int)$id)
-                ->orWhere('single_suspect_case_id', (int)$id)
-                ->latest('id')
-                ->first();
-        }
-        $targetRef = ($nlrRecord && !empty($nlrRecord->case_number)) ? $nlrRecord->case_number : $id;
+        return $this->preliminaryReportPdf($id, request());
+    }
 
-        $case = $this->findCase($targetRef);
-
-        if ($case && is_numeric($id)) {
-            $isLabCase = str_contains(strtolower($case->unit_name ?? ''), 'lab') || $case->isDrugCase();
-            if (!$isLabCase) {
-                $multiLab = MultipleSuspectCase::find((int)$id);
-                if ($multiLab && (str_contains(strtolower($multiLab->unit_name ?? ''), 'lab') || $multiLab->exhibits()->where('exhibit_category', 'LIKE', '%drug%')->exists())) {
-                    $case = ForensicCase::wrapRecord($multiLab);
-                } else {
-                    $singleLab = SingleSuspectCase::find((int)$id);
-                    if ($singleLab && (str_contains(strtolower($singleLab->unit_name ?? ''), 'lab') || $singleLab->exhibits()->where('exhibit_category', 'LIKE', '%drug%')->exists())) {
-                        $case = ForensicCase::wrapRecord($singleLab);
-                    }
-                }
-            }
-        }
-
-        if (!$case) {
-            // WHY: Never fabricate fallback suspect/exhibit data (KOJO ADU, 90kg Heroin). Strict 404.
-            abort(404, "Case {$id} not found.");
-        }
-
-        $this->repairExhibitAssociations($case);
-
-        $gsaReports = SuspectGsaReport::forCase(
-            $case->case_number ?: $id,
-            $case->id ?: $id
-        );
-        $nlrReports = SuspectNlrReport::forCase(
-            $case->case_number ?: $id,
-            $case->id ?: $id
-        );
-
-        return view('Lab_Analysis.nlr_report_pdf', compact('case', 'gsaReports', 'nlrReports'));
+    /**
+     * Dedicated Preliminary Exhibit Analysis Report PDF / Printable View.
+     */
+    public function preliminaryReportPdf($id, Request $request)
+    {
+        return app(CaseReportController::class)->preliminaryReportPdf($id, $request);
     }
 
     /**
@@ -276,5 +246,35 @@ class CaseDocumentController extends Controller
             'urls'    => $stored,
             'message' => count($stored) . ' photo(s) uploaded successfully.',
         ]);
+    }
+
+    /**
+     * Store an uploaded Search Warrant document and attach it to a case docket.
+     */
+    public function storeSearchWarrantDocument(Request $request, $id)
+    {
+        $request->validate([
+            'search_warrant_document' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx'],
+        ]);
+
+        $case = $this->findCase($id);
+        if (!$case) {
+            return response()->json([
+                'success' => false,
+                'message' => "Case {$id} not found.",
+            ], 404);
+        }
+
+        $this->authorizeCaseWrite($case);
+
+        $result = app(CaseDocumentService::class)->attachSearchWarrantToCase(
+            $case,
+            $request->file('search_warrant_document')
+        );
+
+        $status = $result['code'] ?? 200;
+        unset($result['code']);
+
+        return response()->json($result, $status);
     }
 }

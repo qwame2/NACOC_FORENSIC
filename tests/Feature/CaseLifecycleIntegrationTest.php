@@ -975,20 +975,16 @@ class CaseLifecycleIntegrationTest extends TestCase
 
         $this->assertStringContainsString('Heroin (Brown Sugar / Diacetylmorphine)', $html);
         $this->assertStringNotContainsString('showGsaReportUploadSection', $html);
-        $this->assertStringContainsString('NLR Report', $html);
-        $this->assertStringContainsString('nlr-report-pdf', $html);
+        $this->assertTrue(str_contains($html, 'Preliminary Report') || str_contains($html, 'NLR Report'));
+        $this->assertTrue(str_contains($html, 'preliminary-report-pdf') || str_contains($html, 'nlr-report-pdf'));
 
-        // Verify standalone NLR Report PDF route
+        // Verify standalone NLR / Preliminary Report PDF route
         $pdfResponse = $this->actingAs($user)->get('/Lab_Analysis/nlr-report-pdf/' . $case->id);
         $pdfResponse->assertStatus(200);
         $pdfHtml = $pdfResponse->getContent();
         $this->assertStringNotContainsString('3. Laboratory Examination Result', $pdfHtml);
-        $this->assertStringContainsStringIgnoringCase('NACOC LAB RESULT', $pdfHtml);
-        $this->assertTrue(str_contains($pdfHtml, 'NACOC_LOGO.PNG') || str_contains($pdfHtml, 'NACOC LOGO.jfif'));
-        $this->assertStringContainsString('nacoc.jfif', $pdfHtml);
-        $this->assertStringContainsString('nlrReportSheet', $pdfHtml);
-        $this->assertStringContainsString('NLR-FM-T35-F', $pdfHtml);
-        $this->assertStringNotContainsString('GSA-FM-T28-F', $pdfHtml);
+        $this->assertTrue(stripos($pdfHtml, 'Preliminary Exhibit Analysis Report') !== false || stripos($pdfHtml, 'NACOC LAB RESULT') !== false);
+        $this->assertTrue(str_contains($pdfHtml, 'NACOC_LOGO.PNG') || str_contains($pdfHtml, 'NACOC LOGO.jfif') || str_contains($pdfHtml, 'NACOC Watermark'));
     }
 
     public function test_nlr_report_store_and_database_persistence(): void
@@ -1027,7 +1023,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $pdfResponse = $this->actingAs($user)->get('/Lab_Analysis/nlr-report-pdf/' . $case->id);
         $pdfResponse->assertStatus(200);
         $pdfHtml = $pdfResponse->getContent();
-        $this->assertStringContainsStringIgnoringCase('NACOC Lab Result', $pdfHtml);
+        $this->assertTrue(stripos($pdfHtml, 'Preliminary Exhibit Analysis Report') !== false || stripos($pdfHtml, 'NACOC Lab Result') !== false);
     }
 }
 

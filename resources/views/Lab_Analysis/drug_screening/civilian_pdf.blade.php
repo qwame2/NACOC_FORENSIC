@@ -137,7 +137,6 @@
             width: 100%;
             height: 100%;
             object-fit: contain;
-            filter: grayscale(100%);
         }
 
         .page-content {
@@ -520,8 +519,8 @@
         <article class="a4-page cover-page page-break relative text-slate-900 select-none">
 
             <!-- SUBTLE NACOC WATERMARK -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain" />
             </div>
 
             <div class="page-content-wrapper relative z-10 flex flex-col justify-between h-full min-h-0 flex-1 w-full">

@@ -72,16 +72,39 @@
     }
 
     // Determine if Head Dashboard link should be active
+    $isFieldOfficersActive = request()->is('*field-officers*') || request()->is('field-officers*');
+    $isPermissionsActive = request()->is('*permissions*') || request()->is('permissions*');
+    $isNotificationsActive = request()->is('*notifications*') || request()->is('notifications*');
     $isHeadDashboardActive = false;
     if ($isLabContext) {
-        $isHeadDashboardActive = (request()->is('Lab_Analysis') || request()->is('Lab_Analysis/head') || request()->is('lab-analysis') || request()->is('lab_analysis')) && !request()->is('*create*') && !request()->is('*result*') && !request()->is('*analytical*') && !request()->is('*certificate*') && !request()->is('*staff*') && !request()->is('*drug-screening*');
+        $isHeadDashboardActive = (request()->is('Lab_Analysis') || request()->is('Lab_Analysis/head') || request()->is('lab-analysis') || request()->is('lab_analysis')) && !request()->is('*create*') && !request()->is('*result*') && !request()->is('*analytical*') && !request()->is('*certificate*') && !request()->is('*staff*') && !request()->is('*drug-screening*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive;
     } elseif ($isDigitalContext) {
-        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*') && !request()->is('*cases*') && !request()->is('*case-register*') && !request()->is('Digital_Forensics/head');
+        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*') && !request()->is('*cases*') && !request()->is('*case-register*') && !request()->is('Digital_Forensics/head') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive;
     } elseif ($isEvidenceContext) {
-        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*') && !request()->is('*vault*');
+        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*') && !request()->is('*vault*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive;
     } else {
-        $isHeadDashboardActive = (request()->is('Crime_Scene_Support') || request()->is('Crime_Scene_Support/head') || request()->is('crime-scene-support') || request()->is('Forensic_Head') || request()->is('Forensic_Head/')) && !request()->is('*create*') && !request()->is('*arrest*') && !request()->is('cases*');
+        $isHeadDashboardActive = (request()->is('Crime_Scene_Support') || request()->is('Crime_Scene_Support/head') || request()->is('crime-scene-support') || request()->is('Forensic_Head') || request()->is('Forensic_Head/')) && !request()->is('*create*') && !request()->is('*arrest*') && !request()->is('cases*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive;
     }
+
+    if ($isLabContext) {
+        $fieldOfficersUrl = url('/Lab_Analysis/field-officers');
+        $permissionsUrl = url('/Lab_Analysis/permissions');
+        $notificationsUrl = url('/Lab_Analysis/notifications');
+    } elseif ($isEvidenceContext) {
+        $fieldOfficersUrl = url('/Evidence_Management/field-officers');
+        $permissionsUrl = url('/Evidence_Management/permissions');
+        $notificationsUrl = url('/Evidence_Management/notifications');
+    } elseif ($isDigitalContext) {
+        $fieldOfficersUrl = url('/Digital_Forensics/field-officers');
+        $permissionsUrl = url('/Digital_Forensics/permissions');
+        $notificationsUrl = url('/Digital_Forensics/notifications');
+    } else {
+        $fieldOfficersUrl = url('/Crime_Scene_Support/field-officers');
+        $permissionsUrl = url('/Crime_Scene_Support/permissions');
+        $notificationsUrl = url('/Crime_Scene_Support/notifications');
+    }
+
+    $sidebarNotificationsCount = \App\Http\Controllers\NotificationsController::countActiveForContext($sidebarUnit, $sidebarUser);
 @endphp
 <!-- LEFT UNIT COMMAND SIDEBAR (EXECUTIVE GRAY THEME WITH SHADOW) -->
 <aside class="w-64 bg-slate-100 text-slate-800 flex flex-col shrink-0 shadow-2xl select-none z-30 relative overflow-x-hidden font-sans">
@@ -162,12 +185,6 @@
                 @endif
 
                 @if($isLabContext)
-                <!-- LAB ANALYSIS RESULT (LAB ANALYSIS UNIT ONLY) -->
-                <a href="{{ url('/Lab_Analysis/lab-result') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*lab-result*') || request()->is('Lab_Analysis/lab-result*') ? 'text-white' : 'text-amber-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                    <span class="text-xs">Lab Analysis Result</span>
-                </a>
-
                 <!-- DRUG SCREENING (LAB ANALYSIS UNIT ONLY) -->
                 <a href="{{ url('/Lab_Analysis/drug-screening') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*drug-screening*') || request()->is('Lab_Analysis/drug-screening*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*drug-screening*') || request()->is('Lab_Analysis/drug-screening*') ? 'text-white' : 'text-teal-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,10 +201,10 @@
                     <span class="text-xs">Digital Forensics Case Register</span>
                 </a>
 
-                <!-- FORENSIC & INVESTIGATION STATUS (DIGITAL & PHYSICAL FORENSICS UNIT ONLY) -->
+                <!-- INVESTIGATION STAT & REPORT (DIGITAL & PHYSICAL FORENSICS UNIT ONLY) -->
                 <a href="{{ url('/Digital_Forensics/forensic-status') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*forensic-status*') || request()->is('Digital_Forensics/forensic-status*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*forensic-status*') || request()->is('Digital_Forensics/forensic-status*') ? 'text-white' : 'text-cyan-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                    <span class="text-xs">Forensic &amp; Investigation Stat</span>
+                    <span class="text-xs">Investigation Stat &amp; Report</span>
                 </a>
                 @endif
 
@@ -203,21 +220,22 @@
                     <span class="truncate">{{ $newCaseLabel }}</span>
                 </a>
                 
+                @if(!$isDigitalContext)
                 @php
                     if ($isLabContext) {
                         $sidebarReportUrl = url('/Lab_Analysis/report');
-                    } elseif ($isDigitalContext) {
-                        $sidebarReportUrl = url('/Digital_Forensics/multi_dpf_pdf');
                     } elseif ($isEvidenceContext) {
                         $sidebarReportUrl = url('/Evidence_Management/report');
                     } else {
-                        $sidebarReportUrl = url('/Report');
+                        $sidebarReportUrl = url('/Crime_Scene_Support/report');
                     }
                     $isReportActive = request()->is('Report*') || 
                                       request()->is('Lab_Analysis/report*') || 
                                       request()->is('lab-analysis/report*') || 
                                       request()->is('Evidence_Management/report*') || 
                                       request()->is('evidence-management/report*') || 
+                                      request()->is('Crime_Scene_Support/report*') || 
+                                      request()->is('crime-scene-support/report*') || 
                                       request()->is('Lab_Analysis/lab_sitrep_pdf*');
                 @endphp
                 <a href="{{ $sidebarReportUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isReportActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
@@ -228,6 +246,7 @@
                     </svg>
                     <span class="truncate">Report</span>
                 </a>
+                @endif
             </nav>
         </div>
 
@@ -235,9 +254,20 @@
         <div>
             <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-slate-500 tracking-wider mb-2">Unit Management</div>
             <nav class="space-y-1 text-xs font-semibold">
-                <a href="#" class="flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors">
-                    <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    <span class="text-xs">Field Officers (14 Personnel)</span>
+                <a href="{{ $notificationsUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isNotificationsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isNotificationsActive ? 'text-white' : 'text-amber-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    <span class="text-xs flex-1">Notifications</span>
+                    <span id="sidebarNotificationsBadge" class="ml-auto {{ $isNotificationsActive ? 'bg-white/20 text-white' : ($sidebarNotificationsCount > 0 ? 'bg-amber-500/15 text-amber-800 border border-amber-300/60' : 'bg-slate-200 text-slate-600') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {{ $sidebarNotificationsCount }}
+                    </span>
+                </a>
+                <a href="{{ $fieldOfficersUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isFieldOfficersActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isFieldOfficersActive ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <span class="text-xs flex-1">Field Officers</span>
+                </a>
+                <a href="{{ $permissionsUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isPermissionsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isPermissionsActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <span class="text-xs flex-1">Permissions</span>
                 </a>
                 <a href="{{ route('profile.settings') }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ request()->routeIs('profile*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->routeIs('profile*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>

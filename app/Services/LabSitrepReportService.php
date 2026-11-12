@@ -154,12 +154,10 @@ class LabSitrepReportService
 
             $presumptive = $ex['presumptive_result'] ?? ($labExam['presumptive_result'] ?? ($c->presumptive_test_result ?? ''));
             if (!empty($presumptive)) {
-                $pLower = strtolower($presumptive);
-                if (str_contains($pLower, 'cocaine')) return 'Cocaine (Narcotic Exhibit)';
-                if (str_contains($pLower, 'heroin') || str_contains($pLower, 'diacetylmorphine')) return 'Heroin (Narcotic Exhibit)';
-                if (str_contains($pLower, 'cannabis') || str_contains($pLower, 'weed')) return 'Cannabis (Narcotic Exhibit)';
-                if (str_contains($pLower, 'tramadol')) return 'Tramadol (Narcotic Exhibit)';
-                if (str_contains($pLower, 'meth')) return 'Methamphetamine (Narcotic Exhibit)';
+                $knownSubstance = \App\Services\DrugExhibitClassifier::extractKnownSubstance($presumptive);
+                if ($knownSubstance !== null) {
+                    return $knownSubstance . ' (Narcotic Exhibit)';
+                }
             }
 
             // WHY Fix Issue 22: Never fabricate a specific drug name. Return neutral label.
@@ -676,29 +674,85 @@ class LabSitrepReportService
                             }
                         });
                     }
-                })->get();
+                })->orderBy('id', 'asc')->get();
             }
 
-            // Find an exhibit that has exhibit_remark populated, or fall back to the first exhibit
-            $remarkExhibit = $caseExhibits->first(function($ex) {
-                return !empty(trim((string)($ex->exhibit_remark ?? '')));
-            });
-            $firstExhibit = $remarkExhibit ?: $caseExhibits->first();
+            $labExamService = app(LaboratoryExamService::class);
+            $drugExhibits = $caseExhibits->filter(function($ex) use ($labExamService) {
+                return $labExamService->isDrugExhibit($ex);
+            })->values();
 
-            $exName = $firstExhibit?->commodity_name ?? ($dCase->seizure_name_drug ?? ($dCase->commodity_name ?? ($dCase->seizure_name ?? 'Suspected Narcotic Exhibit')));
-            
-            $resolvedQty = null;
-            if ($firstExhibit && !empty($firstExhibit->seizure_quantity)) {
-                $resolvedQty = trim($firstExhibit->seizure_quantity . ' ' . ($firstExhibit->seizure_packaging ?? ''));
+            if ($drugExhibits->isEmpty() && $caseExhibits->isNotEmpty() && (method_exists($dCase, 'isDrugCase') ? $dCase->isDrugCase() : true)) {
+                $drugExhibits = $caseExhibits->values();
             }
-            $exQty = $resolvedQty ?: ($dCase->seizure_quantity ?? '1 Package');
-            $exWeight = $firstExhibit?->gross_weight ?? ($firstExhibit?->net_weight ?? ($dCase->sample_weight_gross ?? ($dCase->weight ?? ($dCase->seizure_weight ?? 'N/A'))));
-            $exSource = $firstExhibit?->source_of_exhibits ?? ($dCase->raid_location ?? ($dCase->seizure_location ?? ($dCase->location ?? 'NACOC Command Station')));
 
-            // Remarks in lab sitrep must strictly fetch from exhibit_remark in exhibits table, fallback to 'Unspecified'
-            $resolvedExhibitRemark = !empty(trim((string)($firstExhibit?->exhibit_remark ?? ''))) ? trim((string)$firstExhibit->exhibit_remark) : null;
-            $statusTag = 'detected';
-            $remarks = $resolvedExhibitRemark ?: 'Unspecified';
+            // Merge any drug exhibits from docket_data['seizures'] if not yet represented
+            if (!empty($dDocket['seizures']) && is_array($dDocket['seizures'])) {
+                $existingNames = $drugExhibits->map(fn($e) => strtolower(trim((string)($e->commodity_name ?? ($e->seizure_name ?? '')))))->filter()->all();
+                $existingLabExNos = $drugExhibits->map(fn($e) => strtolower(trim((string)($e->lab_exhibit_no ?? ''))))->filter()->all();
+                $docketDrugSeizures = array_filter($dDocket['seizures'], fn($sz) => $labExamService->isDrugExhibit($sz));
+
+                foreach ($dDocket['seizures'] as $sIdx => $sz) {
+                    if (!$labExamService->isDrugExhibit($sz)) {
+                        continue;
+                    }
+                    $szLabExNo = strtolower(trim((string)($sz['lab_exhibit_no'] ?? '')));
+                    $szName = strtolower(trim((string)($sz['commodity_name'] ?? ($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? '')))));
+
+                    $alreadyPresent = false;
+                    if (!empty($szLabExNo) && in_array($szLabExNo, $existingLabExNos, true)) {
+                        $alreadyPresent = true;
+                    } elseif (!empty($szName) && in_array($szName, $existingNames, true) && $drugExhibits->count() >= count($docketDrugSeizures)) {
+                        $alreadyPresent = true;
+                    }
+
+                    if (!$alreadyPresent) {
+                        $drugExhibits->push((object)[
+                            'id'                     => $sz['id'] ?? (1000 + $sIdx),
+                            'lab_exhibit_no'         => $sz['lab_exhibit_no'] ?? ($sz['exhibit_number'] ?? chr(65 + $drugExhibits->count())),
+                            'exhibit_number'         => $sz['exhibit_number'] ?? ('EXH-' . str_pad($drugExhibits->count() + 1, 5, '0', STR_PAD_LEFT)),
+                            'commodity_name'         => $sz['commodity_name'] ?? ($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? 'Suspected Narcotic Exhibit')),
+                            'contents'               => $sz['contents'] ?? ($sz['seizure_contents'] ?? null),
+                            'seizure_quantity'       => $sz['seizure_quantity'] ?? null,
+                            'seizure_packaging'      => $sz['seizure_packaging'] ?? ($sz['packaging'] ?? null),
+                            'seizure_weight'         => $sz['seizure_weight'] ?? ($sz['sample_gross'] ?? null),
+                            'gross_weight'           => $sz['sample_gross'] ?? ($sz['gross_weight'] ?? ($sz['seizure_weight'] ?? null)),
+                            'net_weight'             => $sz['net_weight'] ?? ($sz['sample_taken'] ?? null),
+                            'source_of_exhibits'     => $sz['source_of_exhibits'] ?? ($dCase->source_of_exhibits ?? null),
+                            'source_requesting_unit' => $sz['source_requesting_unit'] ?? null,
+                            'investigating_officer'  => $sz['investigating_officer'] ?? null,
+                            'exhibit_remark'         => $sz['exhibit_remark'] ?? ($sz['presumptive_result'] ?? ($sz['substance_identification'] ?? null)),
+                            'associated_person'      => $sz['associated_person'] ?? ($sz['suspect_name'] ?? null),
+                        ]);
+                        if (!empty($szName)) $existingNames[] = $szName;
+                        if (!empty($szLabExNo)) $existingLabExNos[] = $szLabExNo;
+                    }
+                }
+            }
+
+            $caseLabResults = LaboratoryExaminationResult::where(function($q) use ($realId, $isMulti) {
+                if ($isMulti) {
+                    $q->where('multiple_suspect_case_id', $realId);
+                } else {
+                    $q->where('single_suspect_case_id', $realId);
+                }
+            })->get();
+
+            // If exhibit remark is empty, try to resolve from docket seizures or lab results
+            foreach ($drugExhibits as $eIdx => $ex) {
+                if (empty(trim((string)($ex->exhibit_remark ?? '')))) {
+                    $matchedLab = $caseLabResults->firstWhere('exhibit_id', $ex->id ?? null)
+                        ?? (!empty($ex->lab_exhibit_no) ? $caseLabResults->firstWhere('lab_exhibit_no', $ex->lab_exhibit_no) : null)
+                        ?? $caseLabResults->get($eIdx);
+                    if ($matchedLab && !empty(trim((string)($matchedLab->findings ?? '')))) {
+                        $ex->exhibit_remark = trim((string)$matchedLab->findings);
+                    } elseif ($matchedLab && !empty(trim((string)($matchedLab->presumptive_result ?? '')))) {
+                        $ex->exhibit_remark = trim((string)$matchedLab->presumptive_result);
+                    } elseif (!empty($dDocket['seizures'][$eIdx]['exhibit_remark'])) {
+                        $ex->exhibit_remark = trim((string)$dDocket['seizures'][$eIdx]['exhibit_remark']);
+                    }
+                }
+            }
 
             $caseDateTime = $dCase->incident_date 
                 ? Carbon::parse($dCase->incident_date) 
@@ -706,32 +760,159 @@ class LabSitrepReportService
             $cDate = $caseDateTime->format('Y-m-d');
             $cDateDisplay = $caseDateTime->format('d F Y');
 
-            $seizuresList[] = [
-                'id'               => 'DB-' . ($dCase->id ?? $cNo),
-                'case_id'          => $dCase->id,
-                'real_case_id'     => $realId,
-                'date'             => $cDate,
-                'date_display'     => $cDateDisplay,
-                'source'           => $exSource,
-                'source_badge'     => strtoupper($dCase->operation_code ?? ($isMultiple ? 'FIELD SEIZURE (MULTI)' : 'FIELD SEIZURE')),
-                'case_reference'   => $cNo,
-                'case_type'        => $isMultiple ? 'MULTIPLE' : 'SINGLE',
-                'is_multiple'      => $isMultiple,
-                'case_type_badge'  => $isMultiple ? 'Multiple Case' : 'Single Case',
-                'suspects_count'   => count($sList),
-                'suspects_display' => $sDisplay,
-                'primary_suspect'  => $sList[0]['name'] ?? ($dCase->suspect_name ?? 'Suspect'),
-                'suspects'         => $sList,
-                'exhibit_type'     => $exName,
-                'substance_name'   => $exName,
-                'quantity'         => $exQty,
-                'weight'           => $exWeight,
-                'status_remarks'   => $remarks,
-                'status_tag'       => $statusTag,
-                'exhibit_id'       => $firstExhibit?->id,
-                'exhibit_remark'   => $resolvedExhibitRemark,
-                'lab_number'       => $dCase->laboratory_number ?? ('LAU/' . date('Y') . '/' . ($dCase->id ?? '001')),
-            ];
+            if ($drugExhibits->isEmpty()) {
+                $exName = $dCase->seizure_name_drug ?? ($dCase->commodity_name ?? ($dCase->seizure_name ?? 'Suspected Narcotic Exhibit'));
+                $exQty = $dCase->seizure_quantity ?? '1 Package';
+                $exWeight = $dCase->sample_weight_gross ?? ($dCase->weight ?? ($dCase->seizure_weight ?? 'N/A'));
+                $exSource = $dCase->raid_location ?? ($dCase->seizure_location ?? ($dCase->location ?? 'NACOC Command Station'));
+                $statusTag = 'detected';
+                $remarks = 'Unspecified';
+
+                $seizuresList[] = [
+                    'id'                 => 'DB-' . ($dCase->id ?? $cNo),
+                    'case_id'            => $dCase->id,
+                    'real_case_id'       => $realId,
+                    'date'               => $cDate,
+                    'date_display'       => $cDateDisplay,
+                    'source'             => $exSource,
+                    'source_of_exhibits' => $exSource,
+                    'source_badge'       => strtoupper($dCase->operation_code ?? ($isMultiple ? 'FIELD SEIZURE (MULTI)' : 'FIELD SEIZURE')),
+                    'case_reference'     => $cNo,
+                    'case_type'          => $isMultiple ? 'MULTIPLE' : 'SINGLE',
+                    'is_multiple'        => $isMultiple,
+                    'case_type_badge'    => $isMultiple ? 'Multiple Case' : 'Single Case',
+                    'suspects_count'     => count($sList),
+                    'suspects_display'   => $sDisplay,
+                    'primary_suspect'    => $sList[0]['name'] ?? ($dCase->suspect_name ?? 'Suspect'),
+                    'suspects'           => $sList,
+                    'exhibit_type'       => $exName,
+                    'substance_name'     => $exName,
+                    'quantity'           => $exQty,
+                    'weight'             => $exWeight,
+                    'status_remarks'     => $remarks,
+                    'status_tag'         => $statusTag,
+                    'exhibit_id'         => null,
+                    'exhibit_remark'     => null,
+                    'lab_number'         => $dCase->laboratory_number ?? ('LAU/' . date('Y') . '/' . ($dCase->id ?? '001')),
+                    'lab_exhibit_no'     => null,
+                    'exhibit_mark'       => null,
+                ];
+            } else {
+                foreach ($drugExhibits as $eIdx => $ex) {
+                    $exSuspects = $sList;
+                    $assocPerson = trim((string)($ex->associated_person ?? ''));
+                    $exSuspectId = $ex->suspect_id ?? null;
+
+                    if (count($sList) > 1 && (!empty($assocPerson) || !empty($exSuspectId))) {
+                        $matchedSuspects = array_filter($sList, function($s) use ($assocPerson, $exSuspectId) {
+                            if (!empty($exSuspectId) && !empty($s['id']) && (int)$s['id'] === (int)$exSuspectId) {
+                                return true;
+                            }
+                            if (!empty($assocPerson)) {
+                                $sName = strtolower(trim((string)($s['name'] ?? ($s['suspect_name'] ?? ''))));
+                                if (str_contains($sName, strtolower($assocPerson)) || str_contains(strtolower($assocPerson), $sName)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        });
+                        if (!empty($matchedSuspects)) {
+                            $exSuspects = array_values($matchedSuspects);
+                        }
+                    }
+
+                    $exSuspectNames = array_map(function($s) {
+                        $name = $s['name'] ?? ($s['suspect_name'] ?? 'Suspect');
+                        $role = !empty($s['role']) && !str_contains(strtoupper($s['role']), 'PRIMARY') ? ' (' . $s['role'] . ')' : '';
+                        return $name . $role;
+                    }, $exSuspects);
+                    $exSuspectDisplay = implode(' & ', $exSuspectNames);
+
+                    $matchedDocketSz = null;
+                    if (!empty($dDocket['seizures']) && is_array($dDocket['seizures'])) {
+                        if (!empty($ex->lab_exhibit_no)) {
+                            foreach ($dDocket['seizures'] as $dsz) {
+                                if (strcasecmp(trim((string)($dsz['lab_exhibit_no'] ?? '')), trim((string)$ex->lab_exhibit_no)) === 0) {
+                                    $matchedDocketSz = $dsz;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$matchedDocketSz && isset($dDocket['seizures'][$eIdx])) {
+                            $matchedDocketSz = $dDocket['seizures'][$eIdx];
+                        }
+                    }
+
+                    $exName = $ex->commodity_name ?? ($ex->seizure_name_drug ?? ($ex->seizure_name ?? ($ex->exhibit_type ?? ($matchedDocketSz['commodity_name'] ?? ($matchedDocketSz['seizure_name_drug'] ?? ($matchedDocketSz['seizure_name'] ?? 'Suspected Narcotic Exhibit'))))));
+
+                    $rawQty = $ex->seizure_quantity ?? ($matchedDocketSz['seizure_quantity'] ?? null);
+                    $rawPkg = $ex->seizure_packaging ?? ($ex->packaging ?? ($matchedDocketSz['seizure_packaging'] ?? ($matchedDocketSz['packaging'] ?? null)));
+                    $resolvedQty = null;
+                    if (!empty($rawQty)) {
+                        $resolvedQty = trim($rawQty . ' ' . ($rawPkg ?? ''));
+                    }
+                    $exQty = $resolvedQty ?: ($dCase->seizure_quantity ?? '1 Package');
+
+                    $exWeight = $ex->gross_weight 
+                        ?? ($ex->net_weight 
+                        ?? ($ex->seizure_weight 
+                        ?? ($ex->sample_gross 
+                        ?? ($matchedDocketSz['sample_gross'] 
+                        ?? ($matchedDocketSz['gross_weight'] 
+                        ?? ($matchedDocketSz['net_weight'] 
+                        ?? ($matchedDocketSz['seizure_weight'] 
+                        ?? ($dCase->sample_weight_gross 
+                        ?? ($dCase->weight 
+                        ?? ($dCase->seizure_weight ?? 'N/A'))))))))));
+
+                    $exSource = $ex->source_of_exhibits ?? ($dCase->source_of_exhibits ?? ($dCase->raid_location ?? ($dCase->seizure_location ?? ($dCase->location ?? 'NACOC Command Station'))));
+
+                    $resolvedExhibitRemark = !empty(trim((string)($ex->exhibit_remark ?? ''))) ? trim((string)$ex->exhibit_remark) : null;
+                    $statusTag = 'detected';
+                    $remarks = $resolvedExhibitRemark ?: 'Unspecified';
+
+                    $matchedLab = $caseLabResults->firstWhere('exhibit_id', $ex->id ?? null)
+                        ?? (!empty($ex->lab_exhibit_no) ? $caseLabResults->firstWhere('lab_exhibit_no', $ex->lab_exhibit_no) : null)
+                        ?? $caseLabResults->get($eIdx);
+
+                    $exLabNumber = $matchedLab?->laboratory_number 
+                        ?? ($matchedLab?->exam_reference 
+                        ?? ($dCase->laboratory_number ?? ('LAU/' . date('Y') . '/' . ($dCase->id ?? '001'))));
+
+                    $labExNo = !empty($ex->lab_exhibit_no) ? trim((string)$ex->lab_exhibit_no) : null;
+                    $exMark = !empty($ex->exhibit_number) ? trim((string)$ex->exhibit_number) : null;
+
+                    $seizuresList[] = [
+                        'id'                 => 'DB-' . ($dCase->id ?? $cNo) . '-' . ($ex->id ?? ($eIdx + 1)),
+                        'case_id'            => $dCase->id,
+                        'real_case_id'       => $realId,
+                        'date'               => $cDate,
+                        'date_display'       => $cDateDisplay,
+                        'source'             => $exSource,
+                        'source_of_exhibits' => $exSource,
+                        'source_badge'       => strtoupper($dCase->operation_code ?? ($isMultiple ? 'FIELD SEIZURE (MULTI)' : 'FIELD SEIZURE')),
+                        'case_reference'     => $cNo,
+                        'case_type'          => $isMultiple ? 'MULTIPLE' : 'SINGLE',
+                        'is_multiple'        => $isMultiple,
+                        'case_type_badge'    => $isMultiple ? 'Multiple Case' : 'Single Case',
+                        'suspects_count'     => count($exSuspects),
+                        'suspects_display'   => $exSuspectDisplay,
+                        'primary_suspect'    => $exSuspects[0]['name'] ?? ($dCase->suspect_name ?? 'Suspect'),
+                        'suspects'           => $exSuspects,
+                        'exhibit_type'       => $exName,
+                        'substance_name'     => $exName,
+                        'quantity'           => $exQty,
+                        'weight'             => $exWeight,
+                        'status_remarks'     => $remarks,
+                        'status_tag'         => $statusTag,
+                        'exhibit_id'         => $ex->id ?? null,
+                        'exhibit_remark'     => $resolvedExhibitRemark,
+                        'lab_number'         => $exLabNumber,
+                        'lab_exhibit_no'     => $labExNo,
+                        'exhibit_mark'       => $exMark,
+                    ];
+                }
+            }
         }
 
         // WHY Fix Issue 7b: Prior versions fabricated fallback cases (Emmanuel Agyare, Heston Adjei, etc.)
@@ -937,13 +1118,18 @@ class LabSitrepReportService
         $totalSuspectsCount = 0;
         $atLargeCount = 0;
         $inCustodyCount = 0;
+        $seenSuspects = [];
         foreach ($filteredSeizures as $fs) {
-            $totalSuspectsCount += count($fs['suspects']);
             foreach ($fs['suspects'] as $s) {
-                if (str_contains(strtoupper($s['status'] ?? ''), 'LARGE')) {
-                    $atLargeCount++;
-                } else {
-                    $inCustodyCount++;
+                $sKey = strtolower(trim((string)($s['name'] ?? ($s['suspect_name'] ?? ''))));
+                if (!empty($sKey) && !isset($seenSuspects[$sKey])) {
+                    $seenSuspects[$sKey] = true;
+                    $totalSuspectsCount++;
+                    if (str_contains(strtoupper($s['status'] ?? ''), 'LARGE')) {
+                        $atLargeCount++;
+                    } else {
+                        $inCustodyCount++;
+                    }
                 }
             }
         }

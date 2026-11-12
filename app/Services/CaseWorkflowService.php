@@ -166,8 +166,13 @@ class CaseWorkflowService
                 }
             }
 
+            $isNoSuspectPrimary = $case->isNoSuspectCase() || \App\Models\ForensicCase::isUnassignedSuspectName($primaryName);
+            $isUnassignedOwner = empty($canonicalOwnerName)
+                || \App\Models\ForensicCase::isUnassignedSuspectName($canonicalOwnerName)
+                || in_array(strtolower($canonicalOwnerName), ['all suspects', 'all', 'both', 'joint', 'all suspect'], true);
+
             $isAssoc = $request->boolean('exhibit_is_associate')
-                || (!empty($primaryName) && !empty($canonicalOwnerName) && strtolower(trim($primaryName)) !== strtolower(trim($canonicalOwnerName)));
+                || (!$isNoSuspectPrimary && !$isUnassignedOwner && !empty($primaryName) && strtolower(trim($primaryName)) !== strtolower(trim($canonicalOwnerName)));
 
             // Fix Issue 11: Save via centralized LaboratoryExamService
             $labService = app(LaboratoryExamService::class);
@@ -196,7 +201,7 @@ class CaseWorkflowService
 
         if ($completedCount >= $totalUnits) {
             $case->status = CaseStatus::AWAITING_SIGN_OFF->value;
-            $msg = "All {$totalUnits} specialized units have completed processing! Case {$case->case_number} has been forwarded to Head of Forensic Directorate for final sign-off.";
+            $msg = "All {$totalUnits} specialized units have completed processing! Case {$case->case_number} has completed multi-unit workflow processing.";
         } else {
             $case->status = CaseStatus::UNDER_MULTI_UNIT_PROCESSING->value;
             $msg = "{$unitNameKey} progress updated for Case {$case->case_number}. Currently {$completedCount}/{$totalUnits} units completed.";

@@ -13,6 +13,7 @@ use App\Models\SuspectGsaReport;
 use App\Models\SuspectNlrReport;
 use App\Models\DrugScreening;
 use App\Models\ReferenceRegistry;
+use App\Services\DrugExhibitClassifier;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 
@@ -59,9 +60,28 @@ class LaboratoryExamService
         }
         unset($ds);
 
+        $rawScreening = $payload['screening_method'] ?? ($payload['confirmatory_screening_method'] ?? null);
+        if (is_array($rawScreening)) {
+            $filtered = array_values(array_filter(array_map('trim', $rawScreening), fn ($v) => $v !== ''));
+            $screeningMethod = count($filtered) === 0 ? null : (count($filtered) === 1 ? $filtered[0] : json_encode($filtered));
+        } elseif (is_string($rawScreening)) {
+            $screeningMethod = trim($rawScreening) !== '' ? trim($rawScreening) : null;
+        } else {
+            $screeningMethod = null;
+        }
+
+        $dispositionOfExhibit = $payload['disposition_of_exhibit'] ?? ($payload['confirmatory_disposition_of_exhibit'] ?? null);
+
         $presumptive = $payload['presumptive_result']
             ?? ($payload['presumptive_test_result']
             ?? ($payload['presumptive_reaction_result_input'] ?? null));
+        $rawPresPresence = $payload['presumptive_presence'] ?? null;
+        $rawPresPercentage = $payload['presumptive_percentage'] ?? ($payload['presumptive_Percentage'] ?? null);
+        $parsedPresumptive = ForensicCase::parsePresumptiveData(
+            is_string($presumptive) ? $presumptive : null,
+            $rawPresPresence,
+            $rawPresPercentage
+        );
 
         $confirmatory = $payload['confirmatory_test_result']
             ?? ($payload['confirmatory_result'] ?? 'YES');
@@ -74,19 +94,29 @@ class LaboratoryExamService
             'reserved_samples' => $payload['sample_weight_reserved'] ?? ($payload['sample_reserved'] ?? ($payload['sample_weight']['reserved_samples'] ?? null)),
         ];
 
+        $labExhibitNo = $payload['lab_exhibit_no'] ?? ($payload['lab_exhibit_number'] ?? null);
+        $systemExhibitNumber = $payload['system_exhibit_number'] ?? ($payload['exhibit_number'] ?? null);
+
         return [
             'exhibit_owner_name'       => $ownerName,
             'exhibit_is_associate'     => $isAssoc,
             'laboratory_number'        => $payload['laboratory_number'] ?? ($payload['lab_number'] ?? null),
             'exam_reference'           => $labExamRef,
             'purpose_of_examination'   => $payload['purpose_of_examination'] ?? ($payload['lab_purpose_of_examination'] ?? null),
-            'exhibit_number'           => $payload['lab_exhibit_number'] ?? ($payload['exhibit_number'] ?? null),
+            'preliminary_exam_procedure' => $payload['preliminary_exam_procedure'] ?? ($payload['lab_preliminary_exam_procedure'] ?? null),
+            'screening_method'         => $screeningMethod,
+            'exhibit_number'           => $systemExhibitNumber ?? $labExhibitNo,
+            'lab_exhibit_no'           => $labExhibitNo,
+            'exhibit_description'      => $payload['lab_exhibit_description'] ?? ($payload['exhibit_description'] ?? ($sampleWeight['description'] ?? null)),
             'lab_unit'                 => $payload['lab_unit'] ?? 'Chemistry & Narcotics Unit',
             'analyst'                  => $officer,
             'date_received'            => !empty($payload['lab_date_received']) ? $payload['lab_date_received'] : (!empty($payload['date_received']) ? $payload['date_received'] : date('Y-m-d')),
             'date_started'             => !empty($payload['lab_date_started']) ? $payload['lab_date_started'] : (!empty($payload['date_started']) ? $payload['date_started'] : date('Y-m-d')),
             'date_completed'           => !empty($payload['lab_date_completed']) ? $payload['lab_date_completed'] : (!empty($payload['date_completed']) ? $payload['date_completed'] : date('Y-m-d')),
-            'presumptive_result'       => $presumptive,
+            'presumptive_result'       => $presumptive ?: $parsedPresumptive['result'],
+            'presumptive_db_result'    => $parsedPresumptive['result'],
+            'presumptive_presence'     => $parsedPresumptive['presence'],
+            'presumptive_percentage'   => $parsedPresumptive['percentage'],
             'confirmatory_result'      => $confirmatory,
             'sample_weight'            => $sampleWeight,
             'substance_identification' => $payload['confirmatory_substance_identification'] ?? ($payload['substance_identification'] ?? null),
@@ -94,6 +124,7 @@ class LaboratoryExamService
             'test_methods'             => $payload['confirmatory_test_methods'] ?? ($payload['test_methods'] ?? null),
             'specifications'           => $payload['confirmatory_specifications'] ?? ($payload['specifications'] ?? null),
             'remark'                   => $payload['confirmatory_remark'] ?? ($payload['remark'] ?? null),
+            'disposition_of_exhibit'   => $dispositionOfExhibit,
             'findings'                 => $payload['findings'] ?? ($payload['notes'] ?? 'Submitted via Laboratory Analysis & Case Registration Workspace'),
             'has_saved'                => true,
         ];
@@ -123,7 +154,8 @@ class LaboratoryExamService
 
         // Auto-derive weight fields from exhibit if missing
         if (empty($examRecord['sample_weight']['description']) || empty($examRecord['sample_weight']['gross_weight'])) {
-            $primaryExhForWeight = Exhibit::where(function ($q) use ($singleCaseId, $multiCaseId) {
+            $primaryExhForWeight = (!empty($payload['exhibit_id']) ? Exhibit::find($payload['exhibit_id']) : null)
+            ?? Exhibit::where(function ($q) use ($singleCaseId, $multiCaseId) {
                 if ($singleCaseId) {
                     $q->where('single_suspect_case_id', $singleCaseId);
                 } else {
@@ -160,9 +192,18 @@ class LaboratoryExamService
         foreach ($docketData['seizures'] as $sIdx => $sz) {
             $szOwner = $sz['associated_person'] ?? ($sz['suspect_name'] ?? ($sz['owner_name'] ?? null));
             $szExhNo = $sz['exhibit_number'] ?? null;
+            $szLabExhNo = $sz['lab_exhibit_no'] ?? null;
             $szDrug  = $sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? null);
 
+            if (!empty($payload['exhibit_id']) && (((int) ($sz['id'] ?? 0) === (int) $payload['exhibit_id']) || ((int) ($sz['linked_exhibit_id'] ?? 0) === (int) $payload['exhibit_id']))) {
+                $matchedSeizureIdx = $sIdx;
+                break;
+            }
             if (!empty($examRecord['exhibit_number']) && !empty($szExhNo) && $szExhNo === $examRecord['exhibit_number']) {
+                $matchedSeizureIdx = $sIdx;
+                break;
+            }
+            if (!empty($examRecord['lab_exhibit_no']) && ((!empty($szLabExhNo) && $szLabExhNo === $examRecord['lab_exhibit_no']) || (!empty($szExhNo) && $szExhNo === $examRecord['lab_exhibit_no']))) {
                 $matchedSeizureIdx = $sIdx;
                 break;
             }
@@ -178,6 +219,55 @@ class LaboratoryExamService
 
         if ($matchedSeizureIdx === null && count($docketData['seizures']) > 0 && !$isAssoc) {
             $matchedSeizureIdx = 0;
+        }
+
+        // Resolve matching Exhibit model in DB to persist lab_exhibit_no without overwriting exhibit_number
+        $matchedExhibitModel = null;
+        if (!empty($payload['exhibit_id'])) {
+            $matchedExhibitModel = Exhibit::find($payload['exhibit_id']);
+        }
+        if (!$matchedExhibitModel) {
+            $caseExhibits = Exhibit::where(function ($q) use ($singleCaseId, $multiCaseId) {
+                if ($singleCaseId) {
+                    $q->where('single_suspect_case_id', $singleCaseId);
+                } else {
+                    $q->where('multiple_suspect_case_id', $multiCaseId);
+                }
+            })->orderBy('id')->get();
+
+            $targetSeizureExNo = ($matchedSeizureIdx !== null && !empty($docketData['seizures'][$matchedSeizureIdx]['exhibit_number']))
+                ? $docketData['seizures'][$matchedSeizureIdx]['exhibit_number']
+                : ($payload['system_exhibit_number'] ?? null);
+
+            if ($targetSeizureExNo) {
+                $matchedExhibitModel = $caseExhibits->first(fn ($ex) => $ex->exhibit_number === $targetSeizureExNo);
+            }
+            if (!$matchedExhibitModel && !empty($ownerName)) {
+                $matchedExhibitModel = $caseExhibits->first(fn ($ex) => strtolower(trim((string) $ex->associated_person)) === strtolower(trim($ownerName)));
+            }
+            if (!$matchedExhibitModel && !empty($examRecord['sample_weight']['description'])) {
+                $matchedExhibitModel = $caseExhibits->first(fn ($ex) => strtolower(trim((string) $ex->commodity_name)) === strtolower(trim((string) $examRecord['sample_weight']['description'])));
+            }
+            if (!$matchedExhibitModel && $matchedSeizureIdx !== null && isset($caseExhibits[$matchedSeizureIdx])) {
+                $matchedExhibitModel = $caseExhibits[$matchedSeizureIdx];
+            }
+            if (!$matchedExhibitModel && !$isAssoc) {
+                $matchedExhibitModel = $caseExhibits->first();
+            }
+        }
+
+        if ($matchedExhibitModel) {
+            $examRecord['exhibit_id'] = $matchedExhibitModel->id;
+            $exUpdates = [];
+            if ($examRecord['lab_exhibit_no'] !== null) {
+                $exUpdates['lab_exhibit_no'] = $examRecord['lab_exhibit_no'];
+            }
+            if (!empty($examRecord['remark'])) {
+                $exUpdates['lab_remark'] = $examRecord['remark'];
+            }
+            if (!empty($exUpdates)) {
+                $matchedExhibitModel->update($exUpdates);
+            }
         }
 
         if ($matchedSeizureIdx !== null && isset($docketData['seizures'][$matchedSeizureIdx])) {
@@ -199,7 +289,15 @@ class LaboratoryExamService
             $docketData['seizures'][$matchedSeizureIdx]['laboratory_number']      = $examRecord['laboratory_number'];
             $docketData['seizures'][$matchedSeizureIdx]['exam_reference']         = $examRecord['exam_reference'];
             $docketData['seizures'][$matchedSeizureIdx]['purpose_of_examination'] = $examRecord['purpose_of_examination'];
-            $docketData['seizures'][$matchedSeizureIdx]['exhibit_number']         = $examRecord['exhibit_number'];
+            $docketData['seizures'][$matchedSeizureIdx]['preliminary_exam_procedure'] = $examRecord['preliminary_exam_procedure'] ?? null;
+            $docketData['seizures'][$matchedSeizureIdx]['screening_method'] = $examRecord['screening_method'] ?? null;
+            $docketData['seizures'][$matchedSeizureIdx]['disposition_of_exhibit'] = $examRecord['disposition_of_exhibit'] ?? null;
+            if ($examRecord['lab_exhibit_no'] !== null) {
+                $docketData['seizures'][$matchedSeizureIdx]['lab_exhibit_no']     = $examRecord['lab_exhibit_no'];
+            }
+            if (empty($docketData['seizures'][$matchedSeizureIdx]['exhibit_number'])) {
+                $docketData['seizures'][$matchedSeizureIdx]['exhibit_number']     = $matchedExhibitModel ? $matchedExhibitModel->exhibit_number : $examRecord['exhibit_number'];
+            }
             $docketData['seizures'][$matchedSeizureIdx]['date_received']          = $examRecord['date_received'];
             $docketData['seizures'][$matchedSeizureIdx]['date_started']           = $examRecord['date_started'];
             $docketData['seizures'][$matchedSeizureIdx]['date_completed']         = $examRecord['date_completed'];
@@ -211,12 +309,21 @@ class LaboratoryExamService
         }
 
         $listMatchIdx = null;
+        $targetExhibitId = (int) ($examRecord['exhibit_id'] ?? ($payload['exhibit_id'] ?? 0));
         foreach ($docketData['lab_examinations_list'] as $lIdx => $lItem) {
-            if (!empty($ownerName) && !empty($lItem['exhibit_owner_name']) && strtolower(trim($lItem['exhibit_owner_name'])) === strtolower(trim($ownerName))) {
+            $itemExhibitId = (int) ($lItem['exhibit_id'] ?? ($lItem['linked_exhibit_id'] ?? 0));
+            if ($targetExhibitId > 0 && $itemExhibitId > 0) {
+                if ($itemExhibitId === $targetExhibitId) {
+                    $listMatchIdx = $lIdx;
+                    break;
+                }
+                continue;
+            }
+            if (!empty($examRecord['exhibit_number']) && !empty($lItem['exhibit_number']) && $lItem['exhibit_number'] === $examRecord['exhibit_number']) {
                 $listMatchIdx = $lIdx;
                 break;
             }
-            if (!empty($examRecord['exhibit_number']) && !empty($lItem['exhibit_number']) && $lItem['exhibit_number'] === $examRecord['exhibit_number']) {
+            if (!empty($ownerName) && !empty($lItem['exhibit_owner_name']) && strtolower(trim($lItem['exhibit_owner_name'])) === strtolower(trim($ownerName))) {
                 $listMatchIdx = $lIdx;
                 break;
             }
@@ -276,6 +383,7 @@ class LaboratoryExamService
                             'test_methods'              => $examRecord['test_methods'],
                             'specifications'            => $examRecord['specifications'],
                             'remark'                    => $examRecord['remark'],
+                            'disposition_of_exhibit'    => $examRecord['disposition_of_exhibit'] ?? ($payload['disposition_of_exhibit'] ?? ($payload['confirmatory_disposition_of_exhibit'] ?? null)),
                             'findings'                  => $examRecord['findings'],
                             'has_saved'                 => true,
                         ]
@@ -305,13 +413,27 @@ class LaboratoryExamService
             }
         } else {
             // Primary suspect examination
-            $existingPrimaryLab = LaboratoryExaminationResult::where(function ($q) use ($singleCaseId, $multiCaseId) {
+            $primaryExhModel = $matchedExhibitModel ?? Exhibit::where(function ($q) use ($singleCaseId, $multiCaseId) {
                 if ($singleCaseId) {
                     $q->where('single_suspect_case_id', $singleCaseId);
                 } else {
                     $q->where('multiple_suspect_case_id', $multiCaseId);
                 }
             })->first();
+
+            $caseLabQuery = LaboratoryExaminationResult::where(function ($q) use ($singleCaseId, $multiCaseId) {
+                if ($singleCaseId) {
+                    $q->where('single_suspect_case_id', $singleCaseId);
+                } else {
+                    $q->where('multiple_suspect_case_id', $multiCaseId);
+                }
+            });
+
+            // Prefer the row already tied to this exhibit, otherwise adopt any orphan unlinked row for this case
+            $existingPrimaryLab = $primaryExhModel
+                ? ((clone $caseLabQuery)->where('exhibit_id', $primaryExhModel->id)->first()
+                    ?? (clone $caseLabQuery)->whereNull('exhibit_id')->first())
+                : (clone $caseLabQuery)->first();
 
             if ($existingPrimaryLab && !empty($existingPrimaryLab->exam_reference)) {
                 $examRecord['exam_reference'] = $existingPrimaryLab->exam_reference;
@@ -324,25 +446,34 @@ class LaboratoryExamService
             $docketData['lab_examination'] = $examRecord;
             $docketData['confirmatory_detected_substances'] = $examRecord['detected_substances'];
 
-            $primaryExhModel = Exhibit::where(function ($q) use ($singleCaseId, $multiCaseId) {
-                if ($singleCaseId) {
-                    $q->where('single_suspect_case_id', $singleCaseId);
-                } else {
-                    $q->where('multiple_suspect_case_id', $multiCaseId);
+            if ($primaryExhModel) {
+                $primaryExhUpdates = [];
+                if (!empty($examRecord['remark'])) {
+                    $primaryExhUpdates['lab_remark'] = $examRecord['remark'];
                 }
-            })->first();
-
-            if ($primaryExhModel && !empty($examRecord['remark'])) {
-                $primaryExhModel->update(['lab_remark' => $examRecord['remark']]);
+                if ($examRecord['lab_exhibit_no'] !== null) {
+                    $primaryExhUpdates['lab_exhibit_no'] = $examRecord['lab_exhibit_no'];
+                }
+                if (!empty($primaryExhUpdates)) {
+                    $primaryExhModel->update($primaryExhUpdates);
+                }
             }
 
             for ($attempt = 1; $attempt <= 5; $attempt++) {
                 try {
-                    $savedLabResult = LaboratoryExaminationResult::updateOrCreate(
-                        [
+                    if ($existingPrimaryLab) {
+                        $matchCriteria = ['id' => $existingPrimaryLab->id];
+                    } else {
+                        $matchCriteria = [
                             'single_suspect_case_id'   => $singleCaseId,
                             'multiple_suspect_case_id' => $multiCaseId,
-                        ],
+                        ];
+                        if ($primaryExhModel) {
+                            $matchCriteria['exhibit_id'] = $primaryExhModel->id;
+                        }
+                    }
+                    $savedLabResult = LaboratoryExaminationResult::updateOrCreate(
+                        $matchCriteria,
                         [
                             'case_type'                 => $isMultiple ? 'MULTIPLE' : 'SINGLE',
                             'single_suspect_case_id'    => $singleCaseId,
@@ -351,11 +482,15 @@ class LaboratoryExamService
                             'laboratory_number'         => $examRecord['laboratory_number'],
                             'exam_reference'            => $examRecord['exam_reference'],
                             'purpose_of_examination'    => $examRecord['purpose_of_examination'] ?? ($payload['purpose_of_examination'] ?? ($payload['lab_purpose_of_examination'] ?? null)),
+                            'preliminary_exam_procedure' => $examRecord['preliminary_exam_procedure'] ?? ($payload['preliminary_exam_procedure'] ?? ($payload['lab_preliminary_exam_procedure'] ?? null)),
+                            'screening_method'          => $examRecord['screening_method'] ?? ($screeningMethod ?? null),
                             'gsa_lab_number'            => $payload['gsa_lab_number'] ?? ($docketData['lab_examination']['gsa_lab_number'] ?? null),
                             'date_received'             => $examRecord['date_received'],
                             'date_started'              => $examRecord['date_started'],
                             'date_completed'            => $examRecord['date_completed'],
-                            'presumptive_result'        => $examRecord['presumptive_result'],
+                            'presumptive_result'        => $examRecord['presumptive_db_result'] ?? $examRecord['presumptive_result'],
+                            'presumptive_presence'      => $examRecord['presumptive_presence'] ?? null,
+                            'presumptive_percentage'    => $examRecord['presumptive_percentage'] ?? null,
                             'confirmatory_result'       => $examRecord['confirmatory_result'],
                             'sample_weight_description' => $examRecord['sample_weight']['description'],
                             'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
@@ -367,6 +502,7 @@ class LaboratoryExamService
                             'test_methods'              => $examRecord['test_methods'],
                             'specifications'            => $examRecord['specifications'],
                             'remark'                    => $examRecord['remark'],
+                            'disposition_of_exhibit'    => $examRecord['disposition_of_exhibit'] ?? ($payload['disposition_of_exhibit'] ?? ($payload['confirmatory_disposition_of_exhibit'] ?? null)),
                             'findings'                  => $examRecord['findings'],
                             'analyst'                   => $officer,
                             'has_saved'                 => true,
@@ -446,6 +582,13 @@ class LaboratoryExamService
         $case->docket_data = $docketData;
         $case->save();
 
+        // Auto-sync Preliminary Report PDF record to suspect_preliminary_reports
+        try {
+            app(\App\Http\Controllers\CaseReportController::class)->storeOrSyncPreliminaryReport($case, $savedLabResult ?? null, $docketData);
+        } catch (\Throwable $e) {
+            // Fail gracefully without interrupting exam save
+        }
+
         return $docketData;
     }
 
@@ -461,71 +604,6 @@ class LaboratoryExamService
         if (!$item) return false;
         if ($item instanceof ForensicCase) return $item->isDrugCase();
 
-        $drugKeywords = config('forensic.drug_keywords', [
-            'drug', 'narcotic', 'substance', 'cannabis', 'cocaine', 'heroin',
-            'meth', 'tramadol', 'weed', 'hemp', 'hashish', 'ephedrine',
-            'precursor', 'opioid', 'fentanyl', 'amphetamine', 'mdma', 'ecstasy',
-            'morphine', 'opium', 'diacetylmorphine', 'codeine', 'syrup',
-            'marijuana', 'thc', 'brown sugar', 'prohibited',
-        ]);
-        $nonDrugKeywords = config('forensic.non_drug_keywords', [
-            'truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency',
-            'zonda', 'cash', 'usd', 'ghs', 'laptop', 'phone', 'automobile',
-            'vessel', 'device', 'motorcycle', 'boat', 'firearm', 'electronics',
-            'document', 'ammunition', 'bullet', 'cartridge', 'gold',
-        ]);
-
-        $category = '';
-        $name = '';
-        $drugType = '';
-
-        if ($item instanceof Exhibit) {
-            $category = strtolower((string)$item->exhibit_category);
-            $name     = strtolower((string)($item->commodity_name ?: ($item->exhibit_type ?: '')));
-            $drugType = strtolower((string)($item->substance_identification ?? ($item->drug_classification ?? '')));
-        } elseif (is_array($item)) {
-            $category = strtolower((string)($item['category'] ?? ($item['exhibit_category'] ?? '')));
-            $name     = strtolower((string)($item['seizure_name_drug'] ?? ($item['seizure_name'] ?? ($item['commodity_name'] ?? ($item['name'] ?? ($item['exhibit_type'] ?? ''))))));
-            $drugType = strtolower((string)($item['drug_type'] ?? ($item['substance_identification'] ?? ($item['drug_classification'] ?? ($item['exhibit_type'] ?? '')))));
-        } elseif (is_object($item)) {
-            $category = strtolower((string)($item->exhibit_category ?? ($item->category ?? '')));
-            $name     = strtolower((string)($item->commodity_name ?? ($item->seizure_name ?? ($item->name ?? ($item->exhibit_type ?? '')))));
-            $drugType = strtolower((string)($item->drug_classification ?? ($item->substance_identification ?? ($item->exhibit_type ?? ''))));
-        }
-
-        // Exclude explicit non-drug categories unless an unambiguous drug substance name is present
-        foreach ($nonDrugKeywords as $nkw) {
-            if (!empty($nkw) && (str_contains($category, $nkw) || str_contains($name, $nkw))) {
-                $hasSpecificDrugKw = false;
-                foreach ($drugKeywords as $dkw) {
-                    if ($dkw !== 'drug' && $dkw !== 'substance' && $dkw !== 'narcotic' && $dkw !== 'precursor') {
-                        if (str_contains($name, $dkw) || str_contains($drugType, $dkw)) {
-                            $hasSpecificDrugKw = true;
-                            break;
-                        }
-                    }
-                }
-                if (!$hasSpecificDrugKw) {
-                    return false;
-                }
-            }
-        }
-
-        if (!empty($drugType)) {
-            foreach ($drugKeywords as $kw) {
-                if (str_contains($drugType, $kw)) {
-                    return true;
-                }
-            }
-        }
-
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($category, $kw) || str_contains($name, $kw)) {
-                return true;
-            }
-        }
-
-        return false;
+        return app(DrugExhibitClassifier::class)->isDrugExhibit($item);
     }
-
 }

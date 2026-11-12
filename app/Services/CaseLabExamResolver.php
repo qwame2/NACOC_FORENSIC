@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AssociateLabExamination;
 use App\Models\Exhibit;
+use App\Models\ForensicCase;
 use App\Models\LaboratoryExaminationResult;
 
 class CaseLabExamResolver
@@ -217,6 +218,9 @@ class CaseLabExamResolver
                             'remark' => $szItem['remark'] ?? null,
                             'findings' => $szItem['findings'] ?? null,
                             'purpose_of_examination' => $szItem['purpose_of_examination'] ?? null,
+                            'preliminary_exam_procedure' => $szItem['preliminary_exam_procedure'] ?? null,
+                            'screening_method' => $szItem['screening_method'] ?? null,
+                            'disposition_of_exhibit' => $szItem['disposition_of_exhibit'] ?? null,
                             'has_saved' => true,
                         ]);
                         break;
@@ -276,6 +280,8 @@ class CaseLabExamResolver
                     ? $dbPrimaryLabExam->date_completed->format('Y-m-d')
                     : substr((string) $dbPrimaryLabExam->date_completed, 0, 10),
                 'presumptive_result' => $dbPrimaryLabExam->presumptive_result,
+                'presumptive_presence' => $dbPrimaryLabExam->presumptive_presence ?? null,
+                'presumptive_percentage' => $dbPrimaryLabExam->presumptive_percentage ?? null,
                 'confirmatory_result' => $dbPrimaryLabExam->confirmatory_result,
                 'sample_weight' => [
                     'description' => $dbPrimaryLabExam->sample_weight_description,
@@ -291,6 +297,9 @@ class CaseLabExamResolver
                 'remark' => $dbPrimaryLabExam->remark,
                 'findings' => $dbPrimaryLabExam->findings,
                 'purpose_of_examination' => $dbPrimaryLabExam->purpose_of_examination ?? null,
+                'preliminary_exam_procedure' => $dbPrimaryLabExam->preliminary_exam_procedure ?? null,
+                'screening_method' => $dbPrimaryLabExam->screening_method ?? null,
+                'disposition_of_exhibit' => $dbPrimaryLabExam->disposition_of_exhibit ?? null,
                 'has_saved' => true,
             ]);
         }
@@ -564,6 +573,8 @@ class CaseLabExamResolver
             $savedLabUnit = !empty($labExam['lab_unit']) ? $labExam['lab_unit'] : null;
             $savedLabAnalyst = !empty($labExam['analyst']) ? $labExam['analyst'] : 'N/A';
             $savedLabPresumptive = !empty($labExam['presumptive_result']) ? $labExam['presumptive_result'] : 'N/A';
+            $savedLabPresumptivePresence = $labExam['presumptive_presence'] ?? null;
+            $savedLabPresumptivePercentage = $labExam['presumptive_percentage'] ?? null;
             $caseIncReview = !empty($case->incident_date)
                 ? (is_object($case->incident_date) ? $case->incident_date->format('Y-m-d') : substr((string) $case->incident_date, 0, 10))
                 : null;
@@ -604,6 +615,9 @@ class CaseLabExamResolver
             $savedLabRemark = !empty($labExam['remark']) ? $labExam['remark'] : null;
             $savedLabFindings = !empty($labExam['findings']) ? $labExam['findings'] : null;
             $savedLabPurposeOfExamination = !empty($labExam['purpose_of_examination']) ? $labExam['purpose_of_examination'] : null;
+            $savedLabPreliminaryExamProcedure = !empty($labExam['preliminary_exam_procedure']) ? $labExam['preliminary_exam_procedure'] : null;
+            $savedLabScreeningMethod = !empty($labExam['screening_method']) ? $labExam['screening_method'] : null;
+            $savedLabDispositionOfExhibit = !empty($labExam['disposition_of_exhibit']) ? $labExam['disposition_of_exhibit'] : null;
         } else {
             $savedLabExamRef = 'N/A';
             $savedLabExhibitNo = 'N/A';
@@ -615,6 +629,8 @@ class CaseLabExamResolver
             $savedLabDateStarted = 'N/A';
             $savedLabDateCompleted = 'N/A';
             $savedLabPresumptive = 'N/A';
+            $savedLabPresumptivePresence = null;
+            $savedLabPresumptivePercentage = null;
             $savedLabConfirmatory = 'N/A';
             $savedLabExhibitDesc = 'N/A';
             $savedLabSampleDesc = 'N/A';
@@ -630,6 +646,9 @@ class CaseLabExamResolver
             $savedLabRemark = 'N/A';
             $savedLabFindings = 'N/A';
             $savedLabPurposeOfExamination = 'N/A';
+            $savedLabPreliminaryExamProcedure = 'N/A';
+            $savedLabScreeningMethod = 'N/A';
+            $savedLabDispositionOfExhibit = 'N/A';
         }
 
         $hasUnexaminedDrugExhibit = false;
@@ -839,6 +858,8 @@ class CaseLabExamResolver
             'savedLabUnit' => $savedLabUnit,
             'savedLabAnalyst' => $savedLabAnalyst,
             'savedLabPresumptive' => $savedLabPresumptive,
+            'savedLabPresumptivePresence' => $savedLabPresumptivePresence,
+            'savedLabPresumptivePercentage' => $savedLabPresumptivePercentage,
             'savedLabDateReceived' => $savedLabDateReceived,
             'savedLabDateStarted' => $savedLabDateStarted,
             'savedLabDateCompleted' => $savedLabDateCompleted,
@@ -857,6 +878,9 @@ class CaseLabExamResolver
             'savedLabRemark' => $savedLabRemark,
             'savedLabFindings' => $savedLabFindings,
             'savedLabPurposeOfExamination' => $savedLabPurposeOfExamination,
+            'savedLabPreliminaryExamProcedure' => $savedLabPreliminaryExamProcedure,
+            'savedLabScreeningMethod' => $savedLabScreeningMethod,
+            'savedLabDispositionOfExhibit' => $savedLabDispositionOfExhibit,
             'hasUnexaminedDrugExhibit' => $hasUnexaminedDrugExhibit,
             'firstPendingSeizure' => $firstPendingSeizure,
             'hasSavedLabResult' => $hasSavedLabResult,
@@ -932,158 +956,11 @@ class CaseLabExamResolver
     }
 
     /**
-     * Parse presumptive test string into structured rows (Result, Presence of, Purity/Percentage).
+     * Parse presumptive test string or structured columns into structured rows (Result, Presence of, Purity/Percentage).
      */
-    public function parsePresumptiveRows(?string $pRaw, bool $isAssocFormat = false): array
+    public function parsePresumptiveRows(?string $pRaw, bool $isAssocFormat = false, mixed $presence = null, mixed $percentage = null): array
     {
-        $pRaw = trim((string) ($pRaw ?? ''));
-        $pRows = [];
-
-        if ($isAssocFormat) {
-            if (!empty($pRaw) && $pRaw !== 'N/A') {
-                $overallResultAssoc = 'N/A';
-                if (preg_match('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i', $pRaw, $mRes)) {
-                    $overallResultAssoc = strtoupper($mRes[1]);
-                    if ($overallResultAssoc === 'POS' || $overallResultAssoc === 'POSITIVE') {
-                        $overallResultAssoc = 'YES';
-                    }
-                    if ($overallResultAssoc === 'NEG' || $overallResultAssoc === 'NEGATIVE') {
-                        $overallResultAssoc = 'NO';
-                    }
-                }
-
-                $cleanPAssoc = $pRaw;
-                if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRaw, $mP)) {
-                    $cleanPAssoc = $mP[1];
-                }
-
-                $segmentsAssoc = preg_split('/;\s*(?=\[\d+\]|Presence of:)/i', $cleanPAssoc);
-                if (empty($segmentsAssoc)) {
-                    $segmentsAssoc = [$cleanPAssoc];
-                }
-
-                foreach ($segmentsAssoc as $seg) {
-                    $seg = trim($seg);
-                    if (empty($seg)) {
-                        continue;
-                    }
-
-                    $presence = 'N/A';
-                    $purity = 'N/A';
-
-                    if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $seg, $mPres)) {
-                        $presence = trim($mPres[1]);
-                    } elseif (preg_match('/^\[\d+\]\s*([^\-\;\)]+)/i', $seg, $mPres)) {
-                        $presence = trim($mPres[1]);
-                    } elseif (!empty($seg) && !str_contains($seg, 'Purity')) {
-                        $presence = trim($seg);
-                    }
-
-                    if (in_array($presence, ['YES', 'NO', 'POS', 'NEG'], true)) {
-                        $presence = 'N/A';
-                    }
-
-                    if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $seg, $mPur)) {
-                        $purity = trim($mPur[1]);
-                    }
-
-                    if ($presence !== 'N/A' || $purity !== 'N/A' || count($segmentsAssoc) === 1) {
-                        $pRows[] = [
-                            'result' => $overallResultAssoc,
-                            'presence' => $presence,
-                            'purity' => $purity,
-                        ];
-                    }
-                }
-            }
-            if (empty($pRows)) {
-                $pRows[] = ['result' => 'N/A', 'presence' => 'N/A', 'purity' => 'N/A'];
-            }
-            return $pRows;
-        }
-
-        if (!empty($pRaw) && $pRaw !== 'N/A') {
-            $overallResult = 'N/A';
-            if (preg_match('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)/i', $pRaw, $mRes)) {
-                $overallResult = strtoupper($mRes[1]);
-                if ($overallResult === 'POS' || $overallResult === 'POSITIVE') {
-                    $overallResult = 'YES';
-                }
-                if ($overallResult === 'NEG' || $overallResult === 'NEGATIVE') {
-                    $overallResult = 'NO';
-                }
-            }
-
-            $cleanP = $pRaw;
-            if (preg_match('/^[A-Z]+\s*\((.*)\)$/is', $pRaw, $mP)) {
-                $cleanP = $mP[1];
-            }
-
-            $segments = preg_split('/;\s*(?=\[\d+\]|Presence of:)/i', $cleanP);
-            if (empty($segments)) {
-                $segments = [$cleanP];
-            }
-
-            foreach ($segments as $seg) {
-                $seg = trim($seg);
-                if (empty($seg)) {
-                    continue;
-                }
-
-                $seg = preg_replace('/^\[\d+\]\s*/', '', $seg);
-                $seg = preg_replace('/^(YES|NO|POS|NEG|POSITIVE|NEGATIVE)\s*/i', '', $seg);
-
-                $presence = null;
-                $purity = null;
-
-                if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $seg, $mPres)) {
-                    $presence = trim($mPres[1]);
-                }
-
-                if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $seg, $mPur)) {
-                    $purity = trim($mPur[1]);
-                }
-
-                if ($presence === null && $purity === null) {
-                    $fallback = trim($seg, " -;()\t\n\r\0\x0B");
-                    if (!empty($fallback)) {
-                        $presence = $fallback;
-                    }
-                }
-
-                if (
-                    $presence !== null &&
-                    in_array(strtoupper($presence), ['YES', 'NO', 'POS', 'NEG', 'POSITIVE', 'NEGATIVE'], true)
-                ) {
-                    $presence = null;
-                }
-
-                if ($presence !== null || $purity !== null) {
-                    $pRows[] = [
-                        'result' => $overallResult,
-                        'presence' => $presence ?? '—',
-                        'purity' => $purity ?? '—',
-                    ];
-                }
-            }
-
-            if (empty($pRows) && $overallResult !== 'N/A') {
-                $pRows[] = [
-                    'result' => $overallResult,
-                    'presence' => '—',
-                    'purity' => '—',
-                ];
-            }
-        }
-        if (empty($pRows)) {
-            $pRows[] = [
-                'result' => 'N/A',
-                'presence' => 'N/A',
-                'purity' => 'N/A',
-            ];
-        }
-
-        return $pRows;
+        return ForensicCase::parsePresumptiveData($pRaw, $presence, $percentage)['rows'];
     }
 
     /**
@@ -1127,6 +1004,9 @@ class CaseLabExamResolver
         $savedLabRemark = $topLevelLabVars['savedLabRemark'];
         $savedLabFindings = $topLevelLabVars['savedLabFindings'];
         $savedLabPurposeOfExamination = $topLevelLabVars['savedLabPurposeOfExamination'] ?? null;
+        $savedLabPreliminaryExamProcedure = $topLevelLabVars['savedLabPreliminaryExamProcedure'] ?? null;
+        $savedLabScreeningMethod = $topLevelLabVars['savedLabScreeningMethod'] ?? null;
+        $savedLabDispositionOfExhibit = $topLevelLabVars['savedLabDispositionOfExhibit'] ?? null;
         $labDetectedSubstances = $topLevelLabVars['labDetectedSubstances'] ?? [];
 
         $activeSuspectLabExam = null;
@@ -1161,6 +1041,8 @@ class CaseLabExamResolver
                     ? $dbActiveLabExam->date_completed->format('Y-m-d')
                     : substr((string) $dbActiveLabExam->date_completed, 0, 10),
                 'presumptive_result' => $dbActiveLabExam->presumptive_result,
+                'presumptive_presence' => $dbActiveLabExam->presumptive_presence ?? null,
+                'presumptive_percentage' => $dbActiveLabExam->presumptive_percentage ?? null,
                 'confirmatory_result' => $dbActiveLabExam->confirmatory_result,
                 'sample_weight' => [
                     'description' => $dbActiveLabExam->sample_weight_description,
@@ -1175,6 +1057,10 @@ class CaseLabExamResolver
                 'specifications' => $dbActiveLabExam->specifications,
                 'remark' => $dbActiveLabExam->remark,
                 'findings' => $dbActiveLabExam->findings,
+                'purpose_of_examination' => $dbActiveLabExam->purpose_of_examination ?? null,
+                'preliminary_exam_procedure' => $dbActiveLabExam->preliminary_exam_procedure ?? null,
+                'screening_method' => $dbActiveLabExam->screening_method ?? null,
+                'disposition_of_exhibit' => $dbActiveLabExam->disposition_of_exhibit ?? null,
                 'has_saved' => true,
             ];
         }
@@ -1272,6 +1158,8 @@ class CaseLabExamResolver
                         : (substr((string) $dbPrimaryLabExam->date_completed, 0, 10) ?: date('Y-m-d')),
                     'presumptive_result' =>
                         $dbPrimaryLabExam->presumptive_result ?: $case->presumptive_test_result ?? null,
+                    'presumptive_presence' => $dbPrimaryLabExam->presumptive_presence ?? null,
+                    'presumptive_percentage' => $dbPrimaryLabExam->presumptive_percentage ?? null,
                     'confirmatory_result' =>
                         $dbPrimaryLabExam->confirmatory_result ?: ($case->confirmatory_test_result ?: 'YES'),
                     'sample_weight' => [
@@ -1344,6 +1232,8 @@ class CaseLabExamResolver
             $savedLabDateStarted = !empty($activeSuspectLabExam['date_started']) ? $activeSuspectLabExam['date_started'] : ($savedLabDateStarted ?? 'N/A');
             $savedLabDateCompleted = !empty($activeSuspectLabExam['date_completed']) ? $activeSuspectLabExam['date_completed'] : ($savedLabDateCompleted ?? 'N/A');
             $savedLabPresumptive = !empty($activeSuspectLabExam['presumptive_result']) ? $activeSuspectLabExam['presumptive_result'] : ($savedLabPresumptive ?? 'N/A');
+            $savedLabPresumptivePresence = $activeSuspectLabExam['presumptive_presence'] ?? ($topLevelLabVars['savedLabPresumptivePresence'] ?? null);
+            $savedLabPresumptivePercentage = $activeSuspectLabExam['presumptive_percentage'] ?? ($topLevelLabVars['savedLabPresumptivePercentage'] ?? null);
             if (!empty($activeSuspectLabExam['confirmatory_result'])) {
                 $cRes = strtoupper(trim((string) $activeSuspectLabExam['confirmatory_result']));
                 $savedLabConfirmatory = $cRes === 'NO' ? 'NO' : ($cRes === 'YES' ? 'YES' : null);
@@ -1406,6 +1296,15 @@ class CaseLabExamResolver
             if (!empty($activeSuspectLabExam['purpose_of_examination'])) {
                 $savedLabPurposeOfExamination = $activeSuspectLabExam['purpose_of_examination'];
             }
+            if (!empty($activeSuspectLabExam['preliminary_exam_procedure'])) {
+                $savedLabPreliminaryExamProcedure = $activeSuspectLabExam['preliminary_exam_procedure'];
+            }
+            if (!empty($activeSuspectLabExam['screening_method'])) {
+                $savedLabScreeningMethod = $activeSuspectLabExam['screening_method'];
+            }
+            if (!empty($activeSuspectLabExam['disposition_of_exhibit'])) {
+                $savedLabDispositionOfExhibit = $activeSuspectLabExam['disposition_of_exhibit'];
+            }
         } else {
             $labOwnerName = $activeSuspectName;
             $savedLabExamRef = 'N/A';
@@ -1416,6 +1315,8 @@ class CaseLabExamResolver
             $savedLabDateStarted = 'N/A';
             $savedLabDateCompleted = 'N/A';
             $savedLabPresumptive = 'N/A';
+            $savedLabPresumptivePresence = null;
+            $savedLabPresumptivePercentage = null;
             $savedLabConfirmatory = 'N/A';
             $savedLabExhibitDesc = 'N/A';
             $savedLabSampleDesc = 'N/A';
@@ -1431,6 +1332,9 @@ class CaseLabExamResolver
             $savedLabRemark = 'N/A';
             $savedLabFindings = 'N/A';
             $savedLabPurposeOfExamination = 'N/A';
+            $savedLabPreliminaryExamProcedure = 'N/A';
+            $savedLabScreeningMethod = 'N/A';
+            $savedLabDispositionOfExhibit = 'N/A';
         }
 
         $dbExhibitsList = Exhibit::where(function ($q) use ($case) {
@@ -1455,20 +1359,35 @@ class CaseLabExamResolver
                     : ($szIsAssoc ? 'Associate Suspect' : $case->suspect_name ?? 'Primary Suspect');
 
                 if ($this->drugClassifier->isDrugExhibit($sz)) {
-                    $matchedDbEx = $dbExhibitsList->first(function ($dbEx) use ($idx, $sName) {
+                    $matchedDbEx = $dbExhibitsList->first(function ($dbEx) use ($idx, $sName, $sz) {
+                        if (!empty($sz['id']) && $dbEx->id == $sz['id']) {
+                            return true;
+                        }
+                        if (!empty($sz['exhibit_number']) && $dbEx->exhibit_number === $sz['exhibit_number']) {
+                            return true;
+                        }
                         return ($dbEx->exhibit_number == ($idx + 1)) || ($dbEx->commodity_name === $sName);
                     }) ?? ($dbExhibitsList[$idx] ?? null);
                     $dbExId = $matchedDbEx ? $matchedDbEx->id : ($sz['id'] ?? null);
                     $dbLabRemark = ($matchedDbEx && !empty(trim((string) $matchedDbEx->lab_remark))) ? trim((string) $matchedDbEx->lab_remark) : null;
+                    $resolvedSystemExNo = ($matchedDbEx && !empty($matchedDbEx->exhibit_number))
+                        ? $matchedDbEx->exhibit_number
+                        : (!empty($sz['exhibit_number']) ? $sz['exhibit_number'] : sprintf('EXH-%05d', $idx + 1));
+                    $resolvedLabExNo = ($matchedDbEx && $matchedDbEx->lab_exhibit_no !== null && $matchedDbEx->lab_exhibit_no !== '')
+                        ? $matchedDbEx->lab_exhibit_no
+                        : ($sz['lab_exhibit_no'] ?? '');
 
                     $allDrugExhibitsList[] = [
                         'id' => $dbExId,
                         'index' => $idx + 1,
+                        'exhibit_number' => $resolvedSystemExNo,
+                        'lab_exhibit_no' => $resolvedLabExNo,
                         'name' => $sName ?: 'Drug Exhibit',
                         'cat' => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
                         'qty' => $sz['seizure_quantity'] ?? null,
                         'weight' => $sz['seizure_weight'] ?? null,
                         'unit' => $sz['seizure_unit'] ?? null,
+                        'contents' => $sz['contents'] ?? ($matchedDbEx ? $matchedDbEx->contents : null),
                         'owner' => $exOwner,
                         'is_associate' => $szIsAssoc,
                         'has_saved_lab' => !empty($sz['has_saved_lab']),
@@ -1491,6 +1410,12 @@ class CaseLabExamResolver
                             $sz['findings'] ?? ($case->laboratory_analytical_findings ?? ''),
                         'purpose_of_examination' =>
                             $sz['purpose_of_examination'] ?? null,
+                        'preliminary_exam_procedure' =>
+                            $sz['preliminary_exam_procedure'] ?? null,
+                        'screening_method' =>
+                            $sz['screening_method'] ?? null,
+                        'disposition_of_exhibit' =>
+                            $sz['disposition_of_exhibit'] ?? null,
                     ];
                 }
             }
@@ -1502,12 +1427,15 @@ class CaseLabExamResolver
             $allDrugExhibitsList[] = [
                 'id' => $firstDbEx ? $firstDbEx->id : 1,
                 'index' => 1,
+                'exhibit_number' => ($firstDbEx && !empty($firstDbEx->exhibit_number)) ? $firstDbEx->exhibit_number : 'EXH-00001',
+                'lab_exhibit_no' => ($firstDbEx && $firstDbEx->lab_exhibit_no !== null) ? $firstDbEx->lab_exhibit_no : '',
                 'name' =>
                     $case->seizure_name_drug ?: ($case->seizure_name ?: ($case->exhibits_summary ?: 'Drug Exhibit')),
                 'cat' => $case->exhibit_category ?: 'Drugs',
                 'qty' => $case->seizure_quantity,
                 'weight' => $case->seizure_weight,
                 'unit' => $case->seizure_unit,
+                'contents' => $firstDbEx ? $firstDbEx->contents : ($case->contents ?? null),
                 'owner' => $case->suspect_name ?? 'Primary Suspect',
                 'is_associate' => false,
                 'has_saved_lab' => $activeSuspectHasSavedResult,
@@ -1525,6 +1453,9 @@ class CaseLabExamResolver
                     $savedLabSampleReserved ?: ($case->sample_weight_reserved ?: null),
                 'findings' => $savedLabFindings ?: ($case->laboratory_analytical_findings ?: null),
                 'purpose_of_examination' => ($savedLabPurposeOfExamination !== 'N/A' ? $savedLabPurposeOfExamination : null),
+                'preliminary_exam_procedure' => ($savedLabPreliminaryExamProcedure !== 'N/A' ? $savedLabPreliminaryExamProcedure : null),
+                'screening_method' => ($savedLabScreeningMethod !== 'N/A' ? $savedLabScreeningMethod : null),
+                'disposition_of_exhibit' => ($savedLabDispositionOfExhibit !== 'N/A' ? $savedLabDispositionOfExhibit : null),
             ];
         }
 
@@ -1547,21 +1478,36 @@ class CaseLabExamResolver
                 $szIsAssoc = !empty($activeSuspectItem['is_associate']);
                 $exOwner = !empty($szOwner) ? $szOwner : $activeSuspectName;
 
-                $matchedDbExSuspect = $dbExhibitsList->first(function ($dbEx) use ($sIdx, $sName) {
+                $matchedDbExSuspect = $dbExhibitsList->first(function ($dbEx) use ($sIdx, $sName, $sz) {
+                    if (!empty($sz['id']) && $dbEx->id == $sz['id']) {
+                        return true;
+                    }
+                    if (!empty($sz['exhibit_number']) && $dbEx->exhibit_number === $sz['exhibit_number']) {
+                        return true;
+                    }
                     return ($dbEx->exhibit_number == ($sIdx + 1)) || ($dbEx->commodity_name === $sName);
                 }) ?? ($dbExhibitsList[$sIdx] ?? null);
                 $dbExIdSuspect = $matchedDbExSuspect ? $matchedDbExSuspect->id : ($sz['id'] ?? ($sz['exhibit_id'] ?? null));
                 $dbLabRemarkSuspect = ($matchedDbExSuspect && !empty(trim((string) $matchedDbExSuspect->lab_remark))) ? trim((string) $matchedDbExSuspect->lab_remark) : null;
+                $resolvedSystemExNoSuspect = ($matchedDbExSuspect && !empty($matchedDbExSuspect->exhibit_number))
+                    ? $matchedDbExSuspect->exhibit_number
+                    : (!empty($sz['exhibit_number']) ? $sz['exhibit_number'] : sprintf('EXH-%05d', count($suspectDrugExhibitsList) + 1));
+                $resolvedLabExNoSuspect = ($matchedDbExSuspect && $matchedDbExSuspect->lab_exhibit_no !== null && $matchedDbExSuspect->lab_exhibit_no !== '')
+                    ? $matchedDbExSuspect->lab_exhibit_no
+                    : ($sz['lab_exhibit_no'] ?? '');
 
                 $suspectDrugExhibitsList[] = [
                     'id' => $dbExIdSuspect,
                     'index' => count($suspectDrugExhibitsList) + 1,
+                    'exhibit_number' => $resolvedSystemExNoSuspect,
+                    'lab_exhibit_no' => $resolvedLabExNoSuspect,
                     'name' => $sName ?: 'Drug Exhibit',
                     'cat' => $sz['category'] ?? ($sz['exhibit_category'] ?? 'Drugs'),
                     'qty' => $sz['seizure_quantity'] ?? ($sz['quantity'] ?? null),
                     'weight' => $sz['seizure_weight'] ?? ($sz['weight'] ?? null),
                     'unit' => $sz['seizure_unit'] ?? ($sz['unit'] ?? null),
                     'pkg' => $sz['seizure_packaging'] ?? ($sz['packaging'] ?? null),
+                    'contents' => $sz['contents'] ?? ($matchedDbExSuspect ? $matchedDbExSuspect->contents : null),
                     'description' => $sz['seizure_description'] ?? ($sz['description'] ?? null),
                     'owner' => $exOwner,
                     'is_associate' => $szIsAssoc,
@@ -1585,6 +1531,12 @@ class CaseLabExamResolver
                         $sz['findings'] ?? ($case->laboratory_analytical_findings ?? ''),
                     'purpose_of_examination' =>
                         $sz['purpose_of_examination'] ?? null,
+                    'preliminary_exam_procedure' =>
+                        $sz['preliminary_exam_procedure'] ?? null,
+                    'screening_method' =>
+                        $sz['screening_method'] ?? null,
+                    'disposition_of_exhibit' =>
+                        $sz['disposition_of_exhibit'] ?? null,
                 ];
             }
         }
@@ -1603,6 +1555,15 @@ class CaseLabExamResolver
         $initialPurposeOfExamination = !empty($initialSelectedEx['purpose_of_examination'])
             ? $initialSelectedEx['purpose_of_examination']
             : ($savedLabPurposeOfExamination !== 'N/A' ? ($savedLabPurposeOfExamination ?? '') : '');
+        $initialPreliminaryExamProcedure = !empty($initialSelectedEx['preliminary_exam_procedure'])
+            ? $initialSelectedEx['preliminary_exam_procedure']
+            : ($savedLabPreliminaryExamProcedure !== 'N/A' ? ($savedLabPreliminaryExamProcedure ?? '') : '');
+        $initialScreeningMethod = !empty($initialSelectedEx['screening_method'])
+            ? $initialSelectedEx['screening_method']
+            : ($savedLabScreeningMethod !== 'N/A' ? ($savedLabScreeningMethod ?? '') : '');
+        $initialDispositionOfExhibit = !empty($initialSelectedEx['disposition_of_exhibit'])
+            ? $initialSelectedEx['disposition_of_exhibit']
+            : ($savedLabDispositionOfExhibit !== 'N/A' ? ($savedLabDispositionOfExhibit ?? '') : '');
 
         $activeSuspectHasDrugExhibit =
             !empty($activeSuspectDrugExhibits) || !empty($dbActiveLabExam);
@@ -1659,7 +1620,12 @@ class CaseLabExamResolver
             }
         }
 
-        $pRows = $this->parsePresumptiveRows($savedLabPresumptive, false);
+        $pRows = $this->parsePresumptiveRows(
+            $savedLabPresumptive,
+            false,
+            $savedLabPresumptivePresence ?? ($topLevelLabVars['savedLabPresumptivePresence'] ?? null),
+            $savedLabPresumptivePercentage ?? ($topLevelLabVars['savedLabPresumptivePercentage'] ?? null)
+        );
 
         $rawSavedConf = !empty($savedLabConfirmatory) && $savedLabConfirmatory !== 'N/A'
             ? strtoupper(trim((string) $savedLabConfirmatory))
@@ -1755,6 +1721,9 @@ class CaseLabExamResolver
             'savedLabRemark' => $savedLabRemark,
             'savedLabFindings' => $savedLabFindings,
             'savedLabPurposeOfExamination' => $savedLabPurposeOfExamination,
+            'savedLabPreliminaryExamProcedure' => $savedLabPreliminaryExamProcedure,
+            'savedLabScreeningMethod' => $savedLabScreeningMethod,
+            'savedLabDispositionOfExhibit' => $savedLabDispositionOfExhibit,
             'checkIsDrugExhibitReview' => $this->drugClassifier->getClosure(),
             'dbExhibitsList' => $dbExhibitsList,
             'allDrugExhibitsList' => $allDrugExhibitsList,
@@ -1765,6 +1734,9 @@ class CaseLabExamResolver
             'initialHasSaved' => $initialHasSaved,
             'initialLabDesc' => $initialLabDesc,
             'initialPurposeOfExamination' => $initialPurposeOfExamination,
+            'initialPreliminaryExamProcedure' => $initialPreliminaryExamProcedure,
+            'initialScreeningMethod' => $initialScreeningMethod,
+            'initialDispositionOfExhibit' => $initialDispositionOfExhibit,
             'pRaw' => trim($savedLabPresumptive ?? ''),
             'pRows' => $pRows,
             'rawSavedConf' => $rawSavedConf,
@@ -2462,7 +2434,12 @@ class CaseLabExamResolver
             ? (is_object($rawComp) ? $rawComp->format('Y-m-d') : substr((string) $rawComp, 0, 10))
             : ($caseUp ?: $timelineStarted);
 
-        $pRowsDos = $this->parsePresumptiveRows($sDossierLabExam['presumptive_result'] ?? '', true);
+        $pRowsDos = $this->parsePresumptiveRows(
+            $sDossierLabExam['presumptive_result'] ?? '',
+            true,
+            $sDossierLabExam['presumptive_presence'] ?? null,
+            $sDossierLabExam['presumptive_percentage'] ?? null
+        );
 
         $rawConf = $sDossierLabExam['confirmatory_result'] ?? ($sDossierLabExam['confirmatory'] ?? null);
         $confVal = !empty($rawConf) && $rawConf !== 'N/A' ? strtoupper(trim((string) $rawConf)) : null;

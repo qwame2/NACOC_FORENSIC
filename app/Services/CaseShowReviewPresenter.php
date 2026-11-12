@@ -9,6 +9,7 @@ use App\Models\ForensicCase;
 use App\Models\MultipleSuspectCase;
 use App\Models\SuspectGsaReport;
 use App\Models\SuspectNlrReport;
+use App\Models\SuspectPreliminaryReport;
 use App\Models\User;
 use App\Policies\ForensicCasePolicy;
 use Illuminate\Http\Request;
@@ -115,6 +116,9 @@ class CaseShowReviewPresenter
 
         if (!empty($reqFrom)) {
             $fromLower = strtolower((string) $reqFrom);
+            if (str_contains($fromLower, 'head') || str_contains($fromLower, 'forensic_head') || str_contains($fromLower, 'forensic head') || $fromLower === 'hof') {
+                return 'forensic_head.cases.review';
+            }
             if (str_contains($fromLower, 'digital') || str_contains($fromLower, 'physical')) {
                 return 'digital.cases.review';
             }
@@ -127,6 +131,11 @@ class CaseShowReviewPresenter
             if (str_contains($fromLower, 'crime') || str_contains($fromLower, 'field')) {
                 return 'crime_scene.cases.review';
             }
+        }
+
+        $userRoleLower = strtolower((string) ($authUser->role ?? ''));
+        if (str_contains($userRoleLower, 'directorate head') || str_contains($userRoleLower, 'forensic head') || $userRoleLower === 'head') {
+            return 'forensic_head.cases.review';
         }
 
         $userUnitLower = strtolower((string) ($authUser->unit ?? (session('user_unit') ?? '')));
@@ -404,11 +413,20 @@ class CaseShowReviewPresenter
         $allGsaForReview = SuspectGsaReport::forCase(
             $case->case_number ?? $case->id ?? null,
             $case->id ?? null,
+            $case->underlyingRecord?->id ?? null,
+        );
+        $allPreliminaryForReview = SuspectPreliminaryReport::forCase(
+            $case->case_number ?? $case->id ?? null,
+            $case->id ?? null,
+            $case->underlyingRecord?->id ?? null,
         );
         $allNlrForReview = SuspectNlrReport::forCase(
             $case->case_number ?? $case->id ?? null,
             $case->id ?? null,
+            $case->underlyingRecord?->id ?? null,
         );
+        $allNlrForReview = $allPreliminaryForReview->merge($allNlrForReview)->unique('id')->values();
+        $this->mergeDpfReportAttachments($case, $allGsaForReview);
         $hasGsaReports = $allGsaForReview->count() > 0;
 
         $savedLabFlags = $this->labExamResolver->resolveSuspectLabExamSaved(
@@ -434,6 +452,7 @@ class CaseShowReviewPresenter
             $defaultLabHeadName,
             null,
             $hasGsaReports,
+            $suspectExhibitFlags['suspectHasWeaponOrVehicle'] ?? false,
         );
 
         $initialNamesData = $this->ownershipResolver->resolveInitialSuspectNameLists($docketData);
@@ -464,6 +483,7 @@ class CaseShowReviewPresenter
             $topLevelLabData['labAnalyst'],
             $defaultLabHeadName,
             $hasGsaReports,
+            $suspectExhibitFlags['suspectHasWeaponOrVehicle'] ?? false,
         );
 
         $unitColors = [
@@ -482,10 +502,8 @@ class CaseShowReviewPresenter
             'Pending Approval',
             'Pending',
         ])->count();
-        $pendingUsersNotif = (int) User::where('is_approved', false)->count();
         $pendingHandoversNotif = (int) CaseHandover::whereNull('acknowledged_at')->count();
         $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0)
-            + ($pendingUsersNotif > 0 ? 1 : 0)
             + ($pendingHandoversNotif > 0 ? 1 : 0);
 
         // 6. Suspects List, Ownership & Case Exhibits (lines 2779-5568)
@@ -498,22 +516,55 @@ class CaseShowReviewPresenter
             $ownershipData['primarySuspectsCombinedNames'],
         );
 
+        // Auto-attach / sync system-generated Preliminary Exhibit Analysis Report exclusively for drug exhibits.
+        // Preliminary_Report applies exclusively to drug exhibits. Do not generate if suspect(s) are not associated with any drug exhibits.
+        $hasDrugExhibits = collect($caseExhibitsData['allCaseExhibits'] ?? [])->filter(function ($e) {
+            return $this->drugClassifier->isDrugExhibit($e);
+        })->isNotEmpty();
+
+        $caseHasDrugExhibits = $hasDrugExhibits
+            || !empty($drugCaseData['isDrugCase'])
+            || !empty($suspectExhibitFlags['suspectHasDrug'])
+            || !empty($activeSuspectHasDrugExhibit);
+
+        if ($caseHasDrugExhibits) {
+            try {
+                app(\App\Http\Controllers\CaseReportController::class)->storeOrSyncPreliminaryReport(
+                    $case,
+                    $topLevelLabData['dbPrimaryLabExam'] ?? null,
+                    $docketData
+                );
+            } catch (\Throwable $e) {
+                // Fail gracefully without interrupting show_review view rendering
+            }
+        }
+
         $allGsaForReview = SuspectGsaReport::forCase(
             $case->case_number ?? $case->id ?? null,
             $case->id ?? null,
+            $case->underlyingRecord?->id ?? null,
+        );
+        $allPreliminaryForReview = SuspectPreliminaryReport::forCase(
+            $case->case_number ?? $case->id ?? null,
+            $case->id ?? null,
+            $case->underlyingRecord?->id ?? null,
         );
         $allNlrForReview = SuspectNlrReport::forCase(
             $case->case_number ?? $case->id ?? null,
             $case->id ?? null,
+            $case->underlyingRecord?->id ?? null,
         );
+        $allNlrForReview = $allPreliminaryForReview->merge($allNlrForReview)->unique('id')->values();
+        $this->mergeDpfReportAttachments($case, $allGsaForReview);
 
         $suspectsList = $ownershipData['suspectsList'];
         $capturedJointExhibits = [];
         $savedJointLabExam = null;
         $savedJointLabHeadingName = null;
+        $renderedSuspectReportKeys = [];
 
         foreach ($suspectsList as $sIdx => $sItem) {
-            $suspectsList[$sIdx]['resolved_view'] = $this->resolveSingleSuspectDossierView(
+            $resolvedView = $this->resolveSingleSuspectDossierView(
                 $case,
                 $docketData,
                 $suspectsList,
@@ -541,6 +592,13 @@ class CaseShowReviewPresenter
                     'isLabContext' => (bool) $isLabContext,
                 ],
             );
+            foreach (($resolvedView['sGsaFiles'] ?? []) as $rf) {
+                $renderedSuspectReportKeys[get_class($rf) . '_' . ($rf->id ?? spl_object_id($rf))] = true;
+                if (!empty($rf->file_path)) {
+                    $renderedSuspectReportKeys['path:' . (string) $rf->file_path] = true;
+                }
+            }
+            $suspectsList[$sIdx]['resolved_view'] = $resolvedView;
         }
 
         $finalJointSummary = $this->exhibitResolver->resolveFinalJointExhibitsSummary(
@@ -563,26 +621,56 @@ class CaseShowReviewPresenter
             )
             : null;
 
-        $jointCaseReportFiles = $allGsaForReview->merge($allNlrForReview)->unique(function ($item) {
-            return get_class($item) . '_' . $item->id;
-        })->values();
+        $savedJointLabExamCards = [];
+        $shouldRenderJointLabCards = !empty($savedJointLabExam) || empty($suspectsList);
+        if ($shouldRenderJointLabCards) {
+            $allJointExams = is_object($case) && method_exists($case, 'resolveAllLabExamsForSuspect')
+                ? $case->resolveAllLabExamsForSuspect()
+                : (!empty($savedJointLabExam) ? [$savedJointLabExam] : []);
 
-        // 7. Section 5 Lab Analysis Data (only applied when $isLabAnalysis is true, preserving exact behavior)
-        $section5Data = [];
-        if ($isLabAnalysis) {
-            $section5Data = $this->labExamResolver->resolveSection5LabAnalysisData(
-                $case,
-                $docketData,
-                $activeSuspectData['activeSuspectItem'],
-                $activeSuspectData['activeSuspectName'],
-                $activeSuspectData['activeSuspectNameLower'],
-                $activeSuspectHasDrugExhibit,
-                $drugCaseData['isDrugCase'],
-                $ownershipData['primaryAndCoNamesList'],
-                $ownershipData['primarySuspectsCombinedNames'],
-                $topLevelLabData,
-            );
+            if (!empty($allJointExams)) {
+                foreach ($allJointExams as $jExam) {
+                    $savedJointLabExamCards[] = $this->labExamResolver->formatLabExamForCard(
+                        $jExam,
+                        $case,
+                        $savedJointLabHeadingName ?? $finalJointSummary['jointDossierHeadingName'],
+                    );
+                }
+            }
+            if (empty($savedJointLabExamCards) && !empty($savedJointLabExamCard)) {
+                $savedJointLabExamCards[] = $savedJointLabExamCard;
+            }
         }
+
+        $jointCaseReportFiles = $allGsaForReview;
+        if (!empty($caseHasDrugExhibits)) {
+            $jointCaseReportFiles = $jointCaseReportFiles->merge($allNlrForReview);
+        }
+        $jointCaseReportFiles = $jointCaseReportFiles
+            ->unique(function ($item) {
+                return !empty($item->file_path) ? $item->file_path : (get_class($item) . '_' . $item->id);
+            })
+            ->reject(function ($item) use ($renderedSuspectReportKeys) {
+                $idKey = get_class($item) . '_' . ($item->id ?? spl_object_id($item));
+                $pathKey = !empty($item->file_path) ? ('path:' . (string) $item->file_path) : null;
+                return isset($renderedSuspectReportKeys[$idKey])
+                    || ($pathKey !== null && isset($renderedSuspectReportKeys[$pathKey]));
+            })
+            ->values();
+
+        // 7. Section 5 Lab Analysis Data (resolved for all units so lab examination variables are available everywhere)
+        $section5Data = $this->labExamResolver->resolveSection5LabAnalysisData(
+            $case,
+            $docketData,
+            $activeSuspectData['activeSuspectItem'],
+            $activeSuspectData['activeSuspectName'],
+            $activeSuspectData['activeSuspectNameLower'],
+            $activeSuspectHasDrugExhibit,
+            $drugCaseData['isDrugCase'],
+            $ownershipData['primaryAndCoNamesList'],
+            $ownershipData['primarySuspectsCombinedNames'],
+            $topLevelLabData,
+        );
 
         // 8. Associate Suspect Lab Dossiers (lines 9138-10092)
         $effectiveLabContext = array_merge($topLevelLabData, $section5Data);
@@ -649,12 +737,12 @@ class CaseShowReviewPresenter
                 'unitColors' => $unitColors,
                 'unitBadgeColor' => $unitBadgeColor,
                 'pendingCasesNotif' => $pendingCasesNotif,
-                'pendingUsersNotif' => $pendingUsersNotif,
                 'pendingHandoversNotif' => $pendingHandoversNotif,
                 'totalAlertsCount' => $totalAlertsCount,
                 'capturedJointExhibits' => $capturedJointExhibits,
                 'savedJointLabExam' => $savedJointLabExam,
                 'savedJointLabExamCard' => $savedJointLabExamCard,
+                'savedJointLabExamCards' => $savedJointLabExamCards,
                 'savedJointLabHeadingName' => $savedJointLabHeadingName,
                 'allGsaForReview' => $allGsaForReview,
                 'allNlrForReview' => $allNlrForReview,
@@ -715,6 +803,9 @@ class CaseShowReviewPresenter
         } else {
             $sName = $rawSName;
         }
+        $isUnassignedSuspect = ForensicCase::isUnassignedSuspectName($sName)
+            || !empty($case->no_suspect)
+            || !empty($docketData['no_suspect']);
         $sDocketSuspect = [];
         if (!empty($docketData['suspects']) && is_array($docketData['suspects'])) {
             if (isset($docketData['suspects'][$sIdx]) && is_array($docketData['suspects'][$sIdx])) {
@@ -738,19 +829,31 @@ class CaseShowReviewPresenter
         }
 
         $sAlias =
-            $sItem['suspect_alias'] ??
+            $sItem['suspect_alias'] ?:
             ($sDocketSuspect['suspect_alias'] ??
                 ($sDocketSuspect['alias'] ??
-                    ($sNum == 1 ? $case->suspect_alias ?? ($docketData['alias'] ?? 'N/A') : 'N/A')));
+                    ($sNum == 1 ? ($case->suspect_alias ?: ($docketData['alias'] ?? 'N/A')) : 'N/A')));
+        if (empty($sAlias)) {
+            $sAlias = 'N/A';
+        }
         $sCard =
-            $sItem['ghana_card'] ??
+            $sItem['ghana_card'] ?:
             ($sDocketSuspect['ghana_card'] ??
                 ($sDocketSuspect['id_card'] ??
-                    ($sNum == 1 ? $case->ghana_card ?? ($docketData['id_card'] ?? 'N/A') : 'N/A')));
-        $sGender =
-            $sItem['gender'] ??
-            ($sDocketSuspect['gender'] ??
-                ($sNum == 1 ? $case->gender ?? ($docketData['gender'] ?? 'N/A') : 'N/A'));
+                    ($sNum == 1 ? ($case->ghana_card ?: ($docketData['id_card'] ?? 'N/A')) : 'N/A')));
+        if (empty($sCard)) {
+            $sCard = 'N/A';
+        }
+        $sGender = $isUnassignedSuspect
+            ? ((!empty($sDocketSuspect['gender']) && $sDocketSuspect['gender'] !== 'Male')
+                ? $sDocketSuspect['gender']
+                : ((!empty($docketData['gender']) && $docketData['gender'] !== 'Male') ? $docketData['gender'] : 'N/A'))
+            : ($sItem['gender'] ??
+                ($sDocketSuspect['gender'] ??
+                    ($sNum == 1 ? ($case->gender ?? ($docketData['gender'] ?? 'N/A')) : 'N/A')));
+        if (empty($sGender)) {
+            $sGender = 'N/A';
+        }
         $sAge = $sItem['age'] ?? ($sDocketSuspect['age'] ?? ($sNum == 1 ? $case->age ?? ($docketData['age'] ?? null) : null));
         $sDOB = $sItem['dob'] ?? ($sDocketSuspect['dob'] ?? ($sNum == 1 ? $case->dob ?? ($docketData['dob'] ?? null) : null));
         $sHeight =
@@ -759,12 +862,18 @@ class CaseShowReviewPresenter
             $sItem['eye_color'] ??
             ($sDocketSuspect['eye_color'] ??
                 ($sNum == 1 ? $case->eye_color ?? ($docketData['eye_color'] ?? null) : null));
-        $sNat =
-            $sItem['nationality'] ??
-            ($sDocketSuspect['nationality'] ??
-                ($sNum == 1
-                    ? $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')
-                    : 'Ghanaian'));
+        $sNat = $isUnassignedSuspect
+            ? ((!empty($sDocketSuspect['nationality']) && $sDocketSuspect['nationality'] !== 'Ghanaian')
+                ? $sDocketSuspect['nationality']
+                : ((!empty($docketData['nationality']) && $docketData['nationality'] !== 'Ghanaian') ? $docketData['nationality'] : 'N/A'))
+            : ($sItem['nationality'] ??
+                ($sDocketSuspect['nationality'] ??
+                    ($sNum == 1
+                        ? $case->nationality ?? ($docketData['nationality'] ?? 'Ghanaian')
+                        : 'Ghanaian')));
+        if (empty($sNat)) {
+            $sNat = 'N/A';
+        }
         $sPOB =
             $sItem['place_of_birth'] ??
             ($sItem['hometown'] ??
@@ -855,32 +964,50 @@ class CaseShowReviewPresenter
             $sItem['dependents'] ??
             ($sDocketSuspect['dependents'] ??
                 ($sNum == 1
-                    ? $case->dependents ?? ($docketData['dependents'] ?? 'No Children')
-                    : 'No Children'));
-        $sRaid =
+                    ? $case->dependents ?? ($docketData['dependents'] ?? ($isUnassignedSuspect ? 'N/A' : 'No Children'))
+                    : ($isUnassignedSuspect ? 'N/A' : 'No Children')));
+        if (empty($sDependents)) {
+            $sDependents = $isUnassignedSuspect ? 'N/A' : 'No Children';
+        }
+        $rawRaidCandidate =
             $sItem['raid_location'] ??
             ($sItem['location'] ??
                 ($sDocketSuspect['raid_location'] ??
                     ($sDocketSuspect['location'] ??
-                        ($case->raid_location ?: ($case->location ?: $docketData['raid_location'] ?? 'N/A')))));
-        $sArrestDate =
-            $sItem['date_of_arrest'] ??
-            ($sItem['arrest_date'] ??
-                ($sDocketSuspect['date_of_arrest'] ??
-                    ($sDocketSuspect['arrest_date'] ??
-                        ($case->arrest_date ??
-                            ($docketData['arrest_date'] ??
-                                ($docketData['date_of_arrest'] ??
-                                    ($case->incident_date
-                                        ? substr((string) $case->incident_date, 0, 10)
-                                        : null)))))));
-        $sArrestTime =
-            $sItem['time_of_arrest'] ??
-            ($sItem['arrest_time'] ??
-                ($sDocketSuspect['time_of_arrest'] ??
-                    ($sDocketSuspect['arrest_time'] ??
-                        ($case->arrest_time ??
-                            ($docketData['arrest_time'] ?? ($docketData['time_of_arrest'] ?? null))))));
+                        ($case->raid_location ?: ($case->location ?: ($docketData['raid_location'] ?? null))))));
+        $sRaid = ForensicCase::resolveRaidLocationForDisplay(
+            is_string($rawRaidCandidate) || is_numeric($rawRaidCandidate) ? (string) $rawRaidCandidate : null,
+            $isUnassignedSuspect,
+            ForensicCase::extractSeizureLocations($case, $docketData, $sItem)
+        );
+        $pickArrestValue = static function (array $candidates): ?string {
+            foreach ($candidates as $candidate) {
+                $val = trim((string) ($candidate ?? ''));
+                if ($val !== '' && !in_array(strtoupper($val), ['N/A', 'NA', '-', 'NULL', 'UNSPECIFIED'], true)) {
+                    return $val;
+                }
+            }
+            return null;
+        };
+
+        $sArrestDate = $pickArrestValue([
+            $sItem['date_of_arrest'] ?? null,
+            $sItem['arrest_date'] ?? null,
+            $sDocketSuspect['date_of_arrest'] ?? null,
+            $sDocketSuspect['arrest_date'] ?? null,
+            $case->arrest_date ?? null,
+            $docketData['arrest_date'] ?? null,
+            $docketData['date_of_arrest'] ?? null,
+        ]);
+        $sArrestTime = $pickArrestValue([
+            $sItem['time_of_arrest'] ?? null,
+            $sItem['arrest_time'] ?? null,
+            $sDocketSuspect['time_of_arrest'] ?? null,
+            $sDocketSuspect['arrest_time'] ?? null,
+            $case->arrest_time ?? null,
+            $docketData['arrest_time'] ?? null,
+            $docketData['time_of_arrest'] ?? null,
+        ]);
         $sFacility =
             $sItem['holding_facility'] ??
             ($sItem['facility'] ??
@@ -892,7 +1019,7 @@ class CaseShowReviewPresenter
                 ? $case->holding_facility
                 : (!empty($docketData['holding_facility'])
                     ? $docketData['holding_facility']
-                    : 'NACOC Custody & Holding Facility');
+                    : ($isUnassignedSuspect ? 'N/A' : 'NACOC Custody & Holding Facility'));
         }
         $sOffense =
             $sItem['offense'] ??
@@ -901,7 +1028,12 @@ class CaseShowReviewPresenter
                     ($sDocketSuspect['offense_description'] ??
                         ($case->offense_description ?:
                             ($case->description ?:
-                            $docketData['offense_description'] ?? 'N/A')))));
+                            ($docketData['offense_description'] ?? 'N/A'))))));
+        if (empty($sOffense) || trim((string) $sOffense) === 'Directorate Authorized Forensic Case File') {
+            $sOffense = is_object($case) && method_exists($case, 'generateBriefCaseDescription')
+                ? $case->generateBriefCaseDescription()
+                : 'N/A';
+        }
 
         $rawFront =
             $sItem['mugshot_front'] ??
@@ -1082,7 +1214,10 @@ class CaseShowReviewPresenter
         $sDossierLabExam = is_object($case) && method_exists($case, 'resolveLabExamForSuspect')
             ? $case->resolveLabExamForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel, $sIdx)
             : [];
-        $sDossierHasSavedLab = !empty($sDossierLabExam['has_saved']);
+        $sDossierLabExams = is_object($case) && method_exists($case, 'resolveAllLabExamsForSuspect')
+            ? $case->resolveAllLabExamsForSuspect($sName, $sItem['id'] ?? null, $sId, $sRoleLabel, $sIdx)
+            : (!empty($sDossierLabExam) ? [$sDossierLabExam] : []);
+        $sDossierHasSavedLab = !empty($sDossierLabExam['has_saved']) || (!empty($sDossierLabExams) && count($sDossierLabExams) > 0);
 
         $currSuspectHasDrug = false;
         if (!empty($currSuspectExhibits)) {
@@ -1094,9 +1229,15 @@ class CaseShowReviewPresenter
             }
         }
 
+        if (!$currSuspectHasDrug) {
+            $sDossierHasSavedLab = false;
+            $sDossierLabExam = null;
+            $sDossierLabExams = [];
+        }
+
         $sDossierIsJointLab = false;
         $labExamHeadingName = $sName;
-        if ($currSuspectHasDrug && $sDossierHasSavedLab) {
+        if ($sDossierHasSavedLab) {
             if (!empty($sDossierLabExam)) {
                 $examOwner = strtolower(trim($sDossierLabExam['exhibit_owner_name'] ?? ''));
                 if (
@@ -1127,14 +1268,22 @@ class CaseShowReviewPresenter
             $allGsaForReview,
             $sItem['id'] ?? null,
             $sName,
-        )->merge(
-            SuspectNlrReport::filterForSuspect(
-                $allNlrForReview,
-                $sItem['id'] ?? null,
-                $sName,
-            ),
-        )->unique(function ($item) {
-            return get_class($item) . '_' . $item->id;
+        );
+
+        // Preliminary_Report applies exclusively to drug exhibits.
+        // Only attach if this suspect is associated with drug exhibits.
+        if ($currSuspectHasDrug) {
+            $sGsaFiles = $sGsaFiles->merge(
+                SuspectPreliminaryReport::filterForSuspect(
+                    $allNlrForReview,
+                    $sItem['id'] ?? null,
+                    $sName,
+                ),
+            );
+        }
+
+        $sGsaFiles = $sGsaFiles->unique(function ($item) {
+            return !empty($item->file_path) ? $item->file_path : (get_class($item) . '_' . $item->id);
         })->values();
 
         $sDrugScreening = $sHeaderDrugScreening;
@@ -1170,7 +1319,19 @@ class CaseShowReviewPresenter
             ? $this->labExamResolver->formatLabExamForCard($sDossierLabExam, $case, $labExamHeadingName)
             : [];
 
+        $sDossierLabExamCards = [];
+        if (!empty($sDossierLabExams)) {
+            foreach ($sDossierLabExams as $exm) {
+                $sDossierLabExamCards[] = $this->labExamResolver->formatLabExamForCard($exm, $case, $labExamHeadingName);
+            }
+        }
+        if (empty($sDossierLabExamCards) && !empty($sDossierLabExamCard)) {
+            $sDossierLabExamCards[] = $sDossierLabExamCard;
+        }
+
         return array_merge($caseContext, [
+            'sDossierLabExams' => $sDossierLabExams,
+            'sDossierLabExamCards' => $sDossierLabExamCards,
             'sNum' => $sNum,
             'rawSName' => $rawSName,
             'sName' => $sName,
@@ -1232,6 +1393,56 @@ class CaseShowReviewPresenter
             'sGsaFiles' => $sGsaFiles,
             'sDrugScreening' => $sDrugScreening,
         ]);
+    }
+
+    /**
+     * Merge Extraction & Investigation Status Log Report attachments if Report & Witness Statement Sent is YES
+     */
+    protected function mergeDpfReportAttachments(mixed $case, mixed &$allGsaForReview): void
+    {
+        try {
+            $caseNo = $case->case_number ?? null;
+            $caseId = $case->id ?? null;
+            $dpf = \App\Models\DpfReport::forCase($caseId, $caseNo);
+            if ($dpf) {
+                $rwSent = strtoupper(trim((string)$dpf->report_witness_statement_sent));
+                $rwStatus = strtoupper(trim((string)($dpf->report_data['report_witness_statement_status'] ?? '')));
+                $isRwYes = str_starts_with($rwSent, 'YES') || $rwStatus === 'YES';
+                if ($isRwYes) {
+                    $hasDpfInGsa = $allGsaForReview->contains(function ($item) {
+                        return str_contains($item->file_path ?? '', 'dpf-report-pdf')
+                            || str_contains($item->original_filename ?? '', 'Extraction & Investigation Status Log Report')
+                            || str_contains($item->original_filename ?? '', 'Status Log Report');
+                    });
+                    if (!$hasDpfInGsa) {
+                        $dpfCode = $dpf->dpf_code ?: ($caseNo ?: 'DPF');
+                        $syntheticGsa = new \App\Models\SuspectGsaReport([
+                            'id'                       => 999000 + (int)$dpf->id,
+                            'case_suspect_id'          => $dpf->suspect_id,
+                            'single_suspect_case_id'   => $dpf->single_suspect_case_id ?: (($case instanceof \App\Models\SingleSuspectCase || ($case->underlyingRecord ?? null) instanceof \App\Models\SingleSuspectCase) ? ($case->id ?? null) : null),
+                            'multiple_suspect_case_id' => $dpf->multiple_suspect_case_id ?: (($case instanceof \App\Models\MultipleSuspectCase || ($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase) ? ($case->id ?? null) : null),
+                            'original_filename'        => 'Extraction & Investigation Status Log Report (' . $dpfCode . ').pdf',
+                            'stored_filename'          => 'dpf_report_' . $dpf->id . '.pdf',
+                            'file_path'                => '/Digital_Forensics/dpf-report-pdf/' . $dpfCode,
+                            'file_type'                => 'application/pdf',
+                            'file_extension'           => 'pdf',
+                            'file_size'                => 0,
+                            'exhibit_type'             => 'Digital Forensics',
+                            'case_number'              => $dpf->case_number ?: $caseNo,
+                            'notes'                    => 'Attached Extraction & Investigation Status Log Report (' . $dpfCode . ')',
+                            'status'                   => 'active',
+                        ]);
+                        $syntheticGsa->created_at = $dpf->created_at ?? now();
+                        if ($dpf->suspect_id && $dpf->suspect) {
+                            $syntheticGsa->setRelation('suspect', $dpf->suspect);
+                        }
+                        $allGsaForReview->push($syntheticGsa);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fail safely without interrupting presenter
+        }
     }
 
     /**

@@ -74,7 +74,8 @@ class SuspectGsaReport extends Model
         $bytes = $this->file_size ?? 0;
         if ($bytes >= 1048576) return number_format($bytes / 1048576, 2) . ' MB';
         if ($bytes >= 1024)    return number_format($bytes / 1024, 1)    . ' KB';
-        return $bytes . ' B';
+        if ($bytes > 0)        return $bytes . ' B';
+        return 'System Generated';
     }
 
     /** Public URL to the stored file */
@@ -86,7 +87,7 @@ class SuspectGsaReport extends Model
         if (str_starts_with($this->file_path, 'http://') || str_starts_with($this->file_path, 'https://')) {
             return $this->file_path;
         }
-        if (str_starts_with($this->file_path, '/') || str_starts_with($this->file_path, 'Lab_Analysis/')) {
+        if (str_starts_with($this->file_path, '/') || str_starts_with($this->file_path, 'Lab_Analysis/') || str_starts_with($this->file_path, 'Digital_Forensics/') || str_starts_with($this->file_path, 'digital-forensics/') || str_starts_with($this->file_path, 'dpf-report-pdf/')) {
             return url($this->file_path);
         }
         return asset('storage/' . $this->file_path);
@@ -111,6 +112,26 @@ class SuspectGsaReport extends Model
 
     // ── Lookup helpers (used by docket & analytical report views) ─────────
 
+    /**
+     * Determine whether a record represents a DPF Witness Statement & Digital Evidence file
+     * rather than a case laboratory/forensic Attached Report File.
+     */
+    public static function isWitnessStatementAttachment(mixed $record): bool
+    {
+        if (!$record) {
+            return false;
+        }
+        $orig = strtolower(trim((string) (is_object($record) ? ($record->original_filename ?? '') : ($record['original_filename'] ?? ''))));
+        $path = strtolower(trim((string) (is_object($record) ? ($record->file_path ?? '') : ($record['file_path'] ?? ''))));
+        $type = strtolower(trim((string) (is_object($record) ? ($record->exhibit_type ?? '') : ($record['exhibit_type'] ?? ''))));
+        $notes = strtolower(trim((string) (is_object($record) ? ($record->notes ?? '') : ($record['notes'] ?? ''))));
+
+        return str_contains($orig, 'witness statement & digital evidence')
+            || $type === 'witness statement & evidence'
+            || str_contains($notes, 'witness statement & digital evidence')
+            || str_contains($path, '_report_witness_');
+    }
+
     public static function forCase($caseNumber = null, $caseId = null)
     {
         if (empty($caseNumber) && empty($caseId)) {
@@ -132,7 +153,9 @@ class SuspectGsaReport extends Model
             })
             ->active()
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->reject(fn ($item) => static::isWitnessStatementAttachment($item))
+            ->values();
     }
 
     /** Filter a collection of GSA files down to one suspect, by DB id first, then by name. */
@@ -141,7 +164,9 @@ class SuspectGsaReport extends Model
         $norm = fn($v) => strtolower(preg_replace('/\s+/', ' ', trim((string) $v)));
         $wantedName = $norm($suspectName);
 
-        return collect($files)->filter(function ($f) use ($suspectId, $wantedName, $norm) {
+        return collect($files)
+            ->reject(fn ($f) => static::isWitnessStatementAttachment($f))
+            ->filter(function ($f) use ($suspectId, $wantedName, $norm) {
             if (!empty($suspectId) && !empty($f->case_suspect_id)) {
                 if ((int) $f->case_suspect_id === (int) $suspectId) {
                     return true;

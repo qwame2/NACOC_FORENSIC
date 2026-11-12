@@ -70,26 +70,25 @@
                 @include('partials.flash')
 
                 <!-- HERO BANNER -->
-                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
-                    <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-md shadow-slate-200/60 relative overflow-hidden">
                     <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div class="flex items-center gap-2 mb-2">
-                                <span class="px-2.5 py-0.5 bg-emerald-500 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">LAB ANALYSIS RESULT</span>
-                                <span class="text-xs text-slate-500 font-bold">/</span>
-                                <span class="text-xs font-bold text-emerald-400 font-mono-code">DRUG &amp; NARCOTICS SUSPECT REGISTER</span>
+                                <span class="px-2.5 py-0.5 bg-teal-500 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">LAB ANALYSIS RESULT</span>
+                                <span class="text-xs text-slate-400">&bull;</span>
+                                <span class="text-xs font-bold text-teal-600 font-mono-code">DRUG &amp; NARCOTICS SUSPECT REGISTER</span>
                             </div>
-                            <h1 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                            <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
                                 <span>Drug-Linked Suspect Analysis Directory</span>
                             </h1>
-                            <p class="text-xs text-slate-300 mt-1 max-w-2xl">
+                            <p class="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
                                 Official Forensic Laboratory register displaying suspect mugshots and chemical analysis dockets. Suspects linked to the same drug exhibit are grouped together in a unified docket card.
                             </p>
                         </div>
                         <div class="flex items-center gap-4 shrink-0 flex-wrap">
                             <div class="text-right">
                                 <div class="text-[10px] font-mono-code uppercase text-slate-400">Head Chemist Signature</div>
-                                <div class="text-xs font-bold text-emerald-400 font-mono-code">{{ $headName }}</div>
+                                <div class="text-xs font-bold text-teal-600 font-mono-code">{{ $headName }}</div>
                             </div>
                         </div>
                     </div>
@@ -248,11 +247,12 @@
                     @forelse($drugRecords as $idx => $r)
                     @php
                         $drugNameLower = strtolower($r['drug_name']);
-                        $categoryGroup = 'Other';
-                        if (str_contains($drugNameLower, 'heroin')) $categoryGroup = 'Heroin';
-                        elseif (str_contains($drugNameLower, 'cocaine')) $categoryGroup = 'Cocaine';
-                        elseif (str_contains($drugNameLower, 'cannabis') || str_contains($drugNameLower, 'weed') || str_contains($drugNameLower, 'hemp')) $categoryGroup = 'Cannabis';
-                        elseif (str_contains($drugNameLower, 'morphine') || str_contains($drugNameLower, 'opium')) $categoryGroup = 'Morphine';
+                        $categoryGroup = \App\Services\DrugExhibitClassifier::extractKnownSubstance($drugNameLower) ?? 'Other';
+                        if (in_array(strtolower($categoryGroup), ['weed', 'hemp', 'hashish', 'marijuana'], true)) {
+                            $categoryGroup = 'Cannabis';
+                        } elseif (strtolower($categoryGroup) === 'opium') {
+                            $categoryGroup = 'Morphine';
+                        }
 
                         $suspects = $r['suspects'];
                         $suspectCount = count($suspects);
@@ -441,7 +441,7 @@
             <!-- MODAL HEADER -->
             <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
                 <div class="flex items-center space-x-3">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold shadow-xs">
+                    <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-emerald-600 font-bold border border-slate-200/90 shadow-md shadow-slate-200/60">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     </div>
                     <div>

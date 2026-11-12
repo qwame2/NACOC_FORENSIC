@@ -11,9 +11,9 @@
     // Page 2 header: running (10mm) + title block (16mm) + intro paragraph (9mm) + gap (4mm) = 39mm.
     // Continuation header: running (10mm) + gap (4mm) = 14mm.
     // Page footer: 8mm.
-    // Margin/spacing buffer: 15mm.
-    $firstPageBudget        = 215.0; // mm available for content on Page 2
-    $continuationPageBudget = 240.0; // mm available for content on Page 3+
+    // Target margin above footer: 15mm.
+    $firstPageBudget        = 215.0; // mm available for content on Page 2 (fills page nicely, avoids premature breaks)
+    $continuationPageBudget = 218.0; // mm available for content on Page 3+ (balanced fullness, prevents footer overlap)
 
     // Section overheads and component weights (in millimeters)
     $sec01HeaderH       = 22.0;  // Section 01 badge + title + counter + thead
@@ -24,9 +24,9 @@
     $sec03ContinuationH = 18.0;  // Continuation title + thead
     $sec03EmptyRowH     = 11.0;  // Empty GSA message row
     $sectionGapH        = 5.0;   // Vertical space between consecutive sections
-    $signaturesH        = 42.0;  // Dual official signature block
+    $signaturesH        = 44.0;  // Dual official signature block
 
-    // Dynamic row height estimators based on text volume
+    // Dynamic row height estimators calibrated to real rendered table cell heights
     $calcSeizureRowH = function($item) {
         $remarks = (!empty($item['exhibit_remark']) && $item['exhibit_remark'] !== 'Unspecified') ? trim((string)$item['exhibit_remark']) : null;
         if (empty($remarks) && !empty($item['exhibit_id'])) {
@@ -41,36 +41,45 @@
         }
 
         $remLen = mb_strlen($remarks);
-        $remLines = max(1, (int)ceil($remLen / 28));
+        $remLines = max(1, (int)ceil($remLen / 25));
 
         $suspLen = mb_strlen($suspectNames);
-        $suspLines = max(1, (int)ceil($suspLen / 18));
+        $suspLines = max(1, (int)ceil($suspLen / 16));
 
         $exLen = mb_strlen((string)($item['exhibit_type'] ?? ''));
-        $exLines = max(1, (int)ceil($exLen / 18));
+        $exLines = max(1, (int)ceil($exLen / 16));
 
-        $maxLines = max($remLines, $suspLines, $exLines, 1);
-        return 6.0 + ($maxLines * 3.8);
+        $sourceLen = mb_strlen((string)($item['source_of_exhibits'] ?? ($item['source'] ?? '')));
+        $sourceLines = max(1, (int)ceil($sourceLen / 16));
+
+        $dateLines = mb_strlen((string)($item['date_display'] ?? '')) > 11 ? 2 : 1;
+
+        $maxLines = max($remLines, $suspLines, $exLines, $sourceLines, $dateLines, 1);
+        return 5.5 + ($maxLines * 3.5);
     };
 
     $calcScreeningRowH = function($item) {
         $sub = (string)($item['substances_found'] ?? '');
         $name = (string)($item['suspect_name'] ?? '');
         $purpose = (string)($item['purpose'] ?? '');
-        $h = 12.0;
-        if (mb_strlen($sub) > 30 || mb_strlen($name) > 30 || mb_strlen($purpose) > 25) {
-            $h += 4.0;
-        }
-        return $h;
+        $lines = max(
+            (int)ceil(mb_strlen($sub) / 25),
+            (int)ceil(mb_strlen($name) / 20),
+            (int)ceil(mb_strlen($purpose) / 20),
+            1
+        );
+        return 6.0 + ($lines * 3.5);
     };
 
     $calcGsaRowH = function($item) {
         $exType = (string)($item['exhibit_type'] ?? '');
         $caseRef = (string)($item['gsa_case_reference'] ?? ($item['case_reference'] ?? ''));
-        if (mb_strlen($exType) > 35 || mb_strlen($caseRef) > 25) {
-            return 14.0;
-        }
-        return 10.5;
+        $lines = max(
+            (int)ceil(mb_strlen($exType) / 25),
+            (int)ceil(mb_strlen($caseRef) / 20),
+            1
+        );
+        return 6.0 + ($lines * 3.5);
     };
 
     $remainingSeizures    = $seizuresList->values();
@@ -428,6 +437,7 @@
             flex-direction: column;
             justify-content: flex-start;
             width: 100%;
+            margin-bottom: 3mm;
         }
 
         .section-signatures {
@@ -443,6 +453,10 @@
             flex-shrink: 0;
             margin-top: auto;
             width: 100%;
+            position: relative;
+            z-index: 20;
+            background-color: #ffffff;
+            padding-top: 2.5mm;
         }
 
         .section-signatures + .page-footer-block {
@@ -603,6 +617,7 @@
                 flex-direction: column !important;
                 justify-content: flex-start !important;
                 width: 100% !important;
+                margin-bottom: 3mm !important;
             }
 
             .section-signatures {
@@ -618,6 +633,10 @@
                 flex-shrink: 0 !important;
                 margin-top: auto !important;
                 width: 100% !important;
+                position: relative !important;
+                z-index: 20 !important;
+                background-color: #ffffff !important;
+                padding-top: 2mm !important;
             }
 
             .section-signatures + .page-footer-block {
@@ -636,7 +655,7 @@
                 justify-content: center !important;
                 pointer-events: none !important;
                 z-index: 0 !important;
-                opacity: 0.025 !important;
+                opacity: 0.07 !important;
                 overflow: hidden !important;
             }
 
@@ -664,13 +683,28 @@
                 display: table-header-group !important;
             }
         }
+
+        /* Preview mode / Iframe mode: suppress interactive filter row */
+        .is-preview-mode #sitrepFilterBar,
+        .is-preview-mode .sitrep-filter-bar,
+        html.is-preview-mode #sitrepFilterBar,
+        html.is-preview-mode .sitrep-filter-bar {
+            display: none !important;
+        }
     </style>
+    <script>
+        try {
+            if (window.self !== window.top || new URLSearchParams(window.location.search).has('preview') || new URLSearchParams(window.location.search).get('from') === 'court-evidence') {
+                document.documentElement.classList.add('is-preview-mode');
+            }
+        } catch (e) {}
+    </script>
 </head>
 <body class="antialiased bg-white">
 
     <!-- PRINT-SPECIFIC FIXED WATERMARK -->
     <div class="print-fixed-watermark select-none pointer-events-none" aria-hidden="true">
-        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
+        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain" />
     </div>
 
     <!-- FLOATING ACTION & FILTER CONTROL BAR (SCREEN VIEW ONLY) -->
@@ -678,14 +712,7 @@
         <!-- TOP ROW: NAVIGATION & ACTION BUTTONS -->
         <div class="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl p-3 px-4 flex items-center justify-between shadow-xl">
             <div class="flex items-center gap-3">
-                <a href="{{ url('/Lab_Analysis/report') }}" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors border border-slate-700 shadow-sm no-underline">
-                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    <span>Report Console</span>
-                </a>
-
-                <div class="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-700">
+                <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-300 font-mono-code tracking-wide">
                         LAB ANALYSIS SITREP
                     </span>
@@ -706,8 +733,16 @@
             </div>
         </div>
 
+        @php
+            $isCourtEvidencePreview = request()->has('preview') 
+                || request('from') === 'court-evidence' 
+                || request()->boolean('hide_filters') 
+                || request()->boolean('hide_filter');
+        @endphp
+
+        @if(!$isCourtEvidencePreview)
         <!-- SECOND ROW: INTERACTIVE FILTERS & SEARCH (INLINE) -->
-        <div class="bg-white border border-slate-200/90 rounded-2xl p-2.5 px-3 sm:px-4 shadow-sm">
+        <div id="sitrepFilterBar" class="sitrep-filter-bar bg-white border border-slate-200/90 rounded-2xl p-2.5 px-3 sm:px-4 shadow-sm">
             <div class="flex items-center justify-between gap-2.5 sm:gap-4 overflow-x-auto min-w-0 flex-nowrap">
                 <!-- PERIOD PRESETS -->
                 <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
@@ -734,6 +769,7 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 
     <!-- PRINTABLE DOCUMENT ROOT -->
@@ -745,8 +781,8 @@
         <div class="a4-page cover-page page-break relative text-slate-900 select-none">
 
             <!-- SUBTLE NACOC WATERMARK -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain" />
             </div>
 
             <div class="page-content-wrapper relative z-10 flex flex-col justify-between h-full min-h-0 flex-1 w-full">
@@ -880,8 +916,8 @@
         <div class="a4-page dynamic-dossier-page page-break relative text-slate-900">
 
             <!-- SUBTLE NACOC WATERMARK (FOR SCREEN PREVIEW) -->
-            <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+            <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
             </div>
 
             <div class="page-content-wrapper relative z-10 flex flex-col justify-between h-full min-h-0 flex-1 w-full">

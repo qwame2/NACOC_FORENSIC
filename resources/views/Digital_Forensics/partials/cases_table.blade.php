@@ -9,7 +9,7 @@
                                     <th class="py-3.5 px-5">Case #</th>
                                     <th class="py-3.5 px-5">Logged Date</th>
                                     <th class="py-3.5 px-5">Title</th>
-                                    <th class="py-3.5 px-5">Suspect Disposition</th>
+                                    <th class="py-3.5 px-5">User Disposition</th>
                                     <th class="py-3.5 px-5">Status</th>
                                     <th class="py-3.5 px-5 text-right">Actions</th>
                                 </tr>
@@ -21,22 +21,25 @@
                                     $cTime = strtotime((string)$cDateRaw);
                                     $cDateIso = ($cTime && $cTime > 0) ? date('Y-m-d', $cTime) : date('Y-m-d');
                                     $cDateDisplay = ($cTime && $cTime > 0) ? date('d M Y', $cTime) : date('d M Y');
-                                    $sDispListDfu = $c->getSuspectsList();
+                                    $sDispListDfu = $c->getElectronicDeviceSuspects();
+                                    if (empty($sDispListDfu)) {
+                                        $sDispListDfu = $c->getSuspectsList();
+                                    }
 
                                     $sList = !empty($sDispListDfu) ? $sDispListDfu : [[
-                                        'suspect_name'  => $c->suspect_name ?? 'Unknown Suspect',
+                                        'suspect_name'  => $c->suspect_name ?? 'Unknown User',
                                         'suspect_alias' => $c->suspect_alias ?? null,
                                         'mugshot_front' => $c->mugshot_front ?? null,
-                                        'role'          => 'Primary Suspect',
+                                        'role'          => 'Primary User',
                                         'is_associate'  => false,
                                     ]];
                                     $primaryS = $sList[0] ?? [];
-                                    $primaryName = $primaryS['suspect_name'] ?? ($c->suspect_name ?? 'Unknown Suspect');
+                                    $primaryName = $primaryS['suspect_name'] ?? ($c->suspect_name ?? 'Unknown User');
                                     $primaryAlias = $primaryS['suspect_alias'] ?? ($c->suspect_alias ?? null);
                                     $allNames = implode(' ', array_filter(array_column($sList, 'suspect_name')));
                                     $allAliases = implode(' ', array_filter(array_column($sList, 'suspect_alias')));
                                 @endphp
-                                <tr class="hover:bg-slate-50 case-register-row" data-date="{{ $cDateIso }}" data-caseref="{{ $c->case_number }}" data-suspect="{{ strtolower($allNames . ' ' . $allAliases) }}">
+                                <tr class="hover:bg-slate-50 case-register-row" data-date="{{ $cDateIso }}" data-caseref="{{ $c->case_number }}" data-suspect="{{ strtolower($allNames . ' ' . $allAliases) }}" data-user="{{ strtolower($allNames . ' ' . $allAliases) }}">
                                     <td class="py-3.5 px-5 font-bold font-mono-code text-emerald-700 whitespace-nowrap">
                                         <div>{{ $c->case_number }}</div>
                                     </td>
@@ -57,14 +60,14 @@
                                                                 ? asset($rawPic)
                                                                 : $rawPic;
                                                         }
-                                                        $sItemName = $sItem['suspect_name'] ?? 'Suspect';
+                                                        $sItemName = $sItem['suspect_name'] ?? 'User';
                                                         $isAssoc = !empty($sItem['is_associate']);
                                                     @endphp
                                                     <div class="relative group cursor-pointer" style="z-index: {{ 10 - $sIdx }};" 
                                                          @if(!empty($sPic)) onclick="openMugshotModal('{{ addslashes($sPic) }}', '{{ addslashes($sItemName) }}')" @endif
                                                          title="{{ $sItemName }}{{ !empty($sPic) ? ' (Click to enlarge photo)' : '' }}">
                                                         @if($isAssoc)
-                                                            <span class="absolute -top-1 -right-1 z-20 w-3.5 h-3.5 bg-amber-500 border border-white rounded-full flex items-center justify-center text-[7.5px] font-black text-white font-mono-code shadow-2xs" title="Associate Suspect">A</span>
+                                                            <span class="absolute -top-1 -right-1 z-20 w-3.5 h-3.5 bg-amber-500 border border-white rounded-full flex items-center justify-center text-[7.5px] font-black text-white font-mono-code shadow-2xs" title="Associate User">A</span>
                                                         @endif
                                                         <div class="w-9 h-11 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden shadow-2xs flex items-center justify-center group-hover:ring-2 group-hover:ring-emerald-500 transition-all">
                                                             @if(!empty($sPic))
@@ -86,12 +89,12 @@
                                                     <span>Digital &amp; Mobile Cyber Forensics HQ</span>
                                                 </div>
                                                 <div class="text-[10px] text-slate-500 font-sans mt-0.5 truncate max-w-[220px]" title="{{ $primaryName }}">
-                                                    <span class="font-medium text-slate-400">Suspect:</span> <span class="font-bold text-slate-800 font-mono-code uppercase">{{ $primaryName }}</span>
+                                                    <span class="font-medium text-slate-400">User:</span> <span class="font-bold text-slate-800 font-mono-code uppercase">{{ $primaryName }}</span>
                                                     @if(!empty($primaryAlias) && strtoupper($primaryAlias) !== 'N/A')
                                                         <span class="italic text-slate-400">({{ $primaryAlias }})</span>
                                                     @endif
                                                     @if(count($sList) > 1)
-                                                        <span class="inline-block px-1 py-0.2 rounded text-[7.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200 ml-1 font-mono-code" title="{{ count($sList) - 1 }} Co-Suspect(s)">+{{ count($sList) - 1 }}</span>
+                                                        <span class="inline-block px-1 py-0.2 rounded text-[7.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200 ml-1 font-mono-code" title="{{ count($sList) - 1 }} Co-User(s)">+{{ count($sList) - 1 }}</span>
                                                     @endif
                                                 </div>
                                             </div>

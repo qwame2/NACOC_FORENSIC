@@ -6,7 +6,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Case Management &amp; Department Approvals | Forensic Directorate</title>
+    <title>Case Management &amp; Case Register | Forensic Directorate</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -146,7 +146,7 @@
                 <!-- TITLE & BADGES -->
                 <div class="flex items-center space-x-4 shrink-0">
                     <h1 class="text-sm font-extrabold text-slate-900 tracking-wide font-mono-code uppercase">
-                        Case Management &amp; Department Approvals
+                        Case Management &amp; Case Register
                     </h1>
                 </div>
 
@@ -174,10 +174,8 @@
                     <!-- NOTIFICATION BELL ICON & GENERAL ALERTS -->
                     <div class="relative">
                         @php
-                            $pendingCasesNotif = (int)(\App\Models\ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count());
-                            $pendingUsersNotif = (int)(\App\Models\User::where('is_approved', false)->count());
                             $pendingHandoversNotif = (int)(\App\Models\CaseHandover::whereNull('acknowledged_at')->count());
-                            $totalAlertsCount = ($pendingCasesNotif > 0 ? 1 : 0) + ($pendingUsersNotif > 0 ? 1 : 0) + ($pendingHandoversNotif > 0 ? 1 : 0);
+                            $totalAlertsCount = ($pendingHandoversNotif > 0 ? 1 : 0);
                         @endphp
                         <button type="button" id="notificationBellBtn" onclick="toggleNotificationDropdown()" class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors relative border-none bg-transparent cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -204,56 +202,21 @@
                             <!-- ALERTS LIST -->
                             <div class="divide-y divide-slate-100 max-h-80 overflow-y-auto">
                                 
-                                <!-- ALERT 1: CASE APPROVALS -->
+                                <!-- ALERT 1: CASE REGISTER -->
                                 <a href="{{ url('/Forensic_Head/cases') }}" class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span class="text-[10px] font-extrabold font-mono-code text-amber-700 uppercase">Case Approvals</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if($pendingCasesNotif > 0)
-                                                {{ $pendingCasesNotif }} Case Dossiers Awaiting Executive Sign-off
-                                            @else
-                                                All Case Dossiers Authorized
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if($pendingCasesNotif > 0)
-                                                Pending findings certificates and official seal approval required.
-                                            @else
-                                                No outstanding case dossier sign-offs pending.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
-                                <!-- ALERT 2: USER ACCOUNT APPROVALS -->
-                                <a href="{{ url('/Forensic_Head/approvals') }}" class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
                                     <div class="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                     </div>
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center justify-between mb-0.5">
-                                            <span class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Account Control</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
+                                            <span class="text-[10px] font-extrabold font-mono-code text-blue-700 uppercase">Case Register</span>
+                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">OVERVIEW</span>
                                         </div>
                                         <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if($pendingUsersNotif > 0)
-                                                {{ $pendingUsersNotif }} Pending User Account Approval(s)
-                                            @else
-                                                Personnel Roster Fully Verified
-                                            @endif
+                                            {{ count($cases) }} Directorate Case Register Dockets
                                         </div>
                                         <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if($pendingUsersNotif > 0)
-                                                Staff or Unit Head registrations awaiting directorate access clearance.
-                                            @else
-                                                All registered system accounts are authorized and active.
-                                            @endif
+                                            Real-time directorate tracking across operational units.
                                         </div>
                                     </div>
                                 </a>
@@ -328,8 +291,8 @@
                 @php
                     $datasetCases = $allCases ?? \App\Models\ForensicCase::allCases();
                     $totalCasesCount = count($datasetCases);
-                    $pendingApprovalsCount = $datasetCases->filter(function($c) {
-                        return !in_array($c->status, ['Approved', 'Authorized', 'Certified', 'Completed', 'Court Ready']);
+                    $activeInvestigationsCount = $datasetCases->filter(function($c) {
+                        return !in_array($c->status, ['Approved', 'Authorized', 'Certified', 'Completed', 'Court Ready', 'Case Closed', 'Case Dismissed']);
                     })->count();
                     $vaultItemsCount = $datasetCases->sum(function($c) {
                         preg_match('/\d+/', $c->exhibits_summary ?? '', $m);
@@ -359,14 +322,14 @@
                     <!-- CARD 2 -->
                     <div class="glass-panel-white p-5 rounded-2xl transition-all shadow-sm">
                         <div class="flex items-center justify-between text-slate-500 mb-2">
-                            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono-code">Awaiting Head Sign-off</span>
+                            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono-code">Active Investigations</span>
                             <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                             </div>
                         </div>
-                        <div class="text-3xl font-black text-amber-600 font-mono-code" id="statPendingApprovals">{{ number_format($pendingApprovalsCount) }}</div>
+                        <div class="text-3xl font-black text-amber-600 font-mono-code" id="statActiveCases">{{ number_format($activeInvestigationsCount) }}</div>
                         <div class="flex items-center text-[11px] text-amber-700 mt-2 font-semibold">
-                            Awaiting Director Signature
+                            Ongoing Operational Cases
                         </div>
                     </div>
 
@@ -387,19 +350,19 @@
                     <!-- CARD 4 -->
                     <div class="glass-panel-white p-5 rounded-2xl transition-all shadow-sm">
                         <div class="flex items-center justify-between text-slate-500 mb-2">
-                            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono-code">Court Certified / Authorized</span>
+                            <span class="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono-code">Court Certified / Ready</span>
                             <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             </div>
                         </div>
                         <div class="text-3xl font-black text-emerald-600 font-mono-code" id="statCourtReady">{{ number_format($courtReadyCount) }}</div>
                         <div class="flex items-center text-[11px] text-emerald-700 mt-2 font-semibold">
-                            Signed off &amp; Issued Certificates
+                            Completed Case Dossiers
                         </div>
                     </div>
                 </div>
 
-                <!-- DEPARTMENT HEAD APPROVAL & CASE REGISTER MAIN PANEL -->
+                <!-- CASE REGISTER MAIN PANEL -->
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-0">
                     
                     <!-- HEADER & TOOLBAR -->
@@ -408,8 +371,8 @@
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                                 <span class="text-[10px] font-bold font-mono-code text-blue-600 uppercase tracking-wider">CASE REGISTER</span>
-                                <h3 class="font-black text-slate-900 text-lg">Department Head Approval &amp; Case Register</h3>
-                                <p class="text-xs text-slate-600 mt-0.5 font-medium">Review pending findings certificates, sign-offs, evidence packages, and inter-unit transfers</p>
+                                <h3 class="font-black text-slate-900 text-lg">Forensic Department Case Register</h3>
+                                <p class="text-xs text-slate-600 mt-0.5 font-medium">Department oversight of case dossiers, evidence packages, unit workflows, and findings reports</p>
                             </div>
                             
                             <!-- LIVE SEARCH FIELD -->
@@ -435,21 +398,21 @@
                             <!-- UNIT TABS -->
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-[11px] font-bold text-slate-700 mr-1 uppercase font-mono-code">Unit:</span>
-                                <button onclick="filterUnit('ALL', this)" class="filter-tab-btn active-tab unit-tab">All 4 Units</button>
-                                <button onclick="filterUnit('Crime Scene Support', this)" class="filter-tab-btn unit-tab">Crime Scene Support</button>
-                                <button onclick="filterUnit('Evidence Management', this)" class="filter-tab-btn unit-tab">Evidence Management</button>
-                                <button onclick="filterUnit('LAB Analysis', this)" class="filter-tab-btn unit-tab">LAB Analysis</button>
-                                <button onclick="filterUnit('Digital & Physical Forensics', this)" class="filter-tab-btn unit-tab">Digital &amp; Physical</button>
+                                <button type="button" onclick="filterUnit('ALL', this)" class="filter-tab-btn active-tab unit-tab">All 4 Units</button>
+                                <button type="button" onclick="filterUnit('Crime Scene Support', this)" class="filter-tab-btn unit-tab">Crime Scene Support</button>
+                                <button type="button" onclick="filterUnit('Evidence Management', this)" class="filter-tab-btn unit-tab">Evidence Management</button>
+                                <button type="button" onclick="filterUnit('LAB Analysis', this)" class="filter-tab-btn unit-tab">LAB Analysis</button>
+                                <button type="button" onclick="filterUnit('Digital & Physical Forensics', this)" class="filter-tab-btn unit-tab">Digital &amp; Physical</button>
                             </div>
 
                             <!-- STATUS TABS -->
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-[11px] font-bold text-slate-700 mr-1 uppercase font-mono-code">Status:</span>
-                                <button onclick="filterStatus('ALL', this)" class="filter-tab-btn active-tab status-tab">All Statuses</button>
-                                <button onclick="filterStatus('Awaiting Sign-off', this)" class="filter-tab-btn status-tab">Awaiting Sign-off</button>
-                                <button onclick="filterStatus('Authorized', this)" class="filter-tab-btn status-tab">Authorized</button>
-                                <button onclick="filterStatus('Vault Storage', this)" class="filter-tab-btn status-tab">Vault Storage</button>
-                                <button onclick="filterStatus('Lab Analysis', this)" class="filter-tab-btn status-tab">Lab Testing</button>
+                                <button type="button" onclick="filterStatus('ALL', this)" class="filter-tab-btn active-tab status-tab">All Statuses</button>
+                                <button type="button" onclick="filterStatus('Under Investigation', this)" class="filter-tab-btn status-tab">Under Investigation</button>
+                                <button type="button" onclick="filterStatus('Court Ready', this)" class="filter-tab-btn status-tab">Court Ready</button>
+                                <button type="button" onclick="filterStatus('Vault Storage', this)" class="filter-tab-btn status-tab">Vault Storage</button>
+                                <button type="button" onclick="filterStatus('Lab Analysis', this)" class="filter-tab-btn status-tab">Lab Testing</button>
                             </div>
                         </div>
                     </div>
@@ -495,7 +458,7 @@
                     <span class="text-emerald-400 font-bold flex items-center gap-1.5">
                         CHAIN INTEGRITY: 100% VERIFIED &amp; TAMPER-FREE
                     </span>
-                    <span id="modalCaseStatusBadge" class="status-badge status-await">Awaiting Sign-off</span>
+                    <span id="modalCaseStatusBadge" class="status-badge status-done">Under Investigation</span>
                 </div>
                 <div class="text-[11px] text-slate-300 truncate">
                     DIRECTORATE HASH: <span id="modalCaseHash" class="text-blue-400 font-bold">SHA256:8f4b2c19904a77e8b912cd319f00192a83f</span>
@@ -539,24 +502,21 @@
                 </div>
             </div>
 
-            <!-- MODAL ACTIONS (APPROVE & DECLINE BUTTONS UNDERNEATH) -->
+            <!-- MODAL ACTIONS -->
             <div class="flex items-center justify-between pt-4 border-t border-slate-200">
                 <button onclick="closeInspectModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all cursor-pointer">Close Review</button>
-                <div class="flex items-center space-x-3" id="inspectModalActionBtns">
-                    <button type="button" onclick="declineFromModal()" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md border border-red-700 flex items-center gap-1.5 transition-all cursor-pointer">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                        Decline Case
-                    </button>
-                    <button id="modalApproveBtn" onclick="approveFromModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl shadow-md border-none flex items-center gap-1.5 transition-all cursor-pointer">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                        Approve Case
-                    </button>
+                <div class="flex items-center space-x-3">
+                    <a id="modalViewDossierLink" href="#" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-xl shadow-md border-none flex items-center gap-1.5 transition-all text-decoration-none">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        Open Full Review
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- JAVASCRIPT LOGIC -->
+    <script src="{{ asset('js/ajax-table.js') }}"></script>
     <script>
         let currentUnitFilter = 'ALL';
         let currentStatusFilter = 'ALL';
@@ -572,29 +532,97 @@
         updateClock();
 
         // Initialize Reusable AJAX Table Controller for Forensic Head Cases
-        window.headCasesAjaxTable = initAjaxTable({
-            container: '#headCasesTableContainer',
-            table: '#casesTable',
-            columns: 6,
-            rows: 6,
-            onAfterUpdate: (container) => {
-                const rows = container.querySelectorAll('.case-row');
-                const visEl = document.getElementById('visibleCaseCount');
-                if (visEl) visEl.innerText = rows.length;
-                
-                const searchInput = (document.getElementById('caseSearchInput')?.value || '').trim();
-                const badge = document.getElementById('activeFilterBadge');
-                if (badge) {
-                    if (searchInput || currentUnitFilter !== 'ALL' || currentStatusFilter !== 'ALL') {
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
+        function setupHeadCasesAjaxTable() {
+            if (typeof initAjaxTable === 'function' && !window.headCasesAjaxTable) {
+                window.headCasesAjaxTable = initAjaxTable({
+                    container: '#headCasesTableContainer',
+                    table: '#casesTable',
+                    columns: 6,
+                    rows: 6,
+                    onAfterUpdate: (container) => {
+                        applyClientRowFilters();
                     }
+                });
+            }
+        }
+        setupHeadCasesAjaxTable();
+        document.addEventListener('DOMContentLoaded', setupHeadCasesAjaxTable);
+
+        function rowMatchesUnit(unitName, filter) {
+            if (!filter || filter === 'ALL') return true;
+            const u = (unitName || '').toLowerCase();
+            const f = filter.toLowerCase();
+            if (f.includes('crime') || f === 'css') {
+                return u.includes('crime') || u.includes('scene') || u === 'css';
+            }
+            if (f.includes('evidence')) {
+                return u.includes('evidence');
+            }
+            if (f.includes('lab')) {
+                return u.includes('lab');
+            }
+            if (f.includes('digital') || f.includes('physical')) {
+                return u.includes('digital') || u.includes('physical') || u.includes('dpf');
+            }
+            return u.includes(f);
+        }
+
+        function rowMatchesStatus(statusName, filter) {
+            if (!filter || filter === 'ALL') return true;
+            const s = (statusName || '').toLowerCase();
+            const f = filter.toLowerCase();
+            if (f.includes('await') || f.includes('pending')) {
+                return s.includes('await') || s.includes('pending') || s.includes('multi-unit');
+            }
+            if (f.includes('authoriz') || f.includes('approv') || f.includes('court')) {
+                return s.includes('approv') || s.includes('authoriz') || s.includes('court') || s.includes('completed') || s.includes('certified');
+            }
+            if (f.includes('vault')) {
+                return s.includes('vault') || s.includes('evidence');
+            }
+            if (f.includes('lab')) {
+                return s.includes('lab');
+            }
+            return s.includes(f);
+        }
+
+        function applyClientRowFilters() {
+            const searchVal = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
+            const rows = document.querySelectorAll('#casesTableBody tr.case-row');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const rowUnit = row.getAttribute('data-unit') || '';
+                const rowStatus = row.getAttribute('data-status') || '';
+                const rowText = row.innerText.toLowerCase();
+
+                const matchSearch = !searchVal || rowText.includes(searchVal);
+                const matchUnit = rowMatchesUnit(rowUnit, currentUnitFilter);
+                const matchStatus = rowMatchesStatus(rowStatus, currentStatusFilter);
+
+                if (matchSearch && matchUnit && matchStatus) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const visEl = document.getElementById('visibleCaseCount');
+            if (visEl) visEl.innerText = visibleCount;
+
+            const badge = document.getElementById('activeFilterBadge');
+            if (badge) {
+                if (searchVal || currentUnitFilter !== 'ALL' || currentStatusFilter !== 'ALL') {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
                 }
             }
-        });
+        }
 
         function filterCases() {
+            applyClientRowFilters();
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
             if (window.headCasesAjaxTable) {
                 if (window.headCasesAjaxTable.debounceTimer) clearTimeout(window.headCasesAjaxTable.debounceTimer);
@@ -635,6 +663,8 @@
             document.querySelectorAll('.unit-tab').forEach(btn => btn.classList.remove('active-tab'));
             if (element) element.classList.add('active-tab');
 
+            applyClientRowFilters();
+
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
             if (window.headCasesAjaxTable) {
                 window.headCasesAjaxTable.applyFilters({
@@ -650,6 +680,8 @@
             currentStatusFilter = statusName;
             document.querySelectorAll('.status-tab').forEach(btn => btn.classList.remove('active-tab'));
             if (element) element.classList.add('active-tab');
+
+            applyClientRowFilters();
 
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
             if (window.headCasesAjaxTable) {
@@ -677,21 +709,21 @@
             const hashStr = 'SHA256:' + (ref.replace(/[^A-Z0-9]/g, '') + '8f4b2c19904a77e8b912cd319f00192a83f').toLowerCase().slice(0, 32);
             document.getElementById('modalCaseHash').innerText = hashStr;
 
-            const badgeEl = document.getElementById('modalCaseStatusBadge');
-            const modalBtns = document.getElementById('inspectModalActionBtns');
+            const dossierLink = document.getElementById('modalViewDossierLink');
+            if (dossierLink) {
+                dossierLink.href = `/Forensic_Head/cases/${ref}/review`;
+            }
 
-            if (status === 'Approved' || status === 'Authorized') {
+            const badgeEl = document.getElementById('modalCaseStatusBadge');
+            if (status === 'Approved' || status === 'Authorized' || status === 'Court Ready' || status === 'Completed') {
                 badgeEl.className = 'status-badge status-done';
-                badgeEl.innerHTML = `<svg class="w-3 h-3 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> Authorized`;
-                if (modalBtns) modalBtns.style.display = 'none';
+                badgeEl.innerHTML = `<svg class="w-3 h-3 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> ${status || 'Completed'}`;
             } else if (status === 'Declined') {
                 badgeEl.className = 'status-badge status-declined';
                 badgeEl.innerHTML = `Declined`;
-                if (modalBtns) modalBtns.style.display = 'none';
             } else {
                 badgeEl.className = 'status-badge status-await';
-                badgeEl.innerHTML = `${status || 'Awaiting Sign-off'}`;
-                if (modalBtns) modalBtns.style.display = 'flex';
+                badgeEl.innerHTML = `${status || 'Under Investigation'}`;
             }
 
             document.getElementById('inspectModal').classList.remove('hidden');
@@ -700,132 +732,6 @@
         function closeInspectModal() {
             document.getElementById('inspectModal').classList.add('hidden');
             activeInspectRef = null;
-        }
-
-        async function approveFromModal() {
-            if (activeInspectRef) {
-                const ref = activeInspectRef;
-                try {
-                    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                    await fetch(`/cases/${ref}/approve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
-                    });
-                } catch (e) {
-                    // Silently handle error
-                }
-                approveCase(ref);
-                closeInspectModal();
-            }
-        }
-
-        async function declineFromModal() {
-            if (activeInspectRef) {
-                const ref = activeInspectRef;
-                try {
-                    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                    await fetch(`/cases/${ref}/decline`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
-                    });
-                } catch (e) {
-                    // Silently handle error
-                }
-                declineCase(ref);
-                closeInspectModal();
-            }
-        }
-
-        async function declineCase(ref) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch(`/cases/${ref}/decline`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    const badge = document.getElementById('status-' + ref);
-                    if (badge) {
-                        badge.className = 'status-badge status-declined';
-                        badge.innerHTML = `Declined`;
-                    }
-                    showToast('Case Declined', `Case ${ref} was declined by Department Head.`);
-                } else {
-                    showToast('Error Declining Case', data.message || 'Could not decline case.');
-                }
-            } catch (e) {
-                showToast('Connection Error', `Error declining case ${ref}.`);
-            }
-        }
-
-        async function approveCase(ref) {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch(`/cases/${ref}/approve`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    const badge = document.getElementById('status-' + ref);
-                    if (badge) {
-                        badge.className = 'status-badge status-done';
-                        badge.innerHTML = `<svg class="w-3 h-3 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> Authorized`;
-                    }
-                    const btn = document.getElementById('btn-' + ref);
-                    if (btn) {
-                        btn.className = 'btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600';
-                        btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Preview`;
-                    }
-                    
-                    let pendingEl = document.getElementById('statPendingApprovals');
-                    if (pendingEl && parseInt(pendingEl.innerText) > 0) {
-                        pendingEl.innerText = parseInt(pendingEl.innerText) - 1;
-                    }
-                    let courtEl = document.getElementById('statCourtReady');
-                    if (courtEl) {
-                        courtEl.innerText = parseInt(courtEl.innerText) + 1;
-                    }
-
-                    showToast('Department Sign-Off Approved', `Case ${ref} findings certificate authorized by Department Head.`);
-                } else {
-                    showToast('Error Approving Case', data.message || 'Could not approve case.');
-                }
-            } catch (e) {
-                showToast('Connection Error', `Error approving case ${ref}.`);
-            }
-        }
-
-        async function batchApprove() {
-            try {
-                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const res = await fetch('/cases/batch-approve', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token }
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    const pendingBadges = document.querySelectorAll('.status-await');
-                    let count = data.count || pendingBadges.length;
-                    pendingBadges.forEach(badge => {
-                        badge.className = 'status-badge status-done';
-                        badge.innerHTML = `<svg class="w-3 h-3 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg> Authorized`;
-                    });
-                    document.querySelectorAll('.btn-review').forEach(btn => {
-                        btn.className = 'btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600';
-                        btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg> Preview`;
-                    });
-
-                    document.getElementById('statPendingApprovals').innerText = '0';
-                    document.getElementById('statCourtReady').innerText = parseInt(document.getElementById('statCourtReady').innerText || '0') + count;
-                    showToast('Batch Sign-Off Complete', `Successfully approved and authorized ${count} pending case files.`);
-                } else {
-                    showToast('Batch Approve Failed', data.message || 'Error processing request.');
-                }
-            } catch (e) {
-                showToast('Connection Error', 'Failed to communicate with server.');
-            }
         }
 
         function transferCase(ref) {
@@ -857,54 +763,79 @@
             }, 4000);
         }
 
-        /* ── 3-Second Real-Time Polling Interval ─────── */
+        /* ── Real-Time Cases Polling Engine ─────── */
+        let isPollingHeadCases = false;
         async function pollForensicHeadCasesTable() {
-            try {
-                const inspectModal = document.getElementById('inspectModal');
-                const activeActionMenu = document.querySelector('.case-action-menu:not(.hidden)');
-                if ((inspectModal && !inspectModal.classList.contains('hidden')) || activeActionMenu) return;
+            if (isPollingHeadCases) return;
+            if (document.hidden) return;
 
-                const res = await fetch('/api/cases', { headers: { 'Accept': 'application/json' } });
+            const inspectModal = document.getElementById('inspectModal');
+            if (inspectModal && !inspectModal.classList.contains('hidden')) return;
+
+            isPollingHeadCases = true;
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+
+            try {
+                const res = await fetch("{{ url('/api/cases') }}", {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin',
+                    signal: controller ? controller.signal : undefined
+                });
+                if (timeoutId) clearTimeout(timeoutId);
                 if (!res.ok) return;
                 const rawCasesData = await res.json();
                 const cases = Array.isArray(rawCasesData) ? rawCasesData : (rawCasesData.data || []);
 
+                let activeCasesCount = 0;
+                let courtReadyCount = 0;
+
+                cases.forEach(c => {
+                    const isActive = !['Approved', 'Authorized', 'Court Ready', 'Completed', 'Case Closed', 'Case Dismissed'].includes(c.status);
+                    const isApproved = ['Approved', 'Authorized', 'Court Ready', 'Completed'].includes(c.status);
+
+                    if (isActive) activeCasesCount++;
+                    if (isApproved) courtReadyCount++;
+                });
+
+                const activeEl = document.getElementById('statActiveCases');
+                if (activeEl) activeEl.innerText = activeCasesCount;
+                const courtEl = document.getElementById('statCourtReady');
+                if (courtEl) courtEl.innerText = courtReadyCount;
+                const totalEl = document.getElementById('statTotalCases');
+                if (totalEl) totalEl.innerText = cases.length;
+                const totalCountEl = document.getElementById('totalCaseCount');
+                if (totalCountEl) totalCountEl.innerText = cases.length;
+
+                const searchInput = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
+                const isFiltered = searchInput || currentUnitFilter !== 'ALL' || currentStatusFilter !== 'ALL';
+
+                // If user is actively searching or filtering, do not overwrite the filtered DOM table
+                if (isFiltered) {
+                    return;
+                }
+
                 const tbody = document.getElementById('casesTableBody');
                 if (!tbody) return;
 
-                const searchInput = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
-
-                let pendingApprovalsCount = 0;
-                let courtReadyCount = 0;
-
                 let html = '';
                 if (cases.length === 0) {
-                    html = `<tr><td colspan="9" class="py-12 text-center text-slate-500 font-mono-code text-xs"><div class="flex flex-col items-center justify-center space-y-2"><svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><p class="font-bold text-slate-700">No case register dockets found</p></div></td></tr>`;
+                    html = `<tr><td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs"><div class="flex flex-col items-center justify-center space-y-2"><svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg><p class="font-bold text-slate-700">No case register dockets found</p></div></td></tr>`;
                 } else {
                     cases.forEach(c => {
-                        const isPending = ['Awaiting Sign-off', 'Pending Approval', 'Pending'].includes(c.status);
                         const isApproved = ['Approved', 'Authorized', 'Court Ready', 'Completed'].includes(c.status);
-
-                        if (isPending) pendingApprovalsCount++;
-                        if (isApproved) courtReadyCount++;
 
                         const priorityClass = (c.priority || '').toUpperCase() === 'CRITICAL'
                             ? 'bg-red-100 text-red-700 border-red-200'
                             : ((c.priority || '').toUpperCase() === 'HIGH' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-300');
 
-                        const unitColorMap = {
-                            'Evidence Management': 'text-indigo-600',
-                            'Digital & Physical Forensics': 'text-amber-600',
-                            'LAB Analysis': 'text-emerald-600',
-                        };
-                        const unitColor = unitColorMap[c.unit_name] || 'text-blue-600';
                         const createdDate = c.created_at ? c.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
 
                         let statusBadge = '';
                         if (isApproved) {
                             statusBadge = `<span class="status-badge status-done" id="status-${c.case_number}">
                                 <svg class="w-3 h-3 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                                Authorized
+                                ${c.status || 'Completed'}
                             </span>`;
                         } else if (c.status === 'Declined') {
                             statusBadge = `<span class="status-badge status-declined" id="status-${c.case_number}">
@@ -912,21 +843,8 @@
                             </span>`;
                         } else {
                             statusBadge = `<span class="status-badge status-await" id="status-${c.case_number}">
-                                ${c.status || 'Awaiting Sign-off'}
+                                ${c.status || 'Under Investigation'}
                             </span>`;
-                        }
-
-                        let actionBtn = '';
-                        if (isApproved) {
-                            actionBtn = `<a href="/cases/${c.case_number}/review?from=Forensic+Head" class="btn-review bg-emerald-700 hover:bg-emerald-800 border-emerald-600" id="btn-${c.case_number}">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                Preview
-                            </a>`;
-                        } else {
-                            actionBtn = `<a href="/cases/${c.case_number}/review?from=Forensic+Head" class="btn-review" id="btn-${c.case_number}">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                Review
-                            </a>`;
                         }
 
                         const suspectDisplayName = c.suspect_name || (c.docket_data?.full_name ? c.docket_data.full_name : 'Unnamed Suspect');
@@ -1022,10 +940,6 @@
                         const aliasStr = aliasArray.length > 0 ? aliasArray.join(', ') : suspectAlias;
                         const stackClass = suspectsList.length > 1 ? '-space-x-3.5 hover:space-x-1 transition-all duration-300' : '';
 
-                        const allSuspectsNamesStr = suspectsList.map(s => s.suspect_name || '').join(' ');
-                        const rowText = `${c.case_number} ${suspectDisplayName} ${allSuspectsNamesStr} ${c.title} ${c.unit_name} ${c.submitting_officer} ${c.status}`.toLowerCase();
-                        const matchesSearch = !searchInput || rowText.includes(searchInput);
-
                         let suspectsNamesHtml = '';
                         if (suspectsList.length > 1) {
                             suspectsNamesHtml = `
@@ -1056,7 +970,7 @@
                                     </div>
                                 ` : ''}
                             `;
-                                } else {
+                        } else {
                             suspectsNamesHtml = `
                                 <div class="font-bold text-slate-900 text-xs leading-tight truncate max-w-[180px]" title="${suspectDisplayName.replace(/"/g, '&quot;')}">${suspectDisplayName}</div>
                                 <div class="text-[10px] text-slate-500 font-mono-code mt-0.5 truncate max-w-[180px]"><span class="text-slate-400">ALIAS:</span> ${aliasStr}</div>
@@ -1100,7 +1014,7 @@
                         else if (cStatVal === 'Case Dismissed') cStatCls = 'bg-slate-100 text-slate-700 border-slate-300';
                         else if (cStatVal === 'Case Closed') cStatCls = 'bg-slate-800 text-slate-100 border-slate-700';
 
-                        html += `<tr class="table-row-hover transition-colors case-row" data-unit="${c.unit_name || ''}" data-status="${c.status || ''}" style="${matchesSearch ? '' : 'display:none;'}">
+                        html += `<tr class="table-row-hover transition-colors case-row" data-unit="${c.unit_name || ''}" data-status="${c.status || ''}">
                             <td class="py-4 px-5 whitespace-nowrap">
                                 <div class="font-extrabold font-mono-code text-blue-600 text-sm">${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-1">
@@ -1114,96 +1028,42 @@
                                 <div class="text-[11px] text-slate-500 mt-0.5">${c.holding_facility || c.raid_location || c.seizure_location || c.location || 'NACOC Central Custody Facility'} &bull; ${c.exhibits_summary || 'Exhibits Logged'}</div>
                             </td>
                             <td class="py-3.5 px-4">
-                                <div class="flex items-center space-x-3">
-                                    <div class="flex items-center ${stackClass} shrink-0">
-                                        ${avatarsGroupHtml}
-                                    </div>
-                                    <div class="min-w-0">
-                                        ${suspectsNamesHtml}
-                                    </div>
+                                <div class="flex items-center ${stackClass} shrink-0">
+                                    ${avatarsGroupHtml}
+                                </div>
+                                <div class="min-w-0">
+                                    ${suspectsNamesHtml}
                                 </div>
                             </td>
                             <td class="py-4 px-5 whitespace-nowrap">
                                 ${suspectDispHtml}
                             </td>
-                            <td class="py-4 px-5">
-                                <div class="font-extrabold ${unitColor} text-xs">${c.unit_name || 'Forensic Directorate'}</div>
-                                <div class="text-[10px] text-slate-600 font-medium">${c.unit_name ? c.unit_name + ' Unit' : 'Unit Lead'}</div>
-                            </td>
-                            <td class="py-4 px-5">
-                                <div class="font-bold text-slate-900 text-xs">${c.submitting_officer || 'Handling Officer'}</div>
-                                <div class="text-[10px] text-slate-500">Handling Officer</div>
-                            </td>
                             <td class="py-4 px-5 text-center whitespace-nowrap">
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cStatCls}">${cStatVal}</span>
                             </td>
-                            <td class="py-4 px-5 whitespace-nowrap">${statusBadge}</td>
                             <td class="py-4 px-5 text-right whitespace-nowrap">
-                                <div class="relative inline-block text-left case-action-dropdown-wrapper">
-                                    <button type="button" 
-                                            onclick="toggleCaseActionDropdown(event, '${c.case_number}')" 
-                                            class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl border border-slate-300 transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
-                                            title="Actions for Case ${c.case_number}">
-                                        <svg class="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-                                        </svg>
-                                        <span class="text-xs font-mono-code font-bold">Actions</span>
-                                        <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                    </button>
-
-                                    <div id="actionMenu-${c.case_number}" class="case-action-menu hidden absolute right-0 mt-1.5 w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2 space-y-1 text-left font-sans">
-                                        <a href="/cases/${c.case_number}/associate" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
-                                            <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                                            </div>
-                                            <div>
-                                                <div class="font-extrabold leading-tight">Associate Data</div>
-                                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">Link accomplices &amp; exhibits</div>
-                                            </div>
-                                        </a>
-
-                                        <a href="/cases/${c.case_number}/review?edit=true&from=Forensic+Head" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
-                                            <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                            </div>
-                                            <div>
-                                                <div class="font-extrabold leading-tight">Edit Docket</div>
-                                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">Modify findings &amp; info</div>
-                                            </div>
-                                        </a>
-
-                                        <a href="/cases/${c.case_number}/review?from=Forensic+Head" class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
-                                            <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                            </div>
-                                            <div>
-                                                <div class="font-extrabold leading-tight">${(c.status === 'Approved' || c.status === 'Authorized') ? 'Preview Docket' : 'Review Docket'}</div>
-                                                <div class="text-[10px] text-slate-400 font-normal mt-0.5">Full dossier inspection</div>
-                                            </div>
-                                        </a>
-                                    </div>
-                                </div>
+                                <a href="/Forensic_Head/cases/${c.case_number}/review"
+                                   title="View Suspect Docket"
+                                   aria-label="View Suspect Docket"
+                                   class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200/80 transition-all shadow-2xs hover:scale-105 active:scale-95">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </a>
                             </td>
                         </tr>`;
                     });
                 }
 
                 tbody.innerHTML = html;
-
-                const pendingEl = document.getElementById('statPendingApprovals');
-                if (pendingEl) pendingEl.innerText = pendingApprovalsCount;
-                const courtEl = document.getElementById('statCourtReady');
-                if (courtEl) courtEl.innerText = courtReadyCount;
-                const totalEl = document.getElementById('statTotalCases');
-                if (totalEl) totalEl.innerText = cases.length;
                 const visibleCountEl = document.getElementById('visibleCaseCount');
-                if (visibleCountEl && !searchInput) visibleCountEl.innerText = cases.length;
-                const totalCountEl = document.getElementById('totalCaseCount');
-                if (totalCountEl) totalCountEl.innerText = cases.length;
-
-                filterCases();
+                if (visibleCountEl) visibleCountEl.innerText = cases.length;
             } catch (e) {
-                // Background polling failure handled silently
+                // Background polling failure handled silently without console noise
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
+                isPollingHeadCases = false;
             }
         }
 
@@ -1240,38 +1100,7 @@
             }
         });
 
-        setInterval(pollForensicHeadCasesTable, 3000);
-
-        function toggleCaseActionDropdown(event, caseRef) {
-            if (event) {
-                event.stopPropagation();
-                event.preventDefault();
-            }
-            const targetMenu = document.getElementById('actionMenu-' + caseRef);
-            if (!targetMenu) return;
-
-            const isHidden = targetMenu.classList.contains('hidden');
-            document.querySelectorAll('.case-action-menu').forEach(menu => {
-                menu.classList.add('hidden');
-                if (menu.closest('tr')) menu.closest('tr').classList.remove('z-50', 'relative');
-            });
-
-            if (isHidden) {
-                targetMenu.classList.remove('hidden');
-                if (targetMenu.closest('tr')) targetMenu.closest('tr').classList.add('z-50', 'relative');
-            }
-        }
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.case-action-dropdown-wrapper')) {
-                document.querySelectorAll('.case-action-menu').forEach(menu => {
-                    menu.classList.add('hidden');
-                    if (menu.closest('tr')) menu.closest('tr').classList.remove('z-50', 'relative');
-                });
-            }
-        });
+        setInterval(pollForensicHeadCasesTable, 15000);
     </script>
-    <script src="{{ asset('js/ajax-table.js') }}"></script>
-</body><script src="{{ asset('js/ajax-table.js') }}"></script>
 </body>
 </html>

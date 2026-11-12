@@ -342,10 +342,10 @@ class PerUnitShowReviewTest extends TestCase
 
         $this->assertHtmlContains('Back to Case Register', $html3of4);
         $this->assertHtmlContains('3/4 Units Completed', $html3of4);
-        $this->assertHtmlContains('Awaiting all units to complete', $html3of4);
-        $this->assertHtmlContains('Pending unit completions', $html3of4);
+        $this->assertStringNotContainsString('Approve &amp; Sign-Off Case', $html3of4);
+        $this->assertStringNotContainsString('Decline Docket', $html3of4);
 
-        // Remove pending electronic exhibit so all 3 remaining involved units are completed (READY FOR HOF)
+        // Remove pending electronic exhibit so all 3 remaining involved units are completed
         $elecExhibit->delete();
 
         $respAllDone = $this->actingAs($hofOfficer)
@@ -355,8 +355,9 @@ class PerUnitShowReviewTest extends TestCase
         $htmlAllDone = $respAllDone->getContent();
 
         $this->assertHtmlContains('3/3 Units Completed', $htmlAllDone);
-        $this->assertHtmlContains('UNLOCKED', $htmlAllDone);
-        $this->assertHtmlContains('Docket ready for HOF review', $htmlAllDone);
+        $this->assertHtmlContains('ALL UNITS COMPLETED', $htmlAllDone);
+        $this->assertStringNotContainsString('Approve &amp; Sign-Off Case', $htmlAllDone);
+        $this->assertStringNotContainsString('Decline Docket', $htmlAllDone);
     }
 
     #[Test]

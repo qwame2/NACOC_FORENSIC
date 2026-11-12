@@ -62,6 +62,15 @@ class RepairExhibitService
                 if (empty($exItem->seizure_officer) && !empty($szDoc['seizure_officer'])) {
                     $exUpdates['seizure_officer'] = $szDoc['seizure_officer'];
                 }
+                if (empty($exItem->investigating_officer) && !empty($szDoc['investigating_officer'])) {
+                    $exUpdates['investigating_officer'] = $szDoc['investigating_officer'];
+                }
+                if (empty($exItem->source_requesting_unit) && !empty($szDoc['source_requesting_unit'])) {
+                    $exUpdates['source_requesting_unit'] = $szDoc['source_requesting_unit'];
+                }
+                if (empty($exItem->lab_exhibit_no) && !empty($szDoc['lab_exhibit_no'])) {
+                    $exUpdates['lab_exhibit_no'] = $szDoc['lab_exhibit_no'];
+                }
                 if (empty($exItem->seizure_reason) && !empty($szDoc['seizure_reason'])) {
                     $exUpdates['seizure_reason'] = $szDoc['seizure_reason'];
                 }

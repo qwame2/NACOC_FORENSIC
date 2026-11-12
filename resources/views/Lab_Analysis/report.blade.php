@@ -457,6 +457,11 @@
 
                                             <!-- EXHIBIT INFORMATION -->
                                             <td class="py-3 px-3 align-top">
+                                                @if(!empty($item['lab_exhibit_no']) || !empty($item['exhibit_mark']))
+                                                    <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold font-mono-code bg-indigo-50 text-indigo-700 border border-indigo-200 mb-1">
+                                                        Exhibit {{ $item['lab_exhibit_no'] ?? $item['exhibit_mark'] }}
+                                                    </span>
+                                                @endif
                                                 <span class="font-extrabold text-slate-900 block text-xs">
                                                     {{ $item['exhibit_type'] }}
                                                 </span>

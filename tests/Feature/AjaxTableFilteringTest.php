@@ -169,33 +169,6 @@ class AjaxTableFilteringTest extends TestCase
     }
 
     /**
-     * Test Forensic Head approvals returns partial on AJAX and filters users.
-     */
-    #[Test]
-    public function forensic_head_approvals_ajax_partial_and_filters(): void
-    {
-        $testOfficer = User::factory()->create([
-            'fullname' => 'Sergeant Kwame Asante',
-            'service_id' => 'NAC-9988-HQ',
-            'is_approved' => false
-        ]);
-
-        // Standard GET
-        $resp = $this->get('/Forensic_Head/approvals');
-        $resp->assertStatus(200);
-        $resp->assertSee('id="approvalsTableContainer"', false);
-
-        // AJAX
-        $ajaxResp = $this->get('/Forensic_Head/approvals?search=Kwame', [
-            'X-Requested-With' => 'XMLHttpRequest'
-        ]);
-        $ajaxResp->assertStatus(200);
-        $ajaxResp->assertDontSee('<!DOCTYPE html>', false);
-        $ajaxResp->assertSee('id="usersTable"', false);
-        $ajaxResp->assertSee('Sergeant Kwame Asante');
-    }
-
-    /**
      * Test Digital Forensics cases returns partial on AJAX.
      */
     #[Test]
@@ -233,5 +206,32 @@ class AjaxTableFilteringTest extends TestCase
         $ajaxResp->assertStatus(200);
         $ajaxResp->assertDontSee('<!DOCTYPE html>', false);
         $ajaxResp->assertSee('id="historyTable"', false);
+    }
+
+    /**
+     * Test Case Registry & Directory loads ajax-table.js properly and handles debounced search with skeleton loader.
+     */
+    #[Test]
+    public function case_registry_and_directory_search_input_has_debounce_and_skeleton_loader(): void
+    {
+        $resp = $this->get('/cases?unit=Digital+%26+Physical+Forensics');
+        $resp->assertStatus(200);
+
+        // Verify ajax-table.js is loaded in the page head
+        $resp->assertSee('js/ajax-table.js');
+        $resp->assertSee('id="casesTableContainer"', false);
+        $resp->assertSee('id="casesTable"', false);
+        $resp->assertSee('id="caseSearchInput"', false);
+        $resp->assertSee('setupCasesAjaxTable', false);
+        $resp->assertSee('filterCases()', false);
+        $resp->assertSee('searchDebounceTimer', false);
+
+        // Test AJAX debounced search request
+        $ajaxResp = $this->get('/cases?unit=Digital+%26+Physical+Forensics&search=NACOC', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $ajaxResp->assertStatus(200);
+        $ajaxResp->assertDontSee('<!DOCTYPE html>', false);
+        $ajaxResp->assertSee('id="casesTable"', false);
     }
 }

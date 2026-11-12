@@ -122,5 +122,29 @@ class DrugExhibitClassifierTest extends TestCase
         $this->assertTrue($flags['activeSuspectHasDrugExhibit']);
         $this->assertTrue($flags['hasAnySpecialistUnit']);
     }
+
+    public function test_recognizes_extended_controlled_substances_and_handles_closures(): void
+    {
+        $closure = $this->classifier->getClosure();
+
+        $this->assertTrue($closure([
+            'commodity_name' => 'Tapentadol 100mg Tablets',
+        ]));
+
+        $this->assertTrue($closure([
+            'commodity_name' => 'Pregabalin Capsules',
+        ]));
+
+        $this->assertTrue($closure([
+            'commodity_name' => 'Ketamine Hydrochloride',
+        ]));
+
+        $this->assertTrue($closure([
+            'substance_identification' => 'Diazepam',
+        ]));
+
+        $this->assertSame('Tapentadol', DrugExhibitClassifier::extractKnownSubstance('Seized 5 blisters of Tapentadol'));
+        $this->assertSame('Ketamine', DrugExhibitClassifier::extractKnownSubstance('Ketamine powder in sachet'));
+    }
 }
 

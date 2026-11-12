@@ -59,6 +59,7 @@
     @else
         <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
+    <script src="{{ asset('js/ajax-table.js') }}"></script>
 
     <style>
         body {
@@ -260,12 +261,23 @@
         let currentUnitFilter = 'All Units';
 
         // Initialize Reusable AJAX Table Controller for System History
-        window.historyAjaxTable = initAjaxTable({
-            container: '#historyTableContainer',
-            table: '#historyTable',
-            columns: 6,
-            rows: 6
-        });
+        function setupHistoryAjaxTable() {
+            if (typeof initAjaxTable !== 'function') return;
+            if (window.historyAjaxTable) return;
+
+            window.historyAjaxTable = initAjaxTable({
+                container: '#historyTableContainer',
+                table: '#historyTable',
+                columns: 6,
+                rows: 6
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupHistoryAjaxTable);
+        } else {
+            setupHistoryAjaxTable();
+        }
 
         function filterByUnitTab(unitName, btnEl) {
             currentUnitFilter = unitName;
@@ -317,6 +329,5 @@
             }
         });
     </script>
-<script src="{{ asset('js/ajax-table.js') }}"></script>
 </body>
 </html>

@@ -107,15 +107,30 @@
                 <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                         Seizure / Commodity Name</div>
+                    @php
+                        $pExCatVal = $pEx['category'] ?? ($pEx['exhibit_category'] ?? '');
+                        $isMoneyExP = in_array(strtolower(trim((string)$pExCatVal)), ['money', 'currency', 'cash']);
+                        $rawSeizureNameP = $pEx['seizure_name'] ?? null;
+                        $rawCommodityNameP = $pEx['commodity_name'] ?? ($pEx['seizure_name_currency'] ?? null);
+                        if (!empty($rawCommodityNameP) && (empty($rawSeizureNameP) || in_array(strtolower(trim((string)$rawSeizureNameP)), ['exhibit', 'exhibits', 'general exhibit', 'confiscated exhibit']))) {
+                            $displayNameP = $rawCommodityNameP;
+                        } else {
+                            $displayNameP = (!empty($rawCommodityNameP) && !in_array(strtolower(trim((string)$rawCommodityNameP)), ['exhibit', 'exhibits']))
+                                ? $rawCommodityNameP
+                                : ($rawSeizureNameP ?? ($pEx['name'] ?? 'N/A'));
+                        }
+                    @endphp
                     <div class="font-extrabold text-slate-900 text-xs mt-0.5">
-                        {{ $pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? ($pEx['name'] ?? 'N/A')) }}
+                        {{ $displayNameP }}
                     </div>
                 </div>
                 <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                        Quantity / Weight</div>
+                        {{ $isMoneyExP || !empty($pEx['amount']) ? 'Amount / Quantity' : 'Quantity / Weight' }}</div>
                     <div class="font-extrabold text-slate-900 font-mono-code text-xs mt-0.5">
-                        @if (!empty($pEx['seizure_quantity']) || !empty($pEx['seizure_weight']))
+                        @if ($isMoneyExP || !empty($pEx['amount']))
+                            {{ !empty($pEx['amount']) ? "Amount: {$pEx['amount']}" : (!empty($pEx['seizure_quantity']) ? "Amount: {$pEx['seizure_quantity']}" : 'N/A') }}
+                        @elseif (!empty($pEx['seizure_quantity']) || !empty($pEx['seizure_weight']))
                             {{ implode(' • ', array_filter([!empty($pEx['seizure_quantity']) ? "Qty: {$pEx['seizure_quantity']}" : null, !empty($pEx['seizure_weight']) ? "Wt: {$pEx['seizure_weight']} " . ($pEx['seizure_unit'] ?? '') : null])) }}
                         @else
                             N/A

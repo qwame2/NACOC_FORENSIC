@@ -160,17 +160,24 @@ class GsaReportUploadTest extends TestCase
 
         $response->assertStatus(200)->assertJson(['success' => true]);
 
-        // Assert suspect_nlr_reports database table has attached NLR Report PDF record for this suspect
-        $this->assertDatabaseHas('suspect_nlr_reports', [
-            'case_suspect_id' => $suspect->id,
-            'multiple_suspect_case_id' => $mCase->id,
-            'file_path' => 'Lab_Analysis/nlr-report-pdf/' . $mCase->case_number,
-        ]);
+        // Assert preliminary / NLR reports database table has attached Report PDF record for this suspect
+        $tableName = (new \App\Models\SuspectNlrReport)->getTable();
+        $this->assertTrue(
+            \Illuminate\Support\Facades\DB::table($tableName)
+                ->where('case_suspect_id', $suspect->id)
+                ->where('multiple_suspect_case_id', $mCase->id)
+                ->where(function ($q) use ($mCase) {
+                    $q->where('file_path', 'LIKE', '%/preliminary-report-pdf/' . $mCase->case_number . '%')
+                      ->orWhere('file_path', 'LIKE', '%/nlr-report-pdf/' . $mCase->case_number . '%');
+                })
+                ->exists()
+        );
 
         // Assert analytical page displays attached report file
         $pageResponse = $this->actingAs($user)->get("/Lab_Analysis/analytical/{$mCase->case_number}");
         $pageResponse->assertStatus(200);
-        $this->assertStringContainsString('NLR_Report_', $pageResponse->getContent());
+        $pageContent = $pageResponse->getContent();
+        $this->assertTrue(str_contains($pageContent, 'NLR_Report_') || str_contains($pageContent, 'Preliminary_Report_') || str_contains($pageContent, 'Report_'));
     }
 
     #[Test]

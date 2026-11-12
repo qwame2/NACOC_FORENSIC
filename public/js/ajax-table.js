@@ -41,6 +41,7 @@
             this.defaultColumns = config.columns || 6;
             this.defaultRows = config.rows || 6;
             this.filterInputs = config.filterInputs || null;
+            this.skeletonRenderer = typeof config.skeletonRenderer === 'function' ? config.skeletonRenderer : null;
             this.onAfterUpdate = typeof config.onAfterUpdate === 'function' ? config.onAfterUpdate : null;
             this.onBeforeFetch = typeof config.onBeforeFetch === 'function' ? config.onBeforeFetch : null;
             this.syncInputsOnPopstate = config.syncInputs !== false;
@@ -201,7 +202,8 @@
          * Collects filter parameters from form and declared filter controls
          */
         collectParams() {
-            const params = new URLSearchParams();
+            const params = new URLSearchParams(window.location.search);
+            params.delete('page');
 
             // 1. From Form if defined
             if (this.formSelector) {
@@ -211,6 +213,8 @@
                     for (const [key, value] of fd.entries()) {
                         if (value !== '' && value !== null) {
                             params.set(key, value);
+                        } else {
+                            params.delete(key);
                         }
                     }
                 }
@@ -233,6 +237,8 @@
 
                 if (val !== null && val !== '') {
                     params.set(name, val);
+                } else {
+                    params.delete(name);
                 }
             });
 
@@ -371,13 +377,23 @@
                 const colCount = thead ? thead.querySelectorAll('th').length : this.defaultColumns;
 
                 if (tbody) {
-                    tbody.innerHTML = this.buildSkeletonRowsHtml(colCount, this.defaultRows);
+                    if (this.skeletonRenderer) {
+                        tbody.innerHTML = this.skeletonRenderer(colCount, this.defaultRows);
+                    } else {
+                        tbody.innerHTML = this.buildSkeletonRowsHtml(colCount, this.defaultRows);
+                    }
                     return;
                 }
             }
 
             // If no table exists yet or entire card is being replaced, build full skeleton table
             this.container.innerHTML = this.buildFullSkeletonHtml(this.defaultColumns, this.defaultRows);
+            if (this.skeletonRenderer) {
+                const newTbody = this.container.querySelector('tbody');
+                if (newTbody) {
+                    newTbody.innerHTML = this.skeletonRenderer(this.defaultColumns, this.defaultRows);
+                }
+            }
         }
 
         /**

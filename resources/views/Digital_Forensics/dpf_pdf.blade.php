@@ -213,7 +213,7 @@
     $dossierSuspectNames = implode(', ', array_unique($allSuspectNames));
 
     $submittingOfficer = $case->submitting_officer ?? ($docketData['submitting_officer'] ?? ($docketData['submitting'] ?? 'N/A'));
-    $raidLoc = $case->raid_location ?? ($case->seizure_location ?? ($case->location ?? ($locationPost ?? 'N/A')));
+    $raidLoc = $case->raid_location ?? ($case->location ?? ($locationPost ?? 'N/A'));
 
     // Collect all uploaded attachment files (Court Orders, Reports & Witness Statements)
     $attachedFiles = [];
@@ -534,6 +534,17 @@
             font-family: 'Times New Roman', Times, Baskerville, Georgia, serif;
         }
 
+        .report-flow-body {
+            margin-bottom: 3mm;
+        }
+
+        .page-footer-block {
+            position: relative;
+            z-index: 20;
+            background-color: #ffffff;
+            padding-top: 2mm;
+        }
+
         @media print {
             @page {
                 size: A4 portrait;
@@ -578,6 +589,15 @@
                 page-break-after: avoid !important;
                 break-after: avoid !important;
             }
+            .report-flow-body {
+                margin-bottom: 3mm !important;
+            }
+            .page-footer-block {
+                position: relative !important;
+                z-index: 20 !important;
+                background-color: #ffffff !important;
+                padding-top: 2mm !important;
+            }
         }
     </style>
 </head>
@@ -615,8 +635,8 @@
         <div class="a4-page cover-page page-break relative text-slate-900">
 
             <!-- SUBTLE NACOC WATERMARK -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
             </div>
 
             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -825,8 +845,8 @@
         <div class="a4-page report-page auto-paginated-root relative text-slate-900 {{ !empty($attachedFiles) ? 'page-break' : '' }}">
 
             <!-- SUBTLE NACOC WATERMARK -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
             </div>
 
             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -1079,8 +1099,8 @@
 
                 <div id="{{ $att['id'] }}" class="a4-page a4-page-attachment relative text-slate-900 page-break">
                     <!-- SUBTLE NACOC WATERMARK -->
-                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
                     </div>
 
                     <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -1254,8 +1274,8 @@
                         const subpageNote = (numPages > 1) ? ` (Sheet ${pNum} of ${numPages})` : '';
 
                         pageEl.innerHTML = `
-                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                                <img src="${watermarkUrl}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                                <img src="${watermarkUrl}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
                             </div>
                             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
                                 <div>

@@ -189,53 +189,7 @@ trait CaseControllerHelpers
             return $item->isDrugCase();
         }
 
-        $drugKeywords = config('forensic.drug_keywords', []);
-        $nonDrugKeywords = config('forensic.non_drug_keywords', []);
-
-        $category = '';
-        $name = '';
-        $drugType = '';
-
-        if ($item instanceof Exhibit) {
-            $category = strtolower((string)$item->exhibit_category);
-            $name     = strtolower((string)$item->commodity_name);
-            $drugType = strtolower((string)($item->substance_identification ?? $item->drug_classification));
-        } elseif (is_array($item)) {
-            $category = strtolower((string)($item['category'] ?? ($item['exhibit_category'] ?? '')));
-            $name     = strtolower((string)($item['seizure_name_drug'] ?? ($item['seizure_name'] ?? ($item['commodity_name'] ?? ($item['name'] ?? '')))));
-            $drugType = strtolower((string)($item['drug_type'] ?? ($item['substance_identification'] ?? ($item['drug_classification'] ?? ''))));
-        }
-
-        foreach ($nonDrugKeywords as $nkw) {
-            if (!empty($nkw) && (str_contains($category, $nkw) || str_contains($name, $nkw))) {
-                $hasDrugKw = false;
-                foreach ($drugKeywords as $dkw) {
-                    if (str_contains($name, $dkw) || str_contains($category, $dkw) || str_contains($drugType, $dkw)) {
-                        $hasDrugKw = true;
-                        break;
-                    }
-                }
-                if (!$hasDrugKw) {
-                    return false;
-                }
-            }
-        }
-
-        if (!empty($drugType)) {
-            foreach ($drugKeywords as $kw) {
-                if (str_contains($drugType, $kw)) {
-                    return true;
-                }
-            }
-        }
-
-        foreach ($drugKeywords as $kw) {
-            if (str_contains($category, $kw) || str_contains($name, $kw)) {
-                return true;
-            }
-        }
-
-        return false;
+        return app(\App\Services\DrugExhibitClassifier::class)->isDrugExhibit($item);
     }
 
     /**

@@ -71,24 +71,21 @@ class AuthController extends Controller
         $isJsonReq = $request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json');
 
         if ($user && Hash::check($password, $user->password)) {
-            $isForensicHead = $user->is_head && (
-                $user->unit === 'Forensic Directorate' ||
-                $user->unit === 'Forensic Head' ||
-                $user->unit === 'Directorate Head' ||
-                str_contains($user->unit, 'Forensic Directorate')
-            );
+            // Block login if user account is unapproved (pending Head of Unit approval) or deactivated
+            if (isset($user->is_approved) && !$user->is_approved) {
+                $blockedMessage = ($user->is_staff && !$user->is_head)
+                    ? 'Pending Approval: Your staff account must be approved by your Head of Unit before you can sign in.'
+                    : 'Account Deactivated: Your account access has been suspended. Please contact the administrator.';
 
-            // Block Unit Head login if account is not approved by Head of Forensic Directorate
-            if ($user->is_head && !$isForensicHead && isset($user->is_approved) && !$user->is_approved) {
                 if ($isJsonReq) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Account Pending Approval: Your Unit Head registration has been submitted to the Head of Forensic Directorate for approval.'
+                        'message' => $blockedMessage,
                     ], 403);
                 }
                 return back()->withErrors([
-                    'login_id' => 'Account Pending Approval: Your Unit Head registration has been submitted to the Head of Forensic Directorate for approval. You cannot log in until your account is approved.',
-                ])->with('pending_login_id', $loginId)->onlyInput('login_id');
+                    'login_id' => $blockedMessage,
+                ])->onlyInput('login_id');
             }
 
             Auth::login($user, $request->has('remember'));
@@ -154,7 +151,7 @@ class AuthController extends Controller
             $unitsData = [
                 ['name' => 'Crime Scene Support', 'code' => 'CSSU', 'category' => 'FIELD OPS'],
                 ['name' => 'Evidence Management', 'code' => 'EMU', 'category' => 'CUSTODY'],
-                ['name' => 'Lab Analysis', 'code' => 'CFLU', 'category' => 'LAB'],
+                ['name' => 'Lab Analysis', 'code' => 'LAU', 'category' => 'LAB'],
                 ['name' => 'Digital & Physical Forensic Unit', 'code' => 'DPFU', 'category' => 'CYBER & TECH'],
             ];
             foreach ($unitsData as $data) {
@@ -268,8 +265,8 @@ class AuthController extends Controller
             }
         }
         $isHead = !$isStaff;
-        // Unit Heads require Head of Forensic Directorate approval first before logging in
-        $isApproved = !$forensicHeadExists ? true : ($isHead ? false : true);
+        // Staff officers require approval from their Head of Unit before they can log in
+        $isApproved = $isHead;
 
         $inputUsername = trim($validated['username']);
         $userEmail = null;
@@ -297,17 +294,15 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        $statusMsg = !$forensicHeadExists
-            ? 'Head of Forensic registration successful! Directorate command established. Unit Heads and Staff may now sign up.'
-            : ($isHead
-                ? 'Unit Head registration submitted! Your account has been forwarded to the Head of Forensic Directorate for approval first before you can log in.'
-                : 'Registration successful! Please sign in with your Service ID or Username.');
-
-        $redirect = redirect('/login')->with('status', $statusMsg);
-        if ($isHead) {
-            $redirect->with('pending_login_id', $validated['service_id']);
+        if (!$forensicHeadExists) {
+            $statusMsg = 'Head of Forensic registration successful! Directorate command established. Unit Heads and Staff may now sign up.';
+        } elseif ($isStaff) {
+            $statusMsg = 'Registration successful! Your staff account requires approval by your Head of Unit before you can sign in.';
+        } else {
+            $statusMsg = 'Registration successful! Please sign in with your Service ID or Username.';
         }
-        return $redirect;
+
+        return redirect('/login')->with('status', $statusMsg);
     }
 
     /**
@@ -327,33 +322,5 @@ class AuthController extends Controller
         }
 
         return redirect('/login')->with('status', 'Officer logged out successfully.');
-    }
-
-    /**
-     * Approve and activate a Unit Head or Officer account.
-     */
-    public function approveUser($id)
-    {
-        $user = User::find($id);
-        if ($user) {
-            $user->is_approved = true;
-            $user->save();
-            return response()->json(['success' => true, 'message' => 'Account approved and activated.']);
-        }
-        return response()->json(['success' => false, 'message' => 'User not found.'], 404);
-    }
-
-    /**
-     * Deactivate a user account.
-     */
-    public function deactivateUser($id)
-    {
-        $user = User::find($id);
-        if ($user) {
-            $user->is_approved = false;
-            $user->save();
-            return response()->json(['success' => true, 'message' => 'Account access deactivated.']);
-        }
-        return response()->json(['success' => false, 'message' => 'User not found.'], 404);
     }
 }

@@ -1097,6 +1097,51 @@ class LabSitrepPdfTest extends TestCase
         $this->assertStringContainsString('Unspecified', $content);
         $this->assertStringNotContainsString('Preliminary examination conducted; sample secured for confirmatory assay.', $content);
     }
+
+    public function test_table_content_does_not_overlap_footer_and_has_clean_footer_margins(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        // Seed 30 cases with varying text lengths matching the user's multi-entry situation
+        for ($i = 1; $i <= 30; $i++) {
+            $case = SingleSuspectCase::create([
+                'case_number' => "MARGIN-TEST-" . str_pad($i, 3, '0', STR_PAD_LEFT),
+                'user_id' => $user->id,
+                'suspect_name' => "Suspect Number {$i} with Extended Full Name",
+                'raid_location' => 'Tema Port Command Station',
+                'seizure_name_drug' => 'Heroin (Brown Sugar / Diacetylmorphine)',
+            ]);
+
+            \App\Models\Exhibit::create([
+                'case_type' => 'Single',
+                'single_suspect_case_id' => $case->id,
+                'exhibit_number' => "EX-MARGIN-" . str_pad($i, 3, '0', STR_PAD_LEFT),
+                'commodity_name' => 'Heroin (Brown Sugar / Diacetylmorphine)',
+                'source_of_exhibits' => 'Tema Port Command Station',
+                'exhibit_category' => 'Narcotic Drug',
+                'seizure_quantity' => '50 Slabs',
+                'seizure_weight' => '75 kg',
+                'exhibit_remark' => 'Submitted via Laboratory Analysis & Case Registration Workspace with extended custody remarks.',
+            ]);
+        }
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/lab_sitrep_pdf');
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        // Check CSS protection properties ensuring footer clearance
+        $this->assertStringContainsString('margin-bottom: 3mm;', $content);
+        $this->assertStringContainsString('z-index: 20', $content);
+        $this->assertStringContainsString('background-color: #ffffff', $content);
+
+        // Verify all 30 entries rendered without loss
+        for ($i = 1; $i <= 30; $i++) {
+            $this->assertStringContainsString("Suspect Number {$i}", $content);
+        }
+    }
 }
 
 

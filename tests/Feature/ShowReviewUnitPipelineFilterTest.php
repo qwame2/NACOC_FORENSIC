@@ -59,10 +59,10 @@ class ShowReviewUnitPipelineFilterTest extends TestCase
 
         $html = $response->getContent();
 
-        // 3 cards: Lab Analysis, Evidence Management, Head of Forensic Directorate
+        // 2 cards: Lab Analysis, Evidence Management
         $this->assertStringContainsString('id="unitCard-labanalysis"', $html);
         $this->assertStringContainsString('id="unitCard-evidencemanagement"', $html);
-        $this->assertStringContainsString('Head of Forensic Directorate', $html);
+        $this->assertStringNotContainsString('Head of Forensic Directorate', $html);
 
         // Excluded: Crime Scene Support and Digital & Physical Forensics
         $this->assertStringNotContainsString('id="unitCard-crimescenesupport"', $html);
@@ -106,11 +106,11 @@ class ShowReviewUnitPipelineFilterTest extends TestCase
 
         $html = $response->getContent();
 
-        // 4 cards: Crime Scene Support, Digital & Physical Forensics, Evidence Management, Head of Forensic Directorate
+        // 3 cards: Crime Scene Support, Digital & Physical Forensics, Evidence Management
         $this->assertStringContainsString('id="unitCard-crimescenesupport"', $html);
         $this->assertStringContainsString('id="unitCard-digitalphysicalforensics"', $html);
         $this->assertStringContainsString('id="unitCard-evidencemanagement"', $html);
-        $this->assertStringContainsString('Head of Forensic Directorate', $html);
+        $this->assertStringNotContainsString('Head of Forensic Directorate', $html);
 
         // Excluded: Lab Analysis
         $this->assertStringNotContainsString('id="unitCard-labanalysis"', $html);
@@ -168,12 +168,12 @@ class ShowReviewUnitPipelineFilterTest extends TestCase
 
         $html = $response->getContent();
 
-        // All 5 units: Lab Analysis -> Crime Scene Support -> Digital & Physical Forensics -> Evidence Management -> Head of Forensic Directorate
+        // All 4 operational units: Lab Analysis -> Crime Scene Support -> Digital & Physical Forensics -> Evidence Management
         $this->assertStringContainsString('id="unitCard-labanalysis"', $html);
         $this->assertStringContainsString('id="unitCard-crimescenesupport"', $html);
         $this->assertStringContainsString('id="unitCard-digitalphysicalforensics"', $html);
         $this->assertStringContainsString('id="unitCard-evidencemanagement"', $html);
-        $this->assertStringContainsString('Head of Forensic Directorate', $html);
+        $this->assertStringNotContainsString('Head of Forensic Directorate', $html);
 
         // Header: 4 operational units count
         $this->assertStringContainsString('4-Unit Directorate Progress', $html);
@@ -204,10 +204,10 @@ class ShowReviewUnitPipelineFilterTest extends TestCase
 
         $html = $response->getContent();
 
-        // 3 cards: Crime Scene Support -> Evidence Management -> Head of Forensic Directorate
+        // 2 cards: Crime Scene Support -> Evidence Management
         $this->assertStringContainsString('id="unitCard-crimescenesupport"', $html);
         $this->assertStringContainsString('id="unitCard-evidencemanagement"', $html);
-        $this->assertStringContainsString('Head of Forensic Directorate', $html);
+        $this->assertStringNotContainsString('Head of Forensic Directorate', $html);
 
         // Excluded: Lab Analysis and Digital & Physical Forensics
         $this->assertStringNotContainsString('id="unitCard-labanalysis"', $html);

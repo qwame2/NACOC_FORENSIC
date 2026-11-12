@@ -53,7 +53,7 @@
                 <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex justify-between items-center">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">CHEMIST WORKSTATION</span>
+                            <span class="px-2.5 py-0.5 bg-white text-emerald-700 border border-slate-200/90 shadow-2xs text-[10px] font-extrabold font-mono-code rounded-md uppercase">CHEMIST WORKSTATION</span>
                             <span class="text-xs text-slate-400">&bull;</span>
                             <span class="text-xs font-bold text-slate-700 font-mono-code">REAGENT TESTING &amp; SPECTROMETRY</span>
                         </div>

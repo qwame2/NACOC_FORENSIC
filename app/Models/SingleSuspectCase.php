@@ -47,6 +47,7 @@ class SingleSuspectCase extends Model
         'holding_facility',
         'operation_code',
         'operation_code_name',
+        'search_warrant_document',
         'raid_location',
         'offense_description',
         'description_of_exhibits',

@@ -54,6 +54,7 @@ class CaseUnitProgressService
         string $defaultLabHeadName = 'N/A',
         ?string $labAnalyst = null,
         ?bool $hasGsaReports = null,
+        bool $suspectHasWeaponOrVehicle = false,
     ): array {
         $cssUnit = enum_exists(UnitName::class)
             ? UnitName::CRIME_SCENE_SUPPORT->value
@@ -170,7 +171,8 @@ class CaseUnitProgressService
         $cssInvolved = $isCreatorCss
             || $this->unitHasActiveProgress($docketData, $cssUnit)
             || $this->unitHasRecordedOfficer($docketData, $cssUnit)
-            || $suspectHasCrimeSceneExhibit;
+            || $suspectHasWeaponOrVehicle
+            || (!$isCreatorEvidence && $suspectHasCrimeSceneExhibit);
 
         $labInvolved = $isCreatorLab
             || $this->unitHasActiveProgress($docketData, $labUnit)
@@ -194,7 +196,7 @@ class CaseUnitProgressService
             $creatorUnit = $dpfUnit;
             $dpfInvolved = true;
         } elseif ($isCreatorEvidence) {
-            $creatorUnit = null;
+            $creatorUnit = $emUnit;
         } else {
             $creatorUnit = $cssUnit;
             $isCreatorCss = true;
@@ -219,7 +221,7 @@ class CaseUnitProgressService
             }
         }
 
-        if (!in_array($emUnit, $unitsList, true)) {
+        if (!$isCreatorEvidence && !in_array($emUnit, $unitsList, true)) {
             $unitsList[] = $emUnit;
         }
 
@@ -316,16 +318,6 @@ class CaseUnitProgressService
                         ? 'Processed via Evidence Management & Custody Vault Workspace'
                         : 'Awaiting evidence receipt and vault custody intake',
                 ];
-            } elseif ($uKey === 'Head of Forensic Directorate') {
-                $hofCompleted = $case->status === 'Approved' || !empty($docketData['hof_approved']);
-                $unitProgress[$uKey] = [
-                    'status' => $hofCompleted ? 'COMPLETED' : 'PENDING',
-                    'officer' => $hofCompleted ? ($case->approved_by ?? 'Head of Forensic Directorate') : null,
-                    'updated_at' => $hofCompleted ? optional($case->updated_at)->toDateTimeString() : null,
-                    'notes' => $hofCompleted
-                        ? 'Multi-Unit Directorate Docket Approved & Signed Off'
-                        : 'Awaiting final directorate approval sign-off',
-                ];
             }
         }
 
@@ -385,6 +377,7 @@ class CaseUnitProgressService
         ?string $labAnalyst,
         string $defaultLabHeadName = 'N/A',
         ?bool $hasGsaReports = null,
+        bool $suspectHasWeaponOrVehicle = false,
     ): array {
         if (isset($unitProgress['Lab Analysis'])) {
             if ($hasGsaReports === null) {

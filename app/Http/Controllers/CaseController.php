@@ -12,6 +12,7 @@ use App\Models\SuspectNlrReport;
 use App\Services\CaseDocketService;
 use App\Services\CaseDuplicateDetector;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * CaseController - Primary Case Docket Controller
@@ -59,6 +60,12 @@ class CaseController extends Controller
      */
     public function store(Request $request)
     {
+        if ($request->input('from') === 'Forensic_Head' || $request->input('from') === 'Forensic Head') {
+            return $request->wantsJson() || $request->ajax()
+                ? response()->json(['success' => false, 'message' => 'Directorate Head is not permitted to create cases.'], 403)
+                : redirect('/Forensic_Head/cases')->with('error', 'Directorate Head is not permitted to create cases.');
+        }
+
         try {
             $result = app(CaseDocketService::class)->storeCase($request);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -89,6 +96,11 @@ class CaseController extends Controller
      */
     public function showEdit($id)
     {
+        if (request('from') === 'Forensic_Head' || request('from') === 'Forensic Head') {
+            return redirect()->route('forensic_head.cases.review', ['id' => $id])
+                ->with('error', 'Directorate Head is not permitted to edit cases. Directorate Heads only review and approve cases.');
+        }
+
         $case = $this->findCase($id);
         if (!$case) {
             return redirect('/cases')->with('error', "Case {$id} not found.");
@@ -106,6 +118,12 @@ class CaseController extends Controller
      */
     public function updateCase($id, Request $request)
     {
+        if ($request->input('from') === 'Forensic_Head' || $request->input('from') === 'Forensic Head') {
+            return $request->wantsJson() || $request->ajax()
+                ? response()->json(['success' => false, 'message' => 'Directorate Head is not permitted to edit cases.'], 403)
+                : redirect()->route('forensic_head.cases.review', ['id' => $id])->with('error', 'Directorate Head is not permitted to edit cases.');
+        }
+
         $case = $this->findCase($id);
         if (!$case) {
             return $request->wantsJson() || $request->ajax()

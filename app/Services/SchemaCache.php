@@ -48,6 +48,7 @@ class SchemaCache
                 'case_suspects',
                 'suspect_gsa_reports',
                 'suspect_nlr_reports',
+                'suspect_preliminary_reports',
                 'users',
                 'units',
                 'case_handovers',

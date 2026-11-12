@@ -5,12 +5,18 @@
     @php
         $case = $case ?? null;
         $hasDrugExhibitLinkedToSuspect = $hasDrugExhibitLinkedToSuspect ?? false;
+        $seizuresOnlyMode = !empty($seizuresOnlyMode)
+            || in_array(request()->query('mode'), ['seizures_only', 'exhibit_only'], true)
+            || request()->query('section') === 'seizures'
+            || request()->boolean('seizures_only')
+            || request()->is('Evidence_Management/add-exhibit')
+            || request()->is('evidence-management/add-exhibit');
     @endphp
     @php
         $authUser = auth()->user();
         $userUnit = !empty($authUser->unit)
             ? $authUser->unit
-            : session('user_unit') ?? (request()->query('unit') ?? (request()->query('from') ?? 'Crime Scene Support'));
+            : session('user_unit') ?? (request()->query('unit') ?? (request()->query('from') ?? 'Evidence Management'));
         $isLabAnalysis = false;
 
         $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
@@ -26,24 +32,19 @@
         $activeSuspectHasSavedResult = false;
         if (isset($case)) {
             $exCat = strtolower($case->exhibit_category ?? '');
-            $szDrug = $case->seizure_name_drug ?? '';
+            $szDrug = strtolower($case->seizure_name_drug ?? '');
             $szName = strtolower($case->seizure_name ?? '');
             $exSum = strtolower($case->exhibits_summary ?? '');
-            if (
-                !empty($szDrug) ||
-                str_contains($exCat, 'drug') ||
-                str_contains($exCat, 'narcotic') ||
-                str_contains($exCat, 'substance') ||
-                str_contains($szName, 'cocaine') ||
-                str_contains($szName, 'heroin') ||
-                str_contains($szName, 'cannabis') ||
-                str_contains($szName, 'drug') ||
-                str_contains($exSum, 'cocaine') ||
-                str_contains($exSum, 'heroin') ||
-                str_contains($exSum, 'cannabis') ||
-                str_contains($exSum, 'drug')
-            ) {
-                $isDrugCase = true;
+            $combinedExText = "{$exCat} {$szDrug} {$szName} {$exSum}";
+            $drugKeywords = config('forensic.drug_keywords', []);
+            $isDrugCase = !empty($szDrug);
+            if (!$isDrugCase) {
+                foreach ($drugKeywords as $dkw) {
+                    if ($dkw !== '' && str_contains($combinedExText, strtolower($dkw))) {
+                        $isDrugCase = true;
+                        break;
+                    }
+                }
             }
 
             $dbExamExists = false;
@@ -267,11 +268,19 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">
-                    <a href="{{ url('/cases') . ($isLabAnalysis ? '?unit=Lab+Analysis' : '') }}"
-                        class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5">
-                        <span>&larr;</span>
-                        <span>Back to Case Directory</span>
-                    </a>
+                    @if($seizuresOnlyMode)
+                        <a href="{{ url('/Evidence_Management/vault') }}"
+                            class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5">
+                            <span>&larr;</span>
+                            <span>Back to Exhibit Vault</span>
+                        </a>
+                    @else
+                        <a href="{{ url('/cases') . ($isLabAnalysis ? '?unit=Lab+Analysis' : '') }}"
+                            class="px-4 py-2 bg-slate-200/80 hover:bg-slate-300 border-none text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center space-x-1.5">
+                            <span>&larr;</span>
+                            <span>Back to Case Directory</span>
+                        </a>
+                    @endif
                 </div>
             </header>
 
@@ -289,29 +298,41 @@
                             <span class="text-xs font-bold text-slate-700 font-mono-code">PROPERTY &amp; CUSTODY
                                 COMMAND</span>
                         </div>
-                        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Evidence &amp; Exhibit
-                            Lodgement Portal</h1>
-                        <p class="text-xs text-slate-500 mt-1">Official Property Registration, Exhibit Vault Logging,
-                            Tagging &amp; Chain of Custody Intake</p>
+                        @if($seizuresOnlyMode)
+                            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Section 4: Seizures (Commodities)</h1>
+                            <p class="text-xs text-slate-500 mt-1">Log seized exhibit(s) without a suspect into the Exhibit Vault. If a suspect is arrested later, their biodata can be linked to this exhibit from any unit's Create Case page.</p>
+                        @else
+                            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Evidence &amp; Exhibit
+                                Lodgement Portal</h1>
+                            <p class="text-xs text-slate-500 mt-1">Official Property Registration, Exhibit Vault Logging,
+                                Tagging &amp; Chain of Custody Intake</p>
+                        @endif
                     </div>
                 </div>
 
                 <!-- CONDITIONAL CARGO / PARCEL FORM -->
-                @include('partials.cargo_parcel_form')
+                @if(!$seizuresOnlyMode)
+                    @include('partials.cargo_parcel_form')
+                @endif
 
                 <!-- DOCKET LOGGING FORM -->
                 <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();"
-                    onreset="setTimeout(clearDocketFormDraftAndReset, 50)" class="space-y-6 text-xs font-medium">
+                    onreset="setTimeout(clearDocketFormDraftAndReset, 50)" novalidate class="space-y-6 text-xs font-medium">
                     @csrf
                     <input type="hidden" id="caseReferenceIdInput" value="{{ $case->case_number ?? $caseRefAuto }}">
 
+                    @if(!$seizuresOnlyMode)
+                        @include('partials.optional_sections_1_to_3_toggle')
+                    @endif
+
+                    <div id="sections1To3Wrapper" class="{{ $seizuresOnlyMode ? 'hidden' : 'space-y-6' }}">
                     <!-- SECTION 1: MASTER CASE TITLE & DOCKET CLASSIFICATION -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-50">
                         <div
                             class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center space-x-3">
                                 <div
-                                    class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                    class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 01-2-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -337,7 +358,7 @@
                             <div>
                                 <label
                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                    Case Name / Legal Title <span class="text-red-600 font-bold">*</span>
+                                    Case Reference / Legal Title <span class="text-red-600 font-bold">*</span>
                                 </label>
                                 <div class="relative flex items-center group">
                                     <span
@@ -606,13 +627,15 @@
                         </div>
                     </div>
 
+                    @include('partials.search_warrant_upload_section')
+
                     <!-- SECTION 2: MUGSHOT PHOTO UPLOAD -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-40">
                         <div
                             class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div class="flex items-center space-x-3">
                                 <div
-                                    class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                    class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -929,7 +952,7 @@
                         class="hidden p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between shadow-2xs">
                         <div class="flex items-center space-x-3">
                             <div
-                                class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                                class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm shadow-slate-200/50">
                                 <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -957,7 +980,7 @@
                             class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div class="flex items-center space-x-3">
                                 <div
-                                    class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30">
+                                    class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -1658,7 +1681,7 @@
                                     class="hidden p-5 bg-emerald-50/50 rounded-2xl border border-slate-300 space-y-4">
                                     <div class="flex items-center space-x-2.5">
                                         <div
-                                            class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                            class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1929,8 +1952,9 @@
                                 </div>
                             </div>
                         </div>
-
-
+                    </div>
+                    </div>
+                    </div>
 
                         <!-- SECTION 4: SEIZURES (COMMODITIES) -->
                         <div
@@ -1939,7 +1963,7 @@
                                 class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div class="flex items-center space-x-3">
                                     <div
-                                        class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md shadow-emerald-600/30 shrink-0">
+                                        class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1961,11 +1985,14 @@
                                 </div>
                             </div>
 
+                            @include('partials.unassigned_exhibits_selector', ['selectorTargetUnit' => 'Evidence Management'])
+
                             <!-- SEIZURE STATUS CHECKBOX CARD -->
-                            <div class="space-y-2.5">
+                            <div class="{{ $seizuresOnlyMode ? 'hidden' : 'space-y-2.5' }}">
                                 <label
                                     class="relative flex items-center space-x-3.5 p-4 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-300/80 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none overflow-hidden">
                                     <input type="checkbox" id="hasSeizuresCheckbox"
+                                        {{ $seizuresOnlyMode ? 'checked' : '' }}
                                         onchange="toggleSeizuresContainer()"
                                         class="w-5 h-5 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600 shrink-0">
                                     <div class="flex flex-col min-w-0 flex-1">
@@ -1980,12 +2007,12 @@
 
                             <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
                             <div id="seizuresDetailsContainer"
-                                class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
+                                class="{{ $seizuresOnlyMode ? '' : 'hidden' }} p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
 
                                 <div class="flex items-center justify-between border-b border-slate-300/60 pb-3">
                                     <div class="flex items-center space-x-2.5">
                                         <div
-                                            class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                            class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -2054,16 +2081,28 @@
 
                                             <!-- SUSPECT / OWNERSHIP SELECT DROPDOWN -->
                                             <div class="relative z-30">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Suspect / Ownership <span class="text-red-600 font-bold">*</span>
-                                                </label>
-                                                <div class="relative">
-                                                    <select onchange="this.setAttribute('data-user-selected', 'true'); if (typeof syncSection4ExhibitsToLabSection === 'function') syncSection4ExhibitsToLabSection();"
-                                                        class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
-                                                        <option value="All Suspects">All Suspects (Joint Ownership)
-                                                        </option>
-                                                    </select>
+                                                <div class="seizure-ownership-default">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Suspect / Ownership <span class="text-red-600 font-bold">*</span>
+                                                    </label>
+                                                    <div class="relative">
+                                                        <select onchange="this.setAttribute('data-user-selected', 'true'); if (typeof syncSection4ExhibitsToLabSection === 'function') syncSection4ExhibitsToLabSection();"
+                                                            class="seizure-associated-person-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
+                                                            <option value="All Suspects">All Suspects (Joint Ownership)
+                                                            </option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="seizure-ownership-unassigned hidden">
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Custody / Ownership Status
+                                                    </label>
+                                                    <div class="px-3.5 py-2.5 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-700 text-xs flex items-center justify-between gap-2">
+                                                        <span>Unassigned (Vault Lodgement)</span>
+                                                        <span class="text-[9px] font-mono-code font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded shrink-0">NO SUSPECT</span>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -2171,15 +2210,15 @@
                                                                 </button>
                                                             </li>
                                                             <li class="exhibit-item"
-                                                                onclick="selectExhibitCategory('Gold', event)">
+                                                                onclick="selectExhibitCategory('Precious Stones', event)">
                                                                 <button type="button"
                                                                     class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
                                                                     <div>
                                                                         <div class="font-extrabold text-slate-900">
-                                                                            Gold</div>
+                                                                            Precious Stones</div>
                                                                         <div
                                                                             class="text-[10px] text-slate-500 font-normal">
-                                                                            Bullion, Bars, Smuggled Metals</div>
+                                                                            Diamonds, Gemstones, Gold, Bullion</div>
                                                                     </div>
                                                                     <span
                                                                         class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-2 py-0.5 rounded font-bold">MET</span>
@@ -4360,8 +4399,8 @@
                                                         <div class="relative flex items-center group">
                                                             <span
                                                                 class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                            <input type="number" step="0.01"
-                                                                id="newSeizureQuantity" placeholder="e.g. 10"
+                                                            <input type="text" inputmode="decimal"
+                                                                id="newSeizureQuantity" placeholder="e.g. 10 or 50,000"
                                                                 class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                                         </div>
                                                     </div>
@@ -4855,6 +4894,8 @@
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            @include('partials.seized_item_source_custody_fields', ['showSourceOfExhibits' => false])
 
                                             <!-- REASON FOR SEIZURE -->
                                             <div class="col-span-full md:col-span-1">
@@ -5584,6 +5625,7 @@
                                     
                                 </div>
                             </div>
+                        </div>
                             <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
                             <div
                                 class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -5636,15 +5678,17 @@
                                     </div>
                                     <div>
                                         <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">
-                                            Finalize &amp; Save Docket File</h4>
-                                        <p class="text-[11px] text-slate-500 font-medium">Save this case docket to
-                                            enable inter-unit forensic workflow and real-time HOF tracking.</p>
+                                            {{ $seizuresOnlyMode ? 'Finalize & Save Seized Exhibit(s)' : 'Finalize & Save Docket File' }}</h4>
+                                        <p class="text-[11px] text-slate-500 font-medium">
+                                            {{ $seizuresOnlyMode ? 'Save seized exhibit(s) without a suspect to the Exhibit Vault. Suspect biodata can be linked later when an arrest is made.' : 'Save this case docket to enable inter-unit forensic workflow and real-time HOF tracking.' }}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                                    @if(!$seizuresOnlyMode)
                                     <button type="button" onclick="handleDraftAndContinueLater()"
                                         class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">Draft
                                         and Continue Later</button>
+                                    @endif
                                     <button type="button" onclick="processNewArrested()"
                                         id="submitArrestDocketBtn"
                                         class="px-7 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center space-x-2 border-none cursor-pointer">
@@ -5653,7 +5697,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                                         </svg>
-                                        <span>Save Case</span>
+                                        <span>{{ $seizuresOnlyMode ? 'Save Exhibit' : 'Save Case' }}</span>
                                     </button>
                                 </div>
                             </div>
@@ -5665,6 +5709,10 @@
     </div>
 
     <script>
+        window.IS_SEIZURES_ONLY_MODE = {{ $seizuresOnlyMode ? 'true' : 'false' }};
+        window.forensicDrugKeywords = @json(config('forensic.drug_keywords', []));
+        window.forensicNonDrugKeywords = @json(config('forensic.non_drug_keywords', []));
+
         // Populate only the readonly manifest-sync weight fields without resetting confirmatory test data.
         // Called when the user opens the Confirmatory YES section so they see exhibit context.
         function initSampleWeightFieldsOnly() {
@@ -5691,13 +5739,10 @@
             const unitsText = qty ? `${qty} ${pkg}`.trim() : (pkg || '');
             const grossWeightText = weight ? `${weight} ${unit}`.trim() : (unit || '');
 
-            const nonDrugKwList = ['truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency', 'zonda', 'cash',
-                'usd', 'ghs', 'laptop', 'phone'
-            ];
             const isNonDrug = (val) => {
                 if (!val) return false;
                 const l = val.toLowerCase();
-                return nonDrugKwList.some(k => l.includes(k));
+                return Array.isArray(window.forensicNonDrugKeywords) && window.forensicNonDrugKeywords.some(k => l.includes(k.toLowerCase()));
             };
 
             const sampleDescInput = document.getElementById('sampleWeightDescription');
@@ -6594,7 +6639,7 @@
                     <!-- DYNAMIC CONDITIONAL SPOUSE / DATING PARTNER CARD -->
                     <div class="relationship-details-box hidden p-5 bg-emerald-50/50 rounded-2xl border border-slate-300 space-y-4">
                         <div class="flex items-center space-x-2.5">
-                            <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                            <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
                             </div>
                             <div>
@@ -7299,6 +7344,10 @@
 
 
         function validateSuspectDocketForm() {
+            if (typeof window.isSections1To3OptionalMode === 'function' && window.isSections1To3OptionalMode()) {
+                return true;
+            }
+
             const requiredFields = [{
                     id: 'newArrestedName',
                     label: 'Suspect Full Legal Name'
@@ -7431,20 +7480,24 @@
                 return;
             }
 
-            if (!validateSuspectDocketForm()) {
-                return;
-            }
-            if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
-                return;
+            const noSuspectMode = Boolean(!window.IS_SEIZURES_ONLY_MODE && typeof window.isSections1To3OptionalMode === 'function' && window.isSections1To3OptionalMode());
+
+            if (!window.IS_SEIZURES_ONLY_MODE && !noSuspectMode) {
+                if (!validateSuspectDocketForm()) {
+                    return;
+                }
+                if (typeof validateSuspectPhones === 'function' && !validateSuspectPhones()) {
+                    return;
+                }
             }
 
             // Immediately lock submission and disable button
             setSubmittingState(true);
 
-            const ref = document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419';
-            const name = document.getElementById('newArrestedName')?.value?.trim() || '';
-            const alias = document.getElementById('newArrestedAlias')?.value?.trim() || '';
-            const card = document.getElementById('newArrestedID')?.value?.trim() || '';
+            const ref = noSuspectMode ? '' : (document.getElementById('newArrestedRaidRef')?.value || 'RAID-2026-0419');
+            const name = noSuspectMode ? 'Unassigned (No Suspect)' : (document.getElementById('newArrestedName')?.value?.trim() || '');
+            const alias = noSuspectMode ? '' : (document.getElementById('newArrestedAlias')?.value?.trim() || '');
+            const card = noSuspectMode ? '' : (document.getElementById('newArrestedID')?.value?.trim() || '');
             const gender = document.getElementById('newArrestedGender')?.value?.trim() || '';
             const dob = document.getElementById('newArrestedDOB')?.value?.trim() || '';
             const age = document.getElementById('newArrestedAge')?.value?.trim() || '';
@@ -7465,7 +7518,8 @@
             const childrenVal = hasChildren ? (document.getElementById('newArrestedChildren')?.value || '1') : '0';
             const childrenText = hasChildren ? `${childrenVal} Kids` : 'N/A';
             const offense = document.getElementById('newArrestedOffense')?.value || 'Under Investigation';
-            const raidLocation = document.getElementById('newArrestedRaidLocation')?.value || 'Unspecified Scene';
+            const rawRaidLocation = document.getElementById('newArrestedRaidLocation')?.value?.trim() || '';
+            const raidLocation = noSuspectMode ? (rawRaidLocation || null) : (rawRaidLocation || 'Unspecified Scene');
             const facility = document.getElementById('newArrestedFacility')?.value || 'NACOC Holding Cell';
             const caseTitleInput = document.getElementById('caseTitleInput')?.value;
 
@@ -7497,7 +7551,7 @@
                 spouseSummary = `Partner: ${partnerName} (${partnerPhone}) - ${partnerInfo}`;
             }
 
-            const hasSeizures = document.getElementById('hasSeizuresCheckbox')?.checked;
+            const hasSeizures = Boolean(window.IS_SEIZURES_ONLY_MODE || document.getElementById('hasSeizuresCheckbox')?.checked);
             const seizureBlocks = document.querySelectorAll('.seizure-block');
 
             const seizuresList = [];
@@ -7548,6 +7602,9 @@
                     const seizureTime = block.querySelector('#newSeizureTime')?.value || '';
                     const seizureLocation = block.querySelector('#newSeizureLocation')?.value || '';
                     const seizureOfficer = getSeizureOfficersFormatted(block);
+                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.querySelector('.seizure-source-of-exhibits-input')?.value || block.querySelector('[name="source_of_exhibits"]')?.value || block.dataset?.preservedSourceOfExhibits || '';
+                    const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
+                    const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
                     const seizureReason = block.querySelector('#newSeizureReason')?.value || '';
 
                     // Device fields
@@ -7632,7 +7689,8 @@
 
                     seizuresList.push({
                         item_number: itemNum,
-                        property_id: block.getAttribute('data-property-id') || null,
+                        linked_exhibit_id: block.dataset.linkedExhibitId ? Number(block.dataset.linkedExhibitId) : null,
+                        property_id: block.dataset.propertyId || block.getAttribute('data-property-id') || null,
                         exhibit_category: exhibitCat,
                         exhibit_type: block.querySelector('.exhibit-type-select')?.value || (exhibitCat ===
                             'Drugs' ? 'Drug Exhibit' : 'Non-Drug Exhibit'),
@@ -7643,12 +7701,15 @@
                         associated_person: finalAssocPerson,
                         suspect_ownership: selectedAssocPerson || 'All Suspects',
                         seizure_name: seizureName,
+                        commodity_name: currName || seizureName,
+                        name: currName || seizureName,
                         seizure_name_drug: drugName,
                         seizure_name_weapon: wpnName,
                         seizure_name_currency: currName,
                         seizure_name_ammo: ammoName,
                         seizure_name_device: devName,
                         seizure_quantity: seizureQty,
+                        amount: (exhibitCat === 'Money' || exhibitCat === 'Currency' || exhibitCat === 'Cash') ? (seizureQty || seizureValue || '') : (block.querySelector('#newSeizureAmount')?.value || ''),
                         seizure_packaging: seizurePackaging,
                         seizure_weight: seizureWeight,
                         seizure_unit: seizureUnit,
@@ -7658,6 +7719,9 @@
                         seizure_time: seizureTime,
                         seizure_location: seizureLocation,
                         seizure_officer: seizureOfficer,
+                        source_of_exhibits: sourceOfExhibits,
+                        investigating_officer: investigatingOfficer,
+                        source_requesting_unit: sourceRequestingUnit,
                         seizure_reason: seizureReason,
                         exhibit_remark: exhibitRemark,
                         dev_model: devModel,
@@ -7754,6 +7818,64 @@
                 });
             }
 
+            if (window.IS_SEIZURES_ONLY_MODE) {
+                if (seizuresList.length === 0) {
+                    setSubmittingState(false);
+                    showValidationErrorPopover(['Exhibit Category & Seized Commodity Details (Section 4)']);
+                    return;
+                }
+
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                fetch('/Evidence_Management/exhibits/store-unassigned', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': token || ''
+                    },
+                    body: JSON.stringify({
+                        seizures: seizuresList,
+                        evidence_photos: seizedExhibitDataUrls
+                    })
+                })
+                .then(async res => {
+                    const data = await res.json();
+                    if (!res.ok) {
+                        setSubmittingState(false);
+                        let errMsg = data.message || 'Validation failed. Please check the exhibit details.';
+                        if (data.errors) {
+                            const detailList = Object.values(data.errors).flat().join('\n• ');
+                            errMsg += '\n• ' + detailList;
+                        }
+                        throw new Error(errMsg);
+                    }
+                    return data;
+                })
+                .then(() => {
+                    setSubmittingState(false);
+                    clearDocketFormDraft();
+                    openSeizedPropertyQrDownloadModal('UNASSIGNED');
+                })
+                .catch(err => {
+                    setSubmittingState(false);
+                    const msg = err.message || 'An error occurred while saving the seized exhibit(s).';
+                    const errItems = msg.split('\n• ').map(s => s.replace(/^\n/, '').trim()).filter(Boolean);
+                    showValidationErrorPopover(errItems.length > 0 ? errItems : [msg]);
+                });
+                return;
+            }
+
+            if (noSuspectMode && seizuresList.length === 0) {
+                setSubmittingState(false);
+                showValidationErrorPopover(['Exhibit Category & Seized Commodity Details (Section 4)']);
+                return;
+            }
+            if (noSuspectMode) {
+                seizuresList.forEach(s => {
+                    s.associated_person = 'Unassigned (No Suspect)';
+                });
+            }
+
             let seizureSummary = 'No contraband logged';
             let seizureHtml = '';
             if (hasSeizures && seizuresList.length > 0) {
@@ -7806,7 +7928,11 @@
             }
 
             // Collect all suspects (Suspect #1 + any additional)
-            const allSuspects = collectAllSuspects();
+            const allSuspects = noSuspectMode ? [] : collectAllSuspects();
+            const resolvedPrimaryCommodity = primarySeizure.commodity_name || primarySeizure.seizure_name || primarySeizure.exhibit_category || 'Contraband';
+            const resolvedTitle = noSuspectMode ? `Seized Exhibit: ${resolvedPrimaryCommodity} (Awaiting Suspect)` : caseTitle;
+            const resolvedSuspectName = noSuspectMode ? 'Unassigned (No Suspect)' : name;
+            const resolvedDocketMode = noSuspectMode ? 'SINGLE' : (document.getElementById('caseEntryTypeSelect')?.value || 'SINGLE');
 
             const docketPayload = {
                 raid_ref: ref,
@@ -7876,61 +8002,66 @@
                         'X-CSRF-TOKEN': token || ''
                     },
                     body: JSON.stringify({
+                        no_suspect: noSuspectMode ? 1 : 0,
                         case_number: caseRef,
-                        title: caseTitle,
+                        linked_exhibit_ids: (typeof jQuery !== 'undefined' ? jQuery('#linkedUnassignedExhibitsSelect').val() : (document.getElementById('linkedUnassignedExhibitsSelect') ? Array.from(document.getElementById('linkedUnassignedExhibitsSelect').selectedOptions).map(o => o.value) : [])) || [],
+                        link_suspect_to_locked_exhibit: document.getElementById('linkSuspectToLockedExhibitCheckbox')?.checked ? 1 : 0,
+                        title: resolvedTitle,
                         unit_name: @json($userUnit),
-                        operation_code_name: document.getElementById('operationTypeSelect')?.value || document
-                            .getElementById('operationCodeNameInput')?.value || null,
-                        suspect_docket_mode: document.getElementById('caseEntryTypeSelect')?.value || 'SINGLE',
+                        operation_code_name: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || document
+                            .getElementById('operationCodeNameInput')?.value || null),
+                        suspect_docket_mode: resolvedDocketMode,
 
                         // Suspect info
-                        suspect_name: name,
-                        suspect_alias: alias,
-                        ghana_card: card,
-                        gender: gender,
-                        dob: dob,
-                        age: age,
-                        height: height,
-                        eye_color: eyeColor,
-                        nationality: document.getElementById('nationalitySelect')?.value || document
-                            .getElementById('newArrestedNationality')?.value || 'Ghanaian',
-                        pob: pob,
-                        phone: phone,
-                        additional_phones: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
-                        additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
-                        phones: typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
-                        address: address,
+                        suspect_name: resolvedSuspectName,
+                        suspect_alias: noSuspectMode ? null : alias,
+                        ghana_card: noSuspectMode ? null : card,
+                        gender: noSuspectMode ? null : gender,
+                        dob: noSuspectMode ? null : dob,
+                        age: noSuspectMode ? null : age,
+                        height: noSuspectMode ? null : height,
+                        eye_color: noSuspectMode ? null : eyeColor,
+                        nationality: noSuspectMode ? null : (document.getElementById('nationalitySelect')?.value || document
+                            .getElementById('newArrestedNationality')?.value || 'Ghanaian'),
+                        pob: noSuspectMode ? null : pob,
+                        phone: noSuspectMode ? null : phone,
+                        additional_phones: noSuspectMode ? [] : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.number),
+                        additional_phone_labels: noSuspectMode ? [] : (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
+                        phones: noSuspectMode ? [] : (typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : []),
+                        address: noSuspectMode ? null : address,
 
                         // Family & Marital
-                        marital_status: marital,
-                        has_children: hasChildren,
-                        children_count: childrenVal,
-                        spouse_name: spouseName,
-                        spouse_phone: spousePhone,
-                        spouse_info: spouseInfo,
-                        partner_name: partnerName,
-                        partner_phone: partnerPhone,
-                        partner_info: partnerInfo,
-                        dependents: childrenText,
+                        marital_status: noSuspectMode ? null : marital,
+                        has_children: noSuspectMode ? false : hasChildren,
+                        children_count: noSuspectMode ? null : childrenVal,
+                        spouse_name: noSuspectMode ? null : spouseName,
+                        spouse_phone: noSuspectMode ? null : spousePhone,
+                        spouse_info: noSuspectMode ? null : spouseInfo,
+                        partner_name: noSuspectMode ? null : partnerName,
+                        partner_phone: noSuspectMode ? null : partnerPhone,
+                        partner_info: noSuspectMode ? null : partnerInfo,
+                        dependents: noSuspectMode ? 'N/A' : childrenText,
 
                         // Offence & Arrest Details
-                        operation_code: document.getElementById('operationTypeSelect')?.value || ref,
+                        operation_code: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || ref),
                         raid_location: raidLocation,
-                        offense_description: offense,
-                        arrest_date: document.getElementById('newArrestedDate')?.value || null,
-                        arrest_time: document.getElementById('newArrestedTime')?.value || null,
-                        holding_facility: facility,
+                        offense_description: noSuspectMode ? 'Seized exhibit logged without suspect.' : offense,
+                        arrest_date: noSuspectMode ? null : (document.getElementById('newArrestedDate')?.value || null),
+                        arrest_time: noSuspectMode ? null : (document.getElementById('newArrestedTime')?.value || null),
+                        holding_facility: noSuspectMode ? null : facility,
 
                         // Seizures (Commodities)
-                        has_seizures: hasSeizures,
+                        has_seizures: noSuspectMode ? true : hasSeizures,
                         exhibit_category: (hasSeizures && primarySeizure.exhibit_category) ? primarySeizure
                             .exhibit_category : null,
                         seizure_name: primarySeizure.seizure_name || null,
+                        commodity_name: primarySeizure.commodity_name || primarySeizure.seizure_name_currency || primarySeizure.seizure_name || null,
                         seizure_name_drug: primarySeizure.seizure_name_drug || null,
                         seizure_name_weapon: primarySeizure.seizure_name_weapon || null,
                         seizure_name_currency: primarySeizure.seizure_name_currency || null,
                         seizure_name_ammo: primarySeizure.seizure_name_ammo || null,
                         seizure_name_device: primarySeizure.seizure_name_device || null,
+                        amount: primarySeizure.amount || ((primarySeizure.exhibit_category === 'Money' || primarySeizure.exhibit_category === 'Currency' || primarySeizure.exhibit_category === 'Cash') ? (primarySeizure.seizure_quantity || primarySeizure.seizure_value) : null),
                         dev_model: primarySeizure.dev_model || null,
                         dev_serial_no: primarySeizure.dev_serial_no || null,
                         dev_imei1: primarySeizure.dev_imei1 || null,
@@ -7949,6 +8080,9 @@
                         seizure_time: primarySeizure.seizure_time || null,
                         seizure_location: primarySeizure.seizure_location || null,
                         seizure_officer: primarySeizure.seizure_officer || null,
+                        source_of_exhibits: primarySeizure.source_of_exhibits || null,
+                        investigating_officer: primarySeizure.investigating_officer || null,
+                        source_requesting_unit: primarySeizure.source_requesting_unit || null,
                         seizure_reason: primarySeizure.seizure_reason || null,
                         exhibit_remark: primarySeizure.exhibit_remark || null,
                         exhibit_type: primarySeizure.exhibit_type || null,
@@ -7995,9 +8129,9 @@
 
                         // Photos
                         evidence_photos: seizedExhibitDataUrls,
-                        mugshot_front: mugshotFront && mugshotFront.startsWith('data:') ? mugshotFront : null,
-                        mugshot_left: mugshotLeft && mugshotLeft.startsWith('data:') ? mugshotLeft : null,
-                        mugshot_right: mugshotRight && mugshotRight.startsWith('data:') ? mugshotRight : null,
+                        mugshot_front: (!noSuspectMode && mugshotFront && mugshotFront.startsWith('data:')) ? mugshotFront : null,
+                        mugshot_left: (!noSuspectMode && mugshotLeft && mugshotLeft.startsWith('data:')) ? mugshotLeft : null,
+                        mugshot_right: (!noSuspectMode && mugshotRight && mugshotRight.startsWith('data:')) ? mugshotRight : null,
 
                         // Presumptive & Confirmatory / Sample Weight
                         sample_weight_description: document.getElementById('sampleWeightDescription')?.value ||
@@ -8021,7 +8155,7 @@
                         docket_data: docketPayload,
                         priority: document.getElementById('casePrioritySelect')?.value || 'HIGH',
                         status: 'Under Multi-Unit Processing',
-                        location: `${raidLocation} (${address})`,
+                        location: noSuspectMode ? (rawRaidLocation || null) : `${raidLocation} (${address})`,
                         description: `Offence: ${offense} | Raid Ref: ${ref} | Custody: ${facility}`,
                         arresting_officer: primarySeizure.seizure_officer || null,
                         submitting_officer: primarySeizure.seizure_officer || null,
@@ -8057,8 +8191,11 @@
                     }
                     return data;
                 })
-                .then(data => {
+                .then(async data => {
                     setSubmittingState(false);
+                    if (typeof uploadStagedSearchWarrantFile === 'function') {
+                        await uploadStagedSearchWarrantFile(data);
+                    }
                     const finalRef = (data && data.case && data.case.case_number) ? data.case.case_number : caseRef;
                     const caseDbId = (data && data.case && data.case.id) ? data.case.id : finalRef;
 
@@ -8103,6 +8240,11 @@
                     }
 
                     clearDocketFormDraft();
+                    if (typeof window.afterCaseSavedRefreshUnassignedSelector === 'function') {
+                        window.afterCaseSavedRefreshUnassignedSelector();
+                    } else if (typeof window.refreshUnassignedExhibitsSelector === 'function') {
+                        window.refreshUnassignedExhibitsSelector();
+                    }
                     showSuccessPopover(finalRef);
                 })
                 .catch(err => {
@@ -8115,9 +8257,12 @@
                 });
         }
 
+        window.saveUnassignedExhibits = processNewArrested;
+
         const DRAFT_KEY = 'arrest_docket_form_draft_v1';
 
         function saveDocketFormDraft() {
+            if (window.IS_SEIZURES_ONLY_MODE) return;
             const form = document.querySelector('form');
             if (!form) return;
 
@@ -8221,6 +8366,7 @@
 
                 toggleChildrenInput();
                 toggleSeizuresContainer();
+                if (typeof syncSections1To3OptionalState === 'function') syncSections1To3OptionalState();
                 handleCaseEntryTypeChange();
 
                 const maritalVal = document.getElementById('newArrestedMarital')?.value || '';
@@ -8243,6 +8389,10 @@
                     }
                 }
 
+                if (typeof toggleSearchWarrantUploadSection === 'function') {
+                    toggleSearchWarrantUploadSection(document.getElementById('operationTypeSelect')?.value || '');
+                }
+
                 if (restoredCount > 0) {
                     const notice = document.getElementById('docketDraftNotice');
                     if (notice) notice.classList.remove('hidden');
@@ -8258,6 +8408,9 @@
 
         function clearDocketFormDraftAndReset() {
             clearDocketFormDraft();
+            if (typeof toggleSearchWarrantUploadSection === 'function') {
+                toggleSearchWarrantUploadSection('');
+            }
             const phoneListEl = document.getElementById('suspectPhonesList');
             if (phoneListEl) {
                 phoneListEl.querySelectorAll('.suspect-phone-row:not(:first-child)').forEach(r => r.remove());
@@ -8283,6 +8436,7 @@
             handleMaritalChange('');
             toggleChildrenInput();
             toggleSeizuresContainer();
+            if (typeof syncSections1To3OptionalState === 'function') syncSections1To3OptionalState();
         }
 
         let popoverTimer = null;
@@ -8290,7 +8444,7 @@
         function showSuccessPopover(ref) {
             clearDocketFormDraft();
 
-            const hasSeizures = document.getElementById('hasSeizuresCheckbox')?.checked;
+            const hasSeizures = Boolean(window.IS_SEIZURES_ONLY_MODE || document.getElementById('hasSeizuresCheckbox')?.checked);
             const seizureBlocks = document.querySelectorAll('.seizure-block');
 
             if (hasSeizures && seizureBlocks.length > 0) {
@@ -8329,6 +8483,51 @@
             window.location.reload();
         }
 
+        /* ── Bootstrap Toast Notification System ──────────────────────── */
+        function showToast(msg) {
+            let container = document.getElementById('bsToastContainer');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'bsToastContainer';
+                container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                container.style.cssText = 'position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none;';
+                document.body.appendChild(container);
+            }
+
+            const isError = msg.includes('❌') || msg.toLowerCase().includes('error') || msg.toLowerCase().includes('cannot') || msg.toLowerCase().includes('failed') || msg.toLowerCase().includes('missing');
+            const isSuccess = msg.includes('✔') || msg.toLowerCase().includes('success');
+
+            let bgColor = '#1e293b';
+            if (isError) bgColor = '#dc2626';
+            else if (isSuccess) bgColor = '#16a34a';
+
+            const toastEl = document.createElement('div');
+            toastEl.className = 'toast align-items-center text-white border-0 shadow-lg show fade';
+            toastEl.style.cssText = `background: ${bgColor}; color: #ffffff; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3); min-width: 320px; max-width: 460px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: auto; transition: opacity 0.3s ease;`;
+            toastEl.setAttribute('role', 'alert');
+            toastEl.setAttribute('aria-live', 'assertive');
+            toastEl.setAttribute('aria-atomic', 'true');
+
+            toastEl.innerHTML = `
+                <div class="d-flex align-items-center gap-2" style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <div style="font-size: 13px; font-weight: 600; line-height: 1.4; font-family: system-ui, -apple-system, sans-serif;">
+                        ${msg}
+                    </div>
+                </div>
+                <button type="button" style="background: transparent; border: none; color: #ffffff; opacity: 0.8; font-size: 18px; cursor: pointer; padding: 0 4px;" onclick="this.closest('.toast').remove()">&times;</button>
+            `;
+
+            container.appendChild(toastEl);
+
+            setTimeout(() => {
+                if (toastEl.parentNode) {
+                    toastEl.style.opacity = '0';
+                    setTimeout(() => toastEl.remove(), 300);
+                }
+            }, 5000);
+        }
+
+        /* ── Bootstrap Validation Error Modal ──────────────────────── */
         function showValidationErrorPopover(missingLabels) {
             const modal = document.getElementById('validationErrorModal');
             const list = document.getElementById('validationErrorList');
@@ -8336,20 +8535,27 @@
 
             const itemsHtml = Array.isArray(missingLabels) ?
                 missingLabels.map(label => `
-                    <li class="flex items-center space-x-2 py-1.5 border-b border-red-100 last:border-none">
-                        <span class="w-2 h-2 rounded-full bg-red-600 shrink-0 shadow-xs"></span>
-                        <span class="text-xs font-bold text-red-800">${label}</span>
+                    <li class="list-group-item list-group-item-danger d-flex align-items-center gap-2.5 py-2.5 px-3 rounded-3 text-danger font-monospace small border border-danger border-opacity-25" style="background-color: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 0.5rem; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.85rem;">
+                        <svg class="bi flex-shrink-0" width="16" height="16" fill="#dc2626" viewBox="0 0 16 16" style="flex-shrink: 0;">
+                            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                        </svg>
+                        <span>${label}</span>
                     </li>
                 `).join('') :
-                `<li class="flex items-center space-x-2 py-1.5"><span class="w-2 h-2 rounded-full bg-red-600 shrink-0 shadow-xs"></span><span class="text-xs font-bold text-red-800">${missingLabels}</span></li>`;
+                `<li class="list-group-item list-group-item-danger d-flex align-items-center gap-2.5 py-2.5 px-3 rounded-3 text-danger font-monospace small border border-danger border-opacity-25" style="background-color: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 0.5rem; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.85rem;"><svg class="bi flex-shrink-0" width="16" height="16" fill="#dc2626" viewBox="0 0 16 16" style="flex-shrink: 0;"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg><span>${missingLabels}</span></li>`;
 
             list.innerHTML = itemsHtml;
+            modal.style.display = 'flex';
             modal.classList.remove('hidden');
+
+            const count = Array.isArray(missingLabels) ? missingLabels.length : 1;
+            showToast(`❌ Cannot Save Case Docket: ${count} required suspect detail${count > 1 ? 's' : ''} missing.`);
         }
 
         function closeValidationErrorPopover() {
             const modal = document.getElementById('validationErrorModal');
             if (modal) {
+                modal.style.display = 'none';
                 modal.classList.add('hidden');
             }
         }
@@ -8470,6 +8676,9 @@
             }
 
             closeAllDropdowns();
+            if (typeof window.toggleSearchWarrantUploadSection === 'function') {
+                window.toggleSearchWarrantUploadSection(val);
+            }
             if (typeof window.handleCargoParcelOperationTypeSwitch === 'function') {
                 window.handleCargoParcelOperationTypeSwitch(val);
             }
@@ -9141,6 +9350,11 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            if (data.source_of_exhibits || data.source) {
+                block.dataset.preservedSourceOfExhibits = data.source_of_exhibits || data.source;
+            }
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
@@ -9324,6 +9538,9 @@
                 if (typeof evaluateLabExaminationVisibility === 'function') {
                     evaluateLabExaminationVisibility();
                 }
+            }
+            if (typeof window.syncSeizureOwnershipBoxes === 'function') {
+                window.syncSeizureOwnershipBoxes();
             }
         }
 
@@ -9573,6 +9790,9 @@
             const seizureDate = (block.querySelector('#newSeizureDate')?.value || new Date().toISOString().slice(0, 10)).trim();
             const seizureTime = (block.querySelector('#newSeizureTime')?.value || '').trim();
             const officers = getSeizureOfficersFormatted(block);
+            const sourceOfExhibits = (block.querySelector('#newSeizureSourceOfExhibits')?.value || block.querySelector('.seizure-source-of-exhibits-input')?.value || block.dataset?.preservedSourceOfExhibits || '').trim();
+            const investigatingOfficer = (block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || '').trim();
+            const sourceRequestingUnit = (block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || '').trim();
 
             const uniqueId = getOrCreateExhibitUniqueId(block, index);
 
@@ -9597,6 +9817,9 @@
                 seizureDate: seizureDate,
                 seizureTime: seizureTime,
                 officers: officers,
+                source_of_exhibits: sourceOfExhibits,
+                investigating_officer: investigatingOfficer,
+                source_requesting_unit: sourceRequestingUnit,
                 status: 'Seized'
             };
         }
@@ -10028,6 +10251,10 @@
             clearDocketFormDraft();
             const modal = document.getElementById('seizedPropertyQrDownloadModal');
             if (modal) modal.classList.add('hidden');
+            if (window.IS_SEIZURES_ONLY_MODE) {
+                window.location.href = '{{ url("/Evidence_Management/vault") }}';
+                return;
+            }
             window.location.reload();
         }
 
@@ -10435,6 +10662,7 @@
                 if (textWrapper) textWrapper.classList.remove('hidden');
                 if (textInput) textInput.setAttribute('required', 'required');
                 const placeholders = {
+                    'Precious Stones': 'e.g. Diamonds, Gemstones, Gold Bars / Bullion (24K)',
                     'Gold': 'e.g. Gold Bars / Bullion (24K)',
                     'Vehicles': 'e.g. Toyota Hilux (Unregistered)',
                     'Other Exhibits': 'e.g. Hardware Devices / Illegal Tools'
@@ -11067,7 +11295,14 @@
 
         // Auto-read URL query ref parameter & calculate initial age if DOB exists + Setup Drag & Drop & Draft Restoration
         document.addEventListener('DOMContentLoaded', function() {
-            restoreDocketFormDraft();
+            if (window.IS_SEIZURES_ONLY_MODE) {
+                const chk = document.getElementById('hasSeizuresCheckbox');
+                const container = document.getElementById('seizuresDetailsContainer');
+                if (chk) chk.checked = true;
+                if (container) container.classList.remove('hidden');
+            } else {
+                restoreDocketFormDraft();
+            }
             if (typeof initAllSeizureQRCodes === 'function') {
                 initAllSeizureQRCodes();
             }
@@ -11553,19 +11788,17 @@
 
         // SECTION 5: MANIFEST SYNC & EXHIBIT SELECTION LOGIC FOR LAB ANALYSIS
         let labExhibitUserEdits = {};
+        const forensicDrugKeywords = @json(config('forensic.drug_keywords', []));
+        const forensicNonDrugKeywords = @json(config('forensic.non_drug_keywords', []));
 
-        function isDrugCategory(cat) {
-            if (!cat) return false;
-            const c = String(cat).toLowerCase().trim();
-            return c.includes('drug') ||
-                c.includes('narcotic') ||
-                c.includes('substance') ||
-                c.includes('cocaine') ||
-                c.includes('heroin') ||
-                c.includes('cannabis') ||
-                c.includes('weed') ||
-                c.includes('meth') ||
-                c.includes('tramadol');
+        function isDrugCategory(cat, name = '') {
+            const combined = `${cat || ''} ${name || ''}`.toLowerCase().trim();
+            if (!combined) return false;
+            if (Array.isArray(forensicNonDrugKeywords) && forensicNonDrugKeywords.some(ndk => combined.includes(ndk.toLowerCase()))) {
+                const hasExplicitDrug = Array.isArray(forensicDrugKeywords) && forensicDrugKeywords.some(dk => (name || '').toLowerCase().includes(dk.toLowerCase()));
+                if (!hasExplicitDrug) return false;
+            }
+            return Array.isArray(forensicDrugKeywords) && forensicDrugKeywords.some(k => combined.includes(k.toLowerCase()));
         }
 
         function syncSection4ExhibitsToLabSection() {
@@ -11748,8 +11981,9 @@
             const idx = selectEl.value || '1';
             const paddedIdx = idx.padStart(3, '0');
 
-            const currentYear = new Date().getFullYear();
-            if (exhNumInput) exhNumInput.value = `EXH-${currentYear}-${paddedIdx}-NFC`;
+            if (exhNumInput && !exhNumInput.value) {
+                exhNumInput.placeholder = 'A, B...Ai, Aii, Bi, Bii...., A1, A2, B1, B2';
+            }
             if (examRefInput && (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28') || examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-') || examRefInput.value.startsWith('NLR-'))) {
                 const randExam = Math.floor(1000 + Math.random() * 9000);
                 examRefInput.value = 'NLA-FM-T' + randExam + '-F';
@@ -11787,13 +12021,10 @@
             let unitsText = qty ? `${qty} ${pkg}`.trim() : (pkg || '');
             let grossWeightText = weight ? `${weight} ${unit}`.trim() : (unit || '');
 
-            const nonDrugKwList = ['truck', 'vehicle', 'car', 'pistol', 'rifle', 'weapon', 'currency', 'zonda', 'cash',
-                'usd', 'ghs', 'laptop', 'phone'
-            ];
             const isNonDrugVal = (val) => {
                 if (!val) return false;
                 const lVal = val.toLowerCase();
-                return nonDrugKwList.some(kw => lVal.includes(kw));
+                return Array.isArray(window.forensicNonDrugKeywords) && window.forensicNonDrugKeywords.some(kw => lVal.includes(kw.toLowerCase()));
             };
 
             if (sampleDescInput) {
@@ -12354,7 +12585,7 @@
             <!-- Modal Header -->
             <div class="flex items-start justify-between border-b border-slate-100 pb-4">
                 <div class="flex items-start space-x-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/30">
+                    <div class="w-12 h-12 rounded-2xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-md shadow-slate-200/60">
                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -12406,7 +12637,7 @@
             class="bg-white rounded-3xl border border-emerald-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in duration-200">
             <div class="flex items-start space-x-4">
                 <div
-                    class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/30">
+                    class="w-12 h-12 rounded-2xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-md shadow-slate-200/60">
                     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -12460,55 +12691,68 @@
         </div>
     </div>
 
-    <!-- REQUIRED SUSPECT DETAILS VALIDATION ERROR POPOVER MODAL -->
+    <!-- BOOTSTRAP DESIGN: REQUIRED SUSPECT DETAILS VALIDATION ERROR MODAL -->
     <div id="validationErrorModal"
-        class="hidden fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-all duration-300">
-        <div
-            class="bg-white rounded-3xl border border-red-200 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in fade-in zoom-in duration-200">
-            <div class="flex items-start space-x-4">
-                <div
-                    class="w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-red-600/30">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between mb-1">
-                        <span
-                            class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-red-100 text-red-800 border border-red-200 uppercase tracking-wider">
-                            ACTION REQUIRED &bull; MISSING DETAILS
-                        </span>
-                        <button type="button" onclick="closeValidationErrorPopover()"
-                            class="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12" />
+        class="modal fade hidden"
+        tabindex="-1"
+        style="display: none; background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(4px); position: fixed; inset: 0; z-index: 99999; align-items: center; justify-content: center; padding: 1.25rem;"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="validationErrorModalLabel"
+        onclick="if(event.target === this) closeValidationErrorPopover()">
+        <div class="modal-dialog modal-dialog-centered modal-lg" style="width: 100%; max-width: 820px; margin: auto;" onclick="event.stopPropagation()">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" style="background: #ffffff; border-radius: 1.25rem; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3); overflow: hidden;">
+                <!-- Bootstrap Modal Header: Danger Red -->
+                <div class="modal-header bg-danger text-white border-0 py-3 px-4 d-flex align-items-center justify-content-between" style="background-color: #dc2626; color: #ffffff; padding: 1.15rem 1.75rem; display: flex; align-items: center; justify-content: space-between;">
+                    <div class="d-flex align-items-center gap-3" style="display: flex; align-items: center; gap: 0.9rem;">
+                        <div class="rounded-3 bg-white bg-opacity-20 d-flex align-items-center justify-content-center p-2" style="background: rgba(255, 255, 255, 0.2); border-radius: 0.85rem; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <svg class="bi text-white" width="26" height="26" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
                             </svg>
-                        </button>
+                        </div>
+                        <div>
+                            <div style="margin-bottom: 3px;">
+                                <span class="badge bg-danger-subtle text-danger-emphasis font-monospace text-uppercase" style="font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; letter-spacing: 0.06em; font-family: 'JetBrains Mono', monospace;">
+                                    ACTION REQUIRED &bull; MISSING DETAILS
+                                </span>
+                            </div>
+                            <h5 id="validationErrorModalLabel" class="modal-title fw-bold text-white mb-0" style="font-size: 1.25rem; font-weight: 800; margin: 0; color: #ffffff;">
+                                Cannot Save Case Docket!
+                            </h5>
+                        </div>
                     </div>
-                    <h3 class="text-base font-extrabold text-slate-900 leading-snug">
-                        Cannot Save Case Docket!
-                    </h3>
-                    <p class="text-xs text-slate-600 mt-1 leading-relaxed font-medium">
+                    <button type="button" class="btn-close btn-close-white" style="background: transparent; border: none; color: #ffffff; font-size: 1.75rem; line-height: 1; cursor: pointer; opacity: 0.85; padding: 0.25rem 0.5rem;" onclick="closeValidationErrorPopover()">&times;</button>
+                </div>
+
+                <!-- Bootstrap Modal Body -->
+                <div class="modal-body p-4" style="padding: 1.75rem; background-color: #ffffff;">
+                    <p class="text-secondary mb-3" style="font-size: 0.9rem; color: #64748b; margin-bottom: 1.15rem; font-weight: 500;">
                         Please fill in all required suspect details before saving:
                     </p>
+
+                    <!-- Bootstrap List Group Container with Scrollbar -->
+                    <div class="mb-3" style="margin-bottom: 1.25rem;">
+                        <ul id="validationErrorList" class="list-group list-group-flush border-0 overflow-auto" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.65rem; max-height: 380px; overflow-y: auto; padding: 0; margin: 0; list-style: none;">
+                            <!-- Dynamic Bootstrap list items injected here -->
+                        </ul>
+                    </div>
+
+                    <!-- Bootstrap Alert Box -->
+                    <div class="alert alert-danger border-danger-subtle d-flex align-items-start gap-2 mb-0 p-3 rounded-3" style="background-color: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 0.85rem; padding: 0.95rem 1.15rem; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0;">
+                        <span class="fs-5" style="font-size: 1.35rem; line-height: 1;">⚠️</span>
+                        <div style="font-size: 0.825rem; line-height: 1.45;">
+                            <strong style="font-weight: 700;">Mandatory Protocol:</strong> All mandatory fields marked above must be entered before the docket can be submitted for review.
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div
-                class="p-3.5 bg-red-50/70 rounded-2xl border border-red-200/80 max-h-56 overflow-y-auto custom-scrollbar">
-                <ul id="validationErrorList" class="space-y-1">
-                    <!-- Dynamic list items injected here -->
-                </ul>
-            </div>
-
-            <div class="flex items-center justify-between pt-2 border-t border-slate-100">
-                <span class="text-[10px] font-mono-code font-bold text-slate-400">NACOC SYSTEM</span>
-                <button type="button" onclick="closeValidationErrorPopover()"
-                    class="w-full sm:w-auto px-7 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-md shadow-red-600/30 transition-all cursor-pointer border-none flex items-center justify-center space-x-2">
-                    <span>Fill Required Details</span>
-                </button>
+                <!-- Bootstrap Modal Footer -->
+                <div class="modal-footer border-top bg-light py-2.5 px-4 d-flex justify-content-between align-items-center" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 1rem 1.75rem; display: flex; justify-content: space-between; align-items: center;">
+                    <span class="text-muted font-monospace small" style="font-size: 11px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; font-weight: 700;">NACOC SYSTEM</span>
+                    <button type="button" onclick="closeValidationErrorPopover()" class="btn btn-danger px-4 py-2 fw-bold shadow-sm rounded-3" style="background-color: #dc2626; border: 1px solid #dc2626; color: #ffffff; font-weight: 700; font-size: 0.85rem; border-radius: 0.75rem; padding: 0.65rem 1.75rem; cursor: pointer; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.28);">
+                        Fill Required Details
+                    </button>
+                </div>
             </div>
         </div>
     </div>

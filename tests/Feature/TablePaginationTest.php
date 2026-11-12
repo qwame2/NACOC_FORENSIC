@@ -79,27 +79,6 @@ class TablePaginationTest extends TestCase
     }
 
     #[Test]
-    public function forensic_head_approvals_table_supports_pagination()
-    {
-        $head = $this->createOfficer('Forensic Head', true);
-
-        // Create 10 users needing approval
-        for ($i = 1; $i <= 10; $i++) {
-            User::factory()->create([
-                'fullname' => "Candidate {$i}",
-                'email' => "candidate{$i}@nacoc.gov.gh",
-                'unit' => 'Lab Analysis',
-                'is_approved' => false,
-            ]);
-        }
-
-        $response = $this->actingAs($head)->get('/Forensic_Head/approvals?page=1&per_page=4');
-        $response->assertStatus(200);
-        $response->assertSee('Showing');
-        $response->assertSee('per_page=4', false);
-    }
-
-    #[Test]
     public function digital_forensics_cases_table_supports_pagination()
     {
         $officer = $this->createOfficer('Digital & Physical Forensics');

@@ -4,7 +4,13 @@
                ?? \App\Models\User::where('is_head', true)->first();
     $headName = $authUser->fullname ?? session('user_name') ?? ($dbUnitHead ? $dbUnitHead->fullname : 'Lead Cyber Analyst');
     $allCases = $allCases ?? \App\Models\ForensicCase::allCases();
-    $digitalCases = $digitalCases ?? $allCases->filter(fn($c) => $c->isDigitalCase())->values();
+    $digitalCases = $digitalCases ?? $allCases->filter(function ($c) {
+        if (!$c->isDigitalCase()) {
+            return false;
+        }
+        $elecSuspects = $c->getElectronicDeviceSuspects();
+        return !empty($elecSuspects);
+    })->values();
     if (!isset($cases) || !($cases instanceof \Illuminate\Pagination\LengthAwarePaginator)) {
         $cases = \App\Models\ForensicCase::paginateCases($digitalCases, (int) request()->input('per_page', 15));
     }
@@ -22,6 +28,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
     <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
+    <script src="{{ asset('js/ajax-table.js') }}"></script>
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; background-color: #F8FAFC; color: #0F172A; }
         .font-mono-code { font-family: 'JetBrains Mono', monospace; }
@@ -40,55 +47,42 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         </span>
-                        <input type="text" placeholder="Search Device Serial, IMEI, Hash Value, Crypto Wallet..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500">
+                        <input type="text" placeholder="Search Device Serial, IMEI..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-500">
                     </div>
                 </div>
-                
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Digital &amp; Mobile Cyber Forensics HQ
+                    </span>
+                </div>
             </header>
 
             <!-- MAIN CONTENT -->
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
                 @include('partials.flash')
-
-                <!-- HEADER HERO -->
-                <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="px-2.5 py-0.5 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">DIGITAL &amp; PHYSICAL FORENSICS UNIT</span>
-                            <span class="text-xs text-slate-400">&bull;</span>
-                            <span class="text-xs font-bold text-slate-700 font-mono-code">MOBILE &amp; CYBER EXTRACTION COMMAND</span>
-                        </div>
-                        <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Digital &amp; Mobile Cyber Forensics HQ</h1>
-                        <p class="text-xs text-slate-500 mt-1">Lead Cyber Officer: <strong class="text-slate-800">{{ $headName }}</strong> &bull; Total Devices Examined: <strong class="text-emerald-700 font-mono-code">{{ count($cases) }}</strong></p>
-                    </div>
-                </div>
-
-
-
+                
                 <!-- MASTER CASE TABLE -->
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-100">
                         <div>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <h3 class="font-extrabold text-slate-900 text-sm">Digital Forensics Case Register</h3>
-                                <span class="px-2 py-0.5 text-[10px] font-extrabold rounded-md bg-emerald-600 text-white font-mono-code uppercase tracking-wider">
-                                    Digital &amp; Mobile Cyber Forensics HQ
-                                </span>
+                                
                                 <span id="regRowCountBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 font-mono-code">
                                     Total: {{ count($cases) }}
                                 </span>
                             </div>
-                            <p class="text-xs text-slate-500 mt-0.5"><strong class="text-slate-700 font-mono-code">Digital &amp; Mobile Cyber Forensics HQ</strong> &bull; Device imaging, chip-off extractions, and cyber evidence logs</p>
+                            
                         </div>
                         <div class="relative w-full sm:max-w-xs">
-                            <input type="text" id="regSearchInput" onkeyup="applyCaseFilters()" placeholder="Filter by Case #, Suspect..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors">
+                            <input type="text" id="regSearchInput" onkeyup="applyCaseFilters()" placeholder="Filter by Case #, User..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
                         </div>
                     </div>
 
-                    <!-- DATE FILTER TOOLBAR -->
+                    <!-- DATE FILTER TOOLBAR 
                     <div class="p-3 bg-slate-50/80 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div class="flex items-center gap-1.5 flex-wrap">
                             <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 font-mono-code mr-1 flex items-center gap-1">
@@ -127,7 +121,7 @@
                                 <span>Reset</span>
                             </button>
                         </div>
-                    </div>
+                    </div>-->
 
                     <div id="digitalCasesTableContainer">
                         @include('Digital_Forensics.partials.cases_table')
@@ -142,17 +136,28 @@
         let currentRegPreset = 'all';
 
         // Initialize Reusable AJAX Table Controller for Digital Forensics Cases
-        window.digitalCasesAjaxTable = initAjaxTable({
-            container: '#digitalCasesTableContainer',
-            table: '#regMasterCaseTable',
-            columns: 7,
-            rows: 6,
-            onAfterUpdate: (container) => {
-                const rows = container.querySelectorAll('.case-register-row');
-                const badge = document.getElementById('regRowCountBadge');
-                if (badge) badge.textContent = `Showing: ${rows.length}`;
-            }
-        });
+        function setupDigitalCasesAjaxTable() {
+            if (typeof initAjaxTable !== 'function') return;
+            if (window.digitalCasesAjaxTable) return;
+
+            window.digitalCasesAjaxTable = initAjaxTable({
+                container: '#digitalCasesTableContainer',
+                table: '#regMasterCaseTable',
+                columns: 7,
+                rows: 6,
+                onAfterUpdate: (container) => {
+                    const rows = container.querySelectorAll('.case-register-row');
+                    const badge = document.getElementById('regRowCountBadge');
+                    if (badge) badge.textContent = `Showing: ${rows.length}`;
+                }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupDigitalCasesAjaxTable);
+        } else {
+            setupDigitalCasesAjaxTable();
+        }
 
         function getRegReferenceDate() {
             const rows = document.querySelectorAll('#regMasterCaseTable tbody tr.case-register-row');
@@ -422,6 +427,5 @@
             </div>
         </div>
     </div>
-<script src="{{ asset('js/ajax-table.js') }}"></script>
 </body>
 </html>

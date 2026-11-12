@@ -34,57 +34,14 @@
                 <a href="{{ url('/Forensic_Head/cases') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('Forensic_Head/cases*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Forensic_Head/cases*') ? 'text-white' : 'text-red-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <span class="text-xs flex-1">Case Management</span>
-                    @php
-                        $pendingCasesCountVal = (int)($pendingCasesCount ?? \App\Models\ForensicCase::whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending'])->count());
-                    @endphp
-                    <span id="sidebarPendingCasesCount" class="ml-auto {{ request()->is('Forensic_Head/cases*') ? 'bg-white/20 text-white' : 'bg-red-500/15 text-red-700' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-300 {{ $pendingCasesCountVal > 0 ? '' : 'hidden' }}">{{ $pendingCasesCountVal }}</span>
-                </a>
-
-                <!-- HEAD APPROVALS & SIGN-OFF -->
-                <a href="{{ url('/Forensic_Head/approvals') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('Forensic_Head/approvals*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Forensic_Head/approvals*') ? 'text-white' : 'text-amber-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="text-xs flex-1">Head Approvals &amp; Sign-off</span>
-                    @php
-                        $pendingCountVal = (int)($pendingCount ?? \App\Models\User::where('is_approved', false)->count());
-                    @endphp
-                    <span id="sidebarPendingBadgeCount" class="ml-auto {{ request()->is('Forensic_Head/approvals*') ? 'bg-white/20 text-white' : 'bg-amber-500/15 text-amber-800' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold transition-all duration-300 {{ $pendingCountVal > 0 ? '' : 'hidden' }}">{{ $pendingCountVal }}</span>
-                </a>
-
-                <!-- 4 UNITS OVERSIGHT -->
-                <a href="#" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('units-oversight*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('units-oversight*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                    <span class="text-xs flex-1">4 Units Oversight</span>
-                    <span class="ml-auto {{ request()->is('units-oversight*') ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700' }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">4 Units</span>
                 </a>
 
                 <!-- COURT EVIDENCE REPORTS / SITREP -->
-                <a href="{{ url('/Lab_Analysis/report') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('court-evidence*') || request()->is('Lab_Analysis/report*') || request()->is('Lab_Analysis/lab_sitrep_pdf*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('court-evidence*') || request()->is('Lab_Analysis/report*') || request()->is('Lab_Analysis/lab_sitrep_pdf*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <a href="{{ url('/court-evidence') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all text-decoration-none {{ request()->is('court-evidence*') || request()->is('Forensic_Head/court-evidence*') || request()->is('court-evidence-sitrep*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('court-evidence*') || request()->is('Forensic_Head/court-evidence*') || request()->is('court-evidence-sitrep*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="text-xs flex-1">Court Evidence &amp; SITREP</span>
                 </a>
 
-            </nav>
-        </div>
-
-        <!-- QUICK FILTER BY UNIT -->
-        <div>
-            <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-emerald-600 tracking-wider mb-2">Quick Filter by Unit</div>
-            <nav class="space-y-1 text-xs font-semibold">
-                <button onclick="filterDeptHeadUnit('all', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="text-xs">All Units</span>
-                </button>
-                <button onclick="filterDeptHeadUnit('Crime Scene Support', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="text-xs">Crime Scene Support</span>
-                </button>
-                <button onclick="filterDeptHeadUnit('Evidence Management', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="text-xs">Evidence Management</span>
-                </button>
-                <button onclick="filterDeptHeadUnit('LAB Analysis', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="text-xs">LAB Analysis</span>
-                </button>
-                <button onclick="filterDeptHeadUnit('Digital', this)" class="sidebar-unit-btn w-full flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-left border-none bg-transparent cursor-pointer">
-                    <span class="text-xs">Digital &amp; Physical</span>
-                </button>
             </nav>
         </div>
 
@@ -92,9 +49,24 @@
         <div>
             <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-slate-500 tracking-wider mb-2">Directorate Governance</div>
             <nav class="space-y-1 text-xs font-semibold">
-                <a href="#" class="flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-decoration-none">
-                    <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                    <span class="text-xs">Personnel Roster (<span id="sidebarTotalPersonnelCount">Roster</span>)</span>
+                @php
+                    $fhNotificationsCount = \App\Http\Controllers\NotificationsController::countActiveForContext('Forensic Directorate', auth()->user(), 'forensic_head');
+                    $isFhNotificationsActive = request()->is('Forensic_Head/notifications*');
+                @endphp
+                <a href="{{ url('/Forensic_Head/notifications') }}" class="flex items-center px-3 py-2 rounded-xl {{ $isFhNotificationsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }} transition-colors text-decoration-none">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isFhNotificationsActive ? 'text-white' : 'text-amber-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    <span class="text-xs flex-1">Notifications</span>
+                    <span id="sidebarNotificationsBadge" class="ml-auto {{ $isFhNotificationsActive ? 'bg-white/20 text-white' : ($fhNotificationsCount > 0 ? 'bg-amber-500/15 text-amber-800 border border-amber-300/60' : 'bg-slate-200 text-slate-600') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">
+                        {{ $fhNotificationsCount }}
+                    </span>
+                </a>
+                <a href="{{ url('/Forensic_Head/personnel-roster') }}" class="flex items-center px-3 py-2 rounded-xl {{ request()->is('Forensic_Head/personnel-roster*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }} transition-colors text-decoration-none">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('Forensic_Head/personnel-roster*') ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <span class="text-xs">Personnel Details</span>
+                </a>
+                <a href="{{ url('/Forensic_Head/permissions') }}" class="flex items-center px-3 py-2 rounded-xl {{ request()->is('*permissions*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }} transition-colors text-decoration-none">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*permissions*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <span class="text-xs">Permissions</span>
                 </a>
                 <a href="#" class="flex items-center px-3 py-2 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 transition-colors text-decoration-none">
                     <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -158,67 +130,17 @@
 
 </aside>
 
-<!-- SILENT 3-SECOND REAL-TIME POLLING SCRIPT -->
+<!-- SIDEBAR NAVIGATION HELPERS -->
 <script>
-    (function() {
-        let lastCases = null;
-        let lastUsers = null;
-        let lastTotal = null;
-
-        async function pollSidebarStats() {
-            try {
-                const res = await fetch('/api/head-stats', {
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-
-                // 1. Silently update Case Management pending badge
-                const casesBadge = document.getElementById('sidebarPendingCasesCount');
-                if (casesBadge && data.pendingCasesCount !== undefined) {
-                    const newCases = parseInt(data.pendingCasesCount);
-                    if (lastCases !== newCases) {
-                        casesBadge.innerText = newCases;
-                        if (newCases > 0) {
-                            casesBadge.classList.remove('hidden');
-                        } else {
-                            casesBadge.classList.add('hidden');
-                        }
-                        lastCases = newCases;
-                    }
-                }
-
-                // 2. Silently update Head Approvals pending badge
-                const usersBadge = document.getElementById('sidebarPendingBadgeCount');
-                if (usersBadge && data.pendingUsersCount !== undefined) {
-                    const newUsers = parseInt(data.pendingUsersCount);
-                    if (lastUsers !== newUsers) {
-                        usersBadge.innerText = newUsers;
-                        if (newUsers > 0) {
-                            usersBadge.classList.remove('hidden');
-                        } else {
-                            usersBadge.classList.add('hidden');
-                        }
-                        lastUsers = newUsers;
-                    }
-                }
-
-                // 3. Silently update Personnel count
-                const totalEl = document.getElementById('sidebarTotalPersonnelCount');
-                if (totalEl && data.totalUsersCount !== undefined) {
-                    const newTotal = parseInt(data.totalUsersCount);
-                    if (lastTotal !== newTotal) {
-                        totalEl.innerText = `${newTotal} Staff`;
-                        lastTotal = newTotal;
-                    }
-                }
-            } catch (e) {
-                // Silent catch: zero disruption to user active work
-            }
+    function filterDeptHeadUnit(unit, btn) {
+        if (typeof filterUnit === 'function') {
+            const target = (unit === 'all' || unit === 'ALL') ? 'ALL' : (unit === 'Digital' ? 'Digital & Physical Forensics' : unit);
+            const unitBtn = Array.from(document.querySelectorAll('.unit-tab')).find(b => b.innerText.toLowerCase().includes(unit.toLowerCase())) || document.querySelector('.unit-tab');
+            filterUnit(target, unitBtn);
+        } else {
+            const u = (unit === 'all' || unit === 'ALL') ? '' : (unit === 'Digital' ? 'Digital & Physical Forensics' : unit);
+            window.location.href = '/Forensic_Head/cases' + (u ? '?unit=' + encodeURIComponent(u) : '');
         }
-
-        // Execute immediately and set 3-second interval
-        pollSidebarStats();
-        setInterval(pollSidebarStats, 3000);
-    })();
+    }
+    window.filterDeptHeadUnit = filterDeptHeadUnit;
 </script>

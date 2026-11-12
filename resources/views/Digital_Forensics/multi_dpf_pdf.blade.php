@@ -61,7 +61,7 @@
                 'investigation_date' => $reportObj->investigation_date ? (string)$reportObj->investigation_date : date('Y-m-d'),
                 'report_date' => $reportObj->created_at ? $reportObj->created_at->format('Y-m-d') : date('Y-m-d'),
                 'location_post' => $reportObj->location_post ?? ($case->location ?? 'N/A'),
-                'raid_location' => $case->raid_location ?? ($case->seizure_location ?? 'N/A'),
+                'raid_location' => $case->raid_location ?? 'N/A',
                 'submitting_officer' => $case->submitting_officer ?? 'N/A',
                 'exhibit_type_display' => $exhibitTypeDisplay ?: ($reportObj->devices_retrieved ?? 'Electronic Exhibits'),
                 'device_specs' => $deviceSpecsList ?? [],
@@ -279,6 +279,17 @@
             break-inside: avoid;
         }
 
+        .report-flow-body {
+            margin-bottom: 3mm;
+        }
+
+        .page-footer-block {
+            position: relative;
+            z-index: 20;
+            background-color: #ffffff;
+            padding-top: 2mm;
+        }
+
         .font-serif-header {
             font-family: 'Cinzel', Georgia, serif;
             letter-spacing: 0.04em;
@@ -358,6 +369,17 @@
                 break-after: page !important;
             }
 
+            .report-flow-body {
+                margin-bottom: 3mm !important;
+            }
+
+            .page-footer-block {
+                position: relative !important;
+                z-index: 20 !important;
+                background-color: #ffffff !important;
+                padding-top: 2mm !important;
+            }
+
             /* WHY: Keep the per-page watermark visible in print on every page.
                Each .dynamic-dossier-page (including generated continuation pages)
                already contains its own .dossier-watermark element, so print cost is
@@ -370,7 +392,7 @@
                 justify-content: center !important;
                 pointer-events: none !important;
                 z-index: 0 !important;
-                opacity: 0.025 !important;
+                opacity: 0.07 !important;
                 overflow: hidden !important;
             }
 
@@ -432,7 +454,7 @@
 
     <!-- PRINT-SPECIFIC FIXED WATERMARK (REPEATS CENTERED ON EVERY DYNAMIC PRINTED PAGE) -->
     <div class="print-fixed-watermark select-none pointer-events-none" aria-hidden="true">
-        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
+        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain" />
     </div>
 
     @php
@@ -474,8 +496,8 @@
         <div class="a4-page cover-page page-break relative text-slate-900">
 
             <!-- SUBTLE NACOC WATERMARK -->
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain filter grayscale" />
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[550px] h-[550px] object-contain" />
             </div>
 
             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -575,8 +597,8 @@
             <div class="a4-page dynamic-dossier-page auto-paginated-root relative text-slate-900 {{ !empty($sr['attached_files']) || $sIdx < count($suspectReports) - 1 ? 'page-break' : '' }}">
 
                 <!-- SUBTLE NACOC WATERMARK (FOR SCREEN PREVIEW) -->
-                <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                    <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                    <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
                 </div>
 
                 <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -965,8 +987,8 @@
                     @endphp
 
                     <div id="{{ $att['id'] }}" class="a4-page a4-page-attachment relative text-slate-900 page-break">
-                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                            <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                            <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
                         </div>
 
                         <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
@@ -1467,8 +1489,8 @@
                         const pageElement = document.createElement('div');
                         pageElement.className = 'a4-page a4-page-pdf-slice relative text-slate-900 page-break';
                         pageElement.innerHTML = `
-                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.025] select-none">
-                                <img src="${watermarkUrl}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain filter grayscale" />
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                                <img src="${watermarkUrl}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
                             </div>
                             <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
                                 <div>
