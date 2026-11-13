@@ -4,7 +4,6 @@
     $cfg = $dashboardConfig ?? [];
 
     $unitKey = $cfg['unitKey'] ?? 'forensic_head';
-    $userUnit = $cfg['userUnit'] ?? 'Forensic Directorate';
     $unitBadge = $cfg['unitBadge'] ?? 'FORENSIC DIRECTORATE';
     $unitSubtitle = $cfg['unitSubtitle'] ?? 'Forensic Directorate Supreme Command';
     $locationNoun = $cfg['locationNoun'] ?? 'Forensic Cases';
@@ -14,6 +13,8 @@
     $createUrl = $cfg['createUrl'] ?? null;
     $createLabel = $cfg['createLabel'] ?? 'New Case Entry';
     $reportUrl = $cfg['reportUrl'] ?? url('/Report');
+    $reviewBaseUrl = $cfg['reviewBaseUrl'] ?? url('/cases');
+    $isStaffShell = !empty($cfg['isStaff']);
     $notificationsUrl = $cfg['notificationsUrl'] ?? url('/Forensic_Head/notifications');
     $permissionsUrl = match ($unitKey) {
         'crime_scene_support' => url('/Crime_Scene_Support/permissions'),
@@ -22,6 +23,16 @@
         'digital_forensics'   => url('/Digital_Forensics/permissions'),
         default               => url('/Forensic_Head/permissions'),
     };
+    $approvalsUrl = match ($unitKey) {
+        'crime_scene_support' => url('/Crime_Scene_Support/reviews-approvals'),
+        'lab_analysis'        => url('/Lab_Analysis/reviews-approvals'),
+        'evidence_management' => url('/Evidence_Management/reviews-approvals'),
+        'digital_forensics'   => url('/Digital_Forensics/reviews-approvals'),
+        default               => url('/Forensic_Head/reviews-approvals'),
+    };
+    $pendingApprovalsCount = (!$isStaffShell && $authUser && $authUser->is_head)
+        ? \App\Models\StaffCaseSubmission::forUnit((string) ($cfg['userUnit'] ?? ''))->where('status', 'Pending Approval')->count()
+        : 0;
     $tabs = $cfg['tabs'] ?? [];
     $defaultUnitFilter = $cfg['defaultUnitFilter'] ?? '';
     $vaultPendingBadge = $cfg['vaultPendingBadge'] ?? 0;
@@ -38,6 +49,37 @@
     $approvedCasesCount = $cases->filter(fn($c) => in_array(strtolower((string)($c->case_status ?? $c->status ?? '')), ['approved', 'completed', 'authorized'], true))->count();
     $totalExhibitsCount = \App\Models\Exhibit::count();
     $completionRatePct = $totalCasesCount > 0 ? (int) round(($approvedCasesCount / $totalCasesCount) * 100) : 0;
+
+    $completedHours = [];
+    $activeHours = [];
+    foreach ($cases as $cItem) {
+        if (!empty($cItem->created_at)) {
+            $sAt = \Carbon\Carbon::parse($cItem->created_at);
+            $isAppr = in_array(strtolower((string)($cItem->case_status ?? $cItem->status ?? '')), ['approved', 'completed', 'authorized'], true);
+            $eAt = ($isAppr && !empty($cItem->updated_at)) ? \Carbon\Carbon::parse($cItem->updated_at) : now();
+            $hrs = max(1, $sAt->diffInHours($eAt));
+            if ($isAppr && !empty($cItem->updated_at)) {
+                $completedHours[] = $hrs;
+            } else {
+                $activeHours[] = $hrs;
+            }
+        }
+    }
+    $turnaroundHoursSrc = !empty($completedHours) ? $completedHours : $activeHours;
+    $avgTurnaroundHours = !empty($turnaroundHoursSrc) ? (array_sum($turnaroundHoursSrc) / count($turnaroundHoursSrc)) : null;
+    if ($avgTurnaroundHours === null) {
+        $avgTurnaroundValue = 'N/A';
+        $avgTurnaroundUnit = '';
+    } elseif ($avgTurnaroundHours < 24) {
+        $rHrs = max(1, (int) round($avgTurnaroundHours));
+        $avgTurnaroundValue = (string) $rHrs;
+        $avgTurnaroundUnit = $rHrs === 1 ? 'hr' : 'hrs';
+    } else {
+        $rDays = max(1, (int) round($avgTurnaroundHours / 24));
+        $avgTurnaroundValue = (string) $rDays;
+        $avgTurnaroundUnit = $rDays === 1 ? 'day' : 'days';
+    }
+    $mapConfig = $mapConfig ?? app(\App\Services\CaseAnalyticsService::class)->buildLeafletMapPayload($cases);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -53,1339 +95,1934 @@
       <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
   @endif
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-  <script src="https://unpkg.com/lucide@latest" defer></script>
+  <link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}" />
+  <script src="{{ asset('vendor/leaflet/leaflet.js') }}" defer></script>
+  <script src="{{ asset('js/forensic-leaflet-map.js') }}?v={{ file_exists(public_path('js/forensic-leaflet-map.js')) ? filemtime(public_path('js/forensic-leaflet-map.js')) : 1 }}" defer></script>
+  <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}" defer></script>
+  <script src="{{ asset('vendor/lucide.min.js') }}" defer></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --shell-bg: #d7e0db;
-      --shell-chrome: #d2dcd7;
-      --tab-active: #eef4f1;
-      --tab-inactive: #c5d0ca;
-      --map-surface-top: #d8ebe6;
-      --map-surface-bottom: #d3e5e0;
-      --strip-surface: #e4eeeb;
-      --card-surface: #f4f7f5;
-      --stats-surface: #edf3f0;
-      --ink-primary: #0f172a;
-      --ink-secondary: #334155;
-      --ink-muted: #475569;
+      --navy-950: #060d1c;
+      --navy-900: #0b1525;
+      --navy-800: #122033;
+      --navy-700: #1c2f47;
+
+      --paper: #f6f7f9;
+      --paper-2: #eceff3;
+      --surface: #ffffff;
+      --surface-2: #fbfcfd;
+      --hairline: #e4e8ee;
+      --hairline-2: #d6dce4;
+
+      --ink-900: #0a0f18;
+      --ink-800: #141c28;
+      --ink-700: #2a3442;
+      --ink-600: #475162;
+      --ink-500: #667081;
+      --ink-400: #8a93a1;
+
+      --signal: #0b8f6f;
+      --signal-700: #087a5e;
+      --signal-100: #d9f2ea;
+      --signal-50: #edf9f5;
+
+      --alert: #c2410c;
+      --alert-100: #ffedd5;
+      --warn: #b45309;
+      --warn-100: #fef3c7;
+      --info: #1d4ed8;
+      --info-100: #dbeafe;
+      --danger: #b91c1c;
+      --danger-100: #fee2e2;
+
+      --e1: 0 1px 1px 0 rgba(10, 15, 24, .04), 0 0 0 1px rgba(10, 15, 24, .03);
+      --e2: 0 2px 6px -1px rgba(10, 15, 24, .06), 0 0 0 1px rgba(10, 15, 24, .04);
+      --e3: 0 8px 24px -8px rgba(10, 15, 24, .10), 0 0 0 1px rgba(10, 15, 24, .04);
+      --e-hero: 0 32px 64px -24px rgba(6, 13, 28, .40);
+
+      --r-xs: 6px;
+      --r-sm: 8px;
+      --r-md: 12px;
+      --r-lg: 16px;
+      --r-xl: 20px;
+      --r-2xl: 24px;
+      --r-pill: 999px;
     }
 
+    * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    html, body { height: 100%; }
     body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background-color: var(--shell-bg);
-      color: var(--ink-primary);
+      background: var(--paper);
+      color: var(--ink-800);
+      font-feature-settings: 'cv02','cv03','cv04','cv11';
+    }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .tnum { font-variant-numeric: tabular-nums; }
+
+    /* ============ APP SHELL ============ */
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      background: var(--paper);
     }
 
-    .font-mono-code {
+    /* ============ TOP BAR ============ */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--hairline);
+      position: sticky; top: 0; z-index: 40;
+      box-shadow: 0 1px 0 var(--hairline);
+    }
+    .topbar-inner {
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 24px;
+    }
+    @media (max-width: 768px) { .topbar-inner { padding: 10px 14px; gap: 10px; } }
+
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .brand img {
+      width: 36px; height: 36px; object-fit: contain;
+      background: #fff; border-radius: 9px; padding: 3px;
+      box-shadow: var(--e1);
+    }
+    .brand-text .b1 { font-weight: 700; font-size: 13px; color: var(--ink-900); letter-spacing: -.005em; line-height: 1.15; }
+    .brand-text .b2 { font-size: 9.5px; color: var(--ink-400); letter-spacing: .14em; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+    @media (max-width: 640px) { .brand-text { display: none; } }
+
+    /* Center nav (desktop) */
+    .nav {
+      display: flex; align-items: center; gap: 4px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 1024px) { .nav { display: none; } }
+
+    .nav-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 36px; padding: 0 12px;
+      border-radius: var(--r-sm);
+      color: var(--ink-600); font-size: 12.5px; font-weight: 500;
+      text-decoration: none;
+      transition: background .16s, color .16s;
+      position: relative;
+    }
+    .nav-link:hover { background: var(--paper); color: var(--ink-900); }
+    .nav-link.active { background: var(--signal-50); color: var(--signal-700); font-weight: 600; }
+    .nav-link.active::after {
+      content: ''; position: absolute; left: 12px; right: 12px; bottom: -13px;
+      height: 2px; background: var(--signal); border-radius: 2px;
+    }
+    .nav-link .nb {
+      min-width: 18px; height: 18px; padding: 0 5px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--alert); color: #fff;
+      font-size: 9.5px; font-weight: 700; border-radius: var(--r-pill);
+    }
+
+    .topbar-spacer { flex: 1; min-width: 8px; }
+
+    .cmd-search {
+      position: relative;
+      width: 280px; max-width: 40vw;
+    }
+    .cmd-search input {
+      width: 100%; height: 36px; padding: 0 12px 0 34px;
+      border-radius: var(--r-md);
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      color: var(--ink-800); font-size: 12px;
+      transition: all .16s;
+    }
+    .cmd-search input::placeholder { color: var(--ink-400); }
+    .cmd-search input:focus {
+      outline: none; background: #fff; border-color: var(--signal);
+      box-shadow: 0 0 0 3px rgba(11,143,111,.12);
+    }
+    .cmd-search .si { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-400); pointer-events: none; }
+    @media (max-width: 640px) { .cmd-search { display: none; } }
+
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: var(--r-md);
+      background: var(--surface); border: 1px solid var(--hairline);
+      color: var(--ink-600);
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: all .16s;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { background: var(--paper); color: var(--ink-900); border-color: var(--hairline-2); }
+    .icon-btn .dot-indicator {
+      position: absolute; top: 7px; right: 7px; width: 6px; height: 6px;
+      border-radius: 50%; background: var(--alert);
+      box-shadow: 0 0 0 2px var(--surface);
+    }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: var(--r-md); font-size: 12px; font-weight: 600; border: 1px solid transparent; transition: all .16s; white-space: nowrap; text-decoration: none; }
+    .btn-primary { background: var(--navy-900); color: #fff; border-color: var(--navy-900); box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, var(--e1); }
+    .btn-primary:hover { background: var(--navy-800); }
+    .btn-signal { background: var(--signal); color: #fff; border-color: var(--signal-700); box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, 0 6px 16px -8px rgba(11,143,111,.6); }
+    .btn-signal:hover { background: var(--signal-700); }
+    .btn-ghost { background: var(--surface); color: var(--ink-700); border-color: var(--hairline); }
+    .btn-ghost:hover { background: var(--paper); border-color: var(--hairline-2); color: var(--ink-900); }
+
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--signal), var(--signal-700));
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 11.5px;
+      box-shadow: 0 0 0 2px rgba(11,143,111,.18);
+      flex-shrink: 0; overflow: hidden;
+      position: relative;
+    }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar .status-dot {
+      position: absolute; bottom: -1px; right: -1px; width: 10px; height: 10px;
+      border-radius: 50%; background: var(--signal); border: 2px solid #fff;
+    }
+
+    /* Unit strip below topbar */
+    .unit-strip {
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--hairline);
+      padding: 7px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+      font-size: 11px;
+    }
+    @media (max-width: 768px) { .unit-strip { padding: 7px 14px; } }
+    .unit-strip .u-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px; border-radius: var(--r-pill);
+      background: var(--signal-50); color: var(--signal-700);
       font-family: 'JetBrains Mono', monospace;
+      font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      border: 1px solid var(--signal-100);
+    }
+    .unit-strip .u-badge::before {
+      content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--signal);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .unit-strip .u-title { font-weight: 600; color: var(--ink-800); font-size: 11.5px; }
+    .unit-strip .u-sync { color: var(--ink-500); font-weight: 500; font-size: 10.5px; }
+
+    /* ============ MAP HERO ============ */
+    .map-hero {
+      width: 100%;
+      padding: 16px 24px 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1.75fr) minmax(350px, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    @media (max-width: 1100px) { .map-hero { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .map-hero { padding: 12px 14px 0; } }
+
+    .map-shell {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 540px;
+      background: var(--navy-950);
+      border-radius: var(--r-2xl);
+      overflow: hidden;
+      box-shadow: var(--e-hero);
+      isolation: isolate;
+    }
+    @media (max-width: 640px) { .map-shell { min-height: 440px; border-radius: var(--r-xl); } }
+
+    .map-side-rail {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
     }
 
-    .tabular-nums {
+    .stats-split-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      min-width: 0;
+    }
+    @media (max-width: 520px) {
+      .stats-split-grid { grid-template-columns: 1fr; }
+    }
+    .stats-split-grid .card { min-width: 0; display: flex; flex-direction: column; }
+    .stats-split-grid .card-head { padding: 12px 14px 8px !important; }
+    .stats-split-grid .stats-body { padding: 12px 14px 14px; flex: 1; display: flex; flex-direction: column; }
+    .stats-split-grid .stats-lollipop-chart { flex: 1; justify-content: space-between; }
+    .stats-split-grid .stats-lollipop-row {
+      grid-template-columns: 54px 1fr 26px;
+      gap: 4px;
+      height: 24px;
+    }
+    .stats-split-grid .stats-lollipop-grid { left: 58px; right: 30px; }
+    .stats-split-grid .stats-lollipop-lbl { font-size: 10.5px; }
+    .stats-split-grid .stats-lollipop-lane { height: 24px; }
+    .stats-split-grid .stats-lollipop-head { width: 20px; height: 20px; font-size: 9.5px; }
+    .stats-split-grid .stats-lollipop-pct { font-size: 9.5px; }
+
+    .bar-chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 195px;
+      padding: 10px 18px 14px;
+    }
+
+    .radial-card-body {
+      padding: 16px 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .radial-hero-num {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -.03em;
+      color: var(--ink-900);
+      line-height: 1.05;
+      font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .radial-hero-num span.sub {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-500);
+      letter-spacing: 0;
+    }
+    .radial-layout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 4px;
+    }
+    .radial-svg-wrap {
+      position: relative;
+      width: 172px;
+      height: 172px;
+      flex-shrink: 0;
+    }
+    .radial-svg-wrap svg {
+      width: 172px;
+      height: 172px;
+      transform: rotate(-90deg);
+      display: block;
+    }
+    .radial-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      pointer-events: none;
+      padding: 0 26px;
+    }
+    .radial-center .rc-val {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--ink-900);
+      letter-spacing: -.03em;
+      line-height: 1;
       font-variant-numeric: tabular-nums;
     }
+    .radial-center .rc-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-700);
+      margin-top: 4px;
+    }
+    .radial-center .rc-sub {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--ink-400);
+      margin-top: 2px;
+      line-height: 1.25;
+    }
+    .radial-legend {
+      flex: 1;
+      min-width: 155px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .radial-leg-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .radial-leg-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--ink-600);
+      font-weight: 500;
+    }
+    .radial-leg-bar {
+      width: 3px;
+      height: 12px;
+      border-radius: 99px;
+      flex-shrink: 0;
+    }
+    .radial-leg-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--ink-900);
+      font-size: 12px;
+    }
 
-    /* Subtle coordinate grid in empty map API canvas (zero fake map geometry) */
-    .map-api-canvas-grid {
-      background-color: var(--map-surface-top);
+    .map-canvas {
+      position: absolute; inset: 0;
+      background-color: #0d1a2b;
       background-image:
-        linear-gradient(180deg, rgba(216, 235, 230, 0.92) 0%, rgba(211, 229, 224, 0.96) 100%),
-        radial-gradient(rgba(71, 85, 105, 0.24) 1px, transparent 1px);
-      background-size: 100% 100%, 24px 24px;
+        radial-gradient(1200px 500px at 20% 0%, rgba(11,143,111,.14), transparent 60%),
+        radial-gradient(900px 400px at 90% 100%, rgba(29,78,216,.12), transparent 60%),
+        radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px);
+      background-size: auto, auto, 24px 24px;
+    }
+    .map-canvas iframe, .map-canvas > div { position: absolute; inset: 0; }
+
+    /* Top bar inside map */
+    .map-top {
+      position: relative; z-index: 10;
+      padding: 18px 20px;
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
     }
 
-    .browser-tab {
+    .map-title-block {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: rgba(6, 13, 28, .55);
+      backdrop-filter: blur(20px) saturate(1.4);
+      -webkit-backdrop-filter: blur(20px) saturate(1.4);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: var(--r-pill);
+      padding: 7px 14px 7px 10px;
+      color: #fff;
+    }
+    .map-title-block .map-pin-badge {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--signal), var(--signal-700));
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 0 3px rgba(11,143,111,.22);
+    }
+    .map-title-block .ttl { font-size: 13px; font-weight: 600; color: #fff; letter-spacing: .01em; }
+    .map-title-block .ttl-sub { font-size: 10.5px; color: #94a3b8; font-weight: 500; margin-top: 1px; }
+    .map-title-block .count-pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.14); color: #fff;
+      height: 22px; padding: 0 9px; border-radius: var(--r-pill);
+      font-size: 11px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin-left: 6px;
+    }
+
+    .map-filter-wrap {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .map-filter {
+      height: 36px; padding: 0 30px 0 12px;
+      background: rgba(6, 13, 28, .6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--r-md);
+      color: #dbe3ed; font-size: 11.5px; font-weight: 500;
+      transition: all .16s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .map-filter:hover { background-color: rgba(6, 13, 28, .8); border-color: rgba(255,255,255,.2); color: #fff; }
+    .map-filter:focus { outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px rgba(11,143,111,.25); }
+    .map-filter option { background: var(--navy-900); color: #dbe3ed; }
+
+    .map-reset {
+      height: 36px; width: 36px; border-radius: var(--r-md);
+      background: rgba(6, 13, 28, .6);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12);
+      color: #dbe3ed; display: inline-flex; align-items: center; justify-content: center;
+      transition: all .16s;
+    }
+    .map-reset:hover { background: rgba(6, 13, 28, .8); color: #fff; border-color: rgba(255,255,255,.2); }
+
+    /* Selected docket dock */
+    .map-dock {
+      position: absolute; left: 20px; right: 20px; bottom: 20px;
+      z-index: 10;
+      display: flex; align-items: stretch; gap: 12px;
+      max-width: 900px;
+    }
+    @media (max-width: 640px) {
+      .map-dock { left: 12px; right: 12px; bottom: 12px; flex-direction: column; }
+    }
+
+    .dock-card {
+      flex: 1;
+      background: rgba(6, 13, 28, .74);
+      backdrop-filter: blur(24px) saturate(1.5);
+      -webkit-backdrop-filter: blur(24px) saturate(1.5);
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: var(--r-xl);
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      color: #e5eaf1;
+      min-width: 0;
+    }
+    .dock-priority {
+      flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(194, 65, 12, .18);
+      border: 1px solid rgba(194, 65, 12, .35);
+      color: #fb923c;
+    }
+    .dock-priority.low { background: rgba(11,143,111,.18); border-color: rgba(11,143,111,.4); color: #4dd4b0; }
+    .dock-priority.med { background: rgba(180, 83, 9, .18); border-color: rgba(180, 83, 9, .4); color: #fbbf24; }
+
+    .dock-content { min-width: 0; flex: 1; }
+    .dock-status { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #7ee0c2; }
+    .dock-title { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.25; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dock-sub { font-size: 11.5px; color: #94a3b8; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .dock-meta {
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+      padding-left: 14px; border-left: 1px solid rgba(255,255,255,.1);
+    }
+    .dock-meta .meta-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 500; color: #fff; line-height: 1; }
+    .dock-meta .meta-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; font-weight: 600; }
+
+    .dock-cta {
+      flex-shrink: 0; align-self: stretch;
+      padding: 0 20px;
+      border-radius: var(--r-xl);
+      background: var(--signal);
+      color: #fff; font-size: 12.5px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid rgba(255,255,255,.15);
+      box-shadow: 0 8px 20px -8px rgba(11,143,111,.7);
+      transition: all .16s;
+      text-decoration: none;
+    }
+    .dock-cta:hover { background: var(--signal-700); transform: translateY(-1px); }
+    @media (max-width: 640px) { .dock-cta { min-height: 44px; justify-content: center; } }
+
+    /* Map zoom stack */
+    .map-zoom {
+      position: absolute; right: 20px; bottom: 92px; z-index: 10;
+      display: flex; flex-direction: column;
+      background: rgba(6, 13, 28, .74);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--r-md);
+      overflow: hidden;
+    }
+    .map-zoom button {
+      width: 38px; height: 38px; border: 0; background: transparent; color: #dbe3ed;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .16s;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .map-zoom button:last-child { border-bottom: 0; }
+    .map-zoom button:not(:disabled):hover { background: rgba(11,143,111,.25); color: #fff; }
+    .map-zoom button:disabled { opacity: .35; }
+
+    /* Map legend */
+    .map-legend {
+      position: absolute; left: 20px; bottom: 92px; z-index: 10;
+      display: inline-flex; align-items: center; gap: 14px;
+      background: rgba(6, 13, 28, .74);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--r-md);
+      padding: 8px 12px;
+      font-size: 10.5px; color: #94a3b8;
+    }
+    .map-legend .sw { display: inline-flex; align-items: center; gap: 5px; }
+    .map-legend .sw i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    @media (max-width: 640px) { .map-legend { display: none; } }
+
+    /* ============ KPI STRIP ============ */
+    .kpi-strip {
+      padding: 16px 24px;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 1100px) { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 640px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); padding: 12px 14px; gap: 10px; } }
+
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+      box-shadow: var(--e1);
+      transition: all .16s;
+      text-align: left;
+      text-decoration: none; color: inherit;
+      cursor: default;
+      font-family: inherit;
+    }
+    .kpi.clickable { cursor: pointer; }
+    .kpi.clickable:hover { box-shadow: var(--e2); border-color: var(--hairline-2); transform: translateY(-1px); }
+
+    .kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .kpi-icon {
+      width: 30px; height: 30px; border-radius: var(--r-sm);
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ic-warn { background: var(--warn-100); color: var(--warn); }
+    .ic-signal { background: var(--signal-100); color: var(--signal-700); }
+    .ic-info { background: var(--info-100); color: var(--info); }
+    .ic-alert { background: var(--alert-100); color: var(--alert); }
+    .ic-teal { background: #ccfbf1; color: #0f766e; }
+    .ic-slate { background: var(--paper-2); color: var(--ink-700); }
+    .kpi-spark { width: 64px; height: 22px; flex-shrink: 0; }
+
+    .kpi-value {
+      font-size: 26px; font-weight: 500; letter-spacing: -.02em;
+      color: var(--ink-900); line-height: 1;
+      display: flex; align-items: baseline; gap: 5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-value .u { font-size: 11px; font-weight: 600; color: var(--ink-500); letter-spacing: 0; }
+    .kpi-label {
+      font-size: 10.5px; font-weight: 600; color: var(--ink-500);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+
+    /* ============ WORKSPACE ============ */
+    .workspace {
+      padding: 16px 24px 24px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 768px) { .workspace { padding: 14px; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-2xl);
+      box-shadow: var(--e2);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .card-head {
+      padding: 16px 20px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .card-head h2 { font-size: 15px; font-weight: 700; color: var(--ink-900); letter-spacing: -.005em; }
+    .card-head .hint { font-size: 11.5px; color: var(--ink-500); margin-top: 2px; }
+
+    .count-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 26px; padding: 0 10px;
+      border-radius: var(--r-pill);
+      background: var(--signal-50); color: var(--signal-700);
+      font-size: 11px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid var(--signal-100);
+    }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--hairline);
+      background: var(--surface-2);
+    }
+    .toolbar-label { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-400); }
+    .sel {
+      height: 34px; padding: 0 28px 0 10px;
+      border-radius: var(--r-sm);
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      color: var(--ink-700); font-size: 11.5px; font-weight: 500;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23667081' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 9px center;
+      transition: all .16s;
+    }
+    .sel:hover { border-color: var(--hairline-2); }
+    .sel:focus { outline: none; border-color: var(--signal); box-shadow: 0 0 0 3px rgba(11,143,111,.12); }
+
+    /* Table */
+    .tbl-wrap { overflow-x: auto; }
+    table.dt { width: 100%; border-collapse: collapse; }
+    table.dt thead th {
+      padding: 10px 20px;
+      text-align: left;
+      font-size: 10px; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--ink-400);
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--hairline);
+      white-space: nowrap;
+    }
+    table.dt tbody tr { transition: background .14s; cursor: pointer; }
+    table.dt tbody tr:hover { background: var(--surface-2); }
+    table.dt tbody tr.selected { background: var(--signal-50); box-shadow: inset 3px 0 0 var(--signal); }
+    table.dt tbody td {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--hairline);
+      font-size: 12.5px; color: var(--ink-700);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    table.dt tbody tr:last-child td { border-bottom: 0; }
+
+    .cell-suspect { display: flex; align-items: center; gap: 10px; min-width: 200px; }
+    .cell-suspect .id-badge {
+      width: 28px; height: 28px; border-radius: var(--r-sm);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      background: var(--paper-2); color: var(--ink-700);
+    }
+    .cell-suspect .sname { font-weight: 600; color: var(--ink-900); overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .cell-suspect .scase { font-size: 10.5px; color: var(--ink-500); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+
+    .chip-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 22px; padding: 0 9px;
+      border-radius: var(--r-pill);
+      font-size: 10.5px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .chip-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .st-pending  { background: var(--warn-100);  color: #92400e; }
+    .st-pending::before { background: var(--warn); }
+    .st-active   { background: var(--info-100);  color: #1e40af; }
+    .st-active::before  { background: var(--info); }
+    .st-approved { background: var(--signal-100); color: var(--signal-700); }
+    .st-approved::before { background: var(--signal); }
+
+    .priority-mark { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 10.5px; letter-spacing: .02em; }
+    .pr-critical { color: #b91c1c; } .pr-critical::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #dc2626; }
+    .pr-high     { color: var(--alert); } .pr-high::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--alert); }
+    .pr-medium   { color: var(--warn); } .pr-medium::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+    .pr-low      { color: var(--signal-700); } .pr-low::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--signal); }
+
+    .btn-row {
+      display: inline-flex; align-items: center; gap: 4px;
+      height: 28px; padding: 0 11px;
+      border-radius: var(--r-sm);
+      background: var(--paper); border: 1px solid var(--hairline);
+      color: var(--ink-700); font-size: 11px; font-weight: 600;
+      text-decoration: none; transition: all .16s;
+    }
+    .btn-row:hover { background: var(--navy-900); color: #fff; border-color: var(--navy-900); }
+
+    .card-foot {
+      padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; flex-wrap: wrap;
+      border-top: 1px solid var(--hairline);
+      background: var(--surface-2);
+    }
+    .card-foot .pag { font-size: 11px; color: var(--ink-500); font-weight: 500; }
+
+    /* States */
+    .state-block { padding: 48px 24px; text-align: center; }
+    .state-block .icon {
+      width: 44px; height: 44px; border-radius: var(--r-md);
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+    }
+    .state-block h3 { font-size: 13.5px; font-weight: 600; color: var(--ink-900); margin-bottom: 4px; }
+    .state-block p { font-size: 12px; color: var(--ink-500); margin-bottom: 14px; }
+
+    /* Stats card */
+    .stats-seg {
+      display: flex; padding: 4px;
+      background: var(--paper);
+      border-radius: var(--r-md);
+      margin: 14px 20px 0;
+      gap: 3px;
+    }
+    .stats-seg button {
+      flex: 1; height: 30px; padding: 0 8px;
+      border-radius: var(--r-sm);
+      border: 0; background: transparent;
+      font-size: 11px; font-weight: 600; color: var(--ink-500);
+      transition: all .16s;
+    }
+    .stats-seg button.active { background: var(--surface); color: var(--ink-900); box-shadow: var(--e1); }
+    .stats-seg button:hover:not(.active) { color: var(--ink-700); }
+
+    .stats-body {
+      padding: 12px 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .stats-lollipop-chart {
       position: relative;
-      border-top-left-radius: 14px;
-      border-top-right-radius: 14px;
-      transition: background-color 0.15s ease, color 0.15s ease;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 4px 0 18px;
     }
+    .stats-lollipop-grid {
+      position: absolute;
+      top: 0;
+      bottom: 18px;
+      left: 78px;
+      right: 36px;
+      pointer-events: none;
+    }
+    .stats-lollipop-tick {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-left: 1px dashed #e2e8f0;
+    }
+    .stats-lollipop-tick span {
+      position: absolute;
+      bottom: -16px;
+      left: 0;
+      transform: translateX(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .stats-lollipop-row {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 74px 1fr 32px;
+      align-items: center;
+      gap: 6px;
+      height: 28px;
+    }
+    .stats-lollipop-lbl {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink-700);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stats-lollipop-lane {
+      position: relative;
+      height: 28px;
+      display: flex;
+      align-items: center;
+    }
+    .stats-lollipop-stem {
+      height: 3.5px;
+      border-radius: 999px;
+      transition: width .4s cubic-bezier(.22, 1, .36, 1);
+    }
+    .stats-lollipop-head {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      color: #ffffff;
+      font-size: 10.5px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: -2px;
+      flex-shrink: 0;
+      box-shadow: 0 3px 8px rgba(15, 23, 42, .16);
+      transition: transform .15s ease;
+    }
+    .stats-lollipop-row:hover .stats-lollipop-head {
+      transform: scale(1.1);
+    }
+    .stats-lollipop-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--ink-500);
+      text-align: right;
+    }
+    .stats-tri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .tri-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 9px 10px;
+      min-width: 0;
+    }
+    .tri-item-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .tri-item .tri-val {
+      font-size: 19px; font-weight: 700; color: var(--ink-900); line-height: 1;
+      font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+    }
+    .tri-item .tri-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ink-500);
+    }
+    .tri-item .tri-lbl {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 600; color: var(--ink-600);
+      text-transform: uppercase; letter-spacing: .04em;
+      margin-top: 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tri-item .tri-lbl i { width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; display: inline-block; }
 
-    .browser-tab-active {
-      background-color: var(--tab-active);
-      color: #0f172a;
-      box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.05);
-    }
+    .stats-caption { font-size: 11px; color: var(--ink-500); line-height: 1.4; }
 
-    .browser-tab-inactive {
-      background-color: rgba(203, 215, 209, 0.65);
-      color: #334155;
-    }
+    .ops-list { border-top: 1px solid var(--hairline); padding: 14px 20px 16px; }
+    .ops-list .ops-title { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-400); margin-bottom: 10px; }
+    .ops-list .ops-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; font-size: 11.5px; }
+    .ops-list .ops-row + .ops-row { border-top: 1px solid var(--hairline); }
+    .ops-list .ops-lbl { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-600); font-weight: 500; }
+    .ops-list .ops-lbl i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .ops-list .ops-val { font-weight: 600; color: var(--ink-900); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
 
-    .browser-tab-inactive:hover {
-      background-color: rgba(226, 235, 230, 0.9);
-      color: #0f172a;
-    }
+    /* Utilities */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Explicit keyboard focus ring */
-    a:focus-visible,
-    button:focus-visible,
-    input:focus-visible,
-    select:focus-visible {
-      outline: 2px solid #0f766e;
-      outline-offset: 2px;
-    }
-
-    button:not(:disabled),
-    a[href],
-    select:not(:disabled) {
-      cursor: pointer;
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    .docket-row {
-      transition: background-color 0.14s ease;
-    }
-
-    .docket-row.is-selected {
-      background-color: #e3eee9;
-    }
-
-    /* Hide native scrollbar neatly on horizontal tab strips */
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
+    a, button { -webkit-tap-highlight-color: transparent; }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--signal); outline-offset: 2px;
     }
   </style>
 </head>
-<body class="min-h-screen w-full flex flex-col antialiased selection:bg-teal-100 selection:text-slate-900 bg-[#e9f0ed]">
+<body>
 
-  <div class="w-full min-h-screen flex flex-col bg-[#e9f0ed]">
-    <!-- Full-Viewport Application Shell -->
-    <div class="w-full flex-1 flex flex-col overflow-x-hidden bg-[#e9f0ed]">
+<div class="app">
 
-      <!-- ====================================================== -->
-      <!-- 1. TOP CHROME HEADER & BROWSER-STYLE COMMAND TABS      -->
-      <!-- ====================================================== -->
-      <header class="bg-[#d2dcd7] border-b border-[#bfcbc5] px-3 sm:px-5 pt-2.5">
-        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 lg:pb-0">
-
-          <!-- Left Brand & Quick Icon Actions -->
-          <div class="flex items-center gap-2 shrink-0 lg:pb-2">
-            <a href="{{ $homeUrl }}"
-               class="w-11 h-11 rounded-2xl bg-white border border-slate-300/80 p-1 flex items-center justify-center shadow-2xs shrink-0"
-               title="NACOC Forensic Home"
-               aria-label="NACOC Forensic Command Home">
-              <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo" width="36" height="36" class="w-9 h-9 object-contain">
-            </a>
-
-            <div class="hidden sm:flex items-center gap-1.5">
-              <a href="{{ $casesUrl }}"
-                 class="w-11 h-11 rounded-full bg-white/80 hover:bg-white text-slate-800 border border-slate-300/60 flex items-center justify-center transition-colors shadow-2xs"
-                 title="Case Register"
-                 aria-label="Open Case Register">
-                <i data-lucide="folder-search" class="w-4 h-4"></i>
-              </a>
-              <a href="{{ $reportUrl }}"
-                 class="w-11 h-11 rounded-full bg-white/80 hover:bg-white text-slate-800 border border-slate-300/60 flex items-center justify-center transition-colors shadow-2xs"
-                 title="Reports &amp; Audit"
-                 aria-label="Open Reports and Audit">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
-              </a>
-              <button type="button"
-                      onclick="refreshRealtimeData()"
-                      class="w-11 h-11 rounded-full bg-white/80 hover:bg-white text-slate-800 border border-slate-300/60 flex items-center justify-center transition-colors shadow-2xs"
-                      title="Sync Forensic Database Telemetry"
-                      aria-label="Sync Forensic Database Telemetry">
-                <i data-lucide="refresh-cw" class="w-4 h-4" id="syncSpinner"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- Center Browser-Style Navigation Tabs -->
-          <nav aria-label="Unit Command Navigation" class="order-3 lg:order-2 w-full lg:w-auto flex items-end gap-1.5 overflow-x-auto no-scrollbar pt-1">
-            @foreach($tabs as $tab)
-              @php $isActiveTab = !empty($tab['active']); @endphp
-              <a href="{{ $tab['url'] }}"
-                 class="browser-tab {{ $isActiveTab ? 'browser-tab-active font-semibold' : 'browser-tab-inactive font-medium' }} min-h-[44px] px-4 py-2.5 text-xs sm:text-[13px] whitespace-nowrap flex items-center gap-2 shrink-0">
-                <i data-lucide="{{ $tab['icon'] ?? 'layout-dashboard' }}" class="w-3.5 h-3.5 text-slate-700 shrink-0"></i>
-                <span>{{ $tab['label'] }}</span>
-                @if(!empty($tab['badge']) && (int)$tab['badge'] > 0)
-                  <span class="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-mono-code font-bold leading-none">
-                    {{ $tab['badge'] }}
-                  </span>
-                @endif
-              </a>
-            @endforeach
-
-            @if($createUrl)
-              <a href="{{ $createUrl }}"
-                 class="mb-1 w-11 h-11 rounded-full bg-white/80 hover:bg-white text-slate-900 border border-slate-300/70 flex items-center justify-center transition-colors shrink-0 shadow-2xs"
-                 title="{{ $createLabel }}"
-                 aria-label="{{ $createLabel }}">
-                <i data-lucide="plus" class="w-4 h-4"></i>
-              </a>
-            @endif
-          </nav>
-
-          <!-- Right Alerts, Profile & Sign Out -->
-          <div class="order-2 lg:order-3 flex items-center gap-2 shrink-0 lg:pb-2">
-            @if($authUser && $authUser->is_head)
-              <a href="{{ $permissionsUrl }}"
-                 class="min-h-[44px] px-3 rounded-full bg-white/85 hover:bg-white text-slate-800 border border-slate-300/70 flex items-center gap-1.5 text-xs font-semibold transition-colors shadow-2xs"
-                 title="Unit Staff Permissions"
-                 aria-label="Open Unit Staff Permissions">
-                <i data-lucide="shield" class="w-4 h-4 text-emerald-700 shrink-0"></i>
-                <span class="hidden md:inline">Permissions</span>
-              </a>
-            @endif
-            <a href="{{ $notificationsUrl }}"
-               class="min-h-[44px] px-3 rounded-full bg-white/85 hover:bg-white text-slate-800 border border-slate-300/70 flex items-center gap-1.5 text-xs font-semibold transition-colors shadow-2xs"
-               title="Unit Notifications"
-               aria-label="Open Unit Notifications">
-              <i data-lucide="bell" class="w-4 h-4 text-amber-700 shrink-0"></i>
-              <span class="hidden md:inline">Notifications</span>
-            </a>
-
-            <div class="flex items-center gap-2.5 pl-1">
-              <div class="w-11 h-11 rounded-full bg-slate-900 text-white border-2 border-white flex items-center justify-center font-bold text-xs shadow-2xs overflow-hidden shrink-0">
-                @if ($authUser && $authUser->avatar)
-                  <img src="{{ asset($authUser->avatar) }}" alt="{{ $headName }}" width="44" height="44" class="w-full h-full object-cover">
-                @else
-                  {{ strtoupper(substr(trim($headName), 0, 2)) ?: 'NC' }}
-                @endif
-              </div>
-              <div class="hidden xl:block text-left leading-tight">
-                <div class="text-xs font-semibold text-slate-900">{{ $headName }}</div>
-                <div class="text-[11px] font-medium text-slate-700">{{ $officerRole }}</div>
-              </div>
-            </div>
-
-            <form method="POST" action="{{ route('logout') }}" class="m-0">
-              @csrf
-              <button type="submit"
-                      class="w-11 h-11 rounded-full bg-white/80 hover:bg-rose-50 hover:text-rose-800 text-slate-800 border border-slate-300/70 flex items-center justify-center transition-colors shadow-2xs"
-                      title="Sign Out"
-                      aria-label="Sign Out">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-              </button>
-            </form>
-          </div>
+  <!-- ====================================================== -->
+  <!-- TOP BAR                                                -->
+  <!-- ====================================================== -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="{{ $homeUrl }}" class="brand">
+        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo">
+        <div class="brand-text">
+          <div class="b1">NACOC Forensic</div>
         </div>
+      </a>
 
-        <!-- Compact Unit Identity & Live Sync Strip (Preserves exact HQ Identity) -->
-        <div class="bg-[#eef4f1] -mx-3 sm:-mx-5 px-4 sm:px-6 py-2 border-t border-white/70 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full bg-slate-900 text-white text-[10px] font-mono-code font-bold uppercase tracking-wider">
-              {{ $unitBadge }}
-            </span>
-            <h1 class="text-xs sm:text-sm font-semibold text-slate-900 tracking-tight">
-              {{ $unitSubtitle }}
-            </h1>
-          </div>
-          <div class="flex items-center gap-3 text-[11px] font-medium text-slate-700">
-            <span id="telemetrySyncBadge" class="inline-flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
-              <span id="telemetryLastUpdated">Live telemetry ready</span>
-            </span>
-          </div>
-        </div>
-      </header>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="{{ $homeUrl }}" class="nav-link active">
+          <i data-lucide="layout-dashboard" style="width:15px;height:15px;"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="{{ $casesUrl }}" class="nav-link">
+          <i data-lucide="folder-search" style="width:15px;height:15px;"></i>
+          <span>Case Register</span>
+        </a>
+        <a href="{{ $reportUrl }}" class="nav-link">
+          <i data-lucide="bar-chart-3" style="width:15px;height:15px;"></i>
+          <span>Reports</span>
+        </a>
+        @if(!$isStaffShell && $authUser && $authUser->is_head)
+          <a href="{{ $approvalsUrl }}" class="nav-link">
+            <i data-lucide="clipboard-check" style="width:15px;height:15px;"></i>
+            <span>Reviews &amp; Approvals</span>
+            @if($pendingApprovalsCount > 0)
+              <span class="nb" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingApprovalsCount }}</span>
+            @endif
+          </a>
+          <a href="{{ $permissionsUrl }}" class="nav-link">
+            <i data-lucide="shield-check" style="width:15px;height:15px;"></i>
+            <span>Permissions</span>
+          </a>
+        @endif
+        @if(!$isStaffShell && $notificationsUrl)
+        <a href="{{ $notificationsUrl }}" class="nav-link">
+          <i data-lucide="bell" style="width:15px;height:15px;"></i>
+          <span>Notifications</span>
+          @if($vaultPendingBadge > 0)<span class="nb">{{ $vaultPendingBadge }}</span>@endif
+        </a>
+        @endif
+      </nav>
 
-      <main class="flex-1 w-full flex flex-col">
-        <!-- ====================================================== -->
-        <!-- 2. UPPER MAP STAGE (EMPTY CONTAINER FOR USER MAP API)  -->
-        <!-- ====================================================== -->
-        <section aria-label="Forensic Cases by Location Map Stage"
-                 class="relative map-api-canvas-grid flex-1 min-h-[440px] sm:min-h-[480px] flex flex-col justify-between p-4 sm:p-5 overflow-hidden">
+      <div class="topbar-spacer"></div>
 
-          <!-- TODO: Mount external Map API inside #forensicMapContainer.
-               Example later integration:
-                 const map = new MapProvider.Map('forensicMapContainer', { ... });
-                 window.ForensicMapStage.mount(map, { zoomIn: () => map.zoomIn(), zoomOut: () => map.zoomOut(), resetView: () => map.reset() });
-          -->
-          <div id="forensicMapContainer"
-               data-map-api-slot="pending"
-               role="region"
-               aria-label="External Map API Container (Ready for Integration)"
-               class="absolute inset-0 z-0">
-          </div>
+      <div class="cmd-search">
+        <i data-lucide="search" class="si" style="width:14px;height:14px;"></i>
+        <input type="search" id="globalSearch" placeholder="Search cases, suspects, case IDs…" aria-label="Global search" oninput="applyDashboardFilters()">
+      </div>
 
-          <!-- Top Floating Overlay: Title Banner Left + Filter Pills Right -->
-          <div class="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-            <!-- Glassmorphic Element #1 (R-10 compliant) -->
-            <div class="inline-flex items-center gap-3 self-start px-5 py-2.5 rounded-full backdrop-blur-md bg-white/75 border border-white/85 shadow-xs">
-              <h2 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                {{ $locationNoun }} <span class="font-normal text-slate-700">by Location</span>
-              </h2>
-              <span id="mappedCaseCountPill" class="px-2.5 py-0.5 rounded-full bg-slate-900 text-white text-[11px] font-mono-code font-semibold tabular-nums">
-                {{ $totalCasesCount }} {{ $totalCasesCount === 1 ? 'Docket' : 'Dockets' }}
-              </span>
-            </div>
+      <button type="button" class="icon-btn" onclick="refreshRealtimeData()" title="Sync telemetry" aria-label="Sync telemetry">
+        <i data-lucide="refresh-cw" id="syncSpinner" style="width:15px;height:15px;"></i>
+      </button>
 
-            <!-- Floating Filter Pills -->
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button"
-                      id="resetFiltersBtn"
-                      onclick="resetDashboardFilters()"
-                      class="w-11 h-11 rounded-full bg-white/95 hover:bg-white text-slate-800 border border-slate-300/80 shadow-2xs flex items-center justify-center transition-colors"
-                      title="Reset all location and docket filters"
-                      aria-label="Reset all location and docket filters">
-                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-              </button>
+      @if($createUrl)
+        @php
+          $shellUnitContext = $cfg['userUnit'] ?? request()->path();
+          $canShellCreateCases = !$isStaffShell || !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('create_cases', $shellUnitContext) : true);
+          $shellLockedTooltip = 'Locked: Create New Cases permission is disabled by your Head of Unit';
+        @endphp
+        <a @if($canShellCreateCases) href="{{ $createUrl }}" @endif
+           data-staff-create-btn="dashboard"
+           data-create-url="{{ $createUrl }}"
+           aria-disabled="{{ $canShellCreateCases ? 'false' : 'true' }}"
+           @if(!$canShellCreateCases)
+             tabindex="0"
+             title="{{ $shellLockedTooltip }}"
+             data-locked-tooltip="{{ $shellLockedTooltip }}"
+             onclick="event.preventDefault(); event.stopPropagation(); return false;"
+             style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%); background: #CBD5E1; color: #64748B; border-color: #CBD5E1;"
+           @endif
+           class="btn btn-signal">
+          <i data-lucide="plus" style="width:14px;height:14px;"></i>
+          <span style="display:none;" class="hidden sm:inline">{{ $createLabel }}</span>
+          <span class="sm:hidden">New</span>
+        </a>
+      @endif
 
-              <label class="sr-only" for="filterPeriod">Filter by timeframe</label>
-              <select id="filterPeriod"
-                      onchange="applyDashboardFilters()"
-                      class="min-h-[44px] px-3.5 py-2 rounded-full bg-white/95 border border-slate-300/80 text-xs font-medium text-slate-900 shadow-2xs">
-                <option value="all">All Periods</option>
-                <option value="today">Logged Today</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-              </select>
+      <div class="avatar">
+        @if ($authUser && $authUser->avatar)
+          <img src="{{ asset($authUser->avatar) }}" alt="{{ $headName }}">
+        @else
+          {{ strtoupper(substr(trim($headName), 0, 2)) ?: 'NC' }}
+        @endif
+        <span class="status-dot"></span>
+      </div>
 
-              <label class="sr-only" for="filterRegion">Filter by Ghana region</label>
-              <select id="filterRegion"
-                      onchange="applyDashboardFilters()"
-                      class="min-h-[44px] px-3.5 py-2 rounded-full bg-white/95 border border-slate-300/80 text-xs font-medium text-slate-900 shadow-2xs">
-                <option value="all">All Regions</option>
-                <option value="Greater Accra">Greater Accra</option>
-                <option value="Ashanti">Ashanti</option>
-                <option value="Western">Western</option>
-                <option value="Eastern">Eastern</option>
-                <option value="Central">Central</option>
-                <option value="Volta">Volta</option>
-                <option value="Northern">Northern</option>
-                <option value="Bono">Bono</option>
-                <option value="Upper East">Upper East</option>
-                <option value="Upper West">Upper West</option>
-              </select>
-
-              <label class="sr-only" for="filterUnit">Filter by forensic unit</label>
-              <select id="filterUnit"
-                      onchange="applyDashboardFilters()"
-                      class="min-h-[44px] px-3.5 py-2 rounded-full bg-white/95 border border-slate-300/80 text-xs font-medium text-slate-900 shadow-2xs">
-                <option value="all">All Units</option>
-                <option value="Crime Scene Support">Crime Scene Support</option>
-                <option value="Evidence Management">Evidence Management</option>
-                <option value="Lab Analysis">Lab Analysis</option>
-                <option value="Digital &amp; Physical Forensics">Digital &amp; Physical Forensics</option>
-                <option value="Forensic Directorate">Forensic Directorate</option>
-              </select>
-
-              <label class="sr-only" for="filterStatus">Filter by status</label>
-              <select id="filterStatus"
-                      onchange="applyDashboardFilters()"
-                      class="min-h-[44px] px-3.5 py-2 rounded-full bg-white/95 border border-slate-300/80 text-xs font-medium text-slate-900 shadow-2xs">
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending / Awaiting Sign-off</option>
-                <option value="in_progress">Under Investigation / Active</option>
-                <option value="approved">Approved / Completed</option>
-              </select>
-
-              <label class="sr-only" for="filterPriority">Filter by priority</label>
-              <select id="filterPriority"
-                      onchange="applyDashboardFilters()"
-                      class="min-h-[44px] px-3.5 py-2 rounded-full bg-white/95 border border-slate-300/80 text-xs font-medium text-slate-900 shadow-2xs">
-                <option value="all">All Priorities</option>
-                <option value="CRITICAL">CRITICAL</option>
-                <option value="HIGH">HIGH</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="LOW">LOW</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Center Stage: Honest Empty Map API Slot + Floating Selected Docket Card + Zoom Stack -->
-          <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5 my-5">
-
-            <!-- Left-Center Empty Map Integration Notice (Hides automatically when Map API mounts) -->
-            <div id="forensicMapPlaceholder"
-                 class="flex-1 flex items-center justify-center py-6 sm:py-10 pointer-events-none">
-              <div class="max-w-md px-5 py-4 rounded-2xl border border-dashed border-slate-500/50 bg-white/65 text-center shadow-2xs">
-                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-[#dce9e4] text-slate-800 flex items-center justify-center border border-slate-300/80">
-                  <i data-lucide="map-pin" class="w-4 h-4"></i>
-                </div>
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-900 font-mono-code">
-                  Map API Container Ready
-                </p>
-                <p class="text-xs text-slate-700 mt-1">
-                  This map section is intentionally left empty for your external Map API (<code class="font-mono-code text-[11px] bg-white/80 px-1 rounded">#forensicMapContainer</code>).
-                </p>
-              </div>
-            </div>
-
-            <!-- Right-Center Floating Selected Case Preview + Vertical Zoom Controls -->
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 self-stretch lg:self-auto lg:ml-auto">
-
-              <!-- Glassmorphic Element #2: Selected Case Card (R-10 compliant) -->
-              <article aria-label="Selected Forensic Docket Preview"
-                       class="w-full sm:w-[340px] rounded-[24px] backdrop-blur-md bg-[#eef4ed]/90 border border-white/90 shadow-[0_18px_40px_-14px_rgba(15,23,42,0.18)] p-4 sm:p-5 flex flex-col justify-between gap-4">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="inline-flex items-center gap-2">
-                    <span id="previewPriorityDot" class="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0"></span>
-                    <span id="previewStatusLabel" class="text-xs font-semibold text-slate-900">Awaiting Data</span>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <a id="previewHistoryLink"
-                       href="{{ url('/history') }}"
-                       class="w-11 h-11 rounded-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300/70 flex items-center justify-center transition-colors shadow-2xs"
-                       title="Open Case Audit History"
-                       aria-label="Open Case Audit History">
-                      <i data-lucide="history" class="w-4 h-4"></i>
-                    </a>
-                    <a id="previewRegisterLink"
-                       href="{{ $casesUrl }}"
-                       class="w-11 h-11 rounded-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300/70 flex items-center justify-center transition-colors shadow-2xs"
-                       title="Open Case Directory"
-                       aria-label="Open Case Directory">
-                      <i data-lucide="external-link" class="w-4 h-4"></i>
-                    </a>
-                  </div>
-                </div>
-
-                <div class="flex items-baseline justify-between gap-3">
-                  <div class="min-w-0">
-                    <h3 id="previewSuspectTitle" class="text-xl font-semibold text-slate-900 truncate">
-                      No Docket Selected
-                    </h3>
-                    <p id="previewCaseSubline" class="text-xs font-medium text-slate-700 truncate mt-0.5">
-                      Select a case row below to inspect
-                    </p>
-                  </div>
-                  <div class="text-right shrink-0">
-                    <div class="flex items-center justify-end gap-1.5">
-                      <span id="previewExhibitCount" class="text-2xl sm:text-3xl font-normal text-slate-900 tabular-nums leading-none">0</span>
-                      <span id="previewExhibitDot" class="w-2 h-2 rounded-full bg-teal-600"></span>
-                    </div>
-                    <div class="text-[11px] font-medium text-slate-700 mt-1">Exhibits</div>
-                  </div>
-                </div>
-
-                <div class="flex items-center justify-between gap-3 pt-1">
-                  <div class="flex items-center gap-2 min-w-0 text-xs text-slate-800">
-                    <i data-lucide="map-pin" class="w-4 h-4 text-slate-900 shrink-0"></i>
-                    <span id="previewLocationLabel" class="truncate font-medium">Location pending</span>
-                  </div>
-                  <a id="previewReviewBtn"
-                     href="{{ $casesUrl }}"
-                     class="min-h-[44px] px-5 py-2.5 rounded-full bg-white hover:bg-slate-900 hover:text-white text-slate-900 border border-slate-300/80 text-xs font-semibold flex items-center justify-center transition-colors shrink-0 shadow-2xs">
-                    Inspect
-                  </a>
-                </div>
-              </article>
-
-              <!-- Vertical Zoom Placeholder Stack (Disabled visibly until Map API connects - R-26) -->
-              <div class="flex sm:flex-col items-center justify-center gap-1.5 bg-white/80 p-1.5 rounded-full border border-white/90 shadow-2xs self-start sm:self-center"
-                   title="Map zoom controls activate once external Map API is connected">
-                <button type="button"
-                        id="mapZoomInBtn"
-                        disabled
-                        aria-disabled="true"
-                        onclick="window.ForensicMapStage.zoomIn()"
-                        class="w-11 h-11 rounded-full bg-white text-slate-800 border border-slate-200 flex items-center justify-center"
-                        title="Zoom In (Awaiting Map API)"
-                        aria-label="Zoom In (Awaiting Map API)">
-                  <i data-lucide="plus" class="w-4 h-4"></i>
-                </button>
-                <button type="button"
-                        id="mapZoomOutBtn"
-                        disabled
-                        aria-disabled="true"
-                        onclick="window.ForensicMapStage.zoomOut()"
-                        class="w-11 h-11 rounded-full bg-white text-slate-800 border border-slate-200 flex items-center justify-center"
-                        title="Zoom Out (Awaiting Map API)"
-                        aria-label="Zoom Out (Awaiting Map API)">
-                  <i data-lucide="minus" class="w-4 h-4"></i>
-                </button>
-                <button type="button"
-                        id="mapResetViewBtn"
-                        disabled
-                        aria-disabled="true"
-                        onclick="window.ForensicMapStage.resetView()"
-                        class="w-11 h-11 rounded-full bg-white text-slate-800 border border-slate-200 flex items-center justify-center"
-                        title="Reset Map Viewport (Awaiting Map API)"
-                        aria-label="Reset Map Viewport (Awaiting Map API)">
-                  <i data-lucide="maximize" class="w-4 h-4"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom-Left Mini Overview Inset Placeholder -->
-          <div class="relative z-10 flex items-end justify-between">
-            <div id="forensicMiniMapContainer"
-                 data-minimap-slot="pending"
-                 class="hidden md:flex w-36 h-20 rounded-2xl border border-dashed border-slate-400/70 bg-[#c8dad6]/75 items-center justify-center px-3 text-center">
-              <span class="text-[11px] font-medium text-slate-800">Overview Map Slot</span>
-            </div>
-            <div id="mapIntegrationHint" class="text-[11px] font-medium text-slate-700 ml-auto">
-              Geospatial layer awaiting Map API configuration
-            </div>
-          </div>
-        </section>
-
-        <!-- ====================================================== -->
-        <!-- 3. MIDDLE 6-METRIC FORENSIC TELEMETRY STRIP            -->
-        <!-- ====================================================== -->
-        <section aria-label="Forensic Key Performance Metrics"
-                 class="bg-[#e3edeb] border-t border-b border-white/80 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-300/60">
-
-          <!-- Metric 1: Avg Turnaround -->
-          <div class="p-4 sm:p-5 flex flex-col justify-between gap-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="w-8 h-8 rounded-full bg-white/85 border border-slate-300/60 text-slate-800 flex items-center justify-center shrink-0">
-                <i data-lucide="clock" class="w-4 h-4"></i>
-              </span>
-              <div class="w-24 h-8">
-                <canvas id="sparkTurnaround" aria-label="Completed docket 6-month trend"></canvas>
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <div class="flex items-baseline gap-1">
-                <span id="kpiTurnaroundValue" class="text-2xl sm:text-3xl font-normal tracking-tight text-slate-900 tabular-nums">N/A</span>
-                <span id="kpiTurnaroundUnit" class="text-xs font-medium text-slate-700"></span>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-amber-600 shrink-0" title="Real turnaround indicator"></span>
-            </div>
-            <div class="text-xs font-medium text-slate-700">Avg Turnaround</div>
-          </div>
-
-          <!-- Metric 2: Completion Rate -->
-          <div class="p-4 sm:p-5 flex flex-col justify-between gap-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="w-8 h-8 rounded-full bg-white/85 border border-slate-300/60 text-slate-800 flex items-center justify-center shrink-0">
-                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-              </span>
-              <div class="w-24 h-8">
-                <canvas id="sparkCompletion" aria-label="Completion rate 6-month trend"></canvas>
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <div class="flex items-baseline gap-1">
-                <span id="kpiCompletionValue" class="text-2xl sm:text-3xl font-normal tracking-tight text-slate-900 tabular-nums">{{ $completionRatePct }}</span>
-                <span class="text-xs font-medium text-slate-700">%</span>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-emerald-600 shrink-0"></span>
-            </div>
-            <div class="text-xs font-medium text-slate-700">Completion Rate</div>
-          </div>
-
-          <!-- Metric 3: Under Investigation -->
-          <button type="button"
-                  onclick="quickFilterByStatus('in_progress')"
-                  class="p-4 sm:p-5 flex flex-col justify-between gap-3 text-left hover:bg-white/40 transition-colors">
-            <div class="flex items-center justify-between gap-2 w-full">
-              <span class="w-8 h-8 rounded-full bg-white/85 border border-slate-300/60 text-slate-800 flex items-center justify-center shrink-0">
-                <i data-lucide="microscope" class="w-4 h-4"></i>
-              </span>
-              <div class="w-24 h-8">
-                <canvas id="sparkInProgress" aria-label="Active investigations 6-month trend"></canvas>
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2 w-full">
-              <div class="flex items-baseline gap-1">
-                <span id="kpiInProgressValue" class="text-2xl sm:text-3xl font-normal tracking-tight text-slate-900 tabular-nums">{{ $inProgressCasesCount }}</span>
-                <span class="text-xs font-medium text-slate-700">Cases</span>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-sky-600 shrink-0"></span>
-            </div>
-            <div class="text-xs font-medium text-slate-700">Active Investigation</div>
-          </button>
-
-          <!-- Metric 4: Pending Sign-off -->
-          <button type="button"
-                  onclick="quickFilterByStatus('pending')"
-                  class="p-4 sm:p-5 flex flex-col justify-between gap-3 text-left hover:bg-white/40 transition-colors">
-            <div class="flex items-center justify-between gap-2 w-full">
-              <span class="w-8 h-8 rounded-full bg-white/85 border border-slate-300/60 text-slate-800 flex items-center justify-center shrink-0">
-                <i data-lucide="alert-circle" class="w-4 h-4"></i>
-              </span>
-              <div class="w-24 h-8">
-                <canvas id="sparkPending" aria-label="Pending sign-off 6-month trend"></canvas>
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2 w-full">
-              <div class="flex items-baseline gap-1">
-                <span id="kpiPendingValue" class="text-2xl sm:text-3xl font-normal tracking-tight text-slate-900 tabular-nums">{{ $pendingCasesCount }}</span>
-                <span class="text-xs font-medium text-slate-700">Cases</span>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-amber-600 shrink-0"></span>
-            </div>
-            <div class="text-xs font-medium text-slate-700">Pending Sign-off</div>
-          </button>
-
-          <!-- Metric 5: Seized Exhibits -->
-          <div class="p-4 sm:p-5 flex flex-col justify-between gap-3">
-            <div class="flex items-center justify-between gap-2">
-              <span class="w-8 h-8 rounded-full bg-white/85 border border-slate-300/60 text-slate-800 flex items-center justify-center shrink-0">
-                <i data-lucide="package" class="w-4 h-4"></i>
-              </span>
-              <div class="w-24 h-8">
-                <canvas id="sparkExhibits" aria-label="Logged exhibits 6-month trend"></canvas>
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <div class="flex items-baseline gap-1">
-                <span id="kpiExhibitsValue" class="text-2xl sm:text-3xl font-normal tracking-tight text-slate-900 tabular-nums">{{ $totalExhibitsCount }}</span>
-                <span class="text-xs font-medium text-slate-700">Items</span>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-teal-700 shrink-0"></span>
-            </div>
-            <div class="text-xs font-medium text-slate-700">Exhibits Seized</div>
-          </div>
-
-          <!-- Metric 6: Total Registered Dockets -->
-          <button type="button"
-                  onclick="quickFilterByStatus('all')"
-                  class="p-4 sm:p-5 flex flex-col justify-between gap-3 text-left hover:bg-white/40 transition-colors">
-            <div class="flex items-center justify-between gap-2 w-full">
-              <span class="w-8 h-8 rounded-full bg-white/85 border border-slate-300/60 text-slate-800 flex items-center justify-center shrink-0">
-                <i data-lucide="layers" class="w-4 h-4"></i>
-              </span>
-              <div class="w-24 h-8">
-                <canvas id="sparkTotalCases" aria-label="Total forensic dockets 6-month trend"></canvas>
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2 w-full">
-              <div class="flex items-baseline gap-1">
-                <span id="kpiTotalCasesValue" class="text-2xl sm:text-3xl font-normal tracking-tight text-slate-900 tabular-nums">{{ $totalCasesCount }}</span>
-                <span class="text-xs font-medium text-slate-700">Dockets</span>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-slate-900 shrink-0"></span>
-            </div>
-            <div class="text-xs font-medium text-slate-700">Total Dockets</div>
-          </button>
-        </section>
-
-        <!-- ====================================================== -->
-        <!-- 4. BOTTOM SPLIT WORKSPACE: DOCKETS TABLE + STATS CARD  -->
-        <!-- ====================================================== -->
-        <section aria-label="Forensic Dockets and Summary Statistics"
-                 class="p-4 sm:p-5 bg-[#dce7e3]/75 grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-          <!-- Left 8 Cols: Forensic Dockets Table -->
-          <div class="lg:col-span-8 bg-[#f4f7f5] rounded-3xl border border-white shadow-2xs p-4 sm:p-5 flex flex-col justify-between gap-3">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div class="flex items-center gap-3">
-                <h2 class="text-lg sm:text-xl font-normal text-slate-900 tracking-tight">
-                  My <strong class="font-bold">Dockets</strong>
-                </h2>
-                <span id="tableShowingBadge" class="px-2.5 py-0.5 rounded-full bg-[#e3ece8] text-slate-800 text-[11px] font-medium tabular-nums">
-                  Loading...
-                </span>
-              </div>
-
-              <div class="flex items-center gap-2 flex-1 sm:max-w-sm justify-end">
-                <div class="relative flex-1">
-                  <span class="absolute inset-y-0 left-3.5 flex items-center text-slate-600 pointer-events-none">
-                    <i data-lucide="search" class="w-4 h-4"></i>
-                  </span>
-                  <input type="search"
-                         id="docketSearchInput"
-                         oninput="applyDashboardFilters()"
-                         placeholder="Search dockets, suspects, locations..."
-                         aria-label="Search forensic dockets"
-                         class="w-full min-h-[44px] pl-10 pr-4 py-2 rounded-full bg-white border border-slate-300/80 text-xs text-slate-900 placeholder:text-slate-500">
-                </div>
-                <button type="button"
-                        onclick="resetDashboardFilters()"
-                        class="w-11 h-11 rounded-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300/80 flex items-center justify-center shrink-0 transition-colors"
-                        title="Clear search and filters"
-                        aria-label="Clear search and filters">
-                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Table / Loading / Empty / Error Container (R-27) -->
-            <div id="docketStateContainer" class="overflow-x-auto">
-              <!-- Initial Loading State -->
-              <div id="docketLoadingState" class="py-10 text-center text-xs text-slate-700 font-medium">
-                Loading forensic telemetry from database...
-              </div>
-
-              <!-- Error State (Hidden by default) -->
-              <div id="docketErrorState" class="hidden py-10 px-4 text-center rounded-2xl bg-rose-50 border border-rose-200">
-                <p id="docketErrorMessage" class="text-sm font-semibold text-rose-900">Unable to load live forensic telemetry.</p>
-                <button type="button"
-                        onclick="refreshRealtimeData()"
-                        class="mt-3 min-h-[44px] px-5 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors">
-                  Retry Sync
-                </button>
-              </div>
-
-              <!-- Empty State (Hidden by default) -->
-              <div id="docketEmptyState" class="hidden py-10 px-4 text-center rounded-2xl bg-white/80 border border-slate-200">
-                <p id="docketEmptyTitle" class="text-sm font-semibold text-slate-900">No forensic dockets match your current filters.</p>
-                <p class="text-xs text-slate-700 mt-1">Adjust search terms or reset filters to inspect all registered cases.</p>
-                <button type="button"
-                        onclick="resetDashboardFilters()"
-                        class="mt-3 min-h-[44px] px-5 py-2 rounded-full bg-white border border-slate-300 text-slate-900 text-xs font-semibold hover:bg-slate-50 transition-colors">
-                  Clear Filters
-                </button>
-              </div>
-
-              <!-- Live Forensic Dockets Table -->
-              <table id="docketsTable" class="hidden w-full text-left border-collapse">
-                <thead>
-                  <tr class="border-b border-slate-200 text-[11px] font-semibold text-slate-600">
-                    <th class="py-2.5 pr-3 whitespace-nowrap">Docket &amp; Suspect</th>
-                    <th class="py-2.5 px-3 whitespace-nowrap">Sector &amp; Exhibits</th>
-                    <th class="py-2.5 px-3 whitespace-nowrap">Status</th>
-                    <th class="py-2.5 px-3 whitespace-nowrap">Logged</th>
-                    <th class="py-2.5 px-3 whitespace-nowrap">Age</th>
-                    <th class="py-2.5 px-3 whitespace-nowrap">Unit</th>
-                    <th class="py-2.5 pl-3 text-right whitespace-nowrap">Action</th>
-                  </tr>
-                </thead>
-                <tbody id="docketsTableBody" class="divide-y divide-slate-200/70 text-xs text-slate-800">
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Footer Toggle / View All Link -->
-            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/70 text-xs">
-              <span id="tablePaginationNote" class="text-slate-700 font-medium"></span>
-              <div class="flex items-center gap-2 ml-auto">
-                <button type="button"
-                        id="toggleShowAllBtn"
-                        onclick="toggleShowAllRows()"
-                        class="hidden min-h-[44px] px-4 py-1.5 rounded-full bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 text-xs font-semibold transition-colors">
-                  Show All
-                </button>
-                <a href="{{ $casesUrl }}"
-                   class="min-h-[44px] px-4 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
-                  <span>Full Directory</span>
-                  <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right 4 Cols: Forensic Stats Card -->
-          <aside aria-label="Forensic Breakdown Statistics"
-                 class="lg:col-span-4 bg-[#eef4f1] rounded-3xl border border-white shadow-2xs p-4 sm:p-5 flex flex-col justify-between gap-5">
-            <div class="space-y-4">
-              <div class="flex items-center justify-between gap-2">
-                <h2 class="text-lg sm:text-xl font-normal text-slate-900 tracking-tight">
-                  Forensic <strong class="font-bold">Stats</strong>
-                </h2>
-                <span id="statsScopeCount" class="text-xs font-semibold text-slate-700 tabular-nums">0 Dockets</span>
-              </div>
-
-              <!-- Mode Switcher Pills -->
-              <div class="inline-flex flex-wrap items-center gap-1.5 p-1 rounded-full bg-[#dde7e2] border border-slate-300/60" role="tablist" aria-label="Statistics breakdown dimension">
-                <button type="button"
-                        role="tab"
-                        id="statTabSeverity"
-                        aria-selected="true"
-                        onclick="setStatsDimension('severity')"
-                        class="min-h-[44px] px-4 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold shadow-2xs transition-colors">
-                  Severity
-                </button>
-                <button type="button"
-                        role="tab"
-                        id="statTabUnit"
-                        aria-selected="false"
-                        onclick="setStatsDimension('unit')"
-                        class="min-h-[44px] px-4 py-1.5 rounded-full text-slate-800 hover:bg-white/60 text-xs font-medium transition-colors">
-                  Unit
-                </button>
-                <button type="button"
-                        role="tab"
-                        id="statTabStatus"
-                        aria-selected="false"
-                        onclick="setStatsDimension('status')"
-                        class="min-h-[44px] px-4 py-1.5 rounded-full text-slate-800 hover:bg-white/60 text-xs font-medium transition-colors">
-                  Status
-                </button>
-              </div>
-            </div>
-
-            <!-- 3 Prominent Metric Columns + Multi-Segment Bar -->
-            <div class="space-y-5 my-auto">
-              <div id="statsThreeCols" class="grid grid-cols-3 gap-3 items-end">
-                <div class="space-y-1">
-                  <div class="flex items-baseline gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-rose-600 shrink-0"></span>
-                    <span id="statVal1" class="text-2xl sm:text-3xl font-normal text-slate-900 tabular-nums leading-none">0</span>
-                  </div>
-                  <div id="statLbl1" class="text-xs font-medium text-slate-700 truncate">High / Critical</div>
-                </div>
-
-                <div class="space-y-1">
-                  <div class="flex items-baseline gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-amber-600 shrink-0"></span>
-                    <span id="statVal2" class="text-2xl sm:text-3xl font-normal text-slate-900 tabular-nums leading-none">0</span>
-                  </div>
-                  <div id="statLbl2" class="text-xs font-medium text-slate-700 truncate">Medium</div>
-                </div>
-
-                <div class="space-y-1">
-                  <div class="flex items-baseline gap-1.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-teal-700 shrink-0"></span>
-                    <span id="statVal3" class="text-2xl sm:text-3xl font-normal text-slate-900 tabular-nums leading-none">0</span>
-                  </div>
-                  <div id="statLbl3" class="text-xs font-medium text-slate-700 truncate">Low</div>
-                </div>
-              </div>
-
-              <!-- Horizontal Segmented Ratio Bar -->
-              <div>
-                <div class="w-full h-3 rounded-full bg-slate-200 overflow-hidden flex" aria-hidden="true">
-                  <div id="statBar1" class="h-full bg-rose-600 transition-all duration-300" style="width: 0%"></div>
-                  <div id="statBar2" class="h-full bg-amber-500 transition-all duration-300" style="width: 0%"></div>
-                  <div id="statBar3" class="h-full bg-teal-600 transition-all duration-300" style="width: 0%"></div>
-                </div>
-                <p id="statBarCaption" class="text-[11px] font-medium text-slate-700 mt-2">
-                  Proportional distribution across active forensic dockets
-                </p>
-              </div>
-            </div>
-          </aside>
-        </section>
-      </main>
+      <form method="POST" action="{{ route('logout') }}" style="margin:0;">
+        @csrf
+        <button type="submit" class="icon-btn" title="Sign Out" aria-label="Sign Out">
+          <i data-lucide="log-out" style="width:15px;height:15px;"></i>
+        </button>
+      </form>
     </div>
-  </div>
+  </header>
 
-  <script>
-    (function () {
-      const REALTIME_ENDPOINT = @json(url('/api/dashboard/realtime'));
-      const REVIEW_BASE_URL = @json(url('/cases'));
-      const HISTORY_BASE_URL = @json(url('/history'));
-      const DEFAULT_UNIT_FILTER = @json($defaultUnitFilter);
+  <!-- ====================================================== -->
+  <!-- MAP HERO - full width, generous height                 -->
+  <!-- ====================================================== -->
+  <section class="map-hero" aria-label="Forensic cases geospatial view">
+    <div class="map-shell">
+      <div class="map-canvas">
+        <x-leaflet-map
+            id="forensicMapContainer"
+            :latitude="$mapConfig['latitude']"
+            :longitude="$mapConfig['longitude']"
+            :zoom="$mapConfig['zoom']"
+            :markers="$mapConfig['markers']"
+            :tile-url="$mapConfig['tile_url']"
+            :attribution="$mapConfig['attribution']"
+            height="100%"
+        />
+      </div>
 
-      let telemetryPayload = null;
-      let filteredCases = [];
-      let selectedCaseId = null;
-      let statsDimension = 'severity';
-      let showAllRows = false;
-      const sparkCharts = {};
+      <!-- Map top bar: title + filters -->
+      <div class="map-top">
+        <div class="map-title-block">
+          <span class="map-pin-badge">
+            <i data-lucide="map-pin" style="width:13px;height:13px;color:#fff;"></i>
+          </span>
+          <div>
+            <div class="ttl">{{ $locationNoun === 'Cases' ? 'Cases' : $locationNoun . ' · Geospatial' }}</div>
+            <div class="ttl-sub">Tracking {{ $totalCasesCount }} registered dockets across Ghana</div>
+          </div>
+          <span class="count-pill" id="mappedCaseCountPill">{{ $totalCasesCount }}</span>
+        </div>
 
-      // Clean public hook so user-provided Map API can plug straight into #forensicMapContainer later
-      window.ForensicMapStage = {
-        containerId: 'forensicMapContainer',
-        miniMapContainerId: 'forensicMiniMapContainer',
-        instance: null,
-        handlers: {},
-        mount(mapInstance, handlers = {}) {
-          this.instance = mapInstance;
-          this.handlers = handlers || {};
-          const placeholder = document.getElementById('forensicMapPlaceholder');
-          if (placeholder) placeholder.classList.add('hidden');
-          const hint = document.getElementById('mapIntegrationHint');
-          if (hint) hint.textContent = 'External Map API Connected';
-          const slot = document.getElementById(this.containerId);
-          if (slot) slot.setAttribute('data-map-api-slot', 'connected');
+        <div class="map-filter-wrap">
+          <label class="sr-only" for="filterPeriod">Period</label>
+          <select id="filterPeriod" onchange="applyDashboardFilters()" class="map-filter">
+            <option value="all">All periods</option>
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+          </select>
+          <label class="sr-only" for="filterRegion">Region</label>
+          <select id="filterRegion" onchange="applyDashboardFilters()" class="map-filter">
+            <option value="all">All regions</option>
+            <option value="Greater Accra">Greater Accra</option>
+            <option value="Ashanti">Ashanti</option>
+            <option value="Western">Western</option>
+            <option value="Eastern">Eastern</option>
+            <option value="Central">Central</option>
+            <option value="Volta">Volta</option>
+            <option value="Northern">Northern</option>
+            <option value="Bono">Bono</option>
+            <option value="Upper East">Upper East</option>
+            <option value="Upper West">Upper West</option>
+          </select>
+          <label class="sr-only" for="filterUnit">Unit</label>
+          <select id="filterUnit" onchange="applyDashboardFilters()" class="map-filter">
+            <option value="all">All units</option>
+            <option value="Crime Scene Support">Crime Scene</option>
+            <option value="Evidence Management">Evidence</option>
+            <option value="Lab Analysis">Lab Analysis</option>
+            <option value="Digital &amp; Physical Forensics">Digital Forensics</option>
+          </select>
+          <button type="button" class="map-reset" onclick="resetDashboardFilters()" title="Reset filters" aria-label="Reset filters">
+            <i data-lucide="rotate-ccw" style="width:15px;height:15px;"></i>
+          </button>
+        </div>
+      </div>
 
-          ['mapZoomInBtn', 'mapZoomOutBtn', 'mapResetViewBtn'].forEach((btnId) => {
-            const btn = document.getElementById(btnId);
-            if (!btn) return;
-            btn.disabled = false;
-            btn.removeAttribute('aria-disabled');
-          });
-        },
-        getFilteredCases() {
-          return filteredCases.slice();
-        },
-        zoomIn() {
-          if (typeof this.handlers.zoomIn === 'function') this.handlers.zoomIn();
-        },
-        zoomOut() {
-          if (typeof this.handlers.zoomOut === 'function') this.handlers.zoomOut();
-        },
-        resetView() {
-          if (typeof this.handlers.resetView === 'function') this.handlers.resetView();
-        }
-      };
+      <!-- Legend -->
+      <div class="map-legend" aria-hidden="true">
+        <span class="sw"><i style="background:#dc2626;"></i>High / Critical &amp; High-Case Area</span>
+        <span class="sw"><i style="background:#0284c7;"></i>Medium</span>
+        <span class="sw"><i style="background:#0f766e;"></i>Low</span>
+      </div>
 
-      function refreshIcons() {
-        if (window.lucide && typeof window.lucide.createIcons === 'function') {
-          window.lucide.createIcons();
-        }
-      }
+      <!-- Zoom controls -->
+      <div class="map-zoom" title="Map controls">
+        <button type="button" id="mapZoomInBtn" disabled onclick="window.ForensicMapStage.zoomIn()" title="Zoom in" aria-label="Zoom in">
+          <i data-lucide="plus" style="width:15px;height:15px;"></i>
+        </button>
+        <button type="button" id="mapZoomOutBtn" disabled onclick="window.ForensicMapStage.zoomOut()" title="Zoom out" aria-label="Zoom out">
+          <i data-lucide="minus" style="width:15px;height:15px;"></i>
+        </button>
+        <button type="button" id="mapResetViewBtn" disabled onclick="window.ForensicMapStage.resetView()" title="Reset view" aria-label="Reset view">
+          <i data-lucide="maximize" style="width:15px;height:15px;"></i>
+        </button>
+      </div>
 
-      function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value == null ? '' : String(value);
-        return div.innerHTML;
-      }
+    </div>
 
-      function normalizeStatusBucket(statusText) {
-        const s = String(statusText || '').toLowerCase();
-        if (s.includes('pending') || s.includes('awaiting')) return 'pending';
-        if (s.includes('approved') || s.includes('completed') || s.includes('authorized')) return 'approved';
-        return 'in_progress';
-      }
+    <!-- Right side of the map: Registered Dockets Bar Chart + Forensic Stats + Key Metrics -->
+    <div class="map-side-rail">
+      <!-- Bar Chart CardView: Registered Dockets -->
+      <div class="card" aria-label="Registered dockets bar chart">
+        <div class="card-head" style="padding:14px 18px 12px;">
+          <div>
+            <h2>Registered Dockets</h2>
+            <div class="hint">Monthly docket intake &amp; exhibits overview</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="count-chip" id="docketsBarBadge">{{ $totalCasesCount }} dockets</span>
+          </div>
+        </div>
+        <div class="bar-chart-wrap">
+          <canvas id="registeredDocketsBarChart" aria-label="Registered dockets bar chart"></canvas>
+        </div>
+      </div>
 
-      function statusBadgeClasses(statusText) {
-        const bucket = normalizeStatusBucket(statusText);
-        if (bucket === 'pending') return 'bg-amber-100 text-amber-900 border border-amber-300/70';
-        if (bucket === 'approved') return 'bg-emerald-100 text-emerald-900 border border-emerald-300/70';
-        return 'bg-sky-100 text-sky-900 border border-sky-300/70';
-      }
+      <!-- Severity & Unit Side-by-Side CardViews -->
+      <div class="stats-split-grid">
+        <!-- Severity CardView -->
+        <aside class="card" aria-label="Severity statistics">
+          <div class="card-head" style="padding:14px 18px 10px;">
+            <h2>Severity</h2>
+            <span class="mono" style="font-size:11px;font-weight:600;color:var(--ink-500);" id="severityScopeCount">0 dockets</span>
+          </div>
+          <div class="stats-body">
+            <div class="stats-lollipop-chart" id="forensicSeverityLollipop" role="img" aria-label="Severity lollipop chart"></div>
+          </div>
+        </aside>
 
-      function priorityIconSpec(priorityText) {
-        const p = String(priorityText || '').toUpperCase();
-        if (p === 'CRITICAL' || p === 'HIGH') {
-          return { dot: 'bg-rose-600', icon: 'alert-circle', color: 'text-rose-700' };
-        }
-        if (p === 'MEDIUM') {
-          return { dot: 'bg-amber-600', icon: 'alert-triangle', color: 'text-amber-700' };
-        }
-        return { dot: 'bg-teal-700', icon: 'shield-check', color: 'text-teal-700' };
-      }
+        <!-- Unit CardView -->
+        <aside class="card" aria-label="Unit statistics">
+          <div class="card-head" style="padding:14px 18px 10px;">
+            <h2>Unit</h2>
+            <span class="mono" style="font-size:11px;font-weight:600;color:var(--ink-500);" id="unitScopeCount">0 dockets</span>
+          </div>
+          <div class="stats-body">
+            <div class="stats-lollipop-chart" id="forensicUnitLollipop" role="img" aria-label="Unit lollipop chart"></div>
+          </div>
+        </aside>
+      </div>
 
-      function renderSparkline(canvasId, series, strokeColor, fillColor) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas || typeof window.Chart === 'undefined') return;
-        const points = Array.isArray(series) && series.length ? series : [0, 0, 0, 0, 0, 0];
+      <!-- Key Metrics Concentric Radial CardView -->
+      <div class="card" aria-label="Key forensic metrics">
+        <div class="card-head" style="padding:14px 20px 6px;border-bottom:0;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <i data-lucide="pie-chart" style="width:16px;height:16px;color:#3b82f6;"></i>
+            <h2 style="font-size:15px;font-weight:600;">Key Metrics</h2>
+          </div>
+          <a href="{{ $casesUrl }}" class="icon-btn" style="width:30px;height:30px;border-radius:999px;" title="Open Full Directory" aria-label="Open Full Directory">
+            <i data-lucide="more-horizontal" style="width:15px;height:15px;"></i>
+          </a>
+        </div>
+        <div class="radial-card-body">
+          <div class="radial-hero-num">
+            <span id="kpiTotalCasesValue">{{ $totalCasesCount }}</span>
+            <span class="sub">Dockets</span>
+          </div>
+          <div class="radial-layout">
+            @php
+              $officialStatuses = [
+                  ['key' => 'under_investigation', 'label' => 'Under Investigation',        'color' => '#3b82f6'],
+                  ['key' => 'on_remand',           'label' => 'On Remand',                  'color' => '#6366f1'],
+                  ['key' => 'on_bail',             'label' => 'On Bail',                    'color' => '#0ea5e9'],
+                  ['key' => 'in_court',            'label' => 'In Court',                   'color' => '#f59e0b'],
+                  ['key' => 'verdict_imprisoned',  'label' => 'Verdict Passed - Imprisoned','color' => '#dc2626'],
+                  ['key' => 'verdict_acquitted',   'label' => 'Verdict Passed - Acquitted', 'color' => '#10b981'],
+                  ['key' => 'case_dismissed',      'label' => 'Case Dismissed',             'color' => '#64748b'],
+                  ['key' => 'case_closed',         'label' => 'Case Closed',                'color' => '#0f766e'],
+              ];
+              $officialCounts = array_fill_keys(array_column($officialStatuses, 'key'), 0);
 
-        if (sparkCharts[canvasId]) {
-          sparkCharts[canvasId].data.datasets[0].data = points;
-          sparkCharts[canvasId].update('none');
-          return;
-        }
+              foreach ($cases as $cItem) {
+                  $stRaw = strtolower(trim((string) ($cItem->case_status ?? ($cItem->status ?? 'Under Investigation'))));
+                  if (str_contains($stRaw, 'remand')) {
+                      $officialCounts['on_remand']++;
+                  } elseif (str_contains($stRaw, 'bail')) {
+                      $officialCounts['on_bail']++;
+                  } elseif (str_contains($stRaw, 'court')) {
+                      $officialCounts['in_court']++;
+                  } elseif (str_contains($stRaw, 'imprisoned')) {
+                      $officialCounts['verdict_imprisoned']++;
+                  } elseif (str_contains($stRaw, 'acquitted')) {
+                      $officialCounts['verdict_acquitted']++;
+                  } elseif (str_contains($stRaw, 'dismissed')) {
+                      $officialCounts['case_dismissed']++;
+                  } elseif (str_contains($stRaw, 'closed')) {
+                      $officialCounts['case_closed']++;
+                  } else {
+                      $officialCounts['under_investigation']++;
+                  }
+              }
 
-        const ctx = canvas.getContext('2d');
-        sparkCharts[canvasId] = new window.Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: points.map((_, idx) => idx + 1),
-            datasets: [{
-              data: points,
-              borderColor: strokeColor,
-              backgroundColor: fillColor,
-              borderWidth: 1.8,
-              fill: true,
-              tension: 0.35,
-              pointRadius: 0,
-              pointHoverRadius: 2
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            plugins: { legend: { display: false }, tooltip: { enabled: false } },
-            scales: {
-              x: { display: false },
-              y: { display: false, beginAtZero: true }
-            }
-          }
+              $rankedStatuses = [];
+              foreach ($officialStatuses as $stDef) {
+                  $rankedStatuses[] = [
+                      'key'   => $stDef['key'],
+                      'label' => $stDef['label'],
+                      'color' => $stDef['color'],
+                      'count' => $officialCounts[$stDef['key']],
+                  ];
+              }
+              usort($rankedStatuses, fn ($a, $b) => $b['count'] <=> $a['count']);
+
+              $st1 = $rankedStatuses[0];
+              $st2 = $rankedStatuses[1];
+              $st3 = $rankedStatuses[2];
+
+              $ringDenom = max(1, $totalCasesCount);
+              $r1 = 76; $c1 = 2 * M_PI * $r1; $p1 = $st1['count'] > 0 ? min(1, max(0.06, $st1['count'] / $ringDenom)) : 0;
+              $r2 = 64; $c2 = 2 * M_PI * $r2; $p2 = $st2['count'] > 0 ? min(1, max(0.06, $st2['count'] / $ringDenom)) : 0;
+              $r3 = 52; $c3 = 2 * M_PI * $r3; $p3 = $st3['count'] > 0 ? min(1, max(0.06, $st3['count'] / $ringDenom)) : 0;
+              $topPct = $totalCasesCount > 0 ? (int) round(($st1['count'] / $totalCasesCount) * 100) : 0;
+            @endphp
+            <div class="radial-svg-wrap">
+              <svg viewBox="0 0 172 172" aria-label="Key metrics case status radial chart">
+                <!-- Dashed circular tracks -->
+                <circle cx="86" cy="86" r="{{ $r1 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
+                <circle cx="86" cy="86" r="{{ $r2 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
+                <circle cx="86" cy="86" r="{{ $r3 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
+                <!-- Active rounded-cap concentric rings -->
+                <circle id="ringStatus1" cx="86" cy="86" r="{{ $r1 }}" fill="none" stroke="{{ $st1['color'] }}" stroke-width="7.5" stroke-linecap="round"
+                        stroke-dasharray="{{ number_format($c1, 2, '.', '') }}"
+                        stroke-dashoffset="{{ number_format($c1 * (1 - $p1), 2, '.', '') }}" />
+                <circle id="ringStatus2" cx="86" cy="86" r="{{ $r2 }}" fill="none" stroke="{{ $st2['color'] }}" stroke-width="7.5" stroke-linecap="round"
+                        stroke-dasharray="{{ number_format($c2, 2, '.', '') }}"
+                        stroke-dashoffset="{{ number_format($c2 * (1 - $p2), 2, '.', '') }}" />
+                <circle id="ringStatus3" cx="86" cy="86" r="{{ $r3 }}" fill="none" stroke="{{ $st3['color'] }}" stroke-width="7.5" stroke-linecap="round"
+                        stroke-dasharray="{{ number_format($c3, 2, '.', '') }}"
+                        stroke-dashoffset="{{ number_format($c3 * (1 - $p3), 2, '.', '') }}" />
+              </svg>
+              <div class="radial-center">
+                <div class="rc-val"><span id="kpiTopStatusPct">{{ $topPct }}</span>%</div>
+                <div class="rc-lbl" id="kpiTopStatusLabel">{{ $totalCasesCount > 0 ? $st1['label'] : 'No cases' }}</div>
+                <div class="rc-sub"><span id="kpiTopStatusCount">{{ $st1['count'] }}</span> of {{ $totalCasesCount }} dockets</div>
+              </div>
+            </div>
+            <div class="radial-legend">
+              @foreach($officialStatuses as $stDef)
+                <div class="radial-leg-item">
+                  <span class="radial-leg-name"><i class="radial-leg-bar" style="background:{{ $stDef['color'] }};"></i>{{ $stDef['label'] }}</span>
+                  <span class="radial-leg-val" id="kpiSt_{{ $stDef['key'] }}">{{ $officialCounts[$stDef['key']] }}</span>
+                </div>
+              @endforeach
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================== -->
+  <!-- WORKSPACE: table + breakdown                           -->
+  <!-- ====================================================== -->
+  <section class="workspace">
+
+  </section>
+
+</div>
+
+<script>
+  (function () {
+    const REALTIME_ENDPOINT = @json(url('/api/dashboard/realtime'));
+    const REVIEW_BASE_URL = @json($reviewBaseUrl);
+    const DEFAULT_UNIT_FILTER = @json($defaultUnitFilter);
+
+    let telemetryPayload = null;
+    let lastTelemetryHash = '';
+    let filteredCases = [];
+    let selectedCaseId = null;
+    let showAllRows = false;
+    const sparkCharts = {};
+
+    window.ForensicMapStage = {
+      containerId: 'forensicMapContainer',
+      instance: null, handlers: {},
+      mount(instance, handlers = {}) {
+        this.instance = instance; this.handlers = handlers || {};
+        ['mapZoomInBtn','mapZoomOutBtn','mapResetViewBtn'].forEach((id) => {
+          const b = document.getElementById(id); if (!b) return;
+          b.disabled = false; b.removeAttribute('aria-disabled');
         });
-      }
+      },
+      getFilteredCases() { return filteredCases.slice(); },
+      zoomIn() { this.handlers.zoomIn && this.handlers.zoomIn(); },
+      zoomOut() { this.handlers.zoomOut && this.handlers.zoomOut(); },
+      resetView() { this.handlers.resetView && this.handlers.resetView(); }
+    };
 
-      function renderTelemetryStrip(data) {
-        const m = (data && data.metrics) ? data.metrics : {};
-        const c = (data && data.chart_data) ? data.chart_data : {};
+    function icons() { if (window.lucide) window.lucide.createIcons(); }
+    function esc(v) { const d = document.createElement('div'); d.textContent = v == null ? '' : String(v); return d.innerHTML; }
+    function normStatus(s) {
+      s = String(s || '').toLowerCase();
+      if (s.includes('pending') || s.includes('awaiting')) return 'pending';
+      if (s.includes('approved') || s.includes('completed') || s.includes('authorized')) return 'approved';
+      return 'in_progress';
+    }
+    function priorityClass(p) {
+      p = String(p || 'HIGH').toUpperCase();
+      if (p === 'CRITICAL') return 'pr-critical';
+      if (p === 'HIGH') return 'pr-high';
+      if (p === 'MEDIUM') return 'pr-medium';
+      return 'pr-low';
+    }
+    function statusClass(s) {
+      const b = normStatus(s);
+      if (b === 'pending') return 'st-pending';
+      if (b === 'approved') return 'st-approved';
+      return 'st-active';
+    }
 
-        const turnaroundEl = document.getElementById('kpiTurnaroundValue');
-        const turnaroundUnitEl = document.getElementById('kpiTurnaroundUnit');
-        if (turnaroundEl && turnaroundUnitEl) {
-          if (m.turnaround_days_raw !== null && m.turnaround_days_raw !== undefined) {
-            turnaroundEl.textContent = String(m.turnaround_days_raw);
-            turnaroundUnitEl.textContent = m.turnaround_days_raw === 1 ? 'Day' : 'Days';
-          } else {
-            turnaroundEl.textContent = 'N/A';
-            turnaroundUnitEl.textContent = '';
-          }
-        }
-
-        const completionEl = document.getElementById('kpiCompletionValue');
-        if (completionEl) completionEl.textContent = String(m.completion_rate ?? 0);
-
-        const inProgEl = document.getElementById('kpiInProgressValue');
-        if (inProgEl) inProgEl.textContent = String(m.in_progress_cases ?? 0);
-
-        const pendingEl = document.getElementById('kpiPendingValue');
-        if (pendingEl) pendingEl.textContent = String(m.pending_cases ?? 0);
-
-        const exhibitsEl = document.getElementById('kpiExhibitsValue');
-        if (exhibitsEl) exhibitsEl.textContent = String(m.total_exhibits ?? 0);
-
-        const totalEl = document.getElementById('kpiTotalCasesValue');
-        if (totalEl) totalEl.textContent = String(m.total_cases ?? 0);
-
-        renderSparkline('sparkTurnaround', c.monthly_approved, '#d97706', 'rgba(217, 119, 6, 0.14)');
-        renderSparkline('sparkCompletion', c.monthly_approved, '#059669', 'rgba(5, 150, 105, 0.14)');
-        renderSparkline('sparkInProgress', c.monthly_in_progress, '#0284c7', 'rgba(2, 132, 199, 0.14)');
-        renderSparkline('sparkPending', c.monthly_pending, '#b45309', 'rgba(180, 83, 9, 0.14)');
-        renderSparkline('sparkExhibits', c.monthly_exhibits, '#0f766e', 'rgba(15, 118, 110, 0.14)');
-        renderSparkline('sparkTotalCases', c.monthly_bars, '#334155', 'rgba(51, 65, 85, 0.12)');
-      }
-
-      function renderPreviewCard(caseItem) {
-        const dotEl = document.getElementById('previewPriorityDot');
-        const statusEl = document.getElementById('previewStatusLabel');
-        const titleEl = document.getElementById('previewSuspectTitle');
-        const subEl = document.getElementById('previewCaseSubline');
-        const countEl = document.getElementById('previewExhibitCount');
-        const locEl = document.getElementById('previewLocationLabel');
-        const reviewBtn = document.getElementById('previewReviewBtn');
-        const historyLink = document.getElementById('previewHistoryLink');
-
-        if (!caseItem) {
-          if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0';
-          if (statusEl) statusEl.textContent = 'No Matching Dockets';
-          if (titleEl) titleEl.textContent = 'No Docket Selected';
-          if (subEl) subEl.textContent = 'Clear filters or log a new case';
-          if (countEl) countEl.textContent = '0';
-          if (locEl) locEl.textContent = 'No location selected';
-          return;
-        }
-
-        const pSpec = priorityIconSpec(caseItem.priority);
-        if (dotEl) dotEl.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + pSpec.dot;
-        if (statusEl) statusEl.textContent = (caseItem.status_badge || 'Under Investigation') + ' (' + (caseItem.priority || 'HIGH') + ')';
-        if (titleEl) titleEl.textContent = caseItem.suspect_name || caseItem.title || 'Forensic Docket';
-        if (subEl) subEl.textContent = (caseItem.case_number || 'Docket') + ' : ' + (caseItem.unit_name || 'Forensic Directorate');
-        if (countEl) countEl.textContent = String(caseItem.exhibits_count ?? 0);
-        if (locEl) locEl.textContent = (caseItem.raid_location || 'Location pending') + (caseItem.region ? ', ' + caseItem.region : '');
-
-        const encodedRef = encodeURIComponent(caseItem.case_number || caseItem.id);
-        if (reviewBtn) reviewBtn.href = REVIEW_BASE_URL + '/' + encodedRef + '/review';
-        if (historyLink) historyLink.href = HISTORY_BASE_URL + '?unit=' + encodeURIComponent(caseItem.unit_name || '');
-      }
-
-      function renderStatsPanel() {
-        const list = filteredCases;
-        const total = list.length;
-        const scopeEl = document.getElementById('statsScopeCount');
-        if (scopeEl) scopeEl.textContent = total + (total === 1 ? ' Docket' : ' Dockets');
-
-        let buckets = [];
-        if (statsDimension === 'status') {
-          let pending = 0, inProg = 0, approved = 0;
-          list.forEach((c) => {
-            const b = normalizeStatusBucket(c.status_badge);
-            if (b === 'pending') pending++;
-            else if (b === 'approved') approved++;
-            else inProg++;
-          });
-          buckets = [
-            { label: 'Pending', count: pending, dot: 'bg-amber-600', bar: 'bg-amber-500' },
-            { label: 'In Progress', count: inProg, dot: 'bg-sky-600', bar: 'bg-sky-600' },
-            { label: 'Approved', count: approved, dot: 'bg-emerald-600', bar: 'bg-emerald-600' }
-          ];
-        } else if (statsDimension === 'unit') {
-          const map = {};
-          list.forEach((c) => {
-            const u = String(c.unit_name || 'Forensic Directorate');
-            let key = 'Other Units';
-            if (u.toLowerCase().includes('lab')) key = 'Lab Analysis';
-            else if (u.toLowerCase().includes('digital') || u.toLowerCase().includes('cyber')) key = 'Digital Forensics';
-            else if (u.toLowerCase().includes('evidence')) key = 'Evidence Vault';
-            else if (u.toLowerCase().includes('crime')) key = 'Crime Scene';
-            map[key] = (map[key] || 0) + 1;
-          });
-          const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
-          const palette = [
-            { dot: 'bg-teal-700', bar: 'bg-teal-600' },
-            { dot: 'bg-sky-700', bar: 'bg-sky-600' },
-            { dot: 'bg-slate-700', bar: 'bg-slate-600' }
-          ];
-          buckets = [0, 1, 2].map((idx) => ({
-            label: sorted[idx] ? sorted[idx][0] : 'Unassigned',
-            count: sorted[idx] ? sorted[idx][1] : 0,
-            dot: palette[idx].dot,
-            bar: palette[idx].bar
-          }));
-        } else {
-          let high = 0, med = 0, low = 0;
-          list.forEach((c) => {
-            const p = String(c.priority || 'HIGH').toUpperCase();
-            if (p === 'CRITICAL' || p === 'HIGH') high++;
-            else if (p === 'MEDIUM') med++;
-            else low++;
-          });
-          buckets = [
-            { label: 'High / Critical', count: high, dot: 'bg-rose-600', bar: 'bg-rose-600' },
-            { label: 'Medium', count: med, dot: 'bg-amber-600', bar: 'bg-amber-500' },
-            { label: 'Low', count: low, dot: 'bg-teal-700', bar: 'bg-teal-600' }
-          ];
-        }
-
-        const sumTop3 = buckets.reduce((acc, b) => acc + b.count, 0);
-        buckets.forEach((b, idx) => {
-          const i = idx + 1;
-          const valEl = document.getElementById('statVal' + i);
-          const lblEl = document.getElementById('statLbl' + i);
-          const barEl = document.getElementById('statBar' + i);
-          if (valEl) valEl.textContent = String(b.count);
-          if (lblEl) {
-            lblEl.textContent = b.label;
-            const dotSibling = valEl ? valEl.previousElementSibling : null;
-            if (dotSibling) dotSibling.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + b.dot;
-          }
-          if (barEl) {
-            const pct = sumTop3 > 0 ? ((b.count / sumTop3) * 100).toFixed(1) : '0';
-            barEl.style.width = pct + '%';
-            barEl.className = 'h-full transition-all duration-300 ' + b.bar;
-          }
-        });
-
-        const caption = document.getElementById('statBarCaption');
-        if (caption) {
-          caption.textContent = sumTop3 > 0
-            ? 'Proportional share across ' + total + ' matching forensic ' + (total === 1 ? 'docket' : 'dockets')
-            : 'No dockets available for breakdown under current filters';
-        }
-      }
-
-      function renderDocketsTable() {
-        const loadingEl = document.getElementById('docketLoadingState');
-        const errorEl = document.getElementById('docketErrorState');
-        const emptyEl = document.getElementById('docketEmptyState');
-        const tableEl = document.getElementById('docketsTable');
-        const tbody = document.getElementById('docketsTableBody');
-        const badgeEl = document.getElementById('tableShowingBadge');
-        const noteEl = document.getElementById('tablePaginationNote');
-        const toggleBtn = document.getElementById('toggleShowAllBtn');
-        const mapPill = document.getElementById('mappedCaseCountPill');
-
-        if (loadingEl) loadingEl.classList.add('hidden');
-        if (errorEl) errorEl.classList.add('hidden');
-
-        if (mapPill) {
-          mapPill.textContent = filteredCases.length + (filteredCases.length === 1 ? ' Docket' : ' Dockets');
-        }
-
-        if (filteredCases.length === 0) {
-          if (tableEl) tableEl.classList.add('hidden');
-          if (emptyEl) emptyEl.classList.remove('hidden');
-          if (badgeEl) badgeEl.textContent = '0 Dockets';
-          if (noteEl) noteEl.textContent = 'Showing 0 matching dockets';
-          if (toggleBtn) toggleBtn.classList.add('hidden');
-          renderPreviewCard(null);
-          return;
-        }
-
-        if (emptyEl) emptyEl.classList.add('hidden');
-        if (tableEl) tableEl.classList.remove('hidden');
-
-        if (!selectedCaseId || !filteredCases.some((c) => String(c.case_number || c.id) === String(selectedCaseId))) {
-          selectedCaseId = filteredCases[0].case_number || filteredCases[0].id;
-        }
-        const selectedCase = filteredCases.find((c) => String(c.case_number || c.id) === String(selectedCaseId)) || filteredCases[0];
-        renderPreviewCard(selectedCase);
-
-        const maxVisible = showAllRows ? filteredCases.length : 5;
-        const rows = filteredCases.slice(0, maxVisible);
-
-        if (badgeEl) badgeEl.textContent = filteredCases.length + ' Total';
-        if (noteEl) noteEl.textContent = 'Showing ' + rows.length + ' of ' + filteredCases.length + ' matching dockets';
-        if (toggleBtn) {
-          if (filteredCases.length > 5) {
-            toggleBtn.classList.remove('hidden');
-            toggleBtn.textContent = showAllRows ? 'Show Compact (5)' : 'Show All (' + filteredCases.length + ')';
-          } else {
-            toggleBtn.classList.add('hidden');
-          }
-        }
-
-        if (tbody) {
-          tbody.innerHTML = rows.map((c) => {
-            const key = String(c.case_number || c.id);
-            const isSel = key === String(selectedCaseId);
-            const pSpec = priorityIconSpec(c.priority);
-            const badgeCls = statusBadgeClasses(c.status_badge);
-            const reviewHref = REVIEW_BASE_URL + '/' + encodeURIComponent(c.case_number || c.id) + '/review';
-            const ageText = Number(c.days_open) === 0 ? 'Today' : (Number(c.days_open) === 1 ? '1 day' : (c.days_open + ' days'));
-
-            return `
-              <tr class="docket-row cursor-pointer hover:bg-white/80 ${isSel ? 'is-selected' : ''}"
-                  data-case-key="${escapeHtml(key)}"
-                  onclick="selectDashboardDocket('${escapeHtml(key)}')">
-                <td class="py-3 pr-3">
-                  <div class="flex items-center gap-2.5 min-w-[180px]">
-                    <span class="w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 ${pSpec.color}" title="${escapeHtml(c.priority || 'HIGH')} priority">
-                      <i data-lucide="${pSpec.icon}" class="w-3.5 h-3.5"></i>
-                    </span>
-                    <div class="min-w-0">
-                      <div class="font-semibold text-slate-900 truncate max-w-[200px]">${escapeHtml(c.suspect_name || c.title)}</div>
-                      <div class="text-[11px] font-mono-code text-slate-600">${escapeHtml(c.case_number || '')}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-3 px-3">
-                  <div class="font-medium text-slate-900">${escapeHtml(String(c.exhibits_count ?? 0))} Exhibit(s)</div>
-                  <div class="text-[11px] text-slate-600 truncate max-w-[160px]">${escapeHtml(c.region || c.raid_location || 'N/A')}</div>
-                </td>
-                <td class="py-3 px-3 whitespace-nowrap">
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${badgeCls}">
-                    ${escapeHtml(c.status_badge || 'Under Investigation')}
-                  </span>
-                </td>
-                <td class="py-3 px-3 whitespace-nowrap font-mono-code text-[11px] text-slate-700">${escapeHtml(c.incident_date || 'N/A')}</td>
-                <td class="py-3 px-3 whitespace-nowrap text-slate-800 font-medium">${escapeHtml(ageText)}</td>
-                <td class="py-3 px-3 whitespace-nowrap text-slate-800">${escapeHtml(c.unit_name || 'Forensic Directorate')}</td>
-                <td class="py-3 pl-3 text-right whitespace-nowrap">
-                  <a href="${reviewHref}"
-                     onclick="event.stopPropagation()"
-                     class="inline-flex items-center justify-center min-h-[40px] px-4 py-1.5 rounded-full bg-white hover:bg-slate-900 hover:text-white text-slate-900 border border-slate-300 text-xs font-semibold transition-colors shadow-2xs">
-                    Review
-                  </a>
-                </td>
-              </tr>
-            `;
-          }).join('');
-        }
-
-        refreshIcons();
-      }
-
-      window.applyDashboardFilters = function () {
-        if (!telemetryPayload) return;
-        const allCases = Array.isArray(telemetryPayload.cases) ? telemetryPayload.cases : [];
-
-        const period = (document.getElementById('filterPeriod')?.value || 'all').toLowerCase();
-        const region = document.getElementById('filterRegion')?.value || 'all';
-        const unit = (document.getElementById('filterUnit')?.value || 'all').toLowerCase();
-        const status = (document.getElementById('filterStatus')?.value || 'all').toLowerCase();
-        const priority = (document.getElementById('filterPriority')?.value || 'all').toUpperCase();
-        const query = (document.getElementById('docketSearchInput')?.value || '').trim().toLowerCase();
-
-        filteredCases = allCases.filter((c) => {
-          const daysOpen = Number(c.days_open ?? 0);
-          if (period === 'today' && daysOpen > 0) return false;
-          if (period === '7d' && daysOpen > 7) return false;
-          if (period === '30d' && daysOpen > 30) return false;
-
-          if (region !== 'all' && String(c.region || '').toLowerCase() !== region.toLowerCase()) return false;
-
-          if (unit !== 'all') {
-            const caseUnit = String(c.unit_name || '').toLowerCase();
-            if (!caseUnit.includes(unit.split(' ')[0])) return false;
-          }
-
-          if (status !== 'all') {
-            if (normalizeStatusBucket(c.status_badge) !== status) return false;
-          }
-
-          if (priority !== 'ALL' && String(c.priority || '').toUpperCase() !== priority) return false;
-
-          if (query) {
-            const haystack = [
-              c.case_number,
-              c.suspect_name,
-              c.title,
-              c.raid_location,
-              c.region,
-              c.unit_name,
-              c.status_badge,
-              c.submitting_officer
-            ].join(' ').toLowerCase();
-            if (!haystack.includes(query)) return false;
-          }
-          return true;
-        });
-
-        renderDocketsTable();
-        renderStatsPanel();
-      };
-
-      window.quickFilterByStatus = function (statusVal) {
-        const statusSel = document.getElementById('filterStatus');
-        if (statusSel) {
-          statusSel.value = statusVal;
-          window.applyDashboardFilters();
-        }
-      };
-
-      window.resetDashboardFilters = function () {
-        const ids = ['filterPeriod', 'filterRegion', 'filterStatus', 'filterPriority'];
-        ids.forEach((id) => {
-          const el = document.getElementById(id);
-          if (el) el.value = 'all';
-        });
-        const unitSel = document.getElementById('filterUnit');
-        if (unitSel) unitSel.value = DEFAULT_UNIT_FILTER || 'all';
-        const searchEl = document.getElementById('docketSearchInput');
-        if (searchEl) searchEl.value = '';
-        showAllRows = false;
-        window.applyDashboardFilters();
-      };
-
-      window.selectDashboardDocket = function (caseKey) {
-        selectedCaseId = caseKey;
-        renderDocketsTable();
-      };
-
-      window.toggleShowAllRows = function () {
-        showAllRows = !showAllRows;
-        renderDocketsTable();
-      };
-
-      window.setStatsDimension = function (dim) {
-        statsDimension = dim;
-        const tabs = {
-          severity: document.getElementById('statTabSeverity'),
-          unit: document.getElementById('statTabUnit'),
-          status: document.getElementById('statTabStatus')
-        };
-        Object.entries(tabs).forEach(([key, btn]) => {
-          if (!btn) return;
-          const active = key === dim;
-          btn.setAttribute('aria-selected', active ? 'true' : 'false');
-          btn.className = active
-            ? 'min-h-[44px] px-4 py-1.5 rounded-full bg-white text-slate-900 text-xs font-semibold shadow-2xs transition-colors'
-            : 'min-h-[44px] px-4 py-1.5 rounded-full text-slate-800 hover:bg-white/60 text-xs font-medium transition-colors';
-        });
-        renderStatsPanel();
-      };
-
-      window.refreshRealtimeData = async function () {
-        const spinner = document.getElementById('syncSpinner');
-        const loadingEl = document.getElementById('docketLoadingState');
-        const errorEl = document.getElementById('docketErrorState');
-
-        if (spinner) spinner.classList.add('animate-spin');
-        if (!telemetryPayload && loadingEl) loadingEl.classList.remove('hidden');
-        if (errorEl) errorEl.classList.add('hidden');
-
-        try {
-          const resp = await fetch(REALTIME_ENDPOINT, {
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            credentials: 'same-origin'
-          });
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          const data = await resp.json();
-          if (!data || data.success === false) throw new Error('Invalid telemetry payload');
-
-          telemetryPayload = data;
-          renderTelemetryStrip(data);
-          window.applyDashboardFilters();
-
-          const updatedEl = document.getElementById('telemetryLastUpdated');
-          if (updatedEl) {
-            const now = new Date();
-            updatedEl.textContent = 'Synced ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          }
-        } catch (err) {
-          if (loadingEl) loadingEl.classList.add('hidden');
-          if (errorEl) errorEl.classList.remove('hidden');
-          const msgEl = document.getElementById('docketErrorMessage');
-          if (msgEl) msgEl.textContent = 'Unable to load forensic telemetry (' + err.message + ').';
-        } finally {
-          if (spinner) spinner.classList.remove('animate-spin');
-        }
-      };
-
-      document.addEventListener('DOMContentLoaded', function () {
-        refreshIcons();
-        const unitSel = document.getElementById('filterUnit');
-        if (unitSel && DEFAULT_UNIT_FILTER) {
-          unitSel.value = DEFAULT_UNIT_FILTER;
-        }
-        window.refreshRealtimeData();
-        setInterval(window.refreshRealtimeData, 30000);
+    function sparkline(id, series, stroke, fill) {
+      const c = document.getElementById(id);
+      if (!c || typeof window.Chart === 'undefined') return;
+      const pts = Array.isArray(series) && series.length ? series : [0,0,0,0,0,0];
+      if (sparkCharts[id]) { sparkCharts[id].data.datasets[0].data = pts; sparkCharts[id].update('none'); return; }
+      sparkCharts[id] = new window.Chart(c, {
+        type: 'line',
+        data: { labels: pts.map((_, i) => i + 1), datasets: [{ data: pts, borderColor: stroke, backgroundColor: fill, borderWidth: 1.6, fill: true, tension: 0.4, pointRadius: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false, beginAtZero: true } } }
       });
-    })();
-  </script>
+    }
+
+    function renderSignals(data) {
+      const m = (data && data.metrics) || {};
+      const c = (data && data.chart_data) || {};
+
+      const tv = document.getElementById('kpiTurnaroundValue');
+      const tu = document.getElementById('kpiTurnaroundUnit');
+      if (tv && tu) {
+        if (m.turnaround_value != null && m.turnaround_value !== 'N/A') {
+          tv.textContent = m.turnaround_value;
+          tu.textContent = m.turnaround_unit || '';
+        } else if (m.turnaround_days_raw != null) {
+          tv.textContent = m.turnaround_days_raw;
+          tu.textContent = m.turnaround_days_raw === 1 ? 'day' : 'days';
+        } else {
+          tv.textContent = 'N/A';
+          tu.textContent = '';
+        }
+      }
+      const cv = document.getElementById('kpiCompletionValue'); if (cv) cv.textContent = m.completion_rate ?? 0;
+      const iv = document.getElementById('kpiInProgressValue'); if (iv) iv.textContent = m.in_progress_cases ?? 0;
+      const pv = document.getElementById('kpiPendingValue'); if (pv) pv.textContent = m.pending_cases ?? 0;
+      const av = document.getElementById('kpiApprovedValue'); if (av) av.textContent = m.approved_cases ?? 0;
+      const ev = document.getElementById('kpiExhibitsValue'); if (ev) ev.textContent = m.total_exhibits ?? 0;
+      const tot = document.getElementById('kpiTotalCasesValue'); if (tot) tot.textContent = m.total_cases ?? 0;
+
+      const officialDefs = [
+        { key: 'under_investigation', label: 'Under Investigation',         color: '#3b82f6' },
+        { key: 'on_remand',           label: 'On Remand',                   color: '#6366f1' },
+        { key: 'on_bail',             label: 'On Bail',                     color: '#0ea5e9' },
+        { key: 'in_court',            label: 'In Court',                    color: '#f59e0b' },
+        { key: 'verdict_imprisoned',  label: 'Verdict Passed - Imprisoned', color: '#dc2626' },
+        { key: 'verdict_acquitted',   label: 'Verdict Passed - Acquitted',  color: '#10b981' },
+        { key: 'case_dismissed',      label: 'Case Dismissed',              color: '#64748b' },
+        { key: 'case_closed',         label: 'Case Closed',                 color: '#0f766e' }
+      ];
+      const officialCounts = {};
+      officialDefs.forEach((d) => { officialCounts[d.key] = 0; });
+
+      const caseRows = Array.isArray(data && data.cases) ? data.cases : [];
+      caseRows.forEach((row) => {
+        const s = String(row.status_badge || row.case_status || row.status || 'Under Investigation').toLowerCase();
+        if (s.includes('remand')) officialCounts.on_remand++;
+        else if (s.includes('bail')) officialCounts.on_bail++;
+        else if (s.includes('court')) officialCounts.in_court++;
+        else if (s.includes('imprisoned')) officialCounts.verdict_imprisoned++;
+        else if (s.includes('acquitted')) officialCounts.verdict_acquitted++;
+        else if (s.includes('dismissed')) officialCounts.case_dismissed++;
+        else if (s.includes('closed')) officialCounts.case_closed++;
+        else officialCounts.under_investigation++;
+      });
+
+      officialDefs.forEach((d) => {
+        const el = document.getElementById('kpiSt_' + d.key);
+        if (el) el.textContent = officialCounts[d.key];
+      });
+
+      const ranked = officialDefs
+        .map((d) => ({ ...d, count: officialCounts[d.key] }))
+        .sort((a, b) => b.count - a.count);
+
+      const st1 = ranked[0];
+      const st2 = ranked[1];
+      const st3 = ranked[2];
+      const totalCasesRaw = Number(m.total_cases ?? caseRows.length);
+      const totalCasesNum = Math.max(1, totalCasesRaw);
+
+      const topPctEl = document.getElementById('kpiTopStatusPct');
+      const topLblEl = document.getElementById('kpiTopStatusLabel');
+      const topCntEl = document.getElementById('kpiTopStatusCount');
+      if (topPctEl) topPctEl.textContent = totalCasesRaw > 0 ? Math.round((st1.count / totalCasesRaw) * 100) : 0;
+      if (topLblEl) topLblEl.textContent = totalCasesRaw > 0 ? st1.label : 'No cases';
+      if (topCntEl) topCntEl.textContent = st1.count;
+
+      const updateRing = (id, radius, item) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const circ = 2 * Math.PI * radius;
+        const ratio = item.count > 0 ? Math.min(1, Math.max(0.06, item.count / totalCasesNum)) : 0;
+        el.setAttribute('stroke', item.color);
+        el.setAttribute('stroke-dasharray', circ.toFixed(2));
+        el.setAttribute('stroke-dashoffset', (circ * (1 - ratio)).toFixed(2));
+      };
+      updateRing('ringStatus1', 76, st1);
+      updateRing('ringStatus2', 64, st2);
+      updateRing('ringStatus3', 52, st3);
+
+      const hasApprovedSeries = Array.isArray(c.monthly_approved) && c.monthly_approved.some((v) => Number(v) > 0);
+      sparkline('sparkTurnaround', hasApprovedSeries ? c.monthly_approved : c.monthly_bars, '#b45309', 'rgba(180,83,9,.12)');
+      sparkline('sparkCompletion', c.monthly_approved, '#0b8f6f', 'rgba(11,143,111,.12)');
+      sparkline('sparkInProgress', c.monthly_in_progress, '#1d4ed8', 'rgba(29,78,216,.12)');
+      sparkline('sparkPending', c.monthly_pending, '#c2410c', 'rgba(194,65,12,.12)');
+      sparkline('sparkExhibits', c.monthly_exhibits, '#0f766e', 'rgba(15,118,110,.12)');
+      sparkline('sparkTotalCases', c.monthly_bars, '#475162', 'rgba(71,81,98,.10)');
+
+      const barBadge = document.getElementById('docketsBarBadge');
+      if (barBadge) {
+        const totalD = Number(m.total_cases ?? 0);
+        barBadge.textContent = totalD + (totalD === 1 ? ' docket' : ' dockets');
+      }
+
+      const barCanvas = document.getElementById('registeredDocketsBarChart');
+      if (barCanvas && typeof window.Chart !== 'undefined') {
+        const rawLabels = Array.isArray(c.months) && c.months.length ? c.months : ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'];
+        const labels = rawLabels.map(l => String(l).toUpperCase());
+        const docketSeries = Array.isArray(c.monthly_bars) && c.monthly_bars.length ? c.monthly_bars : [0, 0, 0, 0, 0, 0];
+        const exhibitSeries = Array.isArray(c.monthly_exhibits) && c.monthly_exhibits.length ? c.monthly_exhibits : [0, 0, 0, 0, 0, 0];
+
+        const makeBarGrad = (chart, topColor, bottomColor) => {
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return topColor;
+          const grad = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          grad.addColorStop(0, topColor);
+          grad.addColorStop(1, bottomColor);
+          return grad;
+        };
+
+        const modernBarPlugin = {
+          id: 'modernBarEnhancements',
+          beforeDatasetsDraw(chart) {
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+            ctx.save();
+            chart.data.datasets.forEach((ds, dsIdx) => {
+              const meta = chart.getDatasetMeta(dsIdx);
+              if (!meta || meta.hidden) return;
+              meta.data.forEach((bar) => {
+                const props = bar.getProps(['x', 'width'], true);
+                if (!Number.isFinite(props.width) || props.width <= 0) return;
+                const x = props.x - props.width / 2;
+                const y = chartArea.top;
+                const w = props.width;
+                const h = chartArea.bottom - chartArea.top;
+                const r = Math.min(7, w / 2);
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') {
+                  ctx.roundRect(x, y, w, h, r);
+                } else {
+                  ctx.rect(x, y, w, h);
+                }
+                ctx.fillStyle = 'rgba(241, 245, 249, 0.85)';
+                ctx.fill();
+              });
+            });
+            ctx.restore();
+          },
+          afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            const labelColors = ['#4f46e5', '#0d9488'];
+            ctx.save();
+            ctx.font = '600 9.5px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            chart.data.datasets.forEach((ds, dsIdx) => {
+              const meta = chart.getDatasetMeta(dsIdx);
+              if (!meta || meta.hidden) return;
+              ctx.fillStyle = labelColors[dsIdx % labelColors.length];
+              meta.data.forEach((bar, idx) => {
+                const val = Number(ds.data[idx] || 0);
+                if (val <= 0) return;
+                const props = bar.getProps(['x', 'y'], true);
+                ctx.fillText(String(val), props.x, props.y - 5);
+              });
+            });
+            ctx.restore();
+          }
+        };
+
+        if (sparkCharts['registeredDocketsBarChart']) {
+          const chart = sparkCharts['registeredDocketsBarChart'];
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = docketSeries;
+          chart.data.datasets[1].data = exhibitSeries;
+          chart.update('none');
+        } else {
+          sparkCharts['registeredDocketsBarChart'] = new window.Chart(barCanvas, {
+            type: 'bar',
+            plugins: [modernBarPlugin],
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: 'Dockets',
+                  data: docketSeries,
+                  backgroundColor: (ctx) => makeBarGrad(ctx.chart, '#38bdf8', '#4f46e5'),
+                  hoverBackgroundColor: (ctx) => makeBarGrad(ctx.chart, '#0ea5e9', '#4338ca'),
+                  borderRadius: 7,
+                  borderSkipped: false,
+                  barPercentage: 0.62,
+                  categoryPercentage: 0.72
+                },
+                {
+                  label: 'Exhibits',
+                  data: exhibitSeries,
+                  backgroundColor: (ctx) => makeBarGrad(ctx.chart, '#34d399', '#0d9488'),
+                  hoverBackgroundColor: (ctx) => makeBarGrad(ctx.chart, '#10b981', '#0f766e'),
+                  borderRadius: 7,
+                  borderSkipped: false,
+                  barPercentage: 0.62,
+                  categoryPercentage: 0.72
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              interaction: { mode: 'index', intersect: false },
+              layout: { padding: { top: 18, right: 6, left: 2, bottom: 0 } },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  align: 'end',
+                  labels: {
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                    boxWidth: 7,
+                    boxHeight: 7,
+                    padding: 12,
+                    color: '#475569',
+                    font: { size: 10.5, weight: '600', family: 'Inter, system-ui, sans-serif' }
+                  }
+                },
+                tooltip: {
+                  backgroundColor: '#0f172a',
+                  titleColor: '#f8fafc',
+                  bodyColor: '#e2e8f0',
+                  cornerRadius: 10,
+                  padding: 10,
+                  boxPadding: 5,
+                  usePointStyle: true
+                }
+              },
+              scales: {
+                x: {
+                  border: { display: false },
+                  grid: { display: false },
+                  ticks: {
+                    color: '#64748b',
+                    padding: 4,
+                    font: { size: 10, weight: '600', family: 'Inter, system-ui, sans-serif' }
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  grace: '14%',
+                  border: { display: false, dash: [4, 4] },
+                  ticks: {
+                    precision: 0,
+                    color: '#94a3b8',
+                    font: { size: 9.5, family: 'JetBrains Mono, monospace' }
+                  },
+                  grid: { color: 'rgba(226, 232, 240, 0.7)', tickLength: 0 }
+                }
+              }
+            }
+          });
+        }
+      }
+    }
+
+    function renderPreview(c) {
+      const iconBox = document.getElementById('previewPriorityIcon');
+      const status = document.getElementById('previewStatusLabel');
+      const title = document.getElementById('previewSuspectTitle');
+      const sub = document.getElementById('previewCaseSubline');
+      const cnt = document.getElementById('previewExhibitCount');
+      const cta = document.getElementById('previewReviewBtn');
+      if (!iconBox || !status || !title || !sub || !cnt || !cta) return;
+
+      if (!c) {
+        iconBox.className = 'dock-priority';
+        status.textContent = 'No matching dockets';
+        title.textContent = 'No docket selected';
+        sub.textContent = 'Clear filters or log a new case';
+        cnt.textContent = '0';
+        cta.href = @json($casesUrl);
+        return;
+      }
+
+      const p = String(c.priority || 'HIGH').toUpperCase();
+      let iconCls = 'dock-priority';
+      if (p === 'MEDIUM') iconCls += ' med';
+      else if (p === 'LOW') iconCls += ' low';
+      iconBox.className = iconCls;
+
+      status.textContent = (c.status_badge || 'Active').toUpperCase();
+      title.textContent = c.suspect_name || c.title || 'Forensic docket';
+      sub.textContent = (c.case_number || '') + ' · ' + (c.unit_name || 'Directorate');
+      cnt.textContent = c.exhibits_count ?? 0;
+      cta.href = REVIEW_BASE_URL + '/' + encodeURIComponent(c.case_number || c.id) + '/review';
+    }
+
+    function renderLollipopChart(el, buckets) {
+      if (!el) return;
+      const sum = buckets.reduce((a, b) => a + b.count, 0);
+      const ticksHtml = [0, 25, 50, 75, 100].map((t) =>
+        `<div class="stats-lollipop-tick" style="left:${t}%;"><span>${t}%</span></div>`
+      ).join('');
+
+      const rowsHtml = buckets.map((b) => {
+        const pct = sum > 0 ? Math.round((b.count / sum) * 100) : 0;
+        const stemPct = sum > 0 ? Math.max(2, Math.min(92, (b.count / sum) * 92)) : 0;
+        return `<div class="stats-lollipop-row" title="${esc(b.label)}: ${b.count} (${pct}%)">`
+          + `<span class="stats-lollipop-lbl">${esc(b.label)}</span>`
+          + `<div class="stats-lollipop-lane">`
+          + `<div class="stats-lollipop-stem" style="width:${stemPct.toFixed(1)}%;background:${b.color};"></div>`
+          + `<span class="stats-lollipop-head" style="background:${b.color};">${b.count}</span>`
+          + `</div>`
+          + `<span class="stats-lollipop-pct">${pct}%</span>`
+          + `</div>`;
+      }).join('');
+
+      el.innerHTML = `<div class="stats-lollipop-grid">${ticksHtml}</div>${rowsHtml}`;
+    }
+
+    function renderStats() {
+      const list = filteredCases;
+      const total = list.length;
+      const scopeText = total + (total === 1 ? ' docket' : ' dockets');
+      const sevScope = document.getElementById('severityScopeCount');
+      const unitScope = document.getElementById('unitScopeCount');
+      if (sevScope) sevScope.textContent = scopeText;
+      if (unitScope) unitScope.textContent = scopeText;
+
+      let hi = 0, lo = 0;
+      const unitMap = {};
+      list.forEach((c) => {
+        const p = String(c.priority || 'HIGH').toUpperCase();
+        if (p === 'CRITICAL' || p === 'HIGH') hi++;
+        else lo++;
+
+        const u = String(c.unit_name || '').toLowerCase();
+        let k = null;
+        if (u.includes('lab')) k = 'Lab';
+        else if (u.includes('digital') || u.includes('cyber')) k = 'Digital';
+        else if (u.includes('evidence')) k = 'Evidence';
+        else if (u.includes('crime')) k = 'Crime scene';
+        if (k) unitMap[k] = (unitMap[k] || 0) + 1;
+      });
+
+      const severityBuckets = [
+        { label: 'High', count: hi, color: '#f43f5e' },
+        { label: 'Low', count: lo, color: '#10b981' }
+      ];
+
+      const unitSorted = Object.entries(unitMap).sort((a, b) => b[1] - a[1]);
+      const unitPal = ['#0ea5e9', '#6366f1', '#14b8a6', '#f59e0b'];
+      const unitBuckets = (unitSorted.length
+        ? unitSorted.slice(0, 4)
+        : [['Lab', 0], ['Digital', 0], ['Evidence', 0], ['Crime scene', 0]]
+      ).map(([label, count], i) => ({
+        label,
+        count,
+        color: unitPal[i % unitPal.length]
+      }));
+
+      renderLollipopChart(document.getElementById('forensicSeverityLollipop'), severityBuckets);
+      renderLollipopChart(document.getElementById('forensicUnitLollipop'), unitBuckets);
+    }
+
+    function renderTable() {
+      const loading = document.getElementById('docketLoadingState');
+      const err = document.getElementById('docketErrorState');
+      const empty = document.getElementById('docketEmptyState');
+      const wrap = document.getElementById('docketsTableWrap');
+      const tbody = document.getElementById('docketsTableBody');
+      const badge = document.getElementById('tableShowingBadge');
+      const note = document.getElementById('tablePaginationNote');
+      const toggle = document.getElementById('toggleShowAllBtn');
+      const pill = document.getElementById('mappedCaseCountPill');
+
+      if (loading) loading.style.display = 'none';
+      if (err) err.style.display = 'none';
+      if (pill) pill.textContent = filteredCases.length;
+
+      if (filteredCases.length === 0) {
+        if (wrap) wrap.style.display = 'none';
+        if (empty) empty.style.display = 'block';
+        if (badge) badge.textContent = '0 dockets';
+        if (note) note.textContent = 'No matching dockets';
+        if (toggle) toggle.style.display = 'none';
+        renderPreview(null);
+        return;
+      }
+
+      if (empty) empty.style.display = 'none';
+      if (wrap) wrap.style.display = 'block';
+
+      if (!selectedCaseId || !filteredCases.some((c) => String(c.case_number || c.id) === String(selectedCaseId))) {
+        selectedCaseId = filteredCases[0].case_number || filteredCases[0].id;
+      }
+      const sel = filteredCases.find((c) => String(c.case_number || c.id) === String(selectedCaseId)) || filteredCases[0];
+      renderPreview(sel);
+      if (!tbody) return;
+
+      const visible = showAllRows ? filteredCases.length : 6;
+      const rows = filteredCases.slice(0, visible);
+
+      if (badge) badge.textContent = filteredCases.length + (filteredCases.length === 1 ? ' docket' : ' dockets');
+      if (note) note.textContent = 'Showing ' + rows.length + ' of ' + filteredCases.length;
+      if (toggle) {
+        if (filteredCases.length > 6) {
+          toggle.style.display = 'inline-flex';
+          toggle.textContent = showAllRows ? 'Show compact' : 'Show all (' + filteredCases.length + ')';
+        } else {
+          toggle.style.display = 'none';
+        }
+      }
+
+      tbody.innerHTML = rows.map((c) => {
+        const key = String(c.case_number || c.id);
+        const isSel = key === String(selectedCaseId);
+        const reviewHref = REVIEW_BASE_URL + '/' + encodeURIComponent(c.case_number || c.id) + '/review';
+        const age = Number(c.days_open) === 0 ? 'Today' : Number(c.days_open) === 1 ? '1 day' : (c.days_open + ' days');
+        const pCls = priorityClass(c.priority);
+        const sCls = statusClass(c.status_badge);
+        const pLabel = String(c.priority || 'HIGH').toUpperCase();
+
+        return `
+          <tr class="${isSel ? 'selected' : ''}" onclick="selectDashboardDocket('${esc(key)}')">
+            <td>
+              <div class="cell-suspect">
+                <div class="id-badge">
+                  <i data-lucide="file-text" style="width:13px;height:13px;"></i>
+                </div>
+                <div>
+                  <div class="sname">${esc(c.suspect_name || c.title || 'N/A')}</div>
+                  <div class="scase">${esc(c.case_number || '')}</div>
+                </div>
+              </div>
+            </td>
+            <td>${esc(c.unit_name || 'Directorate')}</td>
+            <td><span class="chip-status ${sCls}">${esc(c.status_badge || 'Active')}</span></td>
+            <td><span class="priority-mark ${pCls}">${esc(pLabel)}</span></td>
+            <td class="mono" style="font-size:11px;color:var(--ink-500);">${esc(c.incident_date || 'N/A')}</td>
+            <td style="font-weight:500;">${esc(age)}</td>
+            <td style="text-align:right;">
+              <a href="${reviewHref}" onclick="event.stopPropagation()" class="btn-row">Inspect</a>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      icons();
+    }
+
+    window.applyDashboardFilters = function () {
+      if (!telemetryPayload) return;
+      const all = Array.isArray(telemetryPayload.cases) ? telemetryPayload.cases : [];
+      const period = (document.getElementById('filterPeriod')?.value || 'all').toLowerCase();
+      const region = document.getElementById('filterRegion')?.value || 'all';
+      const unit = (document.getElementById('filterUnit')?.value || 'all').toLowerCase();
+      const status = (document.getElementById('filterStatus')?.value || 'all').toLowerCase();
+      const priority = (document.getElementById('filterPriority')?.value || 'all').toUpperCase();
+      const q = (document.getElementById('globalSearch')?.value || '').trim().toLowerCase();
+
+      filteredCases = all.filter((c) => {
+        const d = Number(c.days_open ?? 0);
+        if (period === 'today' && d > 0) return false;
+        if (period === '7d' && d > 7) return false;
+        if (period === '30d' && d > 30) return false;
+        if (region !== 'all' && String(c.region || '').toLowerCase() !== region.toLowerCase()) return false;
+        if (unit !== 'all') {
+          const cu = String(c.unit_name || '').toLowerCase();
+          if (!cu.includes(unit.split(' ')[0])) return false;
+        }
+        if (status !== 'all' && normStatus(c.status_badge) !== status) return false;
+        if (priority !== 'ALL' && String(c.priority || '').toUpperCase() !== priority) return false;
+        if (q) {
+          const hay = [c.case_number, c.suspect_name, c.title, c.raid_location, c.region, c.unit_name, c.status_badge, c.submitting_officer].join(' ').toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      // Mirror the bottom toolbar filters to match the map filters
+      const sb = document.getElementById('filterStatusBar'); if (sb) sb.value = status;
+      const pb = document.getElementById('filterPriorityBar'); if (pb) pb.value = priority.toLowerCase() === 'all' ? 'all' : priority;
+
+      renderTable();
+      renderStats();
+
+      const mappedCases = all.filter((c) => (
+        c.latitude !== null && c.latitude !== undefined && c.latitude !== '' &&
+        c.longitude !== null && c.longitude !== undefined && c.longitude !== ''
+      ));
+      const pill = document.getElementById('mappedCaseCountPill');
+      if (pill) pill.textContent = mappedCases.length;
+
+      const ctrl = window.ForensicLeafletMaps && window.ForensicLeafletMaps['forensicMapContainer'];
+      if (ctrl && typeof ctrl.setMarkers === 'function') {
+        ctrl.setMarkers(mappedCases.map((c) => ({
+          id: c.id, case_number: c.case_number, title: c.suspect_name || c.title,
+          unit_name: c.unit_name, status: c.status_badge, priority: c.priority,
+          location: c.raid_location || c.region, region: c.region,
+          exhibits_count: c.exhibits_count, latitude: c.latitude, longitude: c.longitude,
+          review_url: REVIEW_BASE_URL + '/' + encodeURIComponent(c.case_number || c.id) + '/review'
+        })));
+      }
+    };
+
+    // Keep map filters and toolbar filters in sync
+    window.syncBarToFilter = function (fromId, toId, value) {
+      const to = document.getElementById(toId);
+      if (!to) return;
+      // map filter expects lowercase 'all' or upper priority tokens
+      if (toId === 'filterPriority') {
+        to.value = value === 'all' ? 'all' : value.toUpperCase();
+      } else {
+        to.value = value;
+      }
+      window.applyDashboardFilters();
+    };
+
+    window.quickFilterByStatus = function (s) {
+      const el = document.getElementById('filterStatus');
+      if (el) { el.value = s; window.applyDashboardFilters(); }
+    };
+
+    window.resetDashboardFilters = function () {
+      ['filterPeriod','filterRegion','filterStatus','filterPriority'].forEach((id) => {
+        const el = document.getElementById(id); if (el) el.value = 'all';
+      });
+      const u = document.getElementById('filterUnit'); if (u) u.value = DEFAULT_UNIT_FILTER || 'all';
+      const s = document.getElementById('globalSearch'); if (s) s.value = '';
+      const sb = document.getElementById('filterStatusBar'); if (sb) sb.value = 'all';
+      const pb = document.getElementById('filterPriorityBar'); if (pb) pb.value = 'all';
+      showAllRows = false;
+      window.applyDashboardFilters();
+    };
+
+    window.selectDashboardDocket = function (key) {
+      selectedCaseId = key;
+      renderTable();
+      const chosen = filteredCases.find((c) => String(c.case_number || c.id) === String(key));
+      const ctrl = window.ForensicLeafletMaps && window.ForensicLeafletMaps['forensicMapContainer'];
+      if (chosen && ctrl && typeof ctrl.focusCase === 'function') ctrl.focusCase(chosen);
+    };
+
+    window.toggleShowAllRows = function () { showAllRows = !showAllRows; renderTable(); };
+
+    window.refreshRealtimeData = async function (isBackground) {
+      const sp = document.getElementById('syncSpinner');
+      const loading = document.getElementById('docketLoadingState');
+      const err = document.getElementById('docketErrorState');
+      if (sp && !isBackground) sp.classList.add('spin');
+      if (!telemetryPayload && loading) loading.style.display = 'block';
+      if (err) err.style.display = 'none';
+
+      try {
+        const res = await fetch(REALTIME_ENDPOINT, {
+          headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!data || data.success === false) throw new Error('Invalid payload');
+
+        const nextHash = JSON.stringify({
+          m: data.metrics || {},
+          c: Array.isArray(data.cases) ? data.cases.map((x) => [
+            x.id, x.case_number, x.status_badge, x.priority, x.exhibits_count, x.latitude, x.longitude, x.updated_at_formatted
+          ]) : []
+        });
+
+        lastTelemetryHash = nextHash;
+        telemetryPayload = data;
+        renderSignals(data);
+        window.applyDashboardFilters();
+      } catch (e) {
+        if (loading) loading.style.display = 'none';
+        if (err) err.style.display = 'block';
+        const m = document.getElementById('docketErrorMessage');
+        if (m) m.textContent = 'Unable to load forensic telemetry (' + e.message + ').';
+      } finally {
+        if (sp) sp.classList.remove('spin');
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      icons();
+      const u = document.getElementById('filterUnit');
+      if (u && DEFAULT_UNIT_FILTER) u.value = DEFAULT_UNIT_FILTER;
+      window.refreshRealtimeData(false);
+      setInterval(() => window.refreshRealtimeData(true), 30000);
+    });
+  })();
+</script>
 </body>
 </html>
-

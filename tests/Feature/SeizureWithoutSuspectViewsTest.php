@@ -2045,10 +2045,18 @@ class SeizureWithoutSuspectViewsTest extends TestCase
         $this->assertSame('Extraction & Investigation Status Log Report (PDF)', $attachedDpf['report_label']);
         $this->assertStringContainsString('/Digital_Forensics/dpf-report-pdf/' . $dpfCode, $attachedDpf['url']);
 
-        // 3. Verify locked state across all units' create views & /api/exhibits/unassigned
+        // 3. Verify locked state across Digital Forensics & general units' create views (never leaked into Lab Analysis)
+        $labHtml = $this->actingAs($labOfficer)->get('/Lab_Analysis/create')->assertOk()->getContent();
+        $this->assertStringNotContainsString('Encrypted Forensic Smartphone', $labHtml, 'Electronic-device exhibit must not appear on /Lab_Analysis/create');
+
+        $labApiAfter = $this->actingAs($labOfficer)
+            ->getJson('/api/exhibits/unassigned?unit=' . urlencode('Laboratory Analysis (LAU)'))
+            ->assertOk()
+            ->json('exhibits');
+        $this->assertNull(collect($labApiAfter)->firstWhere('id', $exhibit->id), 'Electronic-device exhibit must not appear in Lab Analysis unassigned API');
+
         $unitCreateEndpoints = [
             [$dfuOfficer, '/Digital_Forensics/create', 'Digital & Physical Forensics (DPFU)'],
-            [$labOfficer, '/Lab_Analysis/create', 'Laboratory Analysis (LAU)'],
             [$emuOfficer, '/Evidence_Management/create', 'Evidence Management Unit (EMU)'],
             [$cssOfficer, '/Crime_Scene_Support/create', 'Crime Scene Support Unit (CSSU)'],
             [$fdOfficer, '/cases/create', 'Forensic Directorate'],

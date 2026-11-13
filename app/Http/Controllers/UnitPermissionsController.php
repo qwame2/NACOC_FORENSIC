@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ForensicUnit;
+use App\Models\StaffAccount;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -68,9 +69,14 @@ class UnitPermissionsController extends Controller
 
         $stats = $this->computeStats($viewerUnit, $scopedUnitSlug);
 
+        $permissionDefs = User::permissionsForUnit(
+            $unitFilter !== 'all' ? $unitFilter : $viewer?->unit,
+            $request->path()
+        );
+
         $viewData = [
             'officers'          => $officers,
-            'permissionDefs'    => User::AVAILABLE_PERMISSIONS,
+            'permissionDefs'    => $permissionDefs,
             'search'            => $search,
             'unitFilter'        => $unitFilter,
             'defaultUnitFilter' => $defaultUnitFilter,
@@ -113,7 +119,7 @@ class UnitPermissionsController extends Controller
     public function update(Request $request, int $id)
     {
         $actor = Auth::user();
-        $target = User::findOrFail($id);
+        $target = StaffAccount::find($id) ?? User::where('is_head', false)->findOrFail($id);
         $isJson = $request->wantsJson() || $request->ajax();
 
         if (!FieldOfficersController::canApproveStaff($actor, $target)) {
@@ -124,7 +130,8 @@ class UnitPermissionsController extends Controller
             return back()->with('error', $errorMsg);
         }
 
-        $keys = array_keys(User::AVAILABLE_PERMISSIONS);
+        $permDefs = User::permissionsForUnit($target->unit ?? $actor?->unit, $request->path());
+        $keys = array_keys($permDefs);
         $preset = strtolower(trim((string) $request->input('preset', '')));
 
         if ($preset === 'grant_all') {
@@ -143,11 +150,20 @@ class UnitPermissionsController extends Controller
             }
         }
 
-        $target->permissions = $normalized;
-        $target->save();
-
         $enabledCount = count(array_filter($normalized));
         $totalCount = count($keys);
+
+        $actorUnitSlug = ForensicUnit::resolveOperationalSlug($actor?->unit)
+            ?? ForensicUnit::resolveOperationalSlug($target->unit);
+        $storedPayload = $normalized;
+        if ($actorUnitSlug !== null) {
+            $storedPayload['_unit_slug'] = $actorUnitSlug;
+            $storedPayload['_updated_by_head_id'] = $actor?->id;
+        }
+
+        $target->permissions = $storedPayload;
+        $target->save();
+
         $message = "Updated permissions for {$target->fullname} ({$enabledCount}/{$totalCount} capabilities enabled).";
 
         if ($isJson) {
@@ -171,8 +187,7 @@ class UnitPermissionsController extends Controller
     {
         $terms = ForensicUnit::operationalSearchTerms($scopedUnitSlug);
 
-        return User::query()
-            ->where('is_head', false)
+        return StaffAccount::query()
             ->where(function (Builder $q) use ($terms) {
                 foreach ($terms as $term) {
                     $q->orWhereRaw('LOWER(COALESCE(unit, "")) LIKE ?', ['%' . $term . '%']);

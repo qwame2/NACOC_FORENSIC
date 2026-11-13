@@ -19,6 +19,8 @@
                 <th class="py-3.5 px-5">Staff Officer</th>
                 <th class="py-3.5 px-5">Assigned Unit</th>
                 <th class="py-3.5 px-5">Contact Details</th>
+                <th class="py-3.5 px-5">Created Date &amp; Time</th>
+                <th class="py-3.5 px-5 text-center">Online Status</th>
                 <th class="py-3.5 px-5 text-center">Account Status</th>
                 <th class="py-3.5 px-5 text-center">Unit Head Authorization</th>
             </tr>
@@ -80,6 +82,32 @@
                         <div class="text-[11px] text-slate-500 truncate max-w-[200px]">{{ $officer->email ?? 'No email registered' }}</div>
                     </td>
 
+                    <td class="py-3.5 px-5 whitespace-nowrap">
+                        <div class="font-mono-code font-bold text-slate-800 text-[11px]">
+                            {{ $officer->created_at ? $officer->created_at->format('d M Y') : 'N/A' }}
+                        </div>
+                        <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">
+                            {{ $officer->created_at ? $officer->created_at->format('h:i A') : 'N/A' }}
+                        </div>
+                    </td>
+
+                    <td class="py-3.5 px-5 text-center whitespace-nowrap">
+                        @php
+                            $isOfficerOnline = method_exists($officer, 'isOnline') ? $officer->isOnline() : false;
+                        @endphp
+                        @if($isOfficerOnline)
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono-code font-extrabold uppercase">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Online
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono-code font-extrabold uppercase">
+                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                Offline
+                            </span>
+                        @endif
+                    </td>
+
                     <td class="py-3.5 px-5 text-center whitespace-nowrap">
                         @if($officer->is_approved)
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono-code font-extrabold uppercase">
@@ -120,7 +148,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="py-12 px-6 text-center">
+                    <td colspan="8" class="py-12 px-6 text-center">
                         <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         </div>

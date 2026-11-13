@@ -26,7 +26,7 @@
 </head>
 <body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased">
     <div class="flex h-screen overflow-hidden">
-        @include('Crime_Scene_Support.partials.sidebar')
+        @include('staff.partials.sidebar')
 
         <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
             <!-- TOP BAR -->

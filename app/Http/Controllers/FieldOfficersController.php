@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ForensicUnit;
+use App\Models\StaffAccount;
 use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -124,7 +126,7 @@ class FieldOfficersController extends Controller
     /**
      * Return live account approval / revocation status for the authenticated user watchdog.
      */
-    public function accountStatus()
+    public function accountStatus(Request $request)
     {
         $user = Auth::user()?->fresh();
         if (!$user) {
@@ -139,13 +141,27 @@ class FieldOfficersController extends Controller
                 ->first(fn (User $u) => ForensicUnit::resolve($u->unit) === $resolvedUnit)
             : null;
 
+        $effectivePerms = method_exists($user, 'effectivePermissions')
+            ? $user->effectivePermissions()
+            : [];
+        $pathContext = (string) ($request->query('path') ?: $request->query('unit') ?: '');
+        $canCreateCases = (bool) (
+            $user->is_head
+            || (method_exists($user, 'hasPermission')
+                ? $user->hasPermission('create_cases', $pathContext !== '' ? $pathContext : null)
+                : ($effectivePerms['create_cases'] ?? true))
+        );
+
         return response()->json([
             'authenticated' => true,
             'is_approved' => (bool) $user->is_approved,
             'is_revoked' => !$user->is_head && !$user->is_approved,
             'is_head' => (bool) $user->is_head,
             'unit' => $resolvedUnit?->value ?? ($user->unit ?? 'Operational Unit'),
+            'unit_slug' => ForensicUnit::resolveOperationalSlug($user->unit),
             'unit_head_name' => $unitHead?->fullname,
+            'permissions' => $effectivePerms,
+            'can_create_cases' => $canCreateCases,
         ]);
     }
 
@@ -155,7 +171,7 @@ class FieldOfficersController extends Controller
     private function updateStaffApprovalStatus(Request $request, int $id, bool $approve)
     {
         $actor = Auth::user();
-        $target = User::findOrFail($id);
+        $target = StaffAccount::find($id) ?? User::where('is_head', false)->findOrFail($id);
         $isJson = $request->wantsJson() || $request->ajax();
 
         if (!$this->canApproveStaff($actor, $target)) {
@@ -169,6 +185,22 @@ class FieldOfficersController extends Controller
         $target->is_approved = $approve;
         $target->save();
 
+        if ($approve) {
+            $nowTs = time();
+            \Illuminate\Support\Facades\Cache::put('nacoc_latest_staff_approval', [
+                'exists' => true,
+                'is_approved' => true,
+                'is_head' => (bool) $target->is_head,
+                'is_staff' => true,
+                'unit' => $target->unit,
+                'fullname' => $target->fullname,
+                'service_id' => $target->service_id,
+                'username' => $target->username,
+                'approved_at' => $nowTs,
+                'event_id' => $target->id . ':' . $nowTs,
+            ], now()->addSeconds(60));
+        }
+
         $actionMsg = $approve
             ? "Staff officer {$target->fullname} has been approved and can now log in."
             : "Staff officer {$target->fullname}'s access has been revoked.";
@@ -180,6 +212,10 @@ class FieldOfficersController extends Controller
                 'user' => [
                     'id' => $target->id,
                     'fullname' => $target->fullname,
+                    'service_id' => $target->service_id,
+                    'username' => $target->username,
+                    'unit' => $target->unit,
+                    'is_head' => (bool) $target->is_head,
                     'is_approved' => (bool) $target->is_approved,
                 ],
             ], 200);
@@ -191,7 +227,7 @@ class FieldOfficersController extends Controller
     /**
      * Determine whether `$actor` is an approved Head of Unit for `$target`'s operational unit.
      */
-    public static function canApproveStaff(?User $actor, User $target): bool
+    public static function canApproveStaff(?Authenticatable $actor, Authenticatable $target): bool
     {
         if (!$actor || !$actor->is_head || !$actor->is_approved) {
             return false;
@@ -212,14 +248,35 @@ class FieldOfficersController extends Controller
     }
 
     /**
+     * Count staff officer accounts awaiting head approval for the given viewer/sidebar context.
+     */
+    public static function countPendingApprovalsForContext(?string $contextUnit = null, ?Authenticatable $viewer = null): int
+    {
+        $scopedUnitSlug = $viewer
+            ? ForensicUnit::resolveOperationalSlug($viewer->unit)
+            : ForensicUnit::resolveOperationalSlug($contextUnit);
+
+        return self::buildBaseStaffQuery($scopedUnitSlug)
+            ->where('is_approved', false)
+            ->count();
+    }
+
+    /**
      * Base query matching staff officers across all operational units or restricted to a single unit slug.
      */
     private function baseStaffQuery(?string $scopedUnitSlug = null): Builder
     {
+        return self::buildBaseStaffQuery($scopedUnitSlug);
+    }
+
+    /**
+     * Static base query builder for staff officers in operational units.
+     */
+    private static function buildBaseStaffQuery(?string $scopedUnitSlug = null): Builder
+    {
         $terms = ForensicUnit::operationalSearchTerms($scopedUnitSlug);
 
-        return User::query()
-            ->where('is_head', false)
+        return StaffAccount::query()
             ->where(function (Builder $q) use ($terms) {
                 foreach ($terms as $term) {
                     $q->orWhereRaw('LOWER(COALESCE(unit, "")) LIKE ?', ['%' . $term . '%']);

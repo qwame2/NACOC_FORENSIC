@@ -41,14 +41,30 @@ Route::get('/evidence/tag/{token}', [EvidenceManagementController::class, 'showL
 
 Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $request) {
     $loginId = trim($request->query('login_id', ''));
+    $since = (int) $request->query('since', 0);
+
     if (!$loginId) {
+        if ($since > 0) {
+            $recentApproval = \Illuminate\Support\Facades\Cache::get('nacoc_latest_staff_approval');
+            if (is_array($recentApproval) && (int) ($recentApproval['approved_at'] ?? 0) >= $since) {
+                return response()->json($recentApproval);
+            }
+        }
         return response()->json(['exists' => false]);
     }
 
-    $user = User::where('service_id', $loginId)
-        ->orWhere('username', $loginId)
-        ->orWhere('email', $loginId)
+    $lowerLoginId = strtolower($loginId);
+    $user = User::whereRaw('LOWER(service_id) = ?', [$lowerLoginId])
+        ->orWhereRaw('LOWER(username) = ?', [$lowerLoginId])
+        ->orWhereRaw('LOWER(COALESCE(email, "")) = ?', [$lowerLoginId])
         ->first();
+
+    if (!$user) {
+        $user = \App\Models\StaffAccount::whereRaw('LOWER(service_id) = ?', [$lowerLoginId])
+            ->orWhereRaw('LOWER(username) = ?', [$lowerLoginId])
+            ->orWhereRaw('LOWER(COALESCE(email, "")) = ?', [$lowerLoginId])
+            ->first();
+    }
 
     if (!$user) {
         return response()->json(['exists' => false]);
@@ -58,6 +74,8 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
         'exists' => true,
         'is_approved' => (bool) $user->is_approved,
         'is_head' => (bool) $user->is_head,
+        'is_staff' => (bool) $user->is_staff,
+        'unit' => $user->unit,
         'fullname' => $user->fullname,
         'service_id' => $user->service_id,
         'username' => $user->username,
@@ -70,13 +88,15 @@ Route::get('/dashboard', function () {
     $cases = ForensicCase::allCases();
     $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
     $pendingCount = User::where('is_approved', false)->count();
-    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
+    $mapConfig = app(\App\Services\CaseAnalyticsService::class)->buildLeafletMapPayload($cases);
+    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount', 'mapConfig'));
 });
 Route::get('/finnova-dashboard', function () {
     $cases = ForensicCase::allCases();
     $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
     $pendingCount = User::where('is_approved', false)->count();
-    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
+    $mapConfig = app(\App\Services\CaseAnalyticsService::class)->buildLeafletMapPayload($cases);
+    return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount', 'mapConfig'));
 });
 
 
@@ -445,9 +465,37 @@ Route::middleware(['auth'])->group(function () {
         return view('Crime_Scene_Support.head.head');
     });
 
+    Route::get('/Crime_Scene_Support/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('crime_scene.reviews_approvals');
+    Route::get('/Lab_Analysis/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('lab.reviews_approvals');
+    Route::get('/Evidence_Management/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('evidence.reviews_approvals');
+    Route::get('/Digital_Forensics/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('digital.reviews_approvals');
+    Route::get('/Forensic_Head/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('forensic_head.reviews_approvals');
+    Route::post('/reviews-approvals/{id}/approve', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'approve'])->name('reviews_approvals.approve');
+    Route::post('/reviews-approvals/{id}/decline', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'decline'])->name('reviews_approvals.decline');
+
     Route::get('/Crime_Scene_Support/staff', function () {
         return view('Crime_Scene_Support.staff.staff');
     });
+
+    Route::get('/Crime_Scene_Support/staff/dashboard', function () {
+        return view('Crime_Scene_Support.staff.dashboard');
+    })->name('crime_scene.staff.dashboard');
+
+    Route::get('/Crime_Scene_Support/staff/case', function () {
+        return view('Crime_Scene_Support.staff.case');
+    });
+
+    Route::get('/Crime_Scene_Support/staff/cases', function () {
+        return view('Crime_Scene_Support.staff.case');
+    });
+
+    Route::get('/Crime_Scene_Support/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('crime_scene.staff.cases.review');
+
+    Route::get('/Crime_Scene_Support/staff/create', function () {
+        return view('Crime_Scene_Support.staff.create');
+    })->name('crime_scene.staff.create');
+
+    Route::get('/Crime_Scene_Support/staff/report', [CrimeSceneSupportCaseController::class, 'report'])->name('crime_scene.staff.report');
 
     Route::get('/crime-scene-support', function () {
         return view('Crime_Scene_Support.head.head');
@@ -473,6 +521,26 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Lab_Analysis/staff', function () {
         return view('Lab_Analysis.staff.staff');
     });
+
+    Route::get('/Lab_Analysis/staff/dashboard', function () {
+        return view('Lab_Analysis.staff.dashboard');
+    })->name('lab.staff.dashboard');
+
+    Route::get('/Lab_Analysis/staff/case', function () {
+        return view('Lab_Analysis.staff.case');
+    });
+
+    Route::get('/Lab_Analysis/staff/cases', function () {
+        return view('Lab_Analysis.staff.case');
+    });
+
+    Route::get('/Lab_Analysis/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('lab.staff.cases.review');
+
+    Route::get('/Lab_Analysis/staff/create', function () {
+        return view('Lab_Analysis.staff.create');
+    })->name('lab.staff.create');
+
+    Route::get('/Lab_Analysis/staff/report', [CaseReportController::class, 'labReportPage'])->name('lab.staff.report');
 
     Route::get('/lab-analysis', function () {
         return view('Lab_Analysis.lab_analysis');
@@ -617,6 +685,26 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Evidence_Management/staff', function () {
         return view('Evidence_Management.staff.staff');
     });
+
+    Route::get('/Evidence_Management/staff/dashboard', function () {
+        return view('Evidence_Management.staff.dashboard');
+    })->name('evidence.staff.dashboard');
+
+    Route::get('/Evidence_Management/staff/case', function () {
+        return view('Evidence_Management.staff.case');
+    });
+
+    Route::get('/Evidence_Management/staff/cases', function () {
+        return view('Evidence_Management.staff.case');
+    });
+
+    Route::get('/Evidence_Management/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('evidence.staff.cases.review');
+
+    Route::get('/Evidence_Management/staff/create', function () {
+        return view('Evidence_Management.staff.create');
+    })->name('evidence.staff.create');
+
+    Route::get('/Evidence_Management/staff/report', [EvidenceManagementController::class, 'report'])->name('evidence.staff.report');
 
     Route::get('/evidence-management', function () {
         return view('Evidence_Management.evidence_management');
@@ -1826,6 +1914,90 @@ Route::middleware(['auth'])->group(function () {
         return view('Digital_Forensics.staff.staff');
     });
 
+    Route::get('/Digital_Forensics/staff/dashboard', function () {
+        return view('Digital_Forensics.staff.dashboard');
+    })->name('digital.staff.dashboard');
+
+    Route::get('/Digital_Forensics/staff/case', function () {
+        return view('Digital_Forensics.staff.case');
+    });
+
+    Route::get('/Digital_Forensics/staff/cases', function () {
+        return view('Digital_Forensics.staff.case');
+    });
+
+    Route::get('/Digital_Forensics/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('digital.staff.cases.review');
+
+    Route::get('/Digital_Forensics/staff/create', function () {
+        return view('Digital_Forensics.staff.create');
+    })->name('digital.staff.create');
+
+    Route::get('/Digital_Forensics/staff/forensic-status', function () {
+        return view('Digital_Forensics.staff.forensic_status');
+    })->name('digital.staff.forensic_status');
+
+    Route::get('/Digital_Forensics/staff/forensic_status', function () {
+        return view('Digital_Forensics.staff.forensic_status');
+    });
+
+    Route::get('/digital-forensics/staff/forensic-status', function () {
+        return view('Digital_Forensics.staff.forensic_status');
+    });
+
+    Route::get('/Digital_Forensics/staff/report', [CrimeSceneSupportCaseController::class, 'report'])->name('digital.staff.report');
+
+    Route::get('/Forensic_Head/staff/dashboard', function () {
+        return view('Forensic_Head.staff.dashboard');
+    })->name('forensic_head.staff.dashboard');
+
+    Route::get('/Forensic_Head/staff/case', function () {
+        return view('Forensic_Head.staff.case');
+    });
+
+    Route::get('/Forensic_Head/staff/cases', function () {
+        return view('Forensic_Head.staff.case');
+    });
+
+    Route::get('/Forensic_Head/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('forensic_head.staff.cases.review');
+
+    Route::get('/Forensic_Head/staff/create', function () {
+        return view('Forensic_Head.staff.create');
+    })->name('forensic_head.staff.create');
+
+    Route::get('/Forensic_Head/staff/report', [CrimeSceneSupportCaseController::class, 'report'])->name('forensic_head.staff.report');
+
+    Route::get('/staff/dashboard', function () {
+        return view('staff.dashboard');
+    })->name('staff.dashboard');
+
+    Route::get('/staff/case', function () {
+        return view('staff.case');
+    });
+
+    Route::get('/staff/cases', function () {
+        return view('staff.case');
+    });
+
+    Route::get('/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('staff.cases.review');
+
+    Route::get('/staff/create', function () {
+        return view('staff.create');
+    })->name('staff.create');
+
+    Route::get('/staff/report', function (\Illuminate\Http\Request $request) {
+        $u = strtolower(auth()->user()->unit ?? ($request->query('from') ?? 'crime'));
+        if (str_contains($u, 'lab')) {
+            return redirect('/Lab_Analysis/staff/report');
+        } elseif (str_contains($u, 'evidence')) {
+            return redirect('/Evidence_Management/staff/report');
+        } elseif (str_contains($u, 'digital') || str_contains($u, 'physical')) {
+            return redirect('/Digital_Forensics/staff/report');
+        } elseif (str_contains($u, 'directorate') || str_contains($u, 'head')) {
+            return redirect('/Forensic_Head/staff/report');
+        }
+        return redirect('/Crime_Scene_Support/staff/report');
+    })->name('staff.report');
+
     Route::get('/digital-forensics', function () {
         return view('Digital_Forensics.digital_forensics');
     });
@@ -1841,7 +2013,8 @@ Route::middleware(['auth'])->group(function () {
             $cases = ForensicCase::allCases();
             $pendingCasesCount = $cases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
             $pendingCount = User::where('is_approved', false)->count();
-            return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount'));
+            $mapConfig = app(\App\Services\CaseAnalyticsService::class)->buildLeafletMapPayload($cases);
+            return view('Forensic_Head.head', compact('cases', 'pendingCasesCount', 'pendingCount', 'mapConfig'));
         });
 
         Route::get('/Forensic_Head/cases', function (\Illuminate\Http\Request $request) {

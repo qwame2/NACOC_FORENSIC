@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Officer Registration | Forensic Inventory Management System (FIMS)</title>
+    <title>Officer Registration | Forensic Information Management System (FIMS)</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,7 +95,7 @@
             </div>
             <div>
                 <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">
-                    FORENSIC INVENTORY MANAGEMENT SYSTEM (FIMS)</div>
+                    FORENSIC INFORMATION MANAGEMENT SYSTEM (FIMS)</div>
                 <div class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">OFFICER ENROLLMENT &bull;
                     FORENSICS DEPARTMENT</div>
             </div>
@@ -188,7 +188,7 @@
                 <div class="relative z-10 pl-8">
                     <p
                         class="text-[10px] font-extrabold tracking-wider uppercase text-teal-100 font-mono-code leading-relaxed">
-                        INTRODUCING FORENSIC INVENTORY MANAGEMENT SYSTEM &bull; FIMS
+                        INTRODUCING FORENSIC INFORMATION MANAGEMENT SYSTEM &bull; FIMS
                     </p>
                 </div>
             </div>
@@ -444,6 +444,12 @@
                                             class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700">
                                         </div>
                                     </label>
+                                </div>
+                                <div id="unitHeadExistsWarning" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-start space-x-2">
+                                    <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <span id="unitHeadExistsWarningText"></span>
                                 </div>
                             @endif
 
@@ -724,7 +730,7 @@
     <footer
         class="w-full px-6 py-3 bg-white/95 border-t border-teal-900/10 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-600 font-mono-code gap-2 relative z-10 backdrop-blur-sm">
         <div>
-            Official Property of the Narcotics Control Commission, Ghana &bull; Forensic Inventory Management System
+            Official Property of the Narcotics Control Commission, Ghana &bull; Forensic Information Management System
         </div>
         <div class="flex items-center space-x-4">
             <a href="#" class="hover:text-teal-800">Security Policy</a>
@@ -911,20 +917,46 @@
             const unitHeadInput = document.getElementById('unitHeadInput');
             const unitHeadContainer = document.getElementById('unitHeadContainer');
             const unitsDropdownWrapper = document.getElementById('unitsDropdownWrapper');
+            const warningEl = document.getElementById('unitHeadExistsWarning');
+            const warningTextEl = document.getElementById('unitHeadExistsWarningText');
+            const regSubmitBtn = document.getElementById('regSubmitBtn');
 
             if (!unitHeadInput || !unitHeadContainer) return;
 
+            const existingHeadName = registeredHeadsMap[currentUnit] || null;
+
             if (isStaffChecked) {
-                const headName = registeredHeadsMap[currentUnit] || 'Your unit head has not registered yet';
+                const headName = existingHeadName || 'Your unit head has not registered yet';
                 unitHeadInput.value = headName;
                 unitHeadContainer.classList.remove('hidden');
                 if (unitsDropdownWrapper) {
                     unitsDropdownWrapper.className = 'col-span-1';
                 }
+                if (warningEl) warningEl.classList.add('hidden');
+                if (regSubmitBtn) {
+                    regSubmitBtn.disabled = false;
+                    regSubmitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
             } else {
                 unitHeadContainer.classList.add('hidden');
                 if (unitsDropdownWrapper) {
                     unitsDropdownWrapper.className = 'col-span-1 sm:col-span-2';
+                }
+                if (existingHeadName) {
+                    if (warningTextEl) {
+                        warningTextEl.textContent = `A Head of Unit (${existingHeadName}) is already registered for ${currentUnit}. Only one unit head account is allowed per unit.`;
+                    }
+                    if (warningEl) warningEl.classList.remove('hidden');
+                    if (regSubmitBtn) {
+                        regSubmitBtn.disabled = true;
+                        regSubmitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                } else {
+                    if (warningEl) warningEl.classList.add('hidden');
+                    if (regSubmitBtn) {
+                        regSubmitBtn.disabled = false;
+                        regSubmitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
                 }
             }
         }
@@ -1065,6 +1097,13 @@
             const termsChecked = document.getElementById('termsCheckbox') ? document.getElementById('termsCheckbox').checked : false;
             if (!termsChecked) {
                 showRegisterError("Validation Error: You must agree to the NACOC Security Policy & Confidentiality Mandate before registering.");
+                return;
+            }
+
+            const isStaffToggle = document.getElementById('isStaffToggle');
+            const selectedUnitVal = document.getElementById('selectedUnitInput') ? document.getElementById('selectedUnitInput').value : '';
+            if (isStaffToggle && !isStaffToggle.checked && selectedUnitVal && registeredHeadsMap[selectedUnitVal]) {
+                showRegisterError(`A Head of Unit (${registeredHeadsMap[selectedUnitVal]}) is already registered for ${selectedUnitVal}. Only one unit head account is allowed per unit.`);
                 return;
             }
 

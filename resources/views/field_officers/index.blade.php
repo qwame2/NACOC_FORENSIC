@@ -325,8 +325,15 @@
                 if (el) el.textContent = Number(approvedCount).toLocaleString();
             }
             if (pendingCount !== null) {
+                const pendingNum = Number(pendingCount);
                 const el = document.getElementById('kpiPendingStaff');
-                if (el) el.textContent = Number(pendingCount).toLocaleString();
+                if (el) el.textContent = pendingNum.toLocaleString();
+
+                const badgeEl = document.getElementById('sidebarFieldOfficersBadge');
+                if (badgeEl) {
+                    badgeEl.textContent = pendingNum;
+                    badgeEl.classList.toggle('hidden', pendingNum <= 0);
+                }
             }
         }
 
@@ -472,6 +479,23 @@
                 }
 
                 showFieldOfficersToast(data.message || (actionType === 'approve' ? 'Staff officer approved.' : 'Staff officer access revoked.'));
+                if (actionType === 'approve' && data.user) {
+                    const approvalPayload = {
+                        type: 'staff_approved',
+                        user: data.user,
+                        ts: Date.now()
+                    };
+                    if (typeof BroadcastChannel !== 'undefined') {
+                        try {
+                            const ch = new BroadcastChannel('nacoc_staff_approval');
+                            ch.postMessage(approvalPayload);
+                            ch.close();
+                        } catch (e) {}
+                    }
+                    try {
+                        localStorage.setItem('nacoc_last_staff_approved', JSON.stringify(approvalPayload));
+                    } catch (e) {}
+                }
                 await pollFieldOfficers(true);
             } catch (err) {
                 showFieldOfficersToast('Network error while updating officer status.', true);

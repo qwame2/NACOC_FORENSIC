@@ -1514,7 +1514,11 @@ class EvidenceManagementController extends Controller
             ->unique('table_title')
             ->mapWithKeys(fn($n) => [strtolower(trim($n->table_title)) => $n->note]);
 
-        return view('Evidence_Management.report', compact(
+        $viewName = $request->is('*/staff/report*')
+            ? 'Evidence_Management.staff.report'
+            : 'Evidence_Management.report';
+
+        return view($viewName, compact(
             'exhibits',
             'search',
             'category',

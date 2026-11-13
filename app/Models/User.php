@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable
 {
@@ -19,11 +20,6 @@ class User extends Authenticatable
      * @var array<string, array{label: string, description: string, category: string}>
      */
     public const AVAILABLE_PERMISSIONS = [
-        'view_cases' => [
-            'label'       => 'View Case Directory',
-            'description' => 'Read case registers, dossiers, and docket timelines',
-            'category'    => 'Cases',
-        ],
         'create_cases' => [
             'label'       => 'Create New Cases',
             'description' => 'Intake new single/multiple suspect or exhibit-only cases',
@@ -60,6 +56,46 @@ class User extends Authenticatable
             'category'    => 'Alerts',
         ],
     ];
+
+    /**
+     * Core permissions shown on the permissions page for Crime Scene Support and Digital Forensics.
+     *
+     * @var list<string>
+     */
+    public const STREAMLINED_PERMISSION_KEYS = [
+        'create_cases',
+        'edit_cases',
+        'generate_reports',
+    ];
+
+    /**
+     * Return the applicable permission definitions for a given unit or route context.
+     * Crime Scene Support and Digital Forensics display only the 4 core case/report permissions.
+     *
+     * @return array<string, array{label: string, description: string, category: string}>
+     */
+    public static function permissionsForUnit(?string $unit = null, ?string $requestPath = null): array
+    {
+        $slug = \App\Enums\ForensicUnit::resolveOperationalSlug($unit);
+
+        if ($slug === null && $requestPath !== null) {
+            $path = strtolower($requestPath);
+            if (str_contains($path, 'crime_scene') || str_contains($path, 'crime-scene')) {
+                $slug = 'css';
+            } elseif (str_contains($path, 'digital_forensics') || str_contains($path, 'digital-forensics')) {
+                $slug = 'dpf';
+            }
+        }
+
+        if (in_array($slug, ['css', 'dpf'], true)) {
+            return array_intersect_key(
+                self::AVAILABLE_PERMISSIONS,
+                array_flip(self::STREAMLINED_PERMISSION_KEYS)
+            );
+        }
+
+        return self::AVAILABLE_PERMISSIONS;
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -139,7 +175,7 @@ class User extends Authenticatable
     /**
      * Check whether the user holds a specific operational permission.
      */
-    public function hasPermission(string $permission): bool
+    public function hasPermission(string $permission, ?string $unitOrPath = null): bool
     {
         if ($this->is_head && $this->is_approved) {
             return true;
@@ -148,7 +184,20 @@ class User extends Authenticatable
             return false;
         }
 
+        if ($unitOrPath !== null && trim($unitOrPath) !== '') {
+            $contextSlug = StaffAccount::resolveUnitSlugFromContext($unitOrPath);
+            $staffUnitSlug = \App\Enums\ForensicUnit::resolveOperationalSlug($this->unit);
+            if ($contextSlug !== null && $staffUnitSlug !== null && $contextSlug !== $staffUnitSlug) {
+                return true;
+            }
+        }
+
         $map = $this->effectivePermissions();
         return (bool) ($map[$permission] ?? false);
+    }
+
+    public function staffAccount()
+    {
+        return $this->hasOne(StaffAccount::class, 'user_id');
     }
 }

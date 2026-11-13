@@ -58,6 +58,43 @@ class EnforceStaffAccountStatus
             }
         }
 
+        // Enforce Create New Cases permission for non-head staff officers
+        $isCreateCaseRequest = $request->is('*/staff/create*')
+            || $request->is('staff/create*')
+            || $request->is('*/create')
+            || $request->is('cases/create*')
+            || ($request->isMethod('POST') && $request->is('cases'));
+
+        $unitOrPathContext = (string) ($request->input('unit_name')
+            ?: $request->input('from')
+            ?: $request->path());
+
+        if (
+            !$isRevoked
+            && $isCreateCaseRequest
+            && method_exists($user, 'hasPermission')
+            && !$user->hasPermission('create_cases', $unitOrPathContext)
+        ) {
+            $permMessage = 'Access Restricted: Your Head of Unit has disabled your Create New Cases permission.';
+            if ($request->ajax() || $request->expectsJson() || $request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'permission_denied' => 'create_cases',
+                    'message' => $permMessage,
+                ], 403);
+            }
+
+            $unitSlug = \App\Enums\ForensicUnit::resolveOperationalSlug($user->unit);
+            $fallbackCaseUrl = match ($unitSlug) {
+                'lab' => '/Lab_Analysis/staff/case',
+                'em'  => '/Evidence_Management/staff/case',
+                'dpf' => '/Digital_Forensics/staff/case',
+                default => '/Crime_Scene_Support/staff/case',
+            };
+
+            return redirect($fallbackCaseUrl)->with('error', $permMessage);
+        }
+
         $response = $next($request);
 
         if ($isExcludedPath || !$request->isMethod('GET') || $request->ajax()) {

@@ -396,7 +396,11 @@
     <div class="flex h-screen overflow-hidden">
 
         <!-- GENERAL SIDEBAR -->
-        @include('Crime_Scene_Support.partials.sidebar')
+        @if(auth()->check() && !auth()->user()->is_head)
+            @include('staff.partials.sidebar')
+        @else
+            @include('Crime_Scene_Support.partials.sidebar')
+        @endif
 
         <!-- RIGHT WORKSPACE -->
         <div class="flex-1 flex flex-col min-w-0 bg-white overflow-hidden select-text">
@@ -835,7 +839,7 @@
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 </div>
                                 <div>
-                                    <h3 class="font-black text-slate-900 text-base">Section 3: Add Associated {{ $isLabAnalysis ? 'Drug Exhibits & Commodities' : ($isDigitalForensics ? 'Electronic Devices & Digital Evidence' : ($isCrimeScene ? 'Weapons, Vehicles & Scene Exhibits' : 'Seizures & Exhibits')) }}</h3>
+                                    <h3 class="font-black text-slate-900 text-base">{{ $isLabAnalysis ? 'Section 3: Seized Commodities & Contraband Manifest' : 'Section 3: Add Associated ' . ($isDigitalForensics ? 'Electronic Devices & Digital Evidence' : ($isCrimeScene ? 'Weapons, Vehicles & Scene Exhibits' : 'Seizures & Exhibits')) }}</h3>
                                     <p class="text-xs text-slate-500">{{ $isLabAnalysis ? 'Record illicit substance types, gross weight, sample taken, packaging, or street valuation linked to this investigation' : ($isDigitalForensics ? 'Record seized electronic devices (phones, laptops, storage drives, IMEI, MAC address, serials) for this investigation' : 'Record illicit substance types, weapons, vehicles, electronic devices, or property linked to this investigation') }}</p>
                                 </div>
                             </div>
@@ -844,6 +848,10 @@
                                 <span>+ Add {{ $isLabAnalysis ? 'Drug Exhibit' : ($isDigitalForensics ? 'Electronic Device' : 'Exhibit Item') }}</span>
                             </button>
                         </div>
+
+                        @if($isLabAnalysis)
+                            @include('partials.unassigned_exhibits_selector', ['selectorTargetUnit' => 'Lab Analysis'])
+                        @endif
 
                         <!-- CONTAINER FOR DYNAMIC SEIZURE BLOCKS -->
                         <div id="seizuresListContainer" class="space-y-6">
@@ -854,7 +862,155 @@
 
                     <!-- SECTION 4: FORENSIC EXAMINATION & LABORATORY ANALYSIS (LAB ANALYSIS EXCLUSIVE) -->
                     @if($isLabAnalysis)
-                    <div class="bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-6 relative">
+                    <!-- SECTION 3 TO 4 ACTION & REPORT GENERATION NAVIGATION BAR -->
+                    <div class="bg-slate-100/90 p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
+                                    Report &amp; Laboratory Examination Modules
+                                </h4>
+                                <p class="text-[11px] text-slate-500 font-medium">
+                                    Switch between uploading GSA Report Files and filling Section 4 Examination Information (NLR)
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end shrink-0 flex-wrap gap-y-2">
+                            <!-- UPLOAD GSA FILE BUTTON -->
+                            <button type="button" id="toggleGsaReportBtn" onclick="switchToGsaUploadSection()"
+                                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-blue-600/20 transition-all flex items-center space-x-2 cursor-pointer border-none">
+                                <svg class="w-4 h-4 text-blue-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span>Upload GSA File</span>
+                            </button>
+
+                            <!-- EXAMINATION INFORMATION (NLR) BUTTON -->
+                            <button type="button" id="toggleNlrReportBtn" onclick="switchToNlrExamSection()"
+                                class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-2 cursor-pointer border-none">
+                                <svg class="w-4 h-4 text-emerald-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                </svg>
+                                <span>Examination Information (NLR)</span>
+                            </button>
+
+                            <!-- RESET BUTTON TO NEUTRAL STATE -->
+                            <button type="button" id="resetLabModulesBtn" onclick="resetLabModulesToNeutral()"
+                                class="px-3.5 py-2.5 bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-extrabold text-xs rounded-xl transition-all flex items-center space-x-1.5 cursor-pointer border border-slate-300"
+                                title="Reset both buttons and forms to neutral state">
+                                <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>Reset</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- GSA REPORT UPLOAD SECTION -->
+                    <div id="gsaUploadSection" class="hidden bg-white p-6 rounded-2xl border border-blue-200/90 shadow-sm space-y-6 relative z-20">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center shadow-md shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider">GSA FILES</span>
+                                        <h3 class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight">GSA Report Upload</h3>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 font-mono-code mt-0.5">Attach scans, photos, or documents of the signed GSA Report Upload</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span id="gsaFileCount" class="hidden px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-extrabold font-mono-code rounded-full">0 files</span>
+                                <button type="button" onclick="clearAllGsaFiles()" id="gsaClearAllBtn" class="hidden px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-[10px] font-bold rounded-lg border border-red-200 transition-colors cursor-pointer">Clear All</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span>GSA Lab No.</span>
+                                        <span class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Official No.</span>
+                                    </label>
+                                    <input type="text" id="gsaLabNumberInput" name="gsa_lab_number"
+                                        placeholder="Enter GSA Lab No. (e.g. GSA/LAB/2026/0892)"
+                                        class="w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all text-xs shadow-2xs">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span>GSA Case Reference</span>
+                                        <span class="text-[9px] font-mono-code text-slate-600 bg-slate-200/70 px-1.5 py-0.5 rounded font-bold uppercase">Reference</span>
+                                    </label>
+                                    <textarea id="gsaCaseReferenceInput" name="gsa_case_reference" rows="2"
+                                        placeholder="Enter GSA Case Reference details..."
+                                        class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center justify-between">
+                                        <span>GSA Status</span>
+                                        <span class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Status</span>
+                                    </label>
+                                    <textarea id="gsaStatusInput" name="gsa_status" rows="2"
+                                        placeholder="Enter GSA Status (e.g. Analysis Complete, Certified...)"
+                                        class="w-full px-3.5 py-2 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-blue-200/60 space-y-2" id="gsaExhibitTypesSection">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">Exhibit Type</label>
+                                    <button type="button" onclick="addGsaExhibitTypeInput()" class="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-mono-code font-bold uppercase text-blue-700 bg-blue-100 hover:bg-blue-200 active:scale-95 rounded-lg border border-blue-200 transition-all cursor-pointer">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        <span>Add Exhibit Type</span>
+                                    </button>
+                                </div>
+                                <div id="gsaExhibitTypeList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                    <div class="flex items-center gap-1.5 gsa-exhibit-type-row">
+                                        <input type="text" name="exhibit_type[]" placeholder="Enter Exhibit Type (e.g. Cocaine, Heroin)"
+                                            class="gsa-exhibit-type-input w-full px-3.5 py-2.5 bg-white border border-blue-200 rounded-xl text-slate-900 font-mono-code font-bold text-xs outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="gsaDropZone" ondragover="gsaDragOver(event)" ondragleave="gsaDragLeave(event)" ondrop="gsaHandleDrop(event)" class="relative w-full border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:border-blue-400 transition-all overflow-hidden">
+                            <div id="gsaFileGrid" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 p-3"></div>
+                            <div id="gsaFullPrompt" onclick="document.getElementById('gsaReportImageInput').click()" class="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center cursor-pointer group hover:bg-blue-50/60 transition-all">
+                                <div class="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-center group-hover:bg-blue-50 group-hover:border-blue-300 transition-all">
+                                    <svg class="w-6 h-6 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-slate-600 group-hover:text-blue-800">Click to add files or drag &amp; drop</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5 font-mono-code">JPG &middot; PNG &middot; WEBP &middot; PDF &middot; DOCX &middot; CSV &nbsp;|&nbsp; Max 10 MB each</p>
+                                </div>
+                            </div>
+                            <div id="gsaAddMoreStrip" onclick="document.getElementById('gsaReportImageInput').click()" class="hidden items-center justify-center gap-2 py-2.5 px-4 border-t border-dashed border-slate-300 bg-slate-50 hover:bg-blue-50/60 hover:border-blue-400 transition-all cursor-pointer group">
+                                <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span class="text-[11px] font-bold text-slate-500 group-hover:text-blue-800 font-mono-code">Click to add more files or drag &amp; drop</span>
+                            </div>
+                            <input type="file" id="gsaReportImageInput" name="gsa_report_images[]" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,.csv,.docx" multiple class="hidden" onchange="gsaHandleFileSelect(this)">
+                        </div>
+                    </div>
+
+                    <div id="labAnalysisExclusiveSections" class="hidden bg-white p-6 rounded-2xl border border-emerald-200 shadow-sm space-y-6 relative">
                         
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div class="flex items-center space-x-3">
@@ -873,15 +1029,14 @@
                             </div>
                         </div>
 
-                        <!-- EXAMINATION INFORMATION CONTAINER (HIDDEN WHEN RESULT EXISTS FOR ACTIVE SUSPECT/EXHIBIT) -->
-                                                @if($activeSuspectHasSavedResult)
+                        <!-- EXAMINATION INFORMATION CONTAINER -->
+                        @if($activeSuspectHasSavedResult)
                         <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
                             <strong>Note:</strong> The most recently added exhibit already has a saved lab result.
                             Any new submission below will create a NEW examination record for the exhibit you associate here.
                         </div>
                         @endif
 
-                        <!-- Section 4 remains visible ALWAYS in associate mode -->
                         <div id="section5FormContainer" class="space-y-6">
                         <!-- SUB-SECTION 4A: EXAMINATION INFORMATION -->
                         <div class="bg-slate-50/60 p-5 rounded-2xl border border-slate-200 space-y-5">
@@ -890,6 +1045,38 @@
                                     <span class="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">4A</span>
                                     <span>Examination Information</span>
                                 </h4>
+                            </div>
+
+                            <!-- DYNAMIC EXHIBIT SELECTOR CARD FROM SECTION 3 SEIZED COMMODITIES MANIFEST -->
+                            <div class="p-4 bg-emerald-50/70 rounded-xl border border-emerald-200/90 space-y-3 shadow-2xs">
+                                <div class="space-y-2">
+                                    <div>
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 flex items-center justify-between">
+                                            <span class="flex items-center space-x-2">
+                                                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                                </svg>
+                                                <span>Select Seized Exhibit (Manifest Sync)</span>
+                                            </span>
+                                            <span id="labExhibitCountBadge" class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                No exhibit saved yet
+                                            </span>
+                                        </label>
+                                        <select id="labExhibitSelect" name="lab_selected_exhibit_index" onchange="onLabExhibitSelected()" class="hidden"></select>
+                                        <div id="labExhibitCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                                            <div class="p-3 bg-white/80 rounded-xl border border-dashed border-emerald-300 text-center text-xs text-slate-400 italic">
+                                                No exhibits logged in manifest yet.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-[11px] text-emerald-900 font-semibold flex items-center space-x-1">
+                                    <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>Each seized exhibit is synchronized from the manifest. Click an exhibit card to select it for focus or view examination specifics below.</span>
+                                </p>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -2713,7 +2900,7 @@
 
                     <!-- 2. SPECIFIC COMMODITY / EXHIBIT NAME (SMART FIELD) -->
                     <div class="commodity-field-wrapper space-y-1.5">
-                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Primary Commodity Name <span class="text-red-600 font-bold">*</span></label>
+                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">${ACTIVE_UNIT_KEY === 'lab' ? 'Packaging as Received' : 'Primary Commodity Name'} <span class="text-red-600 font-bold">*</span></label>
 
                         <!-- TEXT INPUT (for default/non-smart categories) -->
                         <div class="commodity-text-wrapper space-y-1.5">
@@ -2832,6 +3019,14 @@
 
                     </div>
 
+                    ${ACTIVE_UNIT_KEY === 'lab' ? `
+                    <!-- DESCRIPTION OF CONTENTS -->
+                    <div>
+                        <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Description of Contents</label>
+                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_contents]" placeholder="e.g. White compressed powder / Brown pebbles" oninput="if (typeof syncSection3SeizuresToSection4 === 'function') syncSection3SeizuresToSection4();" class="seizure-contents-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                    </div>
+                    ` : ''}
+
                     <!-- 3. ESTIMATED STREET VALUE -->
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Estimated Street Value ($/GH¢)</label>
@@ -2841,7 +3036,7 @@
                     <!-- 4. SEIZING OFFICER(S) -->
                     <div>
                         <label class="block text-slate-900 font-extrabold text-[11px] uppercase text-black mb-1">Seizing Officer(s) <span class="text-red-600 font-bold">*</span></label>
-                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer]" value="" placeholder="e.g. Kwame Mensah, Ben Attah" required class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                        <input type="text" name="associated_exhibits[${seizureCounter}][seizure_officer]" value="" placeholder="e.g. Kwame Mensah, Ben Attah" ${ACTIVE_UNIT_KEY === 'lab' ? '' : 'required'} class="seizure-officer-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                     </div>
 
                     <!-- 5. SEIZING OFFICER SERVICE / BADGE ID & ASSOCIATED SUSPECT -->
@@ -3156,6 +3351,48 @@
 
                     </div>
                 </div>
+
+                ${ACTIVE_UNIT_KEY === 'lab' ? `
+                <!-- LAB ANALYSIS: CONCEALMENT, DATE, TIME, REASON & CUSTODY FIELDS -->
+                <div class="col-span-full bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="sm:col-span-2">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Concealment &amp; Packaging Notes</label>
+                            <input type="text" name="associated_exhibits[${seizureCounter}][seizure_concealment]" placeholder="e.g. Vacuum foil wrapped in false trunk bottom" class="seizure-concealment-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Date Seized <span class="text-red-600 font-bold">*</span></label>
+                            <input type="date" name="associated_exhibits[${seizureCounter}][seizure_date]" class="seizure-date-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Time Seized</label>
+                            <input type="time" name="associated_exhibits[${seizureCounter}][seizure_time]" class="seizure-time-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="md:col-span-2">
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Reason for Seizure <span class="text-red-600 font-bold">*</span></label>
+                            <textarea name="associated_exhibits[${seizureCounter}][seizure_reason]" rows="2" placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop." class="seizure-reason-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Source of Exhibits <span class="text-red-600 font-bold">*</span></label>
+                            <input type="text" name="associated_exhibits[${seizureCounter}][source_of_exhibits]" placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..." class="seizure-source-of-exhibits-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Investigating Officer</label>
+                            <input type="text" name="associated_exhibits[${seizureCounter}][investigating_officer]" placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199" class="seizure-investigating-officer-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Source/Requesting Unit</label>
+                            <input type="text" name="associated_exhibits[${seizureCounter}][source_requesting_unit]" placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..." class="seizure-source-requesting-unit-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-900 font-extrabold text-[11px] uppercase mb-1">Remarks</label>
+                            <input type="text" name="associated_exhibits[${seizureCounter}][exhibit_remark]" placeholder="e.g. Broken seal, sample retrieved under chain-of-custody..." class="seizure-remark-input w-full px-3 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
 
                 <!-- EXHIBIT VISUAL EVIDENCE MULTI-PHOTO UPLOAD SECTION -->
                 <div class="col-span-full bg-white p-4.5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
@@ -3947,6 +4184,378 @@
             }
 
             updateSampleWeightReserved();
+            if (ACTIVE_UNIT_KEY === 'lab') {
+                syncLabExhibitManifest(seizureBlocks);
+            }
+        }
+
+        function syncLabExhibitManifest(seizureBlocks) {
+            const container = document.getElementById('labExhibitCardsContainer');
+            const selectEl = document.getElementById('labExhibitSelect');
+            const badge = document.getElementById('labExhibitCountBadge');
+            if (!container || !selectEl) return;
+
+            const prevSelected = selectEl.value;
+            const items = [];
+
+            seizureBlocks.forEach((block, idx) => {
+                const category = block.querySelector('.exhibit-search-input')?.value?.trim()
+                              || block.querySelector('.new-seizure-category')?.value?.trim() || 'Drugs';
+                const commodityName = block.querySelector('.new-seizure-name')?.value?.trim()
+                                   || block.querySelector('.drug-search-input')?.value?.trim() || '';
+                const contents = block.querySelector('.seizure-contents-input')?.value?.trim() || '';
+                const quantity = block.querySelector('input[name*="[seizure_quantity]"]')?.value?.trim() || '';
+                const packaging = block.querySelector('.pkg-search-input')?.value?.trim()
+                               || block.querySelector('input[name*="[seizure_packaging]"]')?.value?.trim() || '';
+                const weight = block.querySelector('input[name*="[seizure_weight]"]')?.value?.trim() || '';
+                const unit = block.querySelector('.unit-search-input')?.value?.trim()
+                          || block.querySelector('input[name*="[seizure_unit]"]')?.value?.trim() || '';
+
+                if (commodityName || contents || quantity || weight) {
+                    const labelParts = [commodityName || contents || `Exhibit #${idx + 1}`];
+                    if (quantity || packaging) labelParts.push(`(${[quantity, packaging].filter(Boolean).join(' ')})`);
+                    if (weight || unit) labelParts.push(`[${[weight, unit].filter(Boolean).join(' ')}]`);
+                    items.push({
+                        index: idx,
+                        category,
+                        commodityName,
+                        contents,
+                        quantity,
+                        packaging,
+                        weight,
+                        unit,
+                        label: labelParts.join(' ')
+                    });
+                }
+            });
+
+            if (badge) {
+                badge.textContent = `${items.length} ${items.length === 1 ? 'Exhibit' : 'Exhibits'}`;
+            }
+
+            selectEl.innerHTML = '<option value="">-- Select Seized Exhibit --</option>';
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = String(item.index);
+                opt.textContent = `EXH-${String(item.index + 1).padStart(2, '0')}: ${item.label}`;
+                if (String(item.index) === prevSelected) opt.selected = true;
+                selectEl.appendChild(opt);
+            });
+
+            if (items.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-6 bg-slate-50 border border-dashed border-slate-300 rounded-xl"><p class="text-[11px] font-bold text-slate-400">Add seized exhibits in Section 3 to inspect &amp; select here...</p></div>`;
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <button type="button" onclick="selectLabExhibitCard(${item.index})"
+                    class="text-left p-3 rounded-xl border ${String(item.index) === selectEl.value ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-slate-50/70 hover:border-emerald-400 hover:bg-white'} transition-all cursor-pointer">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[10px] font-mono-code font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">EXH-${String(item.index + 1).padStart(2, '0')}</span>
+                        <span class="text-[10px] font-bold text-slate-500">${item.category}</span>
+                    </div>
+                    <p class="text-xs font-extrabold text-slate-900 truncate">${item.commodityName || 'Unspecified Packaging'}</p>
+                    ${item.contents ? `<p class="text-[11px] text-slate-600 truncate mt-0.5">${item.contents}</p>` : ''}
+                </button>
+            `).join('');
+        }
+
+        function selectLabExhibitCard(idx) {
+            const selectEl = document.getElementById('labExhibitSelect');
+            if (!selectEl) return;
+            selectEl.value = String(idx);
+            onLabExhibitSelected();
+        }
+
+        function onLabExhibitSelected() {
+            const selectEl = document.getElementById('labExhibitSelect');
+            if (!selectEl) return;
+            const idx = parseInt(selectEl.value, 10);
+            const blocks = document.querySelectorAll('#seizuresListContainer .seizure-block');
+            if (isNaN(idx) || !blocks[idx]) return;
+
+            const block = blocks[idx];
+            const commodityName = block.querySelector('.new-seizure-name')?.value?.trim()
+                               || block.querySelector('.drug-search-input')?.value?.trim() || '';
+            const contents = block.querySelector('.seizure-contents-input')?.value?.trim() || '';
+            const quantity = block.querySelector('input[name*="[seizure_quantity]"]')?.value?.trim() || '';
+            const packaging = block.querySelector('.pkg-search-input')?.value?.trim()
+                           || block.querySelector('input[name*="[seizure_packaging]"]')?.value?.trim() || '';
+            const weight = block.querySelector('input[name*="[seizure_weight]"]')?.value?.trim() || '';
+            const unit = block.querySelector('.unit-search-input')?.value?.trim()
+                      || block.querySelector('input[name*="[seizure_unit]"]')?.value?.trim() || '';
+
+            const descInput = document.getElementById('labExhibitDescriptionInput');
+            if (descInput) {
+                descInput.value = [commodityName, contents].filter(Boolean).join(' — ');
+            }
+            const sampleDesc = document.getElementById('sampleWeightDescription');
+            if (sampleDesc) sampleDesc.value = commodityName || contents || 'Drug Manifest Exhibit';
+            const sampleUnits = document.getElementById('sampleWeightUnits');
+            if (sampleUnits && (quantity || packaging)) sampleUnits.value = `${quantity} ${packaging}`.trim();
+            const sampleGross = document.getElementById('sampleWeightGross');
+            if (sampleGross && (weight || unit)) sampleGross.value = `${weight} ${unit}`.trim();
+            const unitAddon = document.getElementById('sampleWeightTakenUnitAddon');
+            if (unitAddon && unit) unitAddon.innerText = unit;
+
+            syncLabExhibitManifest(blocks);
+        }
+
+        window.activeLabWorkflowMode = null;
+
+        function switchToGsaUploadSection() {
+            window.activeLabWorkflowMode = 'gsa';
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('labAnalysisExclusiveSections');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (gsaSec) {
+                gsaSec.classList.remove('hidden', 'opacity-60', 'pointer-events-none', 'select-none');
+                gsaSec.removeAttribute('aria-disabled');
+                gsaSec.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    if (el.getAttribute('data-nlr-disabled') === 'true') {
+                        el.disabled = false;
+                        el.removeAttribute('data-nlr-disabled');
+                    }
+                });
+            }
+            if (nlrSec) {
+                nlrSec.classList.add('hidden', 'opacity-60', 'pointer-events-none', 'select-none');
+                nlrSec.setAttribute('aria-disabled', 'true');
+                nlrSec.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    if (!el.disabled) {
+                        el.setAttribute('data-gsa-disabled', 'true');
+                        el.disabled = true;
+                    }
+                });
+            }
+            if (gsaBtn) {
+                gsaBtn.disabled = false;
+                gsaBtn.removeAttribute('aria-disabled');
+                gsaBtn.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+                gsaBtn.classList.add('ring-2', 'ring-blue-400');
+            }
+            if (nlrBtn) {
+                nlrBtn.disabled = true;
+                nlrBtn.setAttribute('aria-disabled', 'true');
+                nlrBtn.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+                nlrBtn.classList.remove('ring-2', 'ring-emerald-400');
+            }
+
+            const modeInput = document.getElementById('labWorkflowModeInput');
+            if (modeInput) modeInput.value = 'gsa';
+            if (gsaSec) gsaSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function switchToNlrExamSection() {
+            window.activeLabWorkflowMode = 'nlr';
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('labAnalysisExclusiveSections');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (nlrSec) {
+                nlrSec.classList.remove('hidden', 'opacity-60', 'pointer-events-none', 'select-none');
+                nlrSec.removeAttribute('aria-disabled');
+                nlrSec.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    if (el.getAttribute('data-gsa-disabled') === 'true') {
+                        el.disabled = false;
+                        el.removeAttribute('data-gsa-disabled');
+                    }
+                });
+            }
+            if (gsaSec) {
+                gsaSec.classList.add('hidden', 'opacity-60', 'pointer-events-none', 'select-none');
+                gsaSec.setAttribute('aria-disabled', 'true');
+                gsaSec.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    if (!el.disabled) {
+                        el.setAttribute('data-nlr-disabled', 'true');
+                        el.disabled = true;
+                    }
+                });
+            }
+            if (nlrBtn) {
+                nlrBtn.disabled = false;
+                nlrBtn.removeAttribute('aria-disabled');
+                nlrBtn.classList.remove('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+                nlrBtn.classList.add('ring-2', 'ring-emerald-400');
+            }
+            if (gsaBtn) {
+                gsaBtn.disabled = true;
+                gsaBtn.setAttribute('aria-disabled', 'true');
+                gsaBtn.classList.add('opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+                gsaBtn.classList.remove('ring-2', 'ring-blue-400');
+            }
+
+            const modeInput = document.getElementById('labWorkflowModeInput');
+            if (modeInput) modeInput.value = 'nlr';
+            if (nlrSec) nlrSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function resetLabModulesToNeutral() {
+            window.activeLabWorkflowMode = null;
+            const gsaSec = document.getElementById('gsaUploadSection');
+            const nlrSec = document.getElementById('labAnalysisExclusiveSections');
+            const gsaBtn = document.getElementById('toggleGsaReportBtn');
+            const nlrBtn = document.getElementById('toggleNlrReportBtn');
+
+            if (gsaSec) {
+                gsaSec.classList.add('hidden');
+                gsaSec.classList.remove('opacity-60', 'pointer-events-none', 'select-none');
+                gsaSec.removeAttribute('aria-disabled');
+                gsaSec.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    if (!el.disabled) {
+                        el.setAttribute('data-nlr-disabled', 'true');
+                        el.disabled = true;
+                    }
+                });
+            }
+            if (nlrSec) {
+                nlrSec.classList.add('hidden');
+                nlrSec.classList.remove('opacity-60', 'pointer-events-none', 'select-none');
+                nlrSec.removeAttribute('aria-disabled');
+                nlrSec.querySelectorAll('input, select, textarea, button').forEach(el => {
+                    if (!el.disabled) {
+                        el.setAttribute('data-gsa-disabled', 'true');
+                        el.disabled = true;
+                    }
+                });
+            }
+            if (gsaBtn) {
+                gsaBtn.classList.remove('ring-2', 'ring-blue-400', 'opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+                gsaBtn.disabled = false;
+                gsaBtn.removeAttribute('aria-disabled');
+            }
+            if (nlrBtn) {
+                nlrBtn.classList.remove('ring-2', 'ring-emerald-400', 'opacity-40', 'cursor-not-allowed', 'pointer-events-none');
+                nlrBtn.disabled = false;
+                nlrBtn.removeAttribute('aria-disabled');
+            }
+            const modeInput = document.getElementById('labWorkflowModeInput');
+            if (modeInput) modeInput.value = '';
+        }
+
+        let gsaFilesMap = {};
+        let gsaFileIdCounter = 0;
+
+        function gsaDragOver(e) {
+            e.preventDefault();
+            const zone = document.getElementById('gsaDropZone');
+            if (zone) {
+                zone.classList.add('border-blue-500', 'bg-blue-50/80');
+                zone.classList.remove('border-slate-300', 'bg-slate-50');
+            }
+        }
+
+        function gsaDragLeave(e) {
+            const zone = document.getElementById('gsaDropZone');
+            if (zone) {
+                zone.classList.remove('border-blue-500', 'bg-blue-50/80');
+                zone.classList.add('border-slate-300', 'bg-slate-50');
+            }
+        }
+
+        function gsaHandleDrop(e) {
+            e.preventDefault();
+            gsaDragLeave(e);
+            Array.from(e.dataTransfer.files).forEach(f => gsaAddFile(f));
+        }
+
+        function gsaHandleFileSelect(input) {
+            Array.from(input.files).forEach(f => gsaAddFile(f));
+            syncGsaInputFiles();
+        }
+
+        function syncGsaInputFiles() {
+            const input = document.getElementById('gsaReportImageInput');
+            if (!input) return;
+            const dt = new DataTransfer();
+            Object.values(gsaFilesMap).forEach(entry => {
+                if (entry && entry.file) dt.items.add(entry.file);
+            });
+            input.files = dt.files;
+        }
+
+        function gsaAddFile(file) {
+            const maxMB = 10;
+            if (file.size > maxMB * 1024 * 1024) {
+                alert('"' + file.name + '" exceeds ' + maxMB + ' MB limit and was skipped.');
+                return;
+            }
+            const id = 'gsa_' + (++gsaFileIdCounter);
+            const ext = file.name.split('.').pop().toLowerCase();
+            gsaFilesMap[id] = { file };
+
+            const grid = document.getElementById('gsaFileGrid');
+            if (grid) {
+                const card = document.createElement('div');
+                card.id = 'gsaCard_' + id;
+                card.className = 'relative bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group/card';
+                card.innerHTML = gsaBuildCardInner(id, file.name, file.size, ext);
+                grid.appendChild(card);
+
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const thumbWrapper = document.getElementById('gsaThumb_' + id);
+                        if (thumbWrapper) {
+                            thumbWrapper.innerHTML = '<img src="' + ev.target.result + '" class="w-full h-24 object-cover" alt="preview">';
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+            syncGsaInputFiles();
+        }
+
+        function gsaRemoveFile(id) {
+            delete gsaFilesMap[id];
+            const card = document.getElementById('gsaCard_' + id);
+            if (card) card.remove();
+            syncGsaInputFiles();
+        }
+
+        function clearAllGsaFiles() {
+            gsaFilesMap = {};
+            const grid = document.getElementById('gsaFileGrid');
+            if (grid) grid.innerHTML = '';
+            syncGsaInputFiles();
+        }
+
+        function gsaBuildCardInner(id, name, bytes, ext) {
+            const kb = bytes < 1048576 ? Math.round(bytes / 1024) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
+            return `
+                <div id="gsaThumb_${id}" class="h-24 bg-slate-100 flex items-center justify-center text-xs font-mono-code font-bold text-slate-600 uppercase">.${ext}</div>
+                <div class="p-2 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-bold text-slate-800 truncate">${name}</p>
+                        <p class="text-[10px] text-slate-400">${kb}</p>
+                    </div>
+                    <button type="button" onclick="gsaRemoveFile('${id}')" class="text-red-500 hover:text-red-700 text-xs font-bold px-1.5 py-0.5 rounded bg-red-50 cursor-pointer">×</button>
+                </div>
+            `;
+        }
+
+        function addGsaExhibitTypeInput() {
+            const container = document.getElementById('gsaExhibitTypesContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 gsa-exhibit-type-row';
+            row.innerHTML = `
+                <input type="text" name="exhibit_type[]" placeholder="e.g. Cocaine / Cannabis / Heroin"
+                    class="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                <button type="button" onclick="removeGsaExhibitTypeInput(this)" title="Remove exhibit type"
+                    class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-all cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        function removeGsaExhibitTypeInput(btn) {
+            const row = btn.closest('.gsa-exhibit-type-row');
+            if (row) row.remove();
         }
 
         function syncAssociateIdFromSelect(selectEl) {
@@ -4027,6 +4636,9 @@
             }
 
             syncSection3SeizuresToSection4();
+            if (ACTIVE_UNIT_KEY === 'lab') {
+                resetLabModulesToNeutral();
+            }
             setTimeout(syncSuspectNamesToExhibits, 100);
         });
         /**

@@ -30,7 +30,7 @@
         };
     </script>
     <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="{{ asset('vendor/lucide.min.js') }}"></script>
 
     <script>
         tailwind.config = {
@@ -204,7 +204,7 @@
                 <div class="text-xs uppercase tracking-widest font-extrabold text-slate-600">Republic of Ghana • Narcotics Control Commission</div>
                 <h1 class="text-lg font-black text-slate-900 font-mono-code uppercase mt-1">Evidence Management Unit • Exhibits Master Audit Report</h1>
                 <div class="text-[11px] text-slate-600 mt-1 font-mono-code">
-                    Generated: {{ now()->format('d M Y, H:i') }} | Officer: {{ $authUser ? $authUser->name : 'System Generated' }} | Total Ledger Records: {{ $totalExhibitsCount }}
+                    Generated: {{ now()->format('d M Y, H:i') }} | Officer: {{ $authUser ? ($authUser->fullname ?? $authUser->name ?? 'System Generated') : 'System Generated' }} | Total Ledger Records: {{ $totalExhibitsCount }}
                 </div>
             </div>
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\StaffAccount;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,12 +30,12 @@ class AuthController extends Controller
         }
 
         return match ($resolvedUnit) {
-            \App\Enums\ForensicUnit::CRIME_SCENE_SUPPORT        => $user->is_head ? '/Crime_Scene_Support/head' : '/Crime_Scene_Support/staff',
-            \App\Enums\ForensicUnit::LAB_ANALYSIS                => '/Lab_Analysis/create',
-            \App\Enums\ForensicUnit::EVIDENCE_MANAGEMENT         => '/cases?unit=Evidence+Management',
-            \App\Enums\ForensicUnit::DIGITAL_PHYSICAL_FORENSICS  => '/cases?unit=Digital+%26+Physical+Forensics',
-            \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE        => '/Forensic_Head',
-            default                                              => $user->is_head ? '/Crime_Scene_Support/head' : '/cases',
+            \App\Enums\ForensicUnit::CRIME_SCENE_SUPPORT        => $user->is_head ? '/Crime_Scene_Support/head' : '/Crime_Scene_Support/staff/dashboard',
+            \App\Enums\ForensicUnit::LAB_ANALYSIS                => $user->is_head ? '/Lab_Analysis' : '/Lab_Analysis/staff/dashboard',
+            \App\Enums\ForensicUnit::EVIDENCE_MANAGEMENT         => $user->is_head ? '/Evidence_Management' : '/Evidence_Management/staff/dashboard',
+            \App\Enums\ForensicUnit::DIGITAL_PHYSICAL_FORENSICS  => $user->is_head ? '/Digital_Forensics' : '/Digital_Forensics/staff/dashboard',
+            \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE        => $user->is_head ? '/Forensic_Head' : '/Forensic_Head/staff/dashboard',
+            default                                              => $user->is_head ? '/Crime_Scene_Support/head' : '/Crime_Scene_Support/staff/dashboard',
         };
     }
 
@@ -62,33 +63,52 @@ class AuthController extends Controller
         $loginId = trim($credentials['login_id']);
         $password = $credentials['password'];
 
-        // Case-insensitive lookup by service_id, username, or email
+        // Case-insensitive lookup by service_id, username, or email (heads in users, staff in staff_accounts)
         $user = User::whereRaw('LOWER(service_id) = ?', [strtolower($loginId)])
             ->orWhereRaw('LOWER(username) = ?', [strtolower($loginId)])
             ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
             ->first();
+
+        if (!$user) {
+            $user = StaffAccount::whereRaw('LOWER(service_id) = ?', [strtolower($loginId)])
+                ->orWhereRaw('LOWER(username) = ?', [strtolower($loginId)])
+                ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
+                ->first();
+        }
 
         $isJsonReq = $request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json');
 
         if ($user && Hash::check($password, $user->password)) {
             // Block login if user account is unapproved (pending Head of Unit approval) or deactivated
             if (isset($user->is_approved) && !$user->is_approved) {
-                $blockedMessage = ($user->is_staff && !$user->is_head)
+                $isPendingStaff = (bool) ($user->is_staff && !$user->is_head);
+                $blockedMessage = $isPendingStaff
                     ? 'Pending Approval: Your staff account must be approved by your Head of Unit before you can sign in.'
                     : 'Account Deactivated: Your account access has been suspended. Please contact the administrator.';
+                $pendingLoginId = $isPendingStaff ? ($user->service_id ?: $user->username) : null;
 
                 if ($isJsonReq) {
                     return response()->json([
                         'success' => false,
                         'message' => $blockedMessage,
+                        'pending_approval' => $isPendingStaff,
+                        'login_id' => $pendingLoginId,
                     ], 403);
                 }
-                return back()->withErrors([
+
+                $redirect = back()->withErrors([
                     'login_id' => $blockedMessage,
                 ])->onlyInput('login_id');
+
+                return $pendingLoginId
+                    ? $redirect->with('pending_login_id', $pendingLoginId)
+                    : $redirect;
             }
 
             Auth::login($user, $request->has('remember'));
+            if ($user instanceof StaffAccount) {
+                $user->markOnline();
+            }
             $request->session()->regenerate();
 
             $redirectUrl = self::getDashboardUrl($user);
@@ -112,17 +132,10 @@ class AuthController extends Controller
                 ], 200);
             }
 
-            // Clean up intended URL if it points back to login / root / register page to prevent redirect loops
-            $intended = session()->get('url.intended');
-            if ($intended) {
-                $intendedPath = parse_url($intended, PHP_URL_PATH) ?? $intended;
-                $cleanedPath = rtrim($intendedPath, '/');
-                if (in_array($cleanedPath, ['', '/login', '/register', '/api/login', '/api/logout'])) {
-                    session()->forget('url.intended');
-                }
-            }
+            // Always redirect to the user's dashboard first on login
+            session()->forget('url.intended');
 
-            return redirect()->intended($redirectUrl)->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate.');
+            return redirect($redirectUrl)->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate.');
         }
 
         if ($isJsonReq) {
@@ -159,7 +172,14 @@ class AuthController extends Controller
             }
         }
         $units = Unit::all();
-        $registeredHeads = User::where('is_head', true)->pluck('fullname', 'unit')->toArray();
+        $allHeads = User::where('is_head', true)->get();
+        $registeredHeads = $allHeads->pluck('fullname', 'unit')->toArray();
+        foreach ($units as $unitModel) {
+            $matchedHead = $this->findExistingUnitHeadFromCollection($allHeads, $unitModel->name);
+            if ($matchedHead) {
+                $registeredHeads[$unitModel->name] = $matchedHead->fullname;
+            }
+        }
 
         // Check if Head of Forensic has registered
         $forensicHead = User::where('is_head', true)
@@ -218,7 +238,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'fullname' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
-            'service_id' => ['required', 'string', 'regex:' . config('forensics.service_id.regex', '/^(SD|JD|SVC)-[0-9]{3,}$/i'), 'unique:users,service_id'],
+            'service_id' => ['required', 'string', 'regex:' . config('forensics.service_id.regex', '/^(SD|JD|SVC)-[0-9]{3,}$/i'), 'unique:users,service_id', 'unique:staff_accounts,service_id'],
             'phone_number' => ['required', 'string', 'regex:' . config('forensics.service_id.phone_regex', '/^[0-9]{10}$/')],
             'unit' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
@@ -265,6 +285,20 @@ class AuthController extends Controller
             }
         }
         $isHead = !$isStaff;
+
+        if ($forensicHeadExists && $isHead) {
+            $existingUnitHead = $this->findExistingUnitHeadFromCollection(
+                User::where('is_head', true)->get(),
+                $validated['unit']
+            );
+            if ($existingUnitHead) {
+                $resolvedUnitLabel = \App\Enums\ForensicUnit::resolve($validated['unit'])?->value ?? $validated['unit'];
+                throw ValidationException::withMessages([
+                    'unit' => "A Head of Unit ({$existingUnitHead->fullname}) is already registered for {$resolvedUnitLabel}. Only one unit head account is allowed per unit.",
+                ]);
+            }
+        }
+
         // Staff officers require approval from their Head of Unit before they can log in
         $isApproved = $isHead;
 
@@ -273,26 +307,45 @@ class AuthController extends Controller
 
         if (filter_var($inputUsername, FILTER_VALIDATE_EMAIL) || str_contains($inputUsername, '@')) {
             $userEmail = strtolower($inputUsername);
-            if (User::where('email', $userEmail)->exists()) {
+            if (User::where('email', $userEmail)->exists() || StaffAccount::where('email', $userEmail)->exists()) {
                 throw ValidationException::withMessages([
                     'username' => 'The email address has already been registered.',
                 ]);
             }
         }
 
-        // Create officer user in database
-        $user = User::create([
-            'fullname' => $validated['fullname'],
-            'username' => $inputUsername,
-            'email' => $userEmail,
-            'service_id' => $validated['service_id'],
-            'phone_number' => $validated['phone_number'],
-            'is_staff' => $isStaff,
-            'is_head' => $isHead,
-            'is_approved' => $isApproved,
-            'unit' => $validated['unit'],
-            'password' => Hash::make($validated['password']),
-        ]);
+        if (StaffAccount::whereRaw('LOWER(username) = ?', [strtolower($inputUsername)])->exists()) {
+            throw ValidationException::withMessages([
+                'username' => 'The username has already been taken.',
+            ]);
+        }
+
+        // Store staff member accounts strictly in staff_accounts; store heads in users
+        if ($isStaff) {
+            $user = StaffAccount::create([
+                'fullname' => $validated['fullname'],
+                'username' => $inputUsername,
+                'email' => $userEmail,
+                'service_id' => $validated['service_id'],
+                'phone_number' => $validated['phone_number'],
+                'is_approved' => $isApproved,
+                'unit' => $validated['unit'],
+                'password' => Hash::make($validated['password']),
+            ]);
+        } else {
+            $user = User::create([
+                'fullname' => $validated['fullname'],
+                'username' => $inputUsername,
+                'email' => $userEmail,
+                'service_id' => $validated['service_id'],
+                'phone_number' => $validated['phone_number'],
+                'is_staff' => false,
+                'is_head' => true,
+                'is_approved' => $isApproved,
+                'unit' => $validated['unit'],
+                'password' => Hash::make($validated['password']),
+            ]);
+        }
 
         if (!$forensicHeadExists) {
             $statusMsg = 'Head of Forensic registration successful! Directorate command established. Unit Heads and Staff may now sign up.';
@@ -302,7 +355,12 @@ class AuthController extends Controller
             $statusMsg = 'Registration successful! Please sign in with your Service ID or Username.';
         }
 
-        return redirect('/login')->with('status', $statusMsg);
+        $redirect = redirect('/login')->with('status', $statusMsg);
+        if ($isStaff && !$isApproved) {
+            $redirect->with('pending_login_id', $user->service_id ?: $user->username);
+        }
+
+        return $redirect;
     }
 
     /**
@@ -310,6 +368,10 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        $currentUser = Auth::user();
+        if ($currentUser instanceof StaffAccount) {
+            $currentUser->markOffline();
+        }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
@@ -322,5 +384,26 @@ class AuthController extends Controller
         }
 
         return redirect('/login')->with('status', 'Officer logged out successfully.');
+    }
+
+    /**
+     * Find an existing Head of Unit account matching the given unit name or alias.
+     */
+    private function findExistingUnitHeadFromCollection($heads, string $unitName): ?User
+    {
+        $targetUnit = \App\Enums\ForensicUnit::resolve($unitName);
+        $normalizedName = strtolower(trim($unitName));
+
+        foreach ($heads as $head) {
+            if ($targetUnit !== null) {
+                if (\App\Enums\ForensicUnit::resolve($head->unit) === $targetUnit) {
+                    return $head;
+                }
+            } elseif (strtolower(trim((string) $head->unit)) === $normalizedName) {
+                return $head;
+            }
+        }
+
+        return null;
     }
 }

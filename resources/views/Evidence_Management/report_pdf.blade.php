@@ -26,7 +26,13 @@
     $moneyCount = $moneyList->count();
 
     // Signatories
-    $evidenceOfficerName = $dbEvidenceHead ? $dbEvidenceHead->fullname : ($authUser ? $authUser->fullname : 'N/A');
+    $isStaffGenerator = $authUser && !$authUser->is_head;
+    $authOfficerName = trim((string)($authUser?->fullname ?? ($authUser?->name ?? ''))) ?: 'N/A';
+    $evidenceOfficerName = $isStaffGenerator ? $authOfficerName : ($dbEvidenceHead ? $dbEvidenceHead->fullname : $authOfficerName);
+    $evidenceAuthorityLabel = $isStaffGenerator ? 'PREPARED BY:' : 'VALIDATION AUTHORITY:';
+    $evidenceSignatoryHeading = $isStaffGenerator ? 'PREPARED BY (STAFF OFFICER)' : 'HEAD OF EVIDENCE MANAGEMENT UNIT';
+    $evidenceSignatoryRole = $isStaffGenerator ? 'Staff Officer, Evidence Management Unit' : 'Head of Evidence Management Unit';
+    $evidenceSignatorySig = $isStaffGenerator ? ($authUser?->signature ?? null) : ($dbEvidenceHead?->signature ?? null);
     $deptHeadName = $dbDeptHead ? $dbDeptHead->fullname : 'N/A';
     $intelDirectorName = 'Name: ____________________';
     $reportGeneratedDate = now()->format('d F Y');
@@ -1189,9 +1195,9 @@
                             <span class="block text-slate-600 text-[9px]">NACOC Headquarters, Accra</span>
                         </div>
                         <div class="text-right text-[10px] font-mono-code">
-                            <span class="text-slate-500 uppercase tracking-wider block text-[9px] font-bold">VALIDATION AUTHORITY:</span>
+                            <span class="text-slate-500 uppercase tracking-wider block text-[9px] font-bold">{{ $evidenceAuthorityLabel }}</span>
                             <span class="font-bold text-slate-800">{{ $evidenceOfficerName }}</span>
-                            <span class="block text-slate-600 text-[9px]">Head of Evidence Management Unit</span>
+                            <span class="block text-slate-600 text-[9px]">{{ $evidenceSignatoryRole }}</span>
                         </div>
                     </div>
 
@@ -1706,21 +1712,21 @@
                 @if (!empty($p['signatures']))
                 <div class="section-signatures avoid-break shrink-0 w-full mt-auto pt-2 pb-1.5 border-t-2 border-slate-300">
                     <div class="grid grid-cols-3 gap-6">
-                        <!-- LEFT: HEAD OF EVIDENCE MANAGEMENT UNIT -->
+                        <!-- LEFT: STAFF OFFICER OR HEAD OF EVIDENCE MANAGEMENT UNIT -->
                         <div class="flex flex-col">
-                            <p class="text-[9.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">HEAD OF EVIDENCE MANAGEMENT UNIT</p>
+                            <p class="text-[9.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">{{ $evidenceSignatoryHeading }}</p>
                             
                             <!-- Space for in-person physical signature -->
                             <div class="h-10 flex items-center">
-                                @if(!empty($dbEvidenceHead?->signature))
-                                    <img src="{{ $dbEvidenceHead->signature }}" alt="Signature" class="max-h-8 object-contain" onerror="this.style.display='none'">
+                                @if(!empty($evidenceSignatorySig))
+                                    <img src="{{ $evidenceSignatorySig }}" alt="Signature" class="max-h-8 object-contain" onerror="this.style.display='none'">
                                 @endif
                             </div>
 
                             <div class="border-b border-slate-700 pb-0.5"></div>
                             <div class="mt-1">
                                 <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight truncate">{{ $evidenceOfficerName }}</p>
-                                <p class="text-[9px] text-slate-700 leading-tight">Head of Evidence Management Unit, NACOC</p>
+                                <p class="text-[9px] text-slate-700 leading-tight">{{ $evidenceSignatoryRole }}, NACOC</p>
                                 <p class="text-[9px] text-slate-600 font-mono-code pt-0.5">Date: <span class="font-bold text-slate-800">{{ $reportGeneratedDate }}</span></p>
                             </div>
                         </div>

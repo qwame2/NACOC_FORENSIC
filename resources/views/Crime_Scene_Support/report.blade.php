@@ -29,7 +29,7 @@
         };
     </script>
     <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="{{ asset('vendor/lucide.min.js') }}"></script>
     <script src="{{ asset('js/ajax-table.js') }}"></script>
 
     <script>

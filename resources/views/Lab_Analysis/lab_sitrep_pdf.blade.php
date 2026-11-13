@@ -873,10 +873,17 @@
                             <span class="font-bold text-slate-800">Laboratory Analysis Unit (LAU)</span>
                             <span class="block text-slate-600 text-[8px]">NACOC National Headquarters, Accra</span>
                         </div>
+                        @php
+                            $isLabStaffGenerator = $authUser && !$authUser->is_head;
+                            $labAuthorityLabel = $isLabStaffGenerator ? 'Prepared By:' : 'Validation Authority:';
+                            $labSignatoryName = $isLabStaffGenerator ? (trim((string)($authUser->fullname ?? ($authUser->name ?? ''))) ?: $labHeadName) : $labHeadName;
+                            $labSignatoryRole = $isLabStaffGenerator ? 'Staff Officer, Laboratory Analysis Unit' : 'Head of Laboratory Analysis Unit';
+                            $labSignatoryHeading = $isLabStaffGenerator ? 'Prepared By (Staff Officer)' : 'Head of Laboratory Analysis Unit';
+                        @endphp
                         <div class="text-right text-[9px] font-mono-code">
-                            <span class="text-slate-500 uppercase tracking-wider block text-[8px] font-bold">Validation Authority:</span>
-                            <span class="font-bold text-slate-800">{{ $labHeadName }}</span>
-                            <span class="block text-slate-600 text-[8px]">Head of Laboratory Analysis Unit</span>
+                            <span class="text-slate-500 uppercase tracking-wider block text-[8px] font-bold">{{ $labAuthorityLabel }}</span>
+                            <span class="font-bold text-slate-800">{{ $labSignatoryName }}</span>
+                            <span class="block text-slate-600 text-[8px]">{{ $labSignatoryRole }}</span>
                         </div>
                     </div>
 
@@ -1277,17 +1284,17 @@
                      ======================================================== -->
                 <div class="section-signatures avoid-break shrink-0 w-full mt-auto pt-2 pb-1.5 border-t-2 border-slate-300">
                     <div class="grid grid-cols-3 gap-6">
-                        <!-- LEFT: HEAD OF LABORATORY ANALYSIS -->
+                        <!-- LEFT: STAFF OFFICER OR HEAD OF LABORATORY ANALYSIS -->
                         <div class="flex flex-col">
-                            <p class="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">Head of Laboratory Analysis Unit</p>
+                            <p class="text-[8.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">{{ $labSignatoryHeading }}</p>
                             
                             <!-- Space for in-person physical signature -->
                             <div class="h-10"></div>
 
                             <div class="border-b border-slate-700 pb-0.5"></div>
                             <div class="mt-1">
-                                <p class="text-[10px] font-extrabold text-slate-900 leading-tight truncate">{{ $labHeadName }}</p>
-                                <p class="text-[8px] text-slate-700 leading-tight">Head of Laboratory Analysis Unit, NACOC</p>
+                                <p class="text-[10px] font-extrabold text-slate-900 leading-tight truncate">{{ $labSignatoryName }}</p>
+                                <p class="text-[8px] text-slate-700 leading-tight">{{ $labSignatoryRole }}, NACOC</p>
                                 <p class="text-[8px] text-slate-600 font-mono-code pt-0.5">Date: <span class="font-bold text-slate-800">{{ $reportGeneratedDate }}</span></p>
                             </div>
                         </div>

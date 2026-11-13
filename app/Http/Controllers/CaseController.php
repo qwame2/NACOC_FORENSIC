@@ -66,6 +66,51 @@ class CaseController extends Controller
                 : redirect('/Forensic_Head/cases')->with('error', 'Directorate Head is not permitted to create cases.');
         }
 
+        $authUser = auth()->user();
+        if ($authUser && !$authUser->is_head && !$request->boolean('approved_by_head')) {
+            $rawInput = $request->except(['_token']);
+            if ($request->hasFile('search_warrant_document')) {
+                $warrantFile = $request->file('search_warrant_document');
+                if ($warrantFile && $warrantFile->isValid()) {
+                    $rawInput['search_warrant_document_path'] = $warrantFile->store('search_warrants', 'public');
+                }
+            }
+
+            $payload = array_filter($rawInput, fn ($val) => !($val instanceof \Illuminate\Http\UploadedFile));
+            $unitName = trim((string) ($authUser->unit ?: $request->input('unit_name') ?: $request->input('unit') ?: 'Crime Scene Support'));
+            $suspectName = trim((string) ($request->input('suspect_name') ?: $request->input('full_name') ?: $request->input('title') ?: 'Pending Suspect'));
+            $title = trim((string) ($request->input('title') ?: $request->input('offense_type') ?: $request->input('operation_type') ?: 'Staff Case Submission'));
+            $priority = strtoupper(trim((string) ($request->input('priority') ?: 'MEDIUM')));
+
+            $submission = \App\Models\StaffCaseSubmission::create([
+                'submitted_by' => $authUser->id,
+                'submitted_by_name' => $authUser->fullname ?? $authUser->name ?? 'Staff Officer',
+                'unit_name' => $unitName,
+                'case_number_preview' => $request->input('case_number') ?: null,
+                'title' => $title,
+                'suspect_name' => $suspectName,
+                'priority' => $priority,
+                'status' => 'Pending Approval',
+                'payload' => $payload,
+            ]);
+
+            $msg = "Case submitted for Unit Head review and approval before saving to database (Submission #{$submission->id}).";
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'pending_approval' => true,
+                    'submission_id' => $submission->id,
+                    'message' => $msg,
+                    'case' => [
+                        'id' => $submission->id,
+                        'case_number' => 'PENDING-' . $submission->id,
+                    ],
+                ], 201);
+            }
+
+            return back()->with('status', $msg);
+        }
+
         try {
             $result = app(CaseDocketService::class)->storeCase($request);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -173,6 +218,9 @@ class CaseController extends Controller
         }
         if (str_contains($unitLower, 'evidence')) {
             return view('Evidence_Management.associate', compact('case'));
+        }
+        if (str_contains($unitLower, 'directorate') || str_contains($unitLower, 'head') || !empty($user?->is_head)) {
+            return view('Forensic_Head.associate', compact('case'));
         }
 
         return view('cases.associate', compact('case'));
@@ -309,6 +357,67 @@ class CaseController extends Controller
             ->resolveLegacyRedirectRoute($case, request(), auth()->user());
 
         return redirect()->route($targetRoute, array_merge(['id' => $id], request()->query()));
+    }
+
+    /**
+     * Display dedicated staff officer case review page keeping the standalone staff sidebar.
+     */
+    public function staffReview(Request $request, $id, \App\Services\CaseShowReviewPresenter $presenter)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            abort(404, "Case {$id} not found.");
+        }
+
+        $this->repairExhibitAssociations($case);
+
+        $from = strtolower((string) ($request->query('from') ?? ''));
+        if ($request->is('Lab_Analysis*') || str_contains($from, 'lab')) {
+            $sidebarUnit = 'Lab Analysis';
+        } elseif ($request->is('Digital_Forensics*') || str_contains($from, 'digital') || str_contains($from, 'physical')) {
+            $sidebarUnit = 'Digital Forensics';
+        } elseif ($request->is('Evidence_Management*') || str_contains($from, 'evidence')) {
+            $sidebarUnit = 'Evidence Management';
+        } elseif ($request->is('Forensic_Head*') || str_contains($from, 'directorate') || str_contains($from, 'head')) {
+            $sidebarUnit = 'Forensic Directorate';
+        } elseif ($request->is('Crime_Scene_Support*') || str_contains($from, 'crime')) {
+            $sidebarUnit = 'Crime Scene Support';
+        } else {
+            $userUnit = strtolower((string) (auth()->user()->unit ?? ''));
+            if (str_contains($userUnit, 'lab')) {
+                $sidebarUnit = 'Lab Analysis';
+            } elseif (str_contains($userUnit, 'digital') || str_contains($userUnit, 'physical')) {
+                $sidebarUnit = 'Digital Forensics';
+            } elseif (str_contains($userUnit, 'evidence')) {
+                $sidebarUnit = 'Evidence Management';
+            } elseif (str_contains($userUnit, 'directorate') || str_contains($userUnit, 'head')) {
+                $sidebarUnit = 'Forensic Directorate';
+            } else {
+                $sidebarUnit = 'Crime Scene Support';
+            }
+        }
+
+        $unitCode = match ($sidebarUnit) {
+            'Lab Analysis'         => 'lab',
+            'Digital Forensics'    => 'dpf',
+            'Evidence Management'  => 'em',
+            'Forensic Directorate' => 'hof',
+            default                => 'css',
+        };
+
+        $viewName = match ($sidebarUnit) {
+            'Lab Analysis'         => 'Lab_Analysis.staff.review',
+            'Digital Forensics'    => 'Digital_Forensics.staff.review',
+            'Evidence Management'  => 'Evidence_Management.staff.review',
+            'Forensic Directorate' => 'Forensic_Head.staff.review',
+            default                => 'Crime_Scene_Support.staff.review',
+        };
+
+        $gsaReports = SuspectGsaReport::forCase($case->case_number ?: $id, $case->id);
+        $nlrReports = SuspectNlrReport::forCase($case->case_number ?: $id, $case->id);
+        $presenter = $presenter->presentForUnit($case, $unitCode, $request, $request->user());
+
+        return view($viewName, compact('case', 'gsaReports', 'nlrReports', 'presenter', 'sidebarUnit'));
     }
 
     /**

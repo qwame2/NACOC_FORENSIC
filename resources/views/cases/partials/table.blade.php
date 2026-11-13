@@ -350,7 +350,7 @@
                                                             </svg>
                                                         </div>
                                                         <div>
-                                                            <div class="font-extrabold leading-tight">Associate Data
+                                                            <div class="font-extrabold leading-tight">Add Associate
                                                             </div>
                                                             <div class="text-[10px] text-slate-400 font-normal mt-0.5">
                                                                 Link accomplices &amp; exhibits</div>
@@ -369,7 +369,7 @@
                                                             </svg>
                                                         </div>
                                                         <div>
-                                                            <div class="font-extrabold leading-tight">Edit Docket</div>
+                                                            <div class="font-extrabold leading-tight">Edit Case</div>
                                                             <div class="text-[10px] text-slate-400 font-normal mt-0.5">
                                                                 Modify findings &amp; info</div>
                                                         </div>
@@ -390,7 +390,7 @@
                                                             </svg>
                                                         </div>
                                                         <div>
-                                                            <div class="font-extrabold leading-tight">View Docket</div>
+                                                            <div class="font-extrabold leading-tight">View Case</div>
                                                             <div class="text-[10px] text-slate-400 font-normal mt-0.5">
                                                                 Full dossier inspection</div>
                                                         </div>

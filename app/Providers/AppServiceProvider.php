@@ -21,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
     {
         \Illuminate\Pagination\Paginator::useTailwind();
 
+        \Illuminate\Support\Facades\Auth::provider('composite_users', function ($app, array $config) {
+            return new \App\Auth\CompositeUserProvider($app['hash']);
+        });
+
         \Illuminate\Support\Facades\Gate::policy(\App\Models\ForensicCase::class, \App\Policies\ForensicCasePolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\MultipleSuspectCase::class, \App\Policies\ForensicCasePolicy::class);
         \Illuminate\Support\Facades\Gate::policy(\App\Models\SingleSuspectCase::class, \App\Policies\ForensicCasePolicy::class);

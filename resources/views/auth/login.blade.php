@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign In | Forensic Inventory Management System (FIMS)</title>
+    <title>Sign In | Forensic Information Management System (FIMS)</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -96,7 +96,7 @@
             </div>
             <div>
                 <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">
-                    FORENSIC INVENTORY MANAGEMENT SYSTEM (FIMS)</div>
+                    FORENSIC INFORMATION MANAGEMENT SYSTEM (FIMS)</div>
                 <div class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">NARCOTICS CONTROL
                     COMMISSION GHANA &bull; FORENSICS DEPARTMENT</div>
             </div>
@@ -197,7 +197,7 @@
                 <div class="relative z-10 pl-8">
                     <p
                         class="text-[10px] font-extrabold tracking-wider uppercase text-teal-100 font-mono-code leading-relaxed">
-                        INTRODUCING FORENSIC INVENTORY MANAGEMENT SYSTEM &bull; FIMS
+                        INTRODUCING FORENSIC INFORMATION MANAGEMENT SYSTEM &bull; FIMS
                     </p>
                 </div>
             </div>
@@ -357,7 +357,7 @@
     <footer
         class="w-full px-6 py-3 bg-white/95 border-t border-teal-900/10 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-600 font-mono-code gap-2 relative z-10 backdrop-blur-sm">
         <div>
-            Official Property of the Narcotics Control Commission, Ghana &bull; Forensic Inventory Management System
+            Official Property of the Narcotics Control Commission, Ghana &bull; Forensic Information Management System
         </div>
         <div class="flex items-center space-x-4">
             <a href="#" class="hover:text-teal-800">Security Policy</a>
@@ -368,9 +368,13 @@
         </div>
     </footer>
 
-    <!-- ACCOUNT APPROVED BY HEAD OF FORENSIC DIRECTORATE POPOVER MODAL CONTAINER -->
+    <!-- ACCOUNT APPROVED POPOVER MODAL CONTAINER -->
     <div id="loginAccountApprovedPopoverModal"
-        class="hidden fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-300">
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="popoverApprovalTitle"
+        class="hidden fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300"
+        style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
         <div
             class="bg-white rounded-3xl border border-teal-500/30 shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 relative transform transition-all scale-100">
 
@@ -382,11 +386,11 @@
                         <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Logo" class="w-full h-full object-contain">
                     </div>
                     <div>
-                        <span
+                        <span id="popoverApprovalEyebrow"
                             class="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 font-mono-code font-bold text-[10px] uppercase tracking-wider">
-                            DIRECTORATE COMMAND NOTIFICATION
+                            UNIT COMMAND NOTIFICATION
                         </span>
-                        <div class="text-xs font-black text-slate-900 mt-0.5">HEAD OF FORENSIC DIRECTORATE</div>
+                        <div id="popoverApprovalAuthority" class="text-xs font-black text-slate-900 mt-0.5">HEAD OF UNIT</div>
                     </div>
                 </div>
                 <button onclick="closeLoginApprovedPopover()"
@@ -403,15 +407,14 @@
                     </svg>
                 </div>
 
-                <h3 class="text-xl font-black text-slate-900 tracking-tight leading-snug">
-                    Account Approved by Head of Forensic Directorate!
+                <h3 id="popoverApprovalTitle" class="text-xl font-black text-slate-900 tracking-tight leading-snug">
+                    Account Approved by Head of Unit!
                 </h3>
 
-                <p class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-                    Your user account <span id="popoverOfficerName"
+                <p id="popoverApprovalMessage" class="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                    Your staff account <span id="popoverOfficerName"
                         class="font-extrabold text-slate-900 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 hidden"></span>
-                    has been officially reviewed, verified, and approved by the Head of Forensic Directorate. You are
-                    now authorized to sign in to the NACOC Forensic Inventory Management System (FIMS).
+                    has been approved by your Head of Unit. Please go ahead and sign in to the NACOC Forensic Information Management System (FIMS).
                 </p>
             </div>
 
@@ -462,21 +465,225 @@
 
     <!-- PRESERVED EXACT JAVASCRIPT LOGIC -->
     <script>
+        const PENDING_LOGIN_STORAGE_KEY = 'nacoc_pending_login_id';
+        const CHECK_APPROVAL_ENDPOINT = '{{ url('/api/check-user-approval') }}';
+        const INITIAL_PENDING_LOGIN_ID = @json(session('pending_login_id'));
+        const PAGE_LOAD_TS = Math.floor(Date.now() / 1000);
+        let approvalPollTimer = null;
+        let isPollingApproval = false;
+        let shownApprovalEventId = null;
+
+        function showLoginApprovedPopover(userPayload = null) {
+            const modal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (!modal) return;
+
+            const eyebrow = document.getElementById('popoverApprovalEyebrow');
+            const authority = document.getElementById('popoverApprovalAuthority');
+            const title = document.getElementById('popoverApprovalTitle');
+            const msg = document.getElementById('popoverApprovalMessage');
+            const officerNameEl = document.getElementById('popoverOfficerName');
+            const serviceIdInput = document.getElementById('serviceId');
+
+            const isHeadAccount = Boolean(userPayload && userPayload.is_head);
+            const officerLabel = userPayload ? (userPayload.fullname || userPayload.service_id || userPayload.username || '') : '';
+            const unitLabel = userPayload && userPayload.unit ? userPayload.unit : '';
+
+            if (isHeadAccount) {
+                if (eyebrow) eyebrow.textContent = 'DIRECTORATE COMMAND NOTIFICATION';
+                if (authority) authority.textContent = 'HEAD OF FORENSIC DIRECTORATE';
+                if (title) title.textContent = 'Account Approved by Head of Forensic Directorate!';
+                if (msg) {
+                    msg.textContent = '';
+                    msg.append('Your user account ');
+                    if (officerLabel) {
+                        const nameBadge = document.createElement('span');
+                        nameBadge.id = 'popoverOfficerName';
+                        nameBadge.className = 'font-extrabold text-slate-900 bg-teal-50 px-2 py-0.5 rounded border border-teal-200';
+                        nameBadge.textContent = officerLabel;
+                        msg.append(nameBadge, ' ');
+                    }
+                    msg.append('has been officially reviewed, verified, and approved by the Head of Forensic Directorate. Please go ahead and sign in to the NACOC Forensic Information Management System (FIMS).');
+                }
+            } else {
+                if (eyebrow) eyebrow.textContent = 'UNIT COMMAND NOTIFICATION';
+                if (authority) authority.textContent = unitLabel ? `HEAD OF UNIT • ${unitLabel.toUpperCase()}` : 'HEAD OF UNIT';
+                if (title) title.textContent = 'Account Approved by Head of Unit!';
+                if (msg) {
+                    msg.textContent = '';
+                    msg.append('Your staff account ');
+                    if (officerLabel) {
+                        const nameBadge = document.createElement('span');
+                        nameBadge.id = 'popoverOfficerName';
+                        nameBadge.className = 'font-extrabold text-slate-900 bg-teal-50 px-2 py-0.5 rounded border border-teal-200';
+                        nameBadge.textContent = officerLabel;
+                        msg.append(nameBadge, ' ');
+                    }
+                    if (unitLabel) {
+                        msg.append('for ');
+                        const unitStrong = document.createElement('strong');
+                        unitStrong.textContent = unitLabel;
+                        msg.append(unitStrong, ' ');
+                    }
+                    msg.append('has been approved by your Head of Unit. Please go ahead and sign in to the NACOC Forensic Information Management System (FIMS).');
+                }
+            }
+
+            if (officerNameEl && officerLabel && !msg) {
+                officerNameEl.textContent = officerLabel;
+                officerNameEl.classList.remove('hidden');
+            }
+
+            if (serviceIdInput && !serviceIdInput.value.trim() && userPayload) {
+                serviceIdInput.value = userPayload.service_id || userPayload.username || '';
+            }
+
+            const inlineBox = document.getElementById('loginInlineError');
+            if (inlineBox) inlineBox.classList.add('hidden');
+
+            modal.classList.remove('hidden');
+        }
+
         function closeLoginApprovedPopover() {
             const modal = document.getElementById('loginAccountApprovedPopoverModal');
             if (modal) modal.classList.add('hidden');
-            localStorage.removeItem('nacoc_pending_login_id');
+            localStorage.removeItem(PENDING_LOGIN_STORAGE_KEY);
+            const passwordInput = document.getElementById('passwordInput');
+            if (passwordInput) passwordInput.focus();
+        }
+
+        function stopApprovalPolling() {
+            if (approvalPollTimer) {
+                clearInterval(approvalPollTimer);
+                approvalPollTimer = null;
+            }
+        }
+
+        async function checkPendingApprovalOnce(explicitLoginId = '') {
+            if (isPollingApproval) return;
+            const storedId = (localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '').trim();
+            const loginId = String(explicitLoginId || storedId).trim();
+            isPollingApproval = true;
+
+            try {
+                const params = new URLSearchParams();
+                if (loginId) {
+                    params.set('login_id', loginId);
+                } else {
+                    params.set('since', String(PAGE_LOAD_TS));
+                }
+
+                const url = `${CHECK_APPROVAL_ENDPOINT}?${params.toString()}`;
+                const res = await fetch(url, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (data && data.exists && data.is_approved) {
+                    if (data.event_id && data.event_id === shownApprovalEventId) {
+                        return;
+                    }
+                    if (data.event_id) {
+                        shownApprovalEventId = data.event_id;
+                    }
+                    stopApprovalPolling();
+                    localStorage.removeItem(PENDING_LOGIN_STORAGE_KEY);
+                    showLoginApprovedPopover(data);
+                }
+            } catch (e) {
+                // Ignore transient network errors while polling for approval
+            } finally {
+                isPollingApproval = false;
+            }
+        }
+
+        function startApprovalPolling(loginId = '') {
+            const trimmed = String(loginId || '').trim();
+            if (trimmed) {
+                localStorage.setItem(PENDING_LOGIN_STORAGE_KEY, trimmed);
+            }
+            stopApprovalPolling();
+            checkPendingApprovalOnce(trimmed);
+            approvalPollTimer = setInterval(() => checkPendingApprovalOnce(trimmed), 1500);
+        }
+
+        function handleBroadcastApproval(payload) {
+            if (!payload || payload.type !== 'staff_approved' || !payload.user) return;
+            const approvedUser = payload.user;
+            const pendingId = (localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '').trim().toLowerCase();
+            const typedId = (document.getElementById('serviceId')?.value || '').trim().toLowerCase();
+            const candidateId = pendingId || typedId;
+
+            if (candidateId) {
+                const matches = [approvedUser.service_id, approvedUser.username, approvedUser.email]
+                    .filter(Boolean)
+                    .some(v => String(v).trim().toLowerCase() === candidateId);
+                if (!matches) return;
+            }
+
+            stopApprovalPolling();
+            localStorage.removeItem(PENDING_LOGIN_STORAGE_KEY);
+            showLoginApprovedPopover(approvedUser);
+        }
+
+        async function watchTypedServiceIdForPendingApproval(rawValue) {
+            const val = String(rawValue || '').trim();
+            if (val.length < 3) return;
+            try {
+                const res = await fetch(`${CHECK_APPROVAL_ENDPOINT}?login_id=${encodeURIComponent(val)}`, {
+                    headers: { 'Accept': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.exists && !data.is_approved) {
+                    startApprovalPolling(data.service_id || data.username || val);
+                }
+            } catch (e) {}
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('loginAccountApprovedPopoverModal');
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('account_approved') || urlParams.has('approved')) {
-                if (modal) modal.classList.remove('hidden');
+                showLoginApprovedPopover();
                 const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                 window.history.replaceState({
                     path: cleanUrl
                 }, '', cleanUrl);
+                return;
+            }
+
+            if (typeof BroadcastChannel !== 'undefined') {
+                try {
+                    const approvalChannel = new BroadcastChannel('nacoc_staff_approval');
+                    approvalChannel.addEventListener('message', (event) => handleBroadcastApproval(event.data));
+                } catch (e) {}
+            }
+
+            window.addEventListener('storage', function(event) {
+                if (event.key === 'nacoc_last_staff_approved' && event.newValue) {
+                    try {
+                        handleBroadcastApproval(JSON.parse(event.newValue));
+                    } catch (e) {}
+                }
+            });
+
+            const initialId = INITIAL_PENDING_LOGIN_ID || localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '';
+            startApprovalPolling(initialId);
+
+            const serviceIdInput = document.getElementById('serviceId');
+            if (serviceIdInput) {
+                let typedWatchTimer = null;
+                const scheduleWatch = () => {
+                    clearTimeout(typedWatchTimer);
+                    typedWatchTimer = setTimeout(() => watchTypedServiceIdForPendingApproval(serviceIdInput.value), 400);
+                };
+                serviceIdInput.addEventListener('input', scheduleWatch);
+                serviceIdInput.addEventListener('change', scheduleWatch);
+                if (serviceIdInput.value && serviceIdInput.value.trim().length >= 3) {
+                    scheduleWatch();
+                }
             }
         });
 
@@ -583,6 +790,10 @@
                     submitBtn.disabled = false;
                     btnText.innerHTML = `Sign In to FIMS`;
                     const errMsg = data.message || (data.errors ? Object.values(data.errors).flat()[0] : 'Wrong username or password.');
+
+                    if (data.pending_approval) {
+                        startApprovalPolling(data.login_id || loginId);
+                    }
 
                     if (inlineBox && inlineText) {
                         inlineText.innerText = errMsg;

@@ -4,7 +4,7 @@
         'userUnit'         => 'Digital & Physical Forensic Unit',
         'unitBadge'        => 'Digital & Physical Forensic Unit',
         'unitSubtitle'     => 'Cyber Intelligence & Hardware Forensics',
-        'locationNoun'     => 'Cyber & Device Cases',
+        'locationNoun'     => 'Cases',
         'pageTitle'        => 'NACOC FORENSIC | Digital & Physical Forensic Unit Command Dashboard',
         'defaultHeadName'  => 'Lead Cyber Analyst',
         'headRoleLabel'    => 'Digital & Physical Forensic Unit Head',

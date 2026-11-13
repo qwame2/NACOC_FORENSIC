@@ -93,7 +93,9 @@
     <div class="flex h-screen overflow-hidden">
 
         <!-- ASIDE BAR -->
-        @if($isForensicHeadSidebar)
+        @if(auth()->check() && !auth()->user()->is_head)
+            @include('staff.partials.sidebar')
+        @elseif($isForensicHeadSidebar)
             @include('Forensic_Head.partials.sidebar')
         @else
             @include('Crime_Scene_Support.partials.sidebar')

@@ -36,7 +36,14 @@
         21 => 'TWENTY-ONE', 22 => 'TWENTY-TWO', 23 => 'TWENTY-THREE', 24 => 'TWENTY-FOUR', 25 => 'TWENTY-FIVE'
     ];
 
-    $validationAuthorityName = ($cssHeadName !== 'Unspecify') ? $cssHeadName : $cssOfficerName;
+    $isStaffGenerator = $authUser && !$authUser->is_head;
+    $validationAuthorityLabel = $isStaffGenerator ? 'PREPARED BY:' : 'VALIDATION AUTHORITY:';
+    $validationAuthorityName = $isStaffGenerator ? $cssOfficerName : (($cssHeadName !== 'Unspecify') ? $cssHeadName : $cssOfficerName);
+    $validationAuthorityRole = $isStaffGenerator ? 'Staff Officer, Crime Scene Support Unit' : 'Head, Crime Scene Support Unit';
+    $leftSignatoryHeading = $isStaffGenerator ? 'PREPARED BY (STAFF OFFICER)' : 'HEAD OF CRIME SCENE SUPPORT';
+    $leftSignatoryName = $isStaffGenerator ? $cssOfficerName : $cssHeadName;
+    $leftSignatoryRole = $isStaffGenerator ? 'Staff Officer, Crime Scene Support Unit' : 'Head, Crime Scene Support Unit';
+    $leftSignatorySig = $isStaffGenerator ? ($authUser?->signature ?? null) : ($dbCssHead?->signature ?? null);
 
     // Pre-build each case dossier entry and estimate its height in mm for A4 sheet partitioning
     $preparedCases = collect();
@@ -695,9 +702,9 @@
                             <span class="block text-slate-600 text-[9px]">NACOC Headquarters, Accra</span>
                         </div>
                         <div class="text-right text-[10px] font-mono-code">
-                            <span class="text-slate-500 uppercase tracking-wider block text-[9px] font-bold">VALIDATION AUTHORITY:</span>
+                            <span class="text-slate-500 uppercase tracking-wider block text-[9px] font-bold">{{ $validationAuthorityLabel }}</span>
                             <span class="font-bold text-slate-800">{{ $validationAuthorityName }}</span>
-                            <span class="block text-slate-600 text-[9px]">Head, Crime Scene Support Unit</span>
+                            <span class="block text-slate-600 text-[9px]">{{ $validationAuthorityRole }}</span>
                         </div>
                     </div>
 
@@ -878,18 +885,18 @@
                 @if (!empty($p['signatures']))
                 <div class="section-signatures avoid-break shrink-0 w-full mt-auto pt-2 pb-1.5 border-t-2 border-slate-300">
                     <div class="grid grid-cols-2 gap-12">
-                        <!-- LEFT: HEAD, CRIME SCENE SUPPORT UNIT -->
+                        <!-- LEFT: STAFF OFFICER OR HEAD, CRIME SCENE SUPPORT UNIT -->
                         <div class="flex flex-col">
-                            <p class="text-[9.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">HEAD OF CRIME SCENE SUPPORT</p>
+                            <p class="text-[9.5px] font-bold uppercase tracking-wider text-slate-700 font-mono-code truncate">{{ $leftSignatoryHeading }}</p>
                             <div class="h-10 flex items-center">
-                                @if(!empty($dbCssHead?->signature))
-                                    <img src="{{ $dbCssHead->signature }}" alt="Signature" class="max-h-8 object-contain" onerror="this.style.display='none'">
+                                @if(!empty($leftSignatorySig))
+                                    <img src="{{ $leftSignatorySig }}" alt="Signature" class="max-h-8 object-contain" onerror="this.style.display='none'">
                                 @endif
                             </div>
                             <div class="border-b border-slate-700 pb-0.5"></div>
                             <div class="mt-1">
-                                <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight truncate">{{ $cssHeadName }}</p>
-                                <p class="text-[9px] text-slate-700 leading-tight">Head, Crime Scene Support Unit</p>
+                                <p class="text-[11.5px] font-extrabold text-slate-900 leading-tight truncate">{{ $leftSignatoryName }}</p>
+                                <p class="text-[9px] text-slate-700 leading-tight">{{ $leftSignatoryRole }}</p>
                                 <p class="text-[9px] text-slate-600 font-mono-code pt-0.5">Date: <span class="font-bold text-slate-800">{{ $reportGeneratedDate }}</span></p>
                             </div>
                         </div>

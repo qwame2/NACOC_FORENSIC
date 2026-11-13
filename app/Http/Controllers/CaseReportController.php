@@ -53,7 +53,11 @@ class CaseReportController extends Controller
     {
         $sitrepService = app(LabSitrepReportService::class);
         $data = $sitrepService->buildLabSitrepDataset($request);
-        return view('Lab_Analysis.report', $data);
+        $viewName = $request->is('*/staff/report*')
+            ? 'Lab_Analysis.staff.report'
+            : 'Lab_Analysis.report';
+
+        return view($viewName, $data);
     }
 
     /**

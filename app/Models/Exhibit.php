@@ -1231,8 +1231,8 @@ class Exhibit extends Model
         };
 
         if ($unitKey === 'lab') {
-            return $query->where(function ($q) use ($applyDrugFilter, $applyHasCompletedReport) {
-                $q->where($applyDrugFilter)->orWhere($applyHasCompletedReport);
+            return $query->where(function ($q) use ($applyDrugFilter, $applyHasCompletedPreliminaryReport) {
+                $q->where($applyDrugFilter)->orWhere($applyHasCompletedPreliminaryReport);
             });
         }
 

@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'leaflet' => [
+        'default_latitude'  => (float) env('LEAFLET_DEFAULT_LAT', 7.9465),
+        'default_longitude' => (float) env('LEAFLET_DEFAULT_LNG', -1.0232),
+        'default_zoom'      => (int) env('LEAFLET_DEFAULT_ZOOM', 7),
+        'tile_url'          => env('LEAFLET_TILE_URL', 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        'attribution'       => '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    ],
+
 ];

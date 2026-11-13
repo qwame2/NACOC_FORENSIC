@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\StaffAccount;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -44,40 +45,44 @@ class FieldOfficersPageAndApprovalTest extends TestCase
             'is_approved' => true,
         ]);
 
-        $cssStaff = User::factory()->create([
+        $cssStaff = StaffAccount::create([
             'fullname' => 'CSS Field Staff One',
+            'username' => 'css_staff_101',
             'service_id' => 'SD-101',
+            'phone_number' => '0244000101',
             'unit' => 'Crime Scene Support',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => true,
+            'password' => bcrypt('password'),
         ]);
 
-        $emStaff = User::factory()->create([
+        $emStaff = StaffAccount::create([
             'fullname' => 'EM Vault Staff Two',
+            'username' => 'em_staff_102',
             'service_id' => 'SD-102',
+            'phone_number' => '0244000102',
             'unit' => 'Evidence Management',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => false,
+            'password' => bcrypt('password'),
         ]);
 
-        $labStaff = User::factory()->create([
+        $labStaff = StaffAccount::create([
             'fullname' => 'LAU Chemist Staff Three',
+            'username' => 'lab_staff_103',
             'service_id' => 'SD-103',
+            'phone_number' => '0244000103',
             'unit' => 'Lab Analysis',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => true,
+            'password' => bcrypt('password'),
         ]);
 
-        $dpfStaff = User::factory()->create([
+        $dpfStaff = StaffAccount::create([
             'fullname' => 'DPF Cyber Staff Four',
+            'username' => 'dpf_staff_104',
             'service_id' => 'SD-104',
+            'phone_number' => '0244000104',
             'unit' => 'Digital & Physical Forensics',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => false,
+            'password' => bcrypt('password'),
         ]);
 
         $routes = [
@@ -153,33 +158,37 @@ class FieldOfficersPageAndApprovalTest extends TestCase
         $labHead = User::factory()->head()->create([
             'unit' => 'Lab Analysis',
             'is_approved' => true,
+            'password' => bcrypt('HeadPass2026!'),
         ]);
 
-        User::factory()->create([
+        StaffAccount::create([
             'fullname' => 'Approved Chemist Akua',
+            'username' => 'akua_201',
             'service_id' => 'SD-201',
+            'phone_number' => '0244000201',
             'unit' => 'Lab Analysis',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => true,
+            'password' => bcrypt('password'),
         ]);
 
-        User::factory()->create([
+        StaffAccount::create([
             'fullname' => 'Pending Chemist Kojo',
+            'username' => 'kojo_202',
             'service_id' => 'SD-202',
+            'phone_number' => '0244000202',
             'unit' => 'Lab Analysis',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => false,
+            'password' => bcrypt('password'),
         ]);
 
-        User::factory()->create([
+        StaffAccount::create([
             'fullname' => 'Vault Officer Kwabena',
+            'username' => 'kwabena_203',
             'service_id' => 'SD-203',
+            'phone_number' => '0244000203',
             'unit' => 'Evidence Management',
-            'is_head' => false,
-            'is_staff' => true,
             'is_approved' => true,
+            'password' => bcrypt('password'),
         ]);
 
         // Unit Head sees only their own unit even if passing another unit filter or ?unit=all
@@ -223,12 +232,17 @@ class FieldOfficersPageAndApprovalTest extends TestCase
         $this->assertStringNotContainsString('Vault Officer Kwabena', $crossSearchResp->json('html'));
 
         // Pagination check (Directorate across multiple units)
-        User::factory()->count(4)->create([
-            'unit' => 'Crime Scene Support',
-            'is_head' => false,
-            'is_staff' => true,
-            'is_approved' => true,
-        ]);
+        for ($i = 1; $i <= 4; $i++) {
+            StaffAccount::create([
+                'fullname' => "CSS Paginate Staff {$i}",
+                'username' => "css_page_{$i}",
+                'service_id' => "SD-25{$i}",
+                'phone_number' => "024400025{$i}",
+                'unit' => 'Crime Scene Support',
+                'is_approved' => true,
+                'password' => bcrypt('password'),
+            ]);
+        }
 
         $page2 = $this->actingAs($directorateHead)->get('/field-officers?per_page=3&page=2');
         $page2->assertStatus(200);
@@ -273,7 +287,8 @@ class FieldOfficersPageAndApprovalTest extends TestCase
         ]);
         $registerResp->assertRedirect('/login');
 
-        $staffUser = User::where('service_id', 'SD-777')->firstOrFail();
+        $staffUser = StaffAccount::where('service_id', 'SD-777')->firstOrFail();
+        $this->assertDatabaseMissing('users', ['service_id' => 'SD-777']);
         $this->assertFalse((bool) $staffUser->is_approved);
         $this->assertTrue((bool) $staffUser->is_staff);
         $this->assertFalse((bool) $staffUser->is_head);
@@ -337,6 +352,191 @@ class FieldOfficersPageAndApprovalTest extends TestCase
     }
 
     #[Test]
+    public function login_page_tracks_pending_staff_approval_and_exposes_blurred_approved_popover(): void
+    {
+        $labHead = User::factory()->head()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+            'password' => bcrypt('HeadPass2026!'),
+        ]);
+
+        $staffUser = StaffAccount::create([
+            'fullname' => 'Officer Ama Boateng',
+            'service_id' => 'SD-888',
+            'username' => 'aboateng',
+            'phone_number' => '0244888888',
+            'unit' => 'Lab Analysis',
+            'is_approved' => false,
+            'password' => bcrypt('StrongPass2026!'),
+        ]);
+
+        // Pending login attempt returns pending_approval flag + login_id for client-side polling
+        $this->postJson('/login', [
+            'login_id' => 'sd-888',
+            'password' => 'StrongPass2026!',
+        ])->assertStatus(403)
+            ->assertJsonPath('pending_approval', true)
+            ->assertJsonPath('login_id', 'SD-888');
+
+        // Login page renders blurred approved popover modal and embeds flashed pending_login_id
+        $this->withSession(['pending_login_id' => 'SD-888'])
+            ->get('/login')
+            ->assertStatus(200)
+            ->assertSee('id="loginAccountApprovedPopoverModal"', false)
+            ->assertSee('backdrop-blur-md', false)
+            ->assertSee('Account Approved by Head of Unit!', false)
+            ->assertSee('const INITIAL_PENDING_LOGIN_ID = "SD-888";', false)
+            ->assertSee('/api/check-user-approval', false);
+
+        // Before approval, polling endpoint reports is_approved: false for staff_accounts row
+        $this->getJson('/api/check-user-approval?login_id=sd-888')
+            ->assertStatus(200)
+            ->assertJsonPath('exists', true)
+            ->assertJsonPath('is_approved', false)
+            ->assertJsonPath('is_head', false);
+
+        $beforeApproveTs = time() - 1;
+
+        // Head of Unit approves staff account
+        $this->actingAs($labHead)
+            ->postJson("/field-officers/{$staffUser->id}/approve")
+            ->assertStatus(200)
+            ->assertJsonPath('user.is_approved', true);
+
+        // After approval, polling endpoint reports is_approved: true with unit & fullname (both by login_id and by since)
+        $this->getJson('/api/check-user-approval?login_id=sd-888')
+            ->assertStatus(200)
+            ->assertJsonPath('exists', true)
+            ->assertJsonPath('is_approved', true)
+            ->assertJsonPath('fullname', 'Officer Ama Boateng')
+            ->assertJsonPath('unit', 'Lab Analysis');
+
+        $this->getJson('/api/check-user-approval?since=' . $beforeApproveTs)
+            ->assertStatus(200)
+            ->assertJsonPath('exists', true)
+            ->assertJsonPath('is_approved', true)
+            ->assertJsonPath('service_id', 'SD-888');
+
+        auth()->logout();
+
+        // Approved staff account can now log in and redirects to unit staff dashboard first
+        $this->withSession(['url.intended' => 'http://127.0.0.1/Lab_Analysis/staff/create'])
+            ->postJson('/login', [
+                'login_id' => 'sd-888',
+                'password' => 'StrongPass2026!',
+            ])->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('redirect_url', '/Lab_Analysis/staff/dashboard')
+            ->assertJsonPath('user.is_approved', true);
+
+        auth()->logout();
+
+        // Unit Head login also redirects to unit Head Dashboard first
+        $this->withSession(['url.intended' => 'http://127.0.0.1/Lab_Analysis/create'])
+            ->post('/login', [
+                'login_id' => $labHead->service_id,
+                'password' => 'HeadPass2026!',
+            ])->assertRedirect('/Lab_Analysis');
+    }
+
+    #[Test]
+    public function only_one_unit_head_account_is_allowed_per_unit(): void
+    {
+        // Establish Forensic Directorate head first
+        User::factory()->head()->create([
+            'fullname' => 'Directorate Commander',
+            'unit' => 'Forensic Directorate',
+            'is_approved' => true,
+        ]);
+
+        // Existing Lab Analysis head and Digital & Physical Forensics head
+        User::factory()->head()->create([
+            'fullname' => 'Dr. Kwesi Lab Head',
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+        User::factory()->head()->create([
+            'fullname' => 'Eng. Kojo Digital Head',
+            'unit' => 'Digital & Physical Forensics',
+            'is_approved' => true,
+        ]);
+
+        // Attempt to register a second head for Lab Analysis -> rejected
+        $this->from('/register')
+            ->post('/register', [
+                'fullname' => 'Second Lab Head',
+                'username' => 'secondlabhead',
+                'service_id' => 'SD-991',
+                'phone_number' => '0240000991',
+                'unit' => 'Lab Analysis',
+                'role' => 'head',
+                'password' => 'StrongPass2026!',
+                'password_confirmation' => 'StrongPass2026!',
+                'terms' => '1',
+            ])
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors('unit');
+
+        $this->assertDatabaseMissing('users', ['service_id' => 'SD-991']);
+
+        // Attempt to register a second head for Digital & Physical Forensics using unit alias -> rejected
+        $this->from('/register')
+            ->post('/register', [
+                'fullname' => 'Second Digital Head',
+                'username' => 'seconddpfhead',
+                'service_id' => 'SD-992',
+                'phone_number' => '0240000992',
+                'unit' => 'Digital & Physical Forensic Unit',
+                'role' => 'head',
+                'password' => 'StrongPass2026!',
+                'password_confirmation' => 'StrongPass2026!',
+                'terms' => '1',
+            ])
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors('unit');
+
+        $this->assertDatabaseMissing('users', ['service_id' => 'SD-992']);
+
+        // Registering a head for a unit without one (Crime Scene Support) -> allowed
+        $this->post('/register', [
+            'fullname' => 'Capt. Afia CSS Head',
+            'username' => 'afiacsshead',
+            'service_id' => 'SD-993',
+            'phone_number' => '0240000993',
+            'unit' => 'Crime Scene Support',
+            'role' => 'head',
+            'password' => 'StrongPass2026!',
+            'password_confirmation' => 'StrongPass2026!',
+            'terms' => '1',
+        ])->assertRedirect('/login');
+
+        $this->assertDatabaseHas('users', [
+            'service_id' => 'SD-993',
+            'is_head' => true,
+            'unit' => 'Crime Scene Support',
+        ]);
+
+        // Registering a staff member for Lab Analysis (which already has a head) -> still allowed
+        $this->post('/register', [
+            'fullname' => 'Analyst Kofi Staff',
+            'username' => 'kofistaff',
+            'service_id' => 'SD-994',
+            'phone_number' => '0240000994',
+            'unit' => 'Lab Analysis',
+            'role' => 'staff',
+            'password' => 'StrongPass2026!',
+            'password_confirmation' => 'StrongPass2026!',
+            'terms' => '1',
+        ])->assertRedirect('/login');
+
+        $this->assertDatabaseHas('staff_accounts', [
+            'service_id' => 'SD-994',
+            'is_approved' => false,
+        ]);
+        $this->assertDatabaseMissing('users', ['service_id' => 'SD-994']);
+    }
+
+    #[Test]
     public function unit_sidebar_renders_field_officers_link_for_every_unit_context(): void
     {
         $officer = User::factory()->create([
@@ -364,6 +564,48 @@ class FieldOfficersPageAndApprovalTest extends TestCase
             ->get('/Crime_Scene_Support/create')
             ->assertStatus(200)
             ->assertSee('/Crime_Scene_Support/field-officers', false);
+    }
+
+    #[Test]
+    public function heads_sidebar_field_officers_button_displays_red_badge_for_pending_staff_approvals(): void
+    {
+        $labHead = User::factory()->head()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+            'password' => bcrypt('HeadPass2026!'),
+        ]);
+        $directorateHead = User::factory()->head()->create([
+            'unit' => 'Forensic Directorate',
+            'is_approved' => true,
+        ]);
+
+        // No pending staff yet -> badge hidden
+        $this->actingAs($labHead)
+            ->get('/Lab_Analysis/field-officers')
+            ->assertStatus(200)
+            ->assertDontSee('id="sidebarFieldOfficersBadge"', false);
+
+        // 2 pending Lab Analysis staff, 1 approved Lab Analysis staff, 1 pending CSS staff, 1 unapproved head
+        StaffAccount::create(['fullname' => 'Lab Pending 1', 'username' => 'lp1', 'service_id' => 'SD-501', 'phone_number' => '0244000501', 'unit' => 'Lab Analysis', 'is_approved' => false, 'password' => bcrypt('password')]);
+        StaffAccount::create(['fullname' => 'Lab Pending 2', 'username' => 'lp2', 'service_id' => 'SD-502', 'phone_number' => '0244000502', 'unit' => 'Lab Analysis', 'is_approved' => false, 'password' => bcrypt('password')]);
+        StaffAccount::create(['fullname' => 'Lab Approved 3', 'username' => 'la3', 'service_id' => 'SD-503', 'phone_number' => '0244000503', 'unit' => 'Lab Analysis', 'is_approved' => true, 'password' => bcrypt('password')]);
+        StaffAccount::create(['fullname' => 'CSS Pending 4', 'username' => 'cp4', 'service_id' => 'SD-504', 'phone_number' => '0244000504', 'unit' => 'Crime Scene Support', 'is_approved' => false, 'password' => bcrypt('password')]);
+        User::factory()->head()->create(['unit' => 'Lab Analysis', 'is_approved' => false]);
+
+        $labResp = $this->actingAs($labHead)
+            ->get('/Lab_Analysis/field-officers')
+            ->assertStatus(200)
+            ->assertSee('id="sidebarFieldOfficersBadge"', false)
+            ->assertSee('bg-red-600', false)
+            ->assertSee('animate-pulse', false);
+        $this->assertMatchesRegularExpression('/id="sidebarFieldOfficersBadge"[^>]*>\s*2\s*<\/span>/', $labResp->getContent());
+
+        $dirResp = $this->actingAs($directorateHead)
+            ->get('/field-officers')
+            ->assertStatus(200)
+            ->assertSee('id="sidebarFieldOfficersBadge"', false)
+            ->assertSee('bg-red-600', false);
+        $this->assertMatchesRegularExpression('/id="sidebarFieldOfficersBadge"[^>]*>\s*3\s*<\/span>/', $dirResp->getContent());
     }
 
     #[Test]

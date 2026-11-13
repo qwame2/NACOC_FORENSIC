@@ -140,7 +140,9 @@
             isCheckingAccountStatus = true;
 
             try {
-                const res = await fetch(STATUS_ENDPOINT, {
+                const currentPath = window.location ? window.location.pathname : '';
+                const url = STATUS_ENDPOINT + (STATUS_ENDPOINT.indexOf('?') === -1 ? '?' : '&') + 'path=' + encodeURIComponent(currentPath);
+                const res = await fetch(url, {
                     headers: { 'Accept': 'application/json' },
                     credentials: 'same-origin'
                 });
@@ -155,11 +157,132 @@
                 } else if (!shouldLock && isCurrentlyRevoked) {
                     applyRevokedOverlayState(false, data);
                 }
+
+                if (typeof data.can_create_cases === 'boolean') {
+                    applyCreateCasesButtonState(data.can_create_cases);
+                }
             } catch (e) {
                 // Silent catch during background status watchdog
             } finally {
                 isCheckingAccountStatus = false;
             }
+        }
+
+        function applyCreateCasesButtonState(canCreate) {
+            const lockedMsg = 'Locked: Create New Cases permission is disabled by your Head of Unit';
+            const createButtons = document.querySelectorAll('[data-staff-create-btn]');
+            createButtons.forEach(function (btn) {
+                const targetUrl = btn.getAttribute('data-create-url') || btn.getAttribute('href') || '';
+                if (targetUrl && !btn.getAttribute('data-create-url')) {
+                    btn.setAttribute('data-create-url', targetUrl);
+                }
+
+                const lockBadge = btn.querySelector('[data-lock-badge]');
+
+                if (!canCreate) {
+                    btn.removeAttribute('href');
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.setAttribute('tabindex', '0');
+                    btn.setAttribute('title', lockedMsg);
+                    btn.setAttribute('data-locked-tooltip', lockedMsg);
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '0.55';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.filter = 'grayscale(100%)';
+                    if (lockBadge) lockBadge.classList.remove('hidden');
+                } else {
+                    if (targetUrl) {
+                        btn.setAttribute('href', targetUrl);
+                    }
+                    btn.setAttribute('aria-disabled', 'false');
+                    btn.removeAttribute('tabindex');
+                    btn.removeAttribute('title');
+                    btn.removeAttribute('data-locked-tooltip');
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '';
+                    btn.style.cursor = '';
+                    btn.style.filter = '';
+                    if (lockBadge) lockBadge.classList.add('hidden');
+                }
+            });
+
+            if (!canCreate && /\/(staff\/)?create(\b|\/|$)/i.test(window.location.pathname)) {
+                window.location.reload();
+            }
+        }
+
+        // Global custom tooltip for locked/disabled buttons across staff and command views
+        function initLockedButtonsTooltip() {
+            if (document.getElementById('nacocLockedBtnTooltip')) return;
+
+            const tip = document.createElement('div');
+            tip.id = 'nacocLockedBtnTooltip';
+            tip.setAttribute('role', 'tooltip');
+            tip.className = 'hidden fixed z-[999990] max-w-xs px-3 py-2 rounded-xl bg-slate-900 text-white text-[11px] font-semibold leading-snug shadow-xl border border-slate-700 pointer-events-none flex items-center gap-2';
+            tip.innerHTML = '<svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span id="nacocLockedBtnTooltipText"></span>';
+            document.body.appendChild(tip);
+
+            function findLockedTarget(el) {
+                if (!el || !el.closest) return null;
+                return el.closest('[data-locked-tooltip], [aria-disabled="true"][title], button:disabled[title]');
+            }
+
+            function showTipFor(target) {
+                const msg = target.getAttribute('data-locked-tooltip') || target.getAttribute('title');
+                if (!msg) return;
+                const textEl = document.getElementById('nacocLockedBtnTooltipText');
+                if (textEl) textEl.textContent = msg;
+
+                tip.classList.remove('hidden');
+                const rect = target.getBoundingClientRect();
+                const tipRect = tip.getBoundingClientRect();
+
+                let top = rect.top - tipRect.height - 8;
+                if (top < 8) {
+                    top = rect.bottom + 8;
+                }
+                let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+                left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8));
+
+                tip.style.top = Math.round(top) + 'px';
+                tip.style.left = Math.round(left) + 'px';
+            }
+
+            function hideTip() {
+                tip.classList.add('hidden');
+            }
+
+            document.addEventListener('mouseover', function (e) {
+                const target = findLockedTarget(e.target);
+                if (target) {
+                    showTipFor(target);
+                } else {
+                    hideTip();
+                }
+            });
+
+            document.addEventListener('focusin', function (e) {
+                const target = findLockedTarget(e.target);
+                if (target) showTipFor(target);
+            });
+
+            document.addEventListener('focusout', hideTip);
+            document.addEventListener('scroll', hideTip, true);
+
+            document.addEventListener('click', function (e) {
+                const target = findLockedTarget(e.target);
+                if (target && (target.getAttribute('aria-disabled') === 'true' || target.hasAttribute('data-locked-tooltip'))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showTipFor(target);
+                }
+            }, true);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLockedButtonsTooltip);
+        } else {
+            initLockedButtonsTooltip();
         }
 
         if (isCurrentlyRevoked) {

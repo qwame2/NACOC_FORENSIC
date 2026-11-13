@@ -72,7 +72,16 @@ class CrimeSceneSupportCaseController extends Controller
             return view('Crime_Scene_Support.partials.report_table', $data);
         }
 
-        return view('Crime_Scene_Support.report', $data);
+        $viewName = 'Crime_Scene_Support.report';
+        if ($request->is('Digital_Forensics/staff/report*')) {
+            $viewName = 'Digital_Forensics.staff.report';
+        } elseif ($request->is('Forensic_Head/staff/report*')) {
+            $viewName = 'Forensic_Head.staff.report';
+        } elseif ($request->is('*/staff/report*')) {
+            $viewName = 'Crime_Scene_Support.staff.report';
+        }
+
+        return view($viewName, $data);
     }
 
     /**

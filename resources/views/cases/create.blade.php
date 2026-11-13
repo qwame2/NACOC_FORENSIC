@@ -5708,7 +5708,7 @@
                             </span>
                         </td>
                         <td class="py-4 px-5 text-right space-x-2">
-                            <a href="/cases/${caseDbId}/review?from=${encodeURIComponent(@json($userUnit))}" class="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-[11px] font-bold shadow-2xs inline-block">Review Docket</a>
+                            <a href="/cases/${caseDbId}/review?from=${encodeURIComponent(@json($userUnit))}" class="px-3 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-[11px] font-bold shadow-2xs inline-block">Review Case</a>
                         </td>
                     `;
                     tbody.insertBefore(newRow, tbody.firstChild);

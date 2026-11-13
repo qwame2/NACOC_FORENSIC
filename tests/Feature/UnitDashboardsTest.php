@@ -21,12 +21,12 @@ class UnitDashboardsTest extends TestCase
 
         $respHead = $this->actingAs($officer)->get('/Evidence_Management/head');
         $respHead->assertStatus(200);
-        $respHead->assertSee('EVIDENCE MANAGEMENT UNIT');
-        $respHead->assertSee('Evidence Vault &amp; Custody Headquarters', false);
+        $respHead->assertSee('Evidence Management Unit Command Dashboard');
+        $respHead->assertSee('Custody &amp; Vault Cases', false);
 
         $respStaff = $this->actingAs($officer)->get('/Evidence_Management/staff');
         $respStaff->assertStatus(200);
-        $respStaff->assertSee('EVIDENCE MANAGEMENT UNIT');
+        $respStaff->assertSee('EVIDENCE MANAGEMENT');
         $respStaff->assertSee('Evidence Vault Staff Operations');
     }
 
@@ -46,7 +46,7 @@ class UnitDashboardsTest extends TestCase
 
         $respStaff = $this->actingAs($officer)->get('/Digital_Forensics/staff');
         $respStaff->assertStatus(200);
-        $respStaff->assertSee('DIGITAL &amp; PHYSICAL FORENSICS UNIT', false);
+        $respStaff->assertSee('DIGITAL FORENSICS', false);
         $respStaff->assertSee('Digital &amp; Mobile Forensics Operations', false);
 
         $respStatus = $this->actingAs($officer)->get('/Digital_Forensics/forensic-status');
@@ -90,8 +90,8 @@ class UnitDashboardsTest extends TestCase
 
         $respHead = $this->actingAs($officer)->get('/Lab_Analysis/head');
         $respHead->assertStatus(200);
-        $respHead->assertSee('LAB ANALYSIS UNIT');
-        $respHead->assertSee('Laboratory Analysis Headquarters');
+        $respHead->assertSee('Lab Analysis Unit Command Dashboard');
+        $respHead->assertSee('Lab Analysis Cases');
 
         $respStaff = $this->actingAs($officer)->get('/Lab_Analysis/staff');
         $respStaff->assertStatus(200);

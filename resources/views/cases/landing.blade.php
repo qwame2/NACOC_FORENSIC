@@ -953,7 +953,7 @@
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                                             </div>
                                             <div>
-                                                <div class="font-extrabold leading-tight">Associate Data</div>
+                                                <div class="font-extrabold leading-tight">Add Associate</div>
                                                 <div class="text-[10px] text-slate-400 font-normal mt-0.5">Link accomplices &amp; exhibits</div>
                                             </div>
                                         </a>
@@ -963,7 +963,7 @@
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                             </div>
                                             <div>
-                                                <div class="font-extrabold leading-tight">Edit Docket</div>
+                                                <div class="font-extrabold leading-tight">Edit Case</div>
                                                 <div class="text-[10px] text-slate-400 font-normal mt-0.5">Modify findings &amp; info</div>
                                             </div>
                                         </a>
@@ -973,7 +973,7 @@
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                             </div>
                                             <div>
-                                                <div class="font-extrabold leading-tight">View Docket</div>
+                                                <div class="font-extrabold leading-tight">View Case</div>
                                                 <div class="text-[10px] text-slate-400 font-normal mt-0.5">Full dossier inspection</div>
                                             </div>
                                         </a>

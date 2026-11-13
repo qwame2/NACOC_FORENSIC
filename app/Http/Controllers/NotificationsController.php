@@ -7,7 +7,9 @@ use App\Models\CaseHandover;
 use App\Models\Exhibit;
 use App\Models\MultipleSuspectCase;
 use App\Models\SingleSuspectCase;
+use App\Models\StaffAccount;
 use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -190,7 +192,7 @@ class NotificationsController extends Controller
     /**
      * Count active unread notifications for sidebar badge rendering.
      */
-    public static function countActiveForContext(?string $unitName, ?User $viewer = null, ?string $explicitKey = null): int
+    public static function countActiveForContext(?string $unitName, ?Authenticatable $viewer = null, ?string $explicitKey = null): int
     {
         $unitKey = $explicitKey ?: static::resolveUnitKey($unitName, $viewer);
         $all = static::collectNotificationsForContext($unitKey, $viewer);
@@ -203,7 +205,7 @@ class NotificationsController extends Controller
      * Collect real database notifications across cross-unit exhibits, handovers,
      * pending case sign-offs, and pending staff account approvals.
      */
-    public static function collectNotificationsForContext(string $unitKey, ?User $viewer = null): Collection
+    public static function collectNotificationsForContext(string $unitKey, ?Authenticatable $viewer = null): Collection
     {
         $items = collect();
 
@@ -408,8 +410,7 @@ class NotificationsController extends Controller
         }
 
         // 4. Pending Staff Officer Account Approvals within the unit
-        $pendingStaff = User::query()
-            ->where('is_head', false)
+        $pendingStaff = StaffAccount::query()
             ->where('is_approved', false)
             ->orderByDesc('id')
             ->limit(30)
@@ -448,7 +449,7 @@ class NotificationsController extends Controller
      *
      * @return array{unit_key: string, unit_label: string, is_forensic_head: bool}
      */
-    private function resolveContext(Request $request, ?User $viewer = null): array
+    private function resolveContext(Request $request, ?Authenticatable $viewer = null): array
     {
         $path = strtolower($request->path());
         $paramUnit = (string) ($request->query('from') ?? $request->query('unit') ?? '');
@@ -493,7 +494,7 @@ class NotificationsController extends Controller
     /**
      * Normalize any unit string into canonical controller key.
      */
-    public static function resolveUnitKey(?string $unitName, ?User $viewer = null): string
+    public static function resolveUnitKey(?string $unitName, ?Authenticatable $viewer = null): string
     {
         $resolved = ForensicUnit::resolve($unitName);
         if ($resolved === ForensicUnit::FORENSIC_DIRECTORATE) {
