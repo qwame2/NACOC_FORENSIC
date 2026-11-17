@@ -10,7 +10,7 @@
         "ext-redis": "*",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "predis/predis": "^3.6"
+        "predis/predis": "^3.7"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
