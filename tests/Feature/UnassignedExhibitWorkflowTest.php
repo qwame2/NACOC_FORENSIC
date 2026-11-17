@@ -20,48 +20,29 @@ class UnassignedExhibitWorkflowTest extends TestCase
         return User::factory()->create([
             'unit'        => $unit,
             'is_approved' => true,
+            'is_head'     => true,
         ]);
     }
 
     #[Test]
-    public function vault_page_add_exhibit_navbar_button_links_to_dedicated_add_exhibit_page()
+    public function vault_page_does_not_render_add_exhibit_navbar_button()
     {
         $officer = $this->createOfficer('Evidence Management');
 
         $response = $this->actingAs($officer)->get('/Evidence_Management/vault');
 
         $response->assertStatus(200);
-        $response->assertSee('/Evidence_Management/add-exhibit');
+        $response->assertDontSee('/Evidence_Management/add-exhibit');
     }
 
     #[Test]
-    public function dedicated_add_exhibit_page_renders_only_section_4_and_hides_sections_1_to_3()
+    public function legacy_add_exhibit_route_safely_redirects_to_vault()
     {
         $officer = $this->createOfficer('Evidence Management');
 
         $response = $this->actingAs($officer)->get('/Evidence_Management/add-exhibit');
 
-        $response->assertStatus(200);
-        $content = $response->getContent();
-
-        // Must display Section 4: Seizures (Commodities) heading and Save Exhibit button
-        $this->assertStringContainsString('Section 4: Seizures (Commodities)', $content);
-        $this->assertStringContainsString('Save Exhibit', $content);
-
-        // Sections 1 to 3 wrapper must be hidden
-        $this->assertStringContainsString('id="sections1To3Wrapper" class="hidden"', $content);
-
-        // Does not show cargo parcel form
-        $this->assertStringNotContainsString('Official Cargo &amp; Parcel Registration', $content);
-
-        // Contains Section 4 commodity input fields and QR modal
-        $this->assertStringContainsString('id="seizuresDetailsContainer"', $content);
-        $this->assertStringContainsString('id="seizuresListContainer"', $content);
-        $this->assertStringContainsString('id="exhibitSearchInput"', $content);
-        $this->assertStringContainsString('id="newSeizureQuantity"', $content);
-        $this->assertStringContainsString('id="newSeizureWeight"', $content);
-        $this->assertStringContainsString('id="seizedPropertyQrDownloadModal"', $content);
-        $this->assertStringContainsString('processAddExhibit', $content);
+        $response->assertRedirect(route('evidence_management.vault'));
     }
 
     #[Test]

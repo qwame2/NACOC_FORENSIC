@@ -2,6 +2,11 @@
     DRUG SCREENING PARTIAL TABLE & PAGINATION
     Rendered on full page load and returned during AJAX filter/search/pagination updates.
 --}}
+@php
+    $isStaffUser = auth()->user() instanceof \App\Models\StaffAccount || request()->is('*/staff*') || (auth()->user() && !auth()->user()->is_head);
+    $screeningCreateUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening/create') : url('/Lab_Analysis/drug-screening/create');
+    $screeningPdfBase = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening') : url('/Lab_Analysis/drug-screening');
+@endphp
 <div id="screeningTableDataMeta" data-total="{{ method_exists($screenings, 'total') ? $screenings->total() : $screenings->count() }}" class="hidden"></div>
 <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse" id="drugScreeningTable">
@@ -233,7 +238,7 @@
                             </svg>
                         </button>
 
-                        <a href="{{ url('/Lab_Analysis/drug-screening/' . $screening->id . '/pdf') }}" target="_blank"
+                        <a href="{{ $screeningPdfBase . '/' . $screening->id . '/pdf' }}" target="_blank"
                             class="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                             title="{{ $isCivilian ? 'Print / Save Civilian PDF Report' : 'Print / Save Suspect PDF Report' }}">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +259,7 @@
                         </div>
                         <div class="text-slate-800 font-extrabold text-sm">No Drug Screening Records Found</div>
                         <p class="text-xs text-slate-500 max-w-sm">No suspects or civilians have had a drug screening recorded matching the active filter.</p>
-                        <a href="{{ url('/Lab_Analysis/drug-screening/create') }}"
+                        <a href="{{ $screeningCreateUrl }}"
                             class="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>

@@ -126,11 +126,22 @@ class SuspectPreliminaryReport extends Model
         return static::with('suspect:id,suspect_name')
             ->where(function ($q) use ($cStr, $ids) {
                 if (!empty($cStr)) {
-                    $q->orWhere('case_number', $cStr);
-                }
-                if (!empty($ids)) {
-                    $q->orWhereIn('multiple_suspect_case_id', $ids)
-                      ->orWhereIn('single_suspect_case_id', $ids);
+                    $q->where('case_number', $cStr);
+                    if (!empty($ids)) {
+                        $q->orWhere(function ($sub) use ($ids) {
+                            $sub->where(function ($nc) {
+                                $nc->whereNull('case_number')->orWhere('case_number', '');
+                            })->where(function ($idSub) use ($ids) {
+                                $idSub->whereIn('multiple_suspect_case_id', $ids)
+                                      ->orWhereIn('single_suspect_case_id', $ids);
+                            });
+                        });
+                    }
+                } elseif (!empty($ids)) {
+                    $q->where(function ($sub) use ($ids) {
+                        $sub->whereIn('multiple_suspect_case_id', $ids)
+                            ->orWhereIn('single_suspect_case_id', $ids);
+                    });
                 }
             })
             ->active()

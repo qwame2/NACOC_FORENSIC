@@ -224,7 +224,7 @@
                             </svg>
                             @if ($totalAlertsCount > 0)
                                 <span
-                                    class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                                    class="ml-1 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-mono-code font-bold rounded leading-none">{{ $totalAlertsCount }}</span>
                             @endif
                         </button>
 
@@ -368,14 +368,14 @@
 
                 <!-- HERO DOSSIER HEADER BANNER -->
                 <div
-                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-slate-900 text-white shadow-xl border border-slate-800">
+                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-gray-500 bg-grey-500 text-white shadow-xl border border-gray-400">
                     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div class="space-y-3 flex-1">
                             <div class="flex items-center gap-3 flex-wrap">
                                 <span
                                     class="px-2 py-0.5 rounded text-[10px] font-bold font-mono-code bg-slate-800 text-amber-400 border border-slate-700">{{ $priority }}
                                     PRIORITY</span>
-                                <span class="text-slate-500">•</span>
+                                <span class="text-slate-400">|</span>
                                 <span id="headerStatusBadge">
                                     @if ($status === 'Approved' || $status === 'Authorized')
                                         <span class="status-badge status-done">
@@ -402,7 +402,7 @@
                                 <h1
                                     class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
                                     {{ $case->title }}
-                                    <span class="text-base text-slate-400 font-normal">|
+                                    <span class="text-base text-white font-normal">|
                                         {{ $case->case_number }}</span>
                                 </h1>
                                 <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
@@ -415,15 +415,11 @@
                         <!-- QUICK ACTIONS IN HERO -->
                         <div class="flex items-center gap-3 shrink-0">
 
-                            <a href="/cases/{{ $case->case_number }}/edit?from=Digital_Forensics"
-                                class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
-                                <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                <span>Edit Case/Update Case Records</span>
-                            </a>
+                            @include('partials.edit_case_button', [
+                                'case' => $case,
+                                'editFrom' => 'Digital_Forensics',
+                                'unitLabel' => 'Digital & Physical Forensics',
+                            ])
                             <a href="/cases/{{ $case->case_number }}/pdf" target="_blank"
                                 class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline">
                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor"
@@ -534,27 +530,18 @@
                 @php @endphp
                                 @php @endphp
 
-                @if ($isJointExhibitCase)
+                @if (!empty($isJointExhibitCase) || !empty($jointCaseExhibits) || !empty($allCaseExhibits))
                     {{-- {{ $isMultiple ? 'PRIMARY & CO-SUSPECT' : 'PRIMARY' }} EXHIBIT DOSSIER ({{ $isMultiple ? 'JOINT OWNERSHIP SECTION' : 'PRIMARY SUSPECT SECTION' }} ON TOP OF SEIZURES INVENTORY) --}}
                     @include('partials.exhibit_dossier_card', [
                         'dossierBadgeText' => $dossierBadgeText,
                         'dossierHeadingText' => $dossierHeadingText,
                         'dossierHeadingName' => $jointDossierHeadingName,
-                        'dossierExhibits' => $jointCaseExhibits,
+                        'dossierExhibits' => !empty($jointCaseExhibits) ? $jointCaseExhibits : ($allCaseExhibits ?? []),
                         'dossierPhotos' => $allCaseExhibitPhotos,
                         'formatPhotoUrlHelper' => $formatPhotoUrlHelper,
                         'extractAllPhotosHelper' => $extractAllPhotosHelper,
                         'case' => $case,
                     ])
-
-                    {{-- ATTACHED GSA & NLR REPORT FILES CONTAINER UNDER PRIMARY & CO-SUSPECT SEIZURES & EXHIBITS --}}
-                    @php @endphp
-                    @if (!empty($jointCaseReportFiles) && count($jointCaseReportFiles) > 0)
-                        @include('partials.gsa_report_files', [
-                            'gsaFiles' => $jointCaseReportFiles,
-                            'gsaForName' => $jointDossierHeadingName,
-                        ])
-                    @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
                     @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
@@ -574,88 +561,127 @@
                     @endif
                 @endif
 
-                                    @include('partials.exhibit-table', [
-                                        'exhibits' => $allCaseExhibits,
-                                        'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
-                                        'case' => $case,
-                                    ])
+                {{-- ATTACHED REPORT FILES CONTAINER ALWAYS ON TOP OF SEIZURES (COMMODITIES INVENTORY) --}}
+                @php
+                    $allCaseReportFiles = collect($allGsaForReview ?? [])
+                        ->merge(collect($allNlrForReview ?? []))
+                        ->merge(collect($jointCaseReportFiles ?? []))
+                        ->unique(function ($item) {
+                            return !empty($item->file_path) ? (string) $item->file_path : (get_class($item) . '_' . ($item->id ?? spl_object_id($item)));
+                        })
+                        ->values();
+                @endphp
+                @if ($allCaseReportFiles->count() > 0)
+                    @include('partials.gsa_report_files', [
+                        'gsaFiles' => $allCaseReportFiles,
+                        'gsaForName' => null,
+                    ])
+                @endif
+
+                @include('partials.exhibit-table', [
+                    'exhibits' => $allCaseExhibits,
+                    'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
+                    'case' => $case,
+                    'suspects' => $suspectsList ?? [],
+                ])
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
                 
-                <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD (ALL 4 UNITS) -->
-                <div id="seizureItemActivationCard"
-                    class="mt-8 bg-white border border-slate-300/80 rounded-2xl p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-slate-400">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
+                <!-- SECTION 4: SEIZURES (COMMODITIES & EXHIBITS) -->
+                <div class="mt-8 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
+                    <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                             </div>
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
-                                        Seizure Item Section
-                                    </h4>
-                                    <span id="seizureItemStatusBadge"
-                                        class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">
-                                        INACTIVE / HIDDEN
-                                    </span>
-                                </div>
-                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">
-                                    Check the box to display and activate the Seizure Item section to record new exhibits or commodities for this case.
-                                </p>
+                                <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures (Commodities)</h3>
+                                <p class="text-xs text-slate-500">Record illicit substance types, street valuation, and evidence vault allocation</p>
                             </div>
                         </div>
-
-                        <label for="toggleSeizureItemSectionCheckbox"
-                            id="labelToggleSeizureItemSection"
-                            class="inline-flex items-center gap-3 cursor-pointer select-none bg-slate-50 hover:bg-slate-100/90 px-4 py-2.5 rounded-xl border border-slate-300 transition-all duration-150 shrink-0 shadow-2xs">
-                            <input type="checkbox" id="toggleSeizureItemSectionCheckbox"
-                                onchange="toggleSeizureItemSection(this.checked)"
-                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                            <span class="text-xs font-extrabold text-slate-800 tracking-wide">
-                                Add / Record Seizure Item
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase tracking-wider shadow-2xs">
+                                Contraband Inventory
                             </span>
+                        </div>
+                    </div>
+
+                    <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD -->
+                    <div id="seizureItemActivationCard" class="space-y-2.5">
+                        <div class="flex items-center justify-between pb-1">
+                            <span class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">Seizure Item Section</span>
+                            <span id="seizureItemStatusBadge" class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">
+                                INACTIVE / HIDDEN
+                            </span>
+                        </div>
+                        <label for="toggleSeizureItemSectionCheckbox" id="labelToggleSeizureItemSection" class="relative flex items-center space-x-3.5 p-4 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-300/80 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none overflow-hidden">
+                            <input type="checkbox" id="toggleSeizureItemSectionCheckbox" onchange="toggleSeizureItemSection(this.checked)" class="w-5 h-5 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600 shrink-0">
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <span class="text-xs font-extrabold text-slate-900">Seized Contraband / Illicit Commodities Recorded During Arrest</span>
+                                <span class="text-[11px] text-slate-500 font-medium">Check this box if any narcotics, weapons, cash, or contraband commodities were confiscated from this suspect</span>
+                            </div>
                         </label>
                     </div>
-                </div>
 
-                <!-- SECTION 4: SEIZURES (COMMODITIES & EXHIBITS) -->
-                <div id="section4Seizures"
-                    class="mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm hidden">
-                    <form id="section4SeizuresForm"
-                        onsubmit="event.preventDefault(); return false;"
-                        onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); return false; }">
-                        <!-- MANIFEST HEADER BAR WITH DYNAMIC SEIZED ITEMS NUMBER INPUT -->
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-300/60 pb-4 mb-6 gap-3">
-                            <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
+                    <div id="section4Seizures" class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
+                        <form id="section4SeizuresForm"
+                            onsubmit="event.preventDefault(); return false;"
+                            onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); return false; }">
+                            <!-- MANIFEST HEADER BAR WITH DYNAMIC SEIZED ITEMS NUMBER INPUT -->
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-300/60 pb-4 mb-6 gap-3">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center text-xs font-bold shadow-sm shadow-slate-200/50">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Seized Commodities &amp; Contraband Manifest</h4>
+                                        <p class="text-[11px] text-slate-500">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 class="font-extrabold text-slate-900 text-xs uppercase tracking-wider">Seized Commodities &amp; Contraband Manifest</h4>
-                                    <p class="text-[11px] text-slate-500">Record illicit substance types, Weight/quantity, street valuation, and evidence vault allocation</p>
+                                <div class="flex items-center gap-2.5 flex-wrap">
+                                    <div class="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-300 shadow-2xs">
+                                        <label for="seizureCountInput" class="text-[11px] font-extrabold uppercase font-mono-code text-slate-700 whitespace-nowrap">
+                                            Number of Seized Items:
+                                        </label>
+                                        <input type="number" id="seizureCountInput" min="1" max="100" value="1"
+                                            onchange="setSeizureBlocksCount(this.value)"
+                                            oninput="setSeizureBlocksCount(this.value)"
+                                            onblur="if(!this.value || parseInt(this.value, 10) < 1) { this.value = document.querySelectorAll('#seizuresListContainer .seizure-block').length; }"
+                                            class="w-16 px-2 py-0.5 text-center font-mono-code font-black text-xs text-slate-900 bg-emerald-50 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                                    </div>
+                                    <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                        Add Seizure
+                                    </button>
+                                    <button type="button" onclick="resetSeizureItemSection(true)" title="Reset Seizure Item Section" class="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-extrabold text-xs rounded-xl border border-slate-300 shadow-xs hover:shadow transition-all cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Reset Section
+                                    </button>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2.5 flex-wrap">
-                                <div class="inline-flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-300 shadow-2xs">
-                                    <label for="seizureCountInput" class="text-[11px] font-extrabold uppercase font-mono-code text-slate-700 whitespace-nowrap">
-                                        Number of Seized Items:
+
+                            <!-- SHARED MANIFEST DESCRIPTION OF EXHIBIT(S) SECTION -->
+                            <div class="bg-white p-5 rounded-2xl border border-slate-300/80 shadow-2xs space-y-2 mb-6">
+                                <div class="flex items-center justify-between">
+                                    <label for="manifestDescriptionOfExhibits" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h7" />
+                                        </svg>
+                                        <span>Description of Exhibit(s)</span>
+                                        <span class="text-red-600 font-bold">*</span>
                                     </label>
-                                    <input type="number" id="seizureCountInput" min="1" max="100" value="1"
-                                        onchange="setSeizureBlocksCount(this.value)"
-                                        oninput="setSeizureBlocksCount(this.value)"
-                                        onblur="if(!this.value || parseInt(this.value, 10) < 1) { this.value = document.querySelectorAll('#seizuresListContainer .seizure-block').length; }"
-                                        class="w-16 px-2 py-0.5 text-center font-mono-code font-black text-xs text-slate-900 bg-emerald-50 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                                    <span class="px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-mono-code font-bold rounded-md border border-emerald-200 uppercase">
+                                        SHARED MANIFEST DESCRIPTION
+                                    </span>
                                 </div>
-                                <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
-                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                    Add Seizure
-                                </button>
+                                <p class="text-[11px] text-slate-500 font-medium">Record the overall description, outer packaging, markings, and consignment details applicable to all seized items under this manifest.</p>
+                                <textarea id="manifestDescriptionOfExhibits" name="description_of_exhibits" rows="3"
+                                    placeholder="e.g. Inside the brown carton were multiple individually sealed exhibits, labelled sequentially as received under chain of custody..."
+                                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs resize-none placeholder:text-slate-400">{{ old('description_of_exhibits', $case->description_of_exhibits ?? '') }}</textarea>
                             </div>
-                        </div>
 
                         <div id="seizuresListContainer" class="space-y-6">
                             <!-- SEIZURE BLOCK #1 -->
@@ -708,101 +734,41 @@
                                     </div>
 
                                     
-                                    <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT DROPDOWN -->
+                                    <!-- EXHIBIT (COMMODITY CATEGORY) - SELECT2 DROPDOWN -->
                                     <div class="relative z-[9999]" style="z-index: 9999;">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
                                             Exhibit (Commodity Category) <span class="text-red-600 font-bold">*</span>
                                         </label>
-                                        <div id="exhibitSelectWrapper" class="relative z-[9999]"
-                                            style="z-index: 9999;">
+                                        <div id="exhibitSelectWrapper" class="relative z-[9999]" style="z-index: 9999;">
                                             <div class="relative">
-                                                <span
-                                                    class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                                                        viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                    </svg>
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                                                 </span>
-                                                <input type="text" id="exhibitSearchInput"
+                                                <input
+                                                    type="text"
+                                                    id="exhibitSearchInput"
                                                     value="Electronic Devices"
-                                                    placeholder="Electronic Devices"
+                                                    placeholder="Select or type exhibit category..."
                                                     autocomplete="off"
                                                     class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
                                                     onclick="openExhibitListPanel(this)"
                                                     oninput="filterExhibitList(this)"
-                                                    onfocus="openExhibitListPanel(this)">
+                                                    onfocus="openExhibitListPanel(this)"
+                                                >
                                                 <input type="hidden" id="newSeizureCategory" value="Electronic Devices">
                                             </div>
-                                            <div id="exhibitListPanel"
-                                                class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden"
-                                                style="z-index: 9999;">
-                                                <div
-                                                    class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
-                                                    <input type="text" id="exhibitSearchInner"
-                                                        placeholder="Type to filter categories..."
-                                                        oninput="filterExhibitListInner(this)"
-                                                        class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                            <div id="exhibitListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] overflow-hidden" style="z-index: 9999;">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="exhibitSearchInner" placeholder="Type to filter categories..." oninput="filterExhibitListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
                                                 </div>
                                                 <ul id="exhibitList" class="py-1.5 space-y-0.5 px-1.5">
-                                                                                                            <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Electronic Devices', event)">
-                                                            <button type="button"
-                                                                class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                <div>
-                                                                    <div class="font-extrabold text-slate-900">Electronic Devices</div>
-                                                                    <div class="text-[10px] text-slate-500 font-normal">Phones, Encrypted Laptops, Drives</div>
-                                                                </div>
-                                                                <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">ELEC</span>
-                                                            </button>
-                                                        </li>
-                                                        <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Storage Media', event)">
-                                                            <button type="button"
-                                                                class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                <div>
-                                                                    <div class="font-extrabold text-slate-900">Storage Media</div>
-                                                                    <div class="text-[10px] text-slate-500 font-normal">Hard Drives, Flash Drives, SD Cards</div>
-                                                                </div>
-                                                                <span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-bold">MED</span>
-                                                            </button>
-                                                        </li>
-                                                        <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Communication Hardware', event)">
-                                                            <button type="button"
-                                                                class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                <div>
-                                                                    <div class="font-extrabold text-slate-900">Communication Hardware</div>
-                                                                    <div class="text-[10px] text-slate-500 font-normal">Routers, Satellite Phones, SIM Cards</div>
-                                                                </div>
-                                                                <span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold">COM</span>
-                                                            </button>
-                                                        </li>
-                                                        <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Digital Documents', event)">
-                                                            <button type="button"
-                                                                class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                <div>
-                                                                    <div class="font-extrabold text-slate-900">Digital Documents</div>
-                                                                    <div class="text-[10px] text-slate-500 font-normal">Hard Disks with Financial Records</div>
-                                                                </div>
-                                                                <span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-700 px-2 py-0.5 rounded font-bold">DOC</span>
-                                                            </button>
-                                                        </li>
-                                                        <li class="exhibit-item"
-                                                            onclick="selectExhibitCategory('Other Digital/Physical Exhibit', event)">
-                                                            <button type="button"
-                                                                class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
-                                                                <div>
-                                                                    <div class="font-extrabold text-slate-900">Other Digital/Physical Exhibit</div>
-                                                                    <div class="text-[10px] text-slate-500 font-normal">Miscellaneous Digital Hardware</div>
-                                                                </div>
-                                                                <span class="text-[10px] font-mono-code bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">OTH</span>
-                                                            </button>
-                                                        </li>
-                                                                                                    </ul>
+                                                    <li class="exhibit-item" onclick="selectExhibitCategory('Electronic Devices', event)">
+                                                        <button type="button" class="w-full text-left px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors">
+                                                            <div><div class="font-extrabold text-slate-900">Electronic Devices</div><div class="text-[10px] text-slate-500 font-normal">Phones, Encrypted Laptops, Drives</div></div>
+                                                            <span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">ELEC</span>
+                                                        </button>
+                                                    </li>
+                                                </ul>
                                             </div>
                                         </div>
                                     </div>
@@ -1228,6 +1194,94 @@
                                                 </ul>
                                             </div>
                                         </div>
+
+                                        <!-- ELECTRONIC DEVICE SELECT DROPDOWN (shown when Electronic Devices is selected) -->
+                                        <div id="deviceSelectWrapper" class="hidden relative z-40">
+                                            <div class="relative">
+                                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                </span>
+                                                <input
+                                                    type="text"
+                                                    id="deviceSearchInput"
+                                                    placeholder="Select or type custom electronic device type..."
+                                                    autocomplete="off"
+                                                    class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-500 placeholder:font-normal cursor-text"
+                                                    onclick="openDeviceListPanel(this)"
+                                                    oninput="filterDeviceList(this)"
+                                                    onfocus="openDeviceListPanel(this)"
+                                                >
+                                                <input type="hidden" id="newSeizureNameDevice" name="newSeizureNameDevice" value="">
+                                            </div>
+                                            <div id="deviceListPanel" class="hidden absolute left-0 right-0 mt-1 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden" style="max-height:240px;overflow-y:auto">
+                                                <div class="sticky top-0 bg-white px-3 pt-2.5 pb-1.5 border-b border-slate-100">
+                                                    <input type="text" id="deviceSearchInner" placeholder="Type to filter electronic devices..." oninput="filterDeviceListInner(this)" class="w-full px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-medium outline-none placeholder:text-slate-400 focus:bg-white focus:ring-1 focus:ring-emerald-600/20 transition-all">
+                                                </div>
+                                                <ul id="deviceList" class="py-1.5 space-y-0.5 px-1.5">
+                                                    <!-- Smartphones & Mobile Devices -->
+                                                    <li class="px-2 pt-2 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Smartphones &amp; Mobile Devices</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Apple iPhone (iOS Smartphone)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Apple iPhone (iOS Smartphone)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">IPHONE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Android Smartphone (Samsung / Google Pixel / Xiaomi)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Android Smartphone (Samsung / Google Pixel / Xiaomi)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">ANDROID</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Feature Phone / Burner Keypad Phone', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Feature Phone / Burner Keypad Phone</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">BURNER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Satellite Phone (Iridium / Thuraya / Inmarsat)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Satellite Phone (Iridium / Thuraya / Inmarsat)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">SAT-PHONE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Tablet / iPad (iOS / Android / Windows Tablet)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Tablet / iPad (iOS / Android / Windows Tablet)</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">TABLET</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Smartwatch / Wearable Fitness Tracker', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smartwatch / Wearable Fitness Tracker</span><span class="text-[10px] font-mono-code bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-bold">WATCH</span></button></li>
+
+                                                    <!-- Computers & Laptops -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Computers &amp; Laptops</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Laptop / Notebook Computer (MacBook / Windows / Linux)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Laptop / Notebook Computer (MacBook / Windows / Linux)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">LAPTOP</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Desktop PC / Workstation Computer', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Desktop PC / Workstation Computer</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">DESKTOP</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Encrypted / Hardened Custom Laptop', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Encrypted / Hardened Custom Laptop</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">ENCRYPTED</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Enterprise Server / Rackmount Server Unit', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Enterprise Server / Rackmount Server Unit</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SERVER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Single-Board Computer (Raspberry Pi / Arduino / Mini PC)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Single-Board Computer (Raspberry Pi / Arduino / Mini PC)</span><span class="text-[10px] font-mono-code bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded font-bold">SBC</span></button></li>
+
+                                                    <!-- Storage & Memory Media -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Storage &amp; Memory Media</li>
+                                                    <li class="device-item" onclick="selectDeviceType('External Hard Drive (HDD / Portable Hard Disk)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>External Hard Drive (HDD / Portable Hard Disk)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">HDD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Portable Solid State Drive (External SSD / NVMe)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Portable Solid State Drive (External SSD / NVMe)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SSD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('USB Flash Drive / Thumb Drive / Pen Drive', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>USB Flash Drive / Thumb Drive / Pen Drive</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">USB</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Memory Card (SD Card / MicroSD / CF Card)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Memory Card (SD Card / MicroSD / CF Card)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">SD-CARD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('NAS / Network Attached Storage Array', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>NAS / Network Attached Storage Array</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">NAS</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Optical Media (CD / DVD / Blu-ray Disc)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Optical Media (CD / DVD / Blu-ray Disc)</span><span class="text-[10px] font-mono-code bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded font-bold">DISC</span></button></li>
+
+                                                    <!-- Skimming, Fraud & Hardware Attack Devices -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Skimming, Fraud &amp; Hardware Attack Devices</li>
+                                                    <li class="device-item" onclick="selectDeviceType('ATM Card Skimmer / Bezel Overlay Device', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>ATM Card Skimmer / Bezel Overlay Device</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SKIMMER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('POS Terminal / Handheld Card Reader', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>POS Terminal / Handheld Card Reader</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">POS</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Magstripe Card Writer / Encoder (MSR / MSR605)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Magstripe Card Writer / Encoder (MSR / MSR605)</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ENCODER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('SIM Box / Multi-SIM GSM Cellular Gateway', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>SIM Box / Multi-SIM GSM Cellular Gateway</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">SIMBOX</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('BadUSB / Hardware Keylogger / Rubber Ducky', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>BadUSB / Hardware Keylogger / Rubber Ducky</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">ATTACK-USB</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('RFID / NFC Cloner / Flipper Zero Device', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>RFID / NFC Cloner / Flipper Zero Device</span><span class="text-[10px] font-mono-code bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-bold">CLONER</span></button></li>
+
+                                                    <!-- Crypto & Financial Hardware -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Crypto &amp; Financial Hardware</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Cryptocurrency Hardware Wallet (Ledger / Trezor / KeepKey)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Cryptocurrency Hardware Wallet (Ledger / Trezor / KeepKey)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">HW-WALLET</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Crypto Mining Rig / ASIC Miner (Antminer / GPU Rig)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Crypto Mining Rig / ASIC Miner (Antminer / GPU Rig)</span><span class="text-[10px] font-mono-code bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded font-bold">MINER</span></button></li>
+
+                                                    <!-- Cameras, Drones & Surveillance Equipment -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Cameras, Drones &amp; Surveillance Equipment</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Security Camera / CCTV DVR / NVR Unit', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Security Camera / CCTV DVR / NVR Unit</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CCTV</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Digital Camera / Camcorder / DSLR', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital Camera / Camcorder / DSLR</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">CAMERA</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Covert Spy Camera / Hidden Camera Device', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Covert Spy Camera / Hidden Camera Device</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">SPY-CAM</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Drone / Unmanned Aerial Vehicle (DJI / FPV Drone)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Drone / Unmanned Aerial Vehicle (DJI / FPV Drone)</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">DRONE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('GPS Tracking Bug / Tracker Tag (AirTag / GPS Unit)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>GPS Tracking Bug / Tracker Tag (AirTag / GPS Unit)</span><span class="text-[10px] font-mono-code bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">GPS</span></button></li>
+
+                                                    <!-- Networking & Communication Equipment -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Networking &amp; Communication Equipment</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Wi-Fi Router / Wireless Access Point / Modem', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Wi-Fi Router / Wireless Access Point / Modem</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">ROUTER</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Network Switch / Managed Network Hardware', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Network Switch / Managed Network Hardware</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">SWITCH</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Mobile Hotspot / MiFi Device / 4G-5G Dongle', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Mobile Hotspot / MiFi Device / 4G-5G Dongle</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">MIFI</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Two-Way Radio / Walkie-Talkie (VHF / UHF Transceiver)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Two-Way Radio / Walkie-Talkie (VHF / UHF Transceiver)</span><span class="text-[10px] font-mono-code bg-cyan-50 text-cyan-800 px-1.5 py-0.5 rounded font-bold">RADIO</span></button></li>
+
+                                                    <!-- Gaming & Audio/Video Equipment -->
+                                                    <li class="px-2 pt-3 pb-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">Gaming &amp; Audio/Video Equipment</li>
+                                                    <li class="device-item" onclick="selectDeviceType('Gaming Console (PlayStation / Xbox / Nintendo)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Gaming Console (PlayStation / Xbox / Nintendo)</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">CONSOLE</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Handheld Gaming Unit (Steam Deck / ROG Ally)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Handheld Gaming Unit (Steam Deck / ROG Ally)</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">HANDHELD</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Digital Voice Recorder / Dictaphone', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Digital Voice Recorder / Dictaphone</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">AUDIO</span></button></li>
+                                                    <li class="device-item" onclick="selectDeviceType('Smart TV / Media Streaming Dongle (Apple TV / Firestick)', event)"><button type="button" class="w-full text-left px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-black rounded-xl flex items-center justify-between transition-colors"><span>Smart TV / Media Streaming Dongle (Apple TV / Firestick)</span><span class="text-[10px] font-mono-code bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded font-bold">MEDIA</span></button></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <!-- ESTIMATED STREET VALUE -->
@@ -1470,63 +1524,63 @@
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
-                                                <input type="text" id="newDevModel"
+                                                <input type="text" id="newDevModel" name="dev_model"
                                                     placeholder="e.g. iPhone 15 Pro Max"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    class="dev-model-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
                                                     Number</label>
-                                                <input type="text" id="newDevSerialNo"
+                                                <input type="text" id="newDevSerialNo" name="dev_serial_no"
                                                     placeholder="e.g. F2LZX984K102"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    class="dev-serial-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
                                                     1</label>
-                                                <input type="text" id="newDevImei1"
+                                                <input type="text" id="newDevImei1" name="dev_imei1"
                                                     placeholder="e.g. 356938035643809"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    class="dev-imei1-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
                                                     2</label>
-                                                <input type="text" id="newDevImei2"
+                                                <input type="text" id="newDevImei2" name="dev_imei2"
                                                     placeholder="e.g. 356938035643817"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    class="dev-imei2-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">MAC
                                                     Address</label>
-                                                <input type="text" id="newDevMacAddress"
+                                                <input type="text" id="newDevMacAddress" name="dev_mac_address"
                                                     placeholder="e.g. 00:1A:2B:3C:4D:5E"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                    class="dev-mac-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage
                                                     Capacity</label>
-                                                <input type="text" id="newDevStorage" placeholder="e.g. 256 GB"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                <input type="text" id="newDevStorage" name="dev_storage" placeholder="e.g. 256 GB"
+                                                    class="dev-storage-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
-                                                <input type="text" id="newDevColour"
+                                                <input type="text" id="newDevColour" name="dev_colour"
                                                     placeholder="e.g. Space Gray"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    class="dev-colour-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                             </div>
                                             <div>
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Other
                                                     Marks</label>
-                                                <input type="text" id="newDevMarks"
+                                                <input type="text" id="newDevMarks" name="dev_marks"
                                                     placeholder="e.g. Cracked screen"
-                                                    class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                    class="dev-marks-input w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                             </div>
                                         </div>
                                     </div>
@@ -2189,126 +2243,74 @@
                                         </div>
                                     </div>
 
-                                    <!-- DATE & TIME SEIZED -->
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date
-                                                Seized</label>
-                                            <input type="date" id="newSeizureDate"
-                                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                    <!-- DATE, TIME & LOCATION SEIZED -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 col-span-full">
+                                        <!-- DATE SEIZED -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date Seized <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                </span>
+                                                <input type="date" id="newSeizureDate" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time
-                                                Seized</label>
-                                            <input type="time" id="newSeizureTime"
-                                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                        </div>
-                                    </div>
 
-                                    <!-- LOCATION SEIZED -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location
-                                            Seized</label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newSeizureLocation"
-                                                placeholder="e.g. Tema Port, Gate 4 — Container Terminal"
-                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        <!-- TIME SEIZED -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time Seized</label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                </span>
+                                                <input type="time" id="newSeizureTime" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <!-- SOURCE OF EXHIBITS -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
-                                                placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
-                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                        <!-- LOCATION SEIZED -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location Seized <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureLocation" name="location_seized" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
                                         </div>
                                     </div>
 
                                     <!-- SEIZING OFFICERS (MULTI-ROW) -->
                                     <div class="col-span-full">
                                         <div class="flex items-center justify-between mb-1.5">
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                Seizing Officer(s)
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                Seizing Officer(s) <span class="text-red-600 font-bold">*</span>
                                             </label>
-                                            <button type="button" onclick="addSeizureOfficerRow(this)"
-                                                class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                                </svg> Add Officer
+                                            <button type="button" onclick="addSeizureOfficerRow(this)" class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                Add Seizing Officer
                                             </button>
                                         </div>
+
+                                        <!-- OFFICER ROWS CONTAINER -->
                                         <div id="seizureOfficersContainer" class="space-y-2">
-                                            <div
-                                                class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
+                                            <!-- Row 1 -->
+                                            <div class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
                                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                     <div class="relative flex items-center group">
-                                                        <span
-                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                            </svg>
+                                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                                         </span>
-                                                        <input type="text"
-                                                            class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400"
-                                                            placeholder="Officer Full Name">
+                                                        <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
                                                     </div>
                                                     <div class="flex items-center gap-1.5">
                                                         <div class="relative flex-1 flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4" />
-                                                                </svg>
+                                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
                                                             </span>
-                                                            <input type="text"
-                                                                class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code"
-                                                                placeholder="Service ID / Badge No (e.g. SD-0042)">
+                                                            <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
                                                         </div>
-                                                        <button type="button"
-                                                            onclick="removeSeizureOfficerRow(this)"
-                                                            class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer"
-                                                            title="Remove Officer">
-                                                            <svg class="w-4 h-4" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
+                                                        <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -2316,56 +2318,35 @@
                                         </div>
                                     </div>
 
-                                    <!-- INVESTIGATING OFFICER -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                            Investigating Officer
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                            </span>
-                                            <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
-                                                placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
-                                                class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                    <!-- ROW: REASON FOR SEIZURE & REMARKS / OBSERVATIONS -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- REASON FOR SEIZURE -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason for Seizure <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="relative flex items-start group">
+                                                <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </span>
+                                                <textarea id="newSeizureReason" name="seizure_reason" rows="3" placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <!-- SOURCE / REQUESTING UNIT -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                            Source/Requesting Unit
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                            </span>
-                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
-                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
-                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-
-                                    <!-- REMARKS / EXHIBIT REMARK -->
-                                    <div class="col-span-full pt-2 border-t border-slate-300/60">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                            <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
-                                            <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
-                                        </label>
-                                        <div class="relative flex items-start group">
-                                            <span
-                                                class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                                </svg>
-                                            </span>
-                                            <textarea id="newSeizureRemark" name="exhibit_remark" rows="2"
-                                                placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
-                                                class="seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                        <!-- REMARKS / OBSERVATIONS (OPTIONAL) -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                                <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
+                                            </label>
+                                            <div class="relative flex items-start group">
+                                                <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                    </svg>
+                                                </span>
+                                                <textarea id="newSeizureRemark" name="exhibit_remark" rows="3" data-alt-id="newSeizureExhibitRemark"
+                                                    placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
+                                                    class="newSeizureExhibitRemark seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -2433,6 +2414,7 @@
                         </div>
                     </form>
                 </div>
+            </div>
 
                 
                 <!-- EXAMINATION INFORMATION CONTAINER (HANDLED BY DEDICATED FUNCTION EXCLUSIVELY FOR LAB ANALYSIS SHOW_REVIEW) -->
@@ -2468,7 +2450,7 @@
                                 class="text-[10px] font-mono-code font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                                 <span
                                     class="{{ $secondaryBadgeBg }} text-white px-1.5 py-0.5 rounded text-[9px]">{{ $secondaryBadge }}</span>
-                                <span>&bull;</span>
+                                <span class="text-amber-400">|</span>
                                 <span>SUSPECT #{{ $aSpIndex }}: {{ strtoupper($aSpName) }}</span>
                             </div>
                             <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($aSpName) }}</div>
@@ -2577,8 +2559,6 @@
                                 Confirmatory Test:</td>
                             <td class="p-3 font-black bg-white text-emerald-950">
                                 <span class="inline-flex items-center space-x-1.5">
-                                    <span
-                                        class="w-2.5 h-2.5 rounded-full {{ $assocConfirmatoryVal === 'YES' ? 'bg-emerald-600' : 'bg-slate-600' }}"></span>
                                     <span>{{ $assocConfirmatoryVal === 'YES' ? 'YES' : 'NO' }}</span>
                                 </span>
                             </td>
@@ -3766,7 +3746,7 @@
                     }
                     const uConfirmatoryEl = document.getElementById('section5ConfirmatoryDisplay');
                     if (uConfirmatoryEl) uConfirmatoryEl.innerHTML =
-                        `<span class="w-2.5 h-2.5 rounded-full ${confirmatory === 'YES' ? 'bg-emerald-600' : 'bg-slate-500'}"></span><span>${confirmatory === 'YES' ? 'YES' : 'NO'}</span>`;
+                        `<span>${confirmatory === 'YES' ? 'YES' : 'NO'}</span>`;
                     const uDescEl = document.getElementById('section5SampleDescDisplay');
                     if (uDescEl) uDescEl.textContent = document.getElementById('sampleWeightDescriptionReview')
                         ?.value || 'N/A';
@@ -3970,14 +3950,14 @@
                     const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
                     const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
-                    const devModel = block.querySelector('#newDevModel')?.value || '';
-                    const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
-                    const devImei1 = block.querySelector('#newDevImei1')?.value || '';
-                    const devImei2 = block.querySelector('#newDevImei2')?.value || '';
-                    const devMacAddress = block.querySelector('#newDevMacAddress')?.value || '';
-                    const devStorage = block.querySelector('#newDevStorage')?.value || '';
-                    const devColour = block.querySelector('#newDevColour')?.value || '';
-                    const devMarks = block.querySelector('#newDevMarks')?.value || '';
+                    const devModel = block.querySelector('#newDevModel')?.value || block.querySelector('.dev-model-input')?.value || block.querySelector('[name="dev_model"]')?.value || '';
+                    const devSerialNo = block.querySelector('#newDevSerialNo')?.value || block.querySelector('.dev-serial-input')?.value || block.querySelector('[name="dev_serial_no"]')?.value || '';
+                    const devImei1 = block.querySelector('#newDevImei1')?.value || block.querySelector('.dev-imei1-input')?.value || block.querySelector('[name="dev_imei1"]')?.value || '';
+                    const devImei2 = block.querySelector('#newDevImei2')?.value || block.querySelector('.dev-imei2-input')?.value || block.querySelector('[name="dev_imei2"]')?.value || '';
+                    const devMacAddress = block.querySelector('#newDevMacAddress')?.value || block.querySelector('.dev-mac-input')?.value || block.querySelector('[name="dev_mac_address"]')?.value || '';
+                    const devStorage = block.querySelector('#newDevStorage')?.value || block.querySelector('.dev-storage-input')?.value || block.querySelector('[name="dev_storage"]')?.value || '';
+                    const devColour = block.querySelector('#newDevColour')?.value || block.querySelector('.dev-colour-input')?.value || block.querySelector('[name="dev_colour"]')?.value || '';
+                    const devMarks = block.querySelector('#newDevMarks')?.value || block.querySelector('.dev-marks-input')?.value || block.querySelector('[name="dev_marks"]')?.value || '';
 
                     const wpnModel = block.querySelector('#wpnModel')?.value || '';
                     const wpnSerialNo = block.querySelector('#wpnSerialNo')?.value || '';
@@ -5742,6 +5722,9 @@
                 const firstBlock = container ? container.querySelector('.seizure-block') : null;
                 if (firstBlock) {
                     window._seizureBlockTemplate = firstBlock.cloneNode(true);
+                    window._seizureBlockTemplate.querySelectorAll('input, select, textarea, button').forEach(el => {
+                        el.disabled = false;
+                    });
                     window._seizureBlockTemplate.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea').forEach(input => {
                         input.value = '';
                     });
@@ -5788,7 +5771,99 @@
             return false;
         }
 
-        function setSeizureBlocksCount(val) {
+                function resetSeizureItemSection(promptConfirm = false) {
+            const container = document.getElementById('seizuresListContainer');
+            if (!container) return;
+
+            if (promptConfirm) {
+                let hasData = false;
+                const blocks = container.querySelectorAll('.seizure-block');
+                for (const b of blocks) {
+                    if (typeof seizureBlockHasData === 'function' && seizureBlockHasData(b)) {
+                        hasData = true;
+                        break;
+                    }
+                }
+                const manifestDesc = document.getElementById('manifestDescriptionOfExhibits');
+                if (manifestDesc && manifestDesc.value && manifestDesc.value.trim() !== '') {
+                    hasData = true;
+                }
+                if (hasData) {
+                    const confirmed = confirm('Are you sure you want to reset the Seizure Item section? All entered seizure information will be cleared.');
+                    if (!confirmed) return;
+                }
+            }
+
+            // Reset count input to 1
+            const countInput = document.getElementById('seizureCountInput');
+            if (countInput) {
+                countInput.value = 1;
+            }
+
+            // Clear overall manifest description
+            const manifestDesc = document.getElementById('manifestDescriptionOfExhibits');
+            if (manifestDesc) {
+                manifestDesc.value = '';
+            }
+
+            // Remove extra blocks so only 1 remains
+            const allBlocks = container.querySelectorAll('.seizure-block');
+            for (let i = 1; i < allBlocks.length; i++) {
+                allBlocks[i].remove();
+            }
+
+            // Reset the remaining first block to clean/pristine state
+            const firstBlock = container.querySelector('.seizure-block');
+            if (firstBlock) {
+                firstBlock.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea').forEach(input => {
+                    input.value = '';
+                });
+                firstBlock.querySelectorAll('input[type="hidden"]').forEach(input => {
+                    input.value = '';
+                });
+                firstBlock.querySelectorAll('select').forEach(select => {
+                    select.selectedIndex = 0;
+                });
+                firstBlock.querySelector('.seizure-associated-person-select')?.removeAttribute('data-user-selected');
+                const photoGrid = firstBlock.querySelector('.seizurePhotosGrid');
+                if (photoGrid) { photoGrid.innerHTML = ''; photoGrid.classList.add('hidden'); }
+                const photoCount = firstBlock.querySelector('#seizurePhotosCount, .seizure-photos-count');
+                if (photoCount) { photoCount.innerText = '0 Photos Uploaded'; photoCount.classList.add('hidden'); }
+                const fileInput = firstBlock.querySelector('.fileSeizurePhoto');
+                if (fileInput) fileInput.value = '';
+                delete firstBlock.dataset.exhibitNumber;
+                delete firstBlock.dataset.labExhibitNo;
+                delete firstBlock.dataset.linkedExhibitId;
+                delete firstBlock.dataset.propertyId;
+
+                // Restore default unit category if defined
+                if (window._initialDefaultUnitCategory) {
+                    const catInput = firstBlock.querySelector('#newSeizureCategory, .new-seizure-category');
+                    const searchInput = firstBlock.querySelector('#exhibitSearchInput, .exhibit-search-input');
+                    if (catInput) catInput.value = window._initialDefaultUnitCategory;
+                    if (searchInput) searchInput.value = window._initialDefaultUnitCategory;
+                    if (typeof updateCommodityField === 'function') {
+                        updateCommodityField(window._initialDefaultUnitCategory, firstBlock);
+                    }
+                }
+            }
+
+            if (typeof updateSeizureBlockNumbers === 'function') {
+                updateSeizureBlockNumbers();
+            }
+
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof evaluateLabExaminationVisibility === 'function') {
+                evaluateLabExaminationVisibility();
+            }
+        }
+
+function setSeizureBlocksCount(val) {
             const targetCount = parseInt(val, 10);
             const container = document.getElementById('seizuresListContainer');
             if (!container) return;
@@ -6107,6 +6182,11 @@
             const numberBadge = clone.querySelector('.seizure-number-badge');
             if (numberBadge) numberBadge.innerText = newIndex;
 
+            // Re-enable all inputs inside the clone
+            clone.querySelectorAll('input, select, textarea, button').forEach(el => {
+                el.disabled = false;
+            });
+
             clone.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea').forEach(input => {
                 input.value = '';
             });
@@ -6150,6 +6230,15 @@
             if (cloneFileInput) cloneFileInput.value = '';
 
             container.appendChild(clone);
+
+            const defaultCat = window._initialDefaultUnitCategory || 'Electronic Devices';
+            const cloneCatIn = clone.querySelector('#newSeizureCategory');
+            const cloneCatDis = clone.querySelector('#exhibitSearchInput');
+            if (cloneCatIn) cloneCatIn.value = defaultCat;
+            if (cloneCatDis) cloneCatDis.value = defaultCat;
+            if (typeof updateCommodityField === 'function') {
+                updateCommodityField(defaultCat, clone);
+            }
 
             if (shouldUpdate) {
                 updateSeizureBlockNumbers();
@@ -6216,9 +6305,15 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            if (!window._initialDefaultUnitCategory) {
+                const initialCatEl = document.getElementById('newSeizureCategory');
+                const initialSearchEl = document.getElementById('exhibitSearchInput');
+                window._initialDefaultUnitCategory = (initialCatEl?.value || initialSearchEl?.value || '').trim();
+            }
             getPristineSeizureBlockTemplate();
-            if (window._savedCaseExhibitsData && window._savedCaseExhibitsData.length > 0) {
-                populateExistingManifestSections(window._savedCaseExhibitsData);
+            // Default Seizure Item section to 1 clean item for recording new exhibits
+            if (typeof resetSeizureItemSection === 'function') {
+                resetSeizureItemSection(false);
             }
         });
 
@@ -6471,7 +6566,8 @@
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
                 if (deviceWrapper) deviceWrapper.classList.remove('hidden');
                 if (deviceFieldsWrapper) deviceFieldsWrapper.classList.remove('hidden');
-                if (textWrapper) textWrapper.classList.remove('hidden');
+                const deviceSearch = root.querySelector('#deviceSearchInput');
+                if (deviceSearch) { deviceSearch.setAttribute('required', 'required'); deviceSearch.placeholder = 'Select or type custom electronic device type...'; }
             } else if (category === 'Other Exhibits' || category === 'Other' || category === 'Other Exhibit' || catNorm === 'other exhibits' || catNorm === 'other exhibit' || catNorm === 'other' || catNorm.includes('other')) {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity';
                 if (textWrapper) textWrapper.classList.remove('hidden');
@@ -6638,16 +6734,6 @@
         function filterWeaponList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
             const rawVal = root.querySelector('#weaponSearchInput')?.value || '';
-            const hidden = root.querySelector('#newSeizureNameWeapon');
-            if (hidden) hidden.value = rawVal;
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = rawVal;
-            filterWeaponListByQuery(rawVal.toLowerCase(), root);
-        }
-
-        function filterWeaponListInner(el) {
-            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
-            const rawVal = root.querySelector('#weaponSearchInner')?.value || '';
             const hidden = root.querySelector('#newSeizureNameWeapon');
             if (hidden) hidden.value = rawVal;
             const textInput = root.querySelector('#newSeizureName');
@@ -7282,14 +7368,14 @@
                 const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
                 const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
 
-                const devModel = block.querySelector('#newDevModel')?.value || '';
-                const devSerialNo = block.querySelector('#newDevSerialNo')?.value || '';
-                const devImei1 = block.querySelector('#newDevImei1')?.value || '';
-                const devImei2 = block.querySelector('#newDevImei2')?.value || '';
-                const devMacAddress = block.querySelector('#newDevMacAddress')?.value || '';
-                const devStorage = block.querySelector('#newDevStorage')?.value || '';
-                const devColour = block.querySelector('#newDevColour')?.value || '';
-                const devMarks = block.querySelector('#newDevMarks')?.value || '';
+                const devModel = block.querySelector('#newDevModel')?.value || block.querySelector('.dev-model-input')?.value || block.querySelector('[name="dev_model"]')?.value || '';
+                const devSerialNo = block.querySelector('#newDevSerialNo')?.value || block.querySelector('.dev-serial-input')?.value || block.querySelector('[name="dev_serial_no"]')?.value || '';
+                const devImei1 = block.querySelector('#newDevImei1')?.value || block.querySelector('.dev-imei1-input')?.value || block.querySelector('[name="dev_imei1"]')?.value || '';
+                const devImei2 = block.querySelector('#newDevImei2')?.value || block.querySelector('.dev-imei2-input')?.value || block.querySelector('[name="dev_imei2"]')?.value || '';
+                const devMacAddress = block.querySelector('#newDevMacAddress')?.value || block.querySelector('.dev-mac-input')?.value || block.querySelector('[name="dev_mac_address"]')?.value || '';
+                const devStorage = block.querySelector('#newDevStorage')?.value || block.querySelector('.dev-storage-input')?.value || block.querySelector('[name="dev_storage"]')?.value || '';
+                const devColour = block.querySelector('#newDevColour')?.value || block.querySelector('.dev-colour-input')?.value || block.querySelector('[name="dev_colour"]')?.value || '';
+                const devMarks = block.querySelector('#newDevMarks')?.value || block.querySelector('.dev-marks-input')?.value || block.querySelector('[name="dev_marks"]')?.value || '';
 
                 const wpnModel = block.querySelector('#wpnModel')?.value || '';
                 const wpnSerialNo = block.querySelector('#wpnSerialNo')?.value || '';
@@ -7352,6 +7438,8 @@
 
                 if ((category === 'Vehicles' || category === 'Vehicle' || (typeof category === 'string' && category.toLowerCase().includes('vehic'))) && !seizureName.trim()) {
                     seizureName = [vehMake, vehModel, vehRegNo ? `(${vehRegNo})` : ''].filter(Boolean).join(' ') || 'Vehicle Exhibit';
+                } else if ((category === 'Electronic Devices' || (typeof category === 'string' && (category.toLowerCase().includes('electronic') || category.toLowerCase().includes('device')))) && (!seizureName.trim() || seizureName === category || seizureName === 'Electronic Devices' || seizureName === 'Electronic Device')) {
+                    seizureName = devModel || 'Electronic Device';
                 } else if (isAmmoCat && (!seizureName.trim() || seizureName === category)) {
                     seizureName = [ammoProjectileType, ammoCartridgeAppearance].filter(Boolean).join(' - ') || 'Ammunition Exhibit';
                 } else if (isOtherCat && (!seizureName.trim() || seizureName === category)) {
@@ -7411,6 +7499,16 @@
                         dev_storage: devStorage,
                         dev_colour: devColour,
                         dev_marks: devMarks,
+                        dev: {
+                            model: devModel,
+                            serial_no: devSerialNo,
+                            imei1: devImei1,
+                            imei2: devImei2,
+                            mac_address: devMacAddress,
+                            storage: devStorage,
+                            colour: devColour,
+                            marks: devMarks
+                        },
                         wpn_model: wpnModel,
                         wpn_serial_no: wpnSerialNo,
                         wpn_calibre: wpnCalibre,
@@ -7525,7 +7623,8 @@
                         'X-CSRF-TOKEN': csrfToken,
                     },
                     body: JSON.stringify({
-                        associated_exhibits: exhibits
+                        associated_exhibits: exhibits,
+                        description_of_exhibits: document.getElementById('manifestDescriptionOfExhibits')?.value || ''
                     })
                 });
 
@@ -7622,6 +7721,11 @@
                         label.classList.add('bg-slate-50', 'border-slate-300');
                     }
                     s4Texts.forEach(el => el.innerText = 'Show Section 4');
+
+                    // Reset Seizure Item Section when toggled off so it starts clean next time
+                    if (typeof resetSeizureItemSection === 'function') {
+                        resetSeizureItemSection(false);
+                    }
                 }
             }
         }

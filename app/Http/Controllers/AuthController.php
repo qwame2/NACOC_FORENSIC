@@ -69,7 +69,7 @@ class AuthController extends Controller
             ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
             ->first();
 
-        if (!$user) {
+        if (!$user && \Illuminate\Support\Facades\Schema::hasTable('staff_accounts')) {
             $user = StaffAccount::whereRaw('LOWER(service_id) = ?', [strtolower($loginId)])
                 ->orWhereRaw('LOWER(username) = ?', [strtolower($loginId)])
                 ->orWhereRaw('LOWER(email) = ?', [strtolower($loginId)])
@@ -105,12 +105,17 @@ class AuthController extends Controller
                     : $redirect;
             }
 
+            $existingSessionId = $request->session()->getId();
             Auth::login($user, $request->has('remember'));
+            if ($existingSessionId) {
+                $request->session()->setId($existingSessionId);
+            }
             if ($user instanceof StaffAccount) {
                 $user->markOnline();
             }
-            $request->session()->regenerate();
 
+            // Land on the user's dashboard after login
+            $request->session()->forget('url.intended');
             $redirectUrl = self::getDashboardUrl($user);
 
             if ($isJsonReq) {
@@ -131,9 +136,6 @@ class AuthController extends Controller
                     ]
                 ], 200);
             }
-
-            // Always redirect to the user's dashboard first on login
-            session()->forget('url.intended');
 
             return redirect($redirectUrl)->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate.');
         }
@@ -186,12 +188,50 @@ class AuthController extends Controller
             ->where(function($q) {
                 $q->where('unit', 'Forensic Directorate')
                   ->orWhere('unit', 'Forensic Head')
+                  ->orWhere('unit', 'Head of Forensic')
                   ->orWhere('unit', 'Directorate Head')
                   ->orWhere('unit', 'LIKE', '%Forensic Directorate%');
             })
             ->first();
 
         $hasForensicHead = !is_null($forensicHead);
+
+        if ($hasForensicHead) {
+            // Remove Head of Forensic from the units list if already on the system
+            $units = $units->filter(function($u) {
+                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                $lower = strtolower(trim($name));
+                return !in_array($lower, [
+                    'head of forensic',
+                    'forensic head',
+                    'forensic directorate',
+                    'directorate head',
+                ], true);
+            })->values();
+        } else {
+            // Include Head of Forensic in the units dropdown list
+            $hasHof = $units->contains(function($u) {
+                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                $lower = strtolower(trim($name));
+                return in_array($lower, [
+                    'head of forensic',
+                    'forensic head',
+                    'forensic directorate',
+                ], true);
+            });
+
+            if (!$hasHof) {
+                $hofUnit = (object) [
+                    'id' => 999,
+                    'name' => 'Head of Forensic',
+                    'code' => 'HOF',
+                    'category' => 'COMMAND',
+                    'head_name' => null,
+                    'head_title' => 'Head of Forensic Directorate',
+                ];
+                $units = $units->push($hofUnit);
+            }
+        }
 
         return view('auth.register', compact('units', 'registeredHeads', 'hasForensicHead', 'forensicHead'));
     }
@@ -206,23 +246,33 @@ class AuthController extends Controller
             ->where(function($q) {
                 $q->where('unit', 'Forensic Directorate')
                   ->orWhere('unit', 'Forensic Head')
+                  ->orWhere('unit', 'Head of Forensic')
                   ->orWhere('unit', 'Directorate Head')
                   ->orWhere('unit', 'LIKE', '%Forensic Directorate%');
             })
             ->exists();
 
-        if (!$forensicHeadExists) {
-            // Force Head of Forensic registration parameters
+        $unitInput = trim($request->input('unit', ''));
+        $isHeadOfForensic = in_array(strtolower($unitInput), [
+            'head of forensic',
+            'forensic head',
+            'forensic directorate',
+            'directorate head',
+        ], true);
+
+        // If Forensic Head already exists, prevent creating another Forensic Head account
+        if ($forensicHeadExists && $isHeadOfForensic) {
+            throw ValidationException::withMessages([
+                'unit' => 'The Head of Forensic Directorate has already registered. Please select a specialized unit.',
+            ]);
+        }
+
+        if ($isHeadOfForensic) {
             $request->merge([
                 'unit' => 'Forensic Directorate',
+                'role' => 'head',
+                'is_staff' => 0,
             ]);
-        } else {
-            // Head of Forensic already exists. Prevent creating another Forensic Head account
-            if ($request->input('unit') === 'Forensic Directorate') {
-                throw ValidationException::withMessages([
-                    'unit' => 'The Head of Forensic Directorate has already registered. Please select a specialized unit.',
-                ]);
-            }
         }
 
         if ($request->has('service_prefix') && $request->has('service_number')) {
@@ -272,21 +322,17 @@ class AuthController extends Controller
             }
         }
 
-        if (!$forensicHeadExists) {
+        $roleInput = strtolower(trim($request->input('role', '')));
+        if ($roleInput === 'head' || $roleInput === 'unit_head') {
             $isStaff = false;
+        } elseif ($roleInput === 'staff' || $roleInput === 'officer') {
+            $isStaff = true;
         } else {
-            $roleInput = strtolower(trim($request->input('role', '')));
-            if ($roleInput === 'head' || $roleInput === 'unit_head') {
-                $isStaff = false;
-            } elseif ($roleInput === 'staff' || $roleInput === 'officer') {
-                $isStaff = true;
-            } else {
-                $isStaff = $request->has('is_staff') ? $request->boolean('is_staff') : true;
-            }
+            $isStaff = $request->has('is_staff') ? $request->boolean('is_staff') : true;
         }
         $isHead = !$isStaff;
 
-        if ($forensicHeadExists && $isHead) {
+        if ($isHead) {
             $existingUnitHead = $this->findExistingUnitHeadFromCollection(
                 User::where('is_head', true)->get(),
                 $validated['unit']
@@ -347,7 +393,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (!$forensicHeadExists) {
+        if ($isHead && in_array($validated['unit'], ['Forensic Directorate', 'Forensic Head', 'Directorate Head'])) {
             $statusMsg = 'Head of Forensic registration successful! Directorate command established. Unit Heads and Staff may now sign up.';
         } elseif ($isStaff) {
             $statusMsg = 'Registration successful! Your staff account requires approval by your Head of Unit before you can sign in.';
@@ -368,6 +414,7 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        $existingSessionId = $request->session()->getId();
         $currentUser = Auth::user();
         if ($currentUser instanceof StaffAccount) {
             $currentUser->markOffline();
@@ -375,6 +422,9 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        if ($existingSessionId) {
+            $request->session()->setId($existingSessionId);
+        }
 
         if ($request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json')) {
             return response()->json([

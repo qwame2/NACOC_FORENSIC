@@ -198,10 +198,29 @@ class ForensicCase extends Model
         $instance->source_requesting_unit = $firstExhibit->source_requesting_unit ?? ($record->source_requesting_unit ?? ($recDocket['source_requesting_unit'] ?? ($recDocket['seizures'][0]['source_requesting_unit'] ?? null)));
         $instance->seizure_reason = $firstExhibit->seizure_reason ?? ($record->seizure_reason ?? ($recDocket['seizure_reason'] ?? ($recDocket['seizures'][0]['seizure_reason'] ?? null)));
         $instance->source_of_exhibits = $firstExhibit->source_of_exhibits ?? ($record->source_of_exhibits ?? ($recDocket['source_of_exhibits'] ?? ($recDocket['seizures'][0]['source_of_exhibits'] ?? null)));
-        $instance->veh_make = $firstExhibit->veh_make ?? null;
-        $instance->veh_model = $firstExhibit->veh_model ?? null;
-        $instance->wpn_model = $firstExhibit->wpn_model ?? null;
-        $instance->dev_model = $firstExhibit->dev_model ?? null;
+        
+        $firstVehExhibit = $exhibits->first(function ($e) {
+            return !empty($e->veh_make) || !empty($e->veh_model) || !empty($e->veh_reg_no) || !empty($e->veh_vin);
+        }) ?? $firstExhibit;
+        $instance->veh_make = $firstVehExhibit->veh_make ?? ($record->veh_make ?? ($recDocket['veh_make'] ?? ($recDocket['seizures'][0]['veh_make'] ?? null)));
+        $instance->veh_model = $firstVehExhibit->veh_model ?? ($record->veh_model ?? ($recDocket['veh_model'] ?? ($recDocket['seizures'][0]['veh_model'] ?? null)));
+
+        $firstWpnExhibit = $exhibits->first(function ($e) {
+            return !empty($e->wpn_model) || !empty($e->wpn_serial_no);
+        }) ?? $firstExhibit;
+        $instance->wpn_model = $firstWpnExhibit->wpn_model ?? ($record->wpn_model ?? ($recDocket['wpn_model'] ?? ($recDocket['seizures'][0]['wpn_model'] ?? null)));
+
+        $firstDevExhibit = $exhibits->first(function ($e) {
+            return !empty($e->dev_model) || !empty($e->dev_serial_no) || !empty($e->dev_imei1) || !empty($e->dev_imei2) || !empty($e->dev_mac_address) || !empty($e->dev_storage) || !empty($e->dev_colour) || !empty($e->dev_marks);
+        }) ?? $firstExhibit;
+        $instance->dev_model = $firstDevExhibit->dev_model ?? ($record->dev_model ?? ($recDocket['dev_model'] ?? ($recDocket['seizures'][0]['dev_model'] ?? ($recDocket['seizures'][0]['dev']['model'] ?? null))));
+        $instance->dev_serial_no = $firstDevExhibit->dev_serial_no ?? ($record->dev_serial_no ?? ($recDocket['dev_serial_no'] ?? ($recDocket['seizures'][0]['dev_serial_no'] ?? ($recDocket['seizures'][0]['dev']['serial_no'] ?? null))));
+        $instance->dev_imei1 = $firstDevExhibit->dev_imei1 ?? ($record->dev_imei1 ?? ($recDocket['dev_imei1'] ?? ($recDocket['seizures'][0]['dev_imei1'] ?? ($recDocket['seizures'][0]['dev']['imei1'] ?? null))));
+        $instance->dev_imei2 = $firstDevExhibit->dev_imei2 ?? ($record->dev_imei2 ?? ($recDocket['dev_imei2'] ?? ($recDocket['seizures'][0]['dev_imei2'] ?? ($recDocket['seizures'][0]['dev']['imei2'] ?? null))));
+        $instance->dev_mac_address = $firstDevExhibit->dev_mac_address ?? ($record->dev_mac_address ?? ($recDocket['dev_mac_address'] ?? ($recDocket['seizures'][0]['dev_mac_address'] ?? ($recDocket['seizures'][0]['dev']['mac_address'] ?? null))));
+        $instance->dev_storage = $firstDevExhibit->dev_storage ?? ($record->dev_storage ?? ($recDocket['dev_storage'] ?? ($recDocket['seizures'][0]['dev_storage'] ?? ($recDocket['seizures'][0]['dev']['storage'] ?? null))));
+        $instance->dev_colour = $firstDevExhibit->dev_colour ?? ($record->dev_colour ?? ($recDocket['dev_colour'] ?? ($recDocket['seizures'][0]['dev_colour'] ?? ($recDocket['seizures'][0]['dev']['colour'] ?? null))));
+        $instance->dev_marks = $firstDevExhibit->dev_marks ?? ($record->dev_marks ?? ($recDocket['dev_marks'] ?? ($recDocket['seizures'][0]['dev_marks'] ?? ($recDocket['seizures'][0]['dev']['marks'] ?? null))));
         // Always ensure evidence_photos is an array (never a JSON string)
         $recDocket = is_array($record->docket_data) ? $record->docket_data : (json_decode($record->docket_data ?? '[]', true) ?: []);
         $rawPhotos = ($firstExhibit && !empty($firstExhibit->evidence_photos))
@@ -1328,6 +1347,7 @@ class ForensicCase extends Model
                         'seizure_reason'          => $attributes['seizure_reason'] ?? null,
                         'source_of_exhibits'      => $attributes['source_of_exhibits'] ?? null,
                         'exhibit_remark'          => $attributes['exhibit_remark'] ?? null,
+                        'chain_of_custody'        => $attributes['chain_of_custody'] ?? null,
                         'lab_remark'              => $attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null)),
                         'veh_make'                => $attributes['veh_make'] ?? ($attributes['vehicle_make'] ?? ($attributes['vehicle_make_model'] ?? null)),
                         'veh_model'               => $attributes['veh_model'] ?? ($attributes['vehicle_model'] ?? ($attributes['vehicle_make_model'] ?? null)),
@@ -1441,6 +1461,7 @@ class ForensicCase extends Model
                         'seizure_reason'          => $sz['seizure_reason'] ?? ($attributes['seizure_reason'] ?? null),
                         'source_of_exhibits'      => $sz['source_of_exhibits'] ?? ($attributes['source_of_exhibits'] ?? null),
                         'exhibit_remark'          => $sz['exhibit_remark'] ?? ($attributes['exhibit_remark'] ?? null),
+                        'chain_of_custody'        => $sz['chain_of_custody'] ?? ($attributes['chain_of_custody'] ?? null),
                         'lab_remark'              => $sz['lab_remark'] ?? ($sz['confirmatory_remark'] ?? (!empty($sz['has_saved_lab']) ? ($sz['remark'] ?? null) : ($sIdx === 0 ? ($attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null))) : null))),
                         'veh_make'                => $sz['veh_make'] ?? ($sz['veh']['make'] ?? ($sz['vehicle_make'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_make'] ?? null)))),
                         'veh_model'               => $sz['veh_model'] ?? ($sz['veh']['model'] ?? ($sz['vehicle_model'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_model'] ?? null)))),
@@ -1758,6 +1779,7 @@ class ForensicCase extends Model
                     'seizure_reason'        => $attributes['seizure_reason'] ?? null,
                     'source_of_exhibits'    => $attributes['source_of_exhibits'] ?? null,
                     'exhibit_remark'        => $attributes['exhibit_remark'] ?? null,
+                    'chain_of_custody'      => $attributes['chain_of_custody'] ?? null,
                     'lab_remark'            => $attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null)),
                     'veh_make'              => $attributes['veh_make'] ?? ($attributes['vehicle_make'] ?? ($attributes['vehicle_make_model'] ?? null)),
                     'veh_model'             => $attributes['veh_model'] ?? ($attributes['vehicle_model'] ?? ($attributes['vehicle_make_model'] ?? null)),
@@ -1852,6 +1874,7 @@ class ForensicCase extends Model
                     'seizure_reason'        => $sz['seizure_reason'] ?? ($attributes['seizure_reason'] ?? null),
                     'source_of_exhibits'    => $sz['source_of_exhibits'] ?? ($attributes['source_of_exhibits'] ?? null),
                     'exhibit_remark'        => $sz['exhibit_remark'] ?? ($attributes['exhibit_remark'] ?? null),
+                    'chain_of_custody'      => $sz['chain_of_custody'] ?? ($attributes['chain_of_custody'] ?? null),
                     'lab_remark'            => $sz['lab_remark'] ?? ($sz['confirmatory_remark'] ?? (!empty($sz['has_saved_lab']) ? ($sz['remark'] ?? null) : ($sIdx === 0 ? ($attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null))) : null))),
                     'veh_make'              => $sz['veh_make'] ?? ($sz['veh']['make'] ?? ($sz['vehicle_make'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_make'] ?? null)))),
                     'veh_model'             => $sz['veh_model'] ?? ($sz['veh']['model'] ?? ($sz['vehicle_model'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_model'] ?? null)))),
@@ -2574,10 +2597,13 @@ class ForensicCase extends Model
 
         // Direct DB query for exhibits if case ID is present
         if (!empty($this->id)) {
-            $isMultiCase = $this->isMultipleSuspect();
-            $dbExhibits = $isMultiCase
-                ? Exhibit::where('multiple_suspect_case_id', $this->id)->get()
-                : Exhibit::where('single_suspect_case_id', $this->id)->get();
+            $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
+            $dbExhibits = Exhibit::where(function ($q) use ($uId) {
+                $q->where('single_suspect_case_id', $this->id)
+                    ->orWhere('multiple_suspect_case_id', $this->id)
+                    ->orWhere('single_suspect_case_id', $uId)
+                    ->orWhere('multiple_suspect_case_id', $uId);
+            })->get();
             foreach ($dbExhibits as $exRecord) {
                 $classifyItem([
                     'exhibit_category' => $exRecord->exhibit_category ?? null,
@@ -3376,10 +3402,13 @@ class ForensicCase extends Model
 
         // 1. Relational Exhibit records from 'exhibits' DB table
         if (!empty($this->id)) {
-            $isMultiCase = $this->isMultipleSuspect();
-            $dbExhibits = $isMultiCase
-                ? Exhibit::where('multiple_suspect_case_id', $this->id)->get()
-                : Exhibit::where('single_suspect_case_id', $this->id)->get();
+            $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
+            $dbExhibits = Exhibit::where(function ($q) use ($uId) {
+                $q->where('single_suspect_case_id', $this->id)
+                    ->orWhere('multiple_suspect_case_id', $this->id)
+                    ->orWhere('single_suspect_case_id', $uId)
+                    ->orWhere('multiple_suspect_case_id', $uId);
+            })->get();
 
             foreach ($dbExhibits as $ex) {
                 $exSuspectId = $ex->suspect_id;
@@ -3555,8 +3584,17 @@ class ForensicCase extends Model
                         $arr['dev_colour']      = $ex->dev_colour;
                         $arr['dev_marks']       = $ex->dev_marks;
 
-                        // Fallback to docket data seizures or case attributes if missing on exhibit model
-                        if (empty($arr['dev_storage']) || empty($arr['dev_colour']) || empty($arr['dev_marks']) || empty($arr['dev_mac_address'])) {
+                        // Fallback to docket data seizures or case attributes if missing or empty on exhibit model
+                        $hasMissingDev = empty(trim((string)$arr['dev_model']))
+                            || empty(trim((string)$arr['dev_serial_no']))
+                            || empty(trim((string)$arr['dev_imei1']))
+                            || empty(trim((string)$arr['dev_imei2']))
+                            || empty(trim((string)$arr['dev_storage']))
+                            || empty(trim((string)$arr['dev_colour']))
+                            || empty(trim((string)$arr['dev_marks']))
+                            || empty(trim((string)$arr['dev_mac_address']));
+
+                        if ($hasMissingDev) {
                             foreach ($allDocketExhibits as $dSz) {
                                 if (!is_array($dSz)) continue;
                                 $dExNo = $dSz['exhibit_number'] ?? null;
@@ -3564,31 +3602,71 @@ class ForensicCase extends Model
                                 $matchDocket = (!empty($exNo) && !empty($dExNo) && (string)$exNo === (string)$dExNo)
                                     || (!empty($dName) && !empty($ex->commodity_name) && strtolower(trim($dName)) === strtolower(trim($ex->commodity_name)));
                                 if ($matchDocket) {
-                                    if (empty($arr['dev_storage'])) {
-                                        $arr['dev_storage'] = $dSz['dev_storage'] ?? ($dSz['storage_capacity'] ?? ($dSz['dev_storage_capacity'] ?? ($dSz['storage'] ?? null)));
+                                    if (empty(trim((string)($arr['dev_model'] ?? '')))) {
+                                        $arr['dev_model'] = $dSz['dev_model'] ?? ($dSz['dev']['model'] ?? ($dSz['device_model'] ?? ($dSz['model'] ?? null)));
                                     }
-                                    if (empty($arr['dev_colour'])) {
-                                        $arr['dev_colour'] = $dSz['dev_colour'] ?? ($dSz['dev_color'] ?? ($dSz['colour'] ?? ($dSz['color'] ?? ($dSz['device_color'] ?? null))));
+                                    if (empty(trim((string)($arr['dev_serial_no'] ?? '')))) {
+                                        $arr['dev_serial_no'] = $dSz['dev_serial_no'] ?? ($dSz['dev']['serial_no'] ?? ($dSz['device_serial'] ?? ($dSz['serial_no'] ?? ($dSz['serial_number'] ?? null))));
                                     }
-                                    if (empty($arr['dev_marks'])) {
-                                        $arr['dev_marks'] = $dSz['dev_marks'] ?? ($dSz['dev_other_marks'] ?? ($dSz['marks'] ?? ($dSz['distinguishing_marks'] ?? ($dSz['other_marks'] ?? null))));
+                                    if (empty(trim((string)($arr['dev_imei1'] ?? '')))) {
+                                        $arr['dev_imei1'] = $dSz['dev_imei1'] ?? ($dSz['dev']['imei1'] ?? ($dSz['dev_imei_1'] ?? ($dSz['imei1'] ?? ($dSz['imei_1'] ?? null))));
                                     }
-                                    if (empty($arr['dev_mac_address'])) {
-                                        $arr['dev_mac_address'] = $dSz['dev_mac_address'] ?? ($dSz['mac_address'] ?? null);
+                                    if (empty(trim((string)($arr['dev_imei2'] ?? '')))) {
+                                        $arr['dev_imei2'] = $dSz['dev_imei2'] ?? ($dSz['dev']['imei2'] ?? ($dSz['dev_imei_2'] ?? ($dSz['imei2'] ?? ($dSz['imei_2'] ?? null))));
+                                    }
+                                    if (empty(trim((string)($arr['dev_mac_address'] ?? '')))) {
+                                        $arr['dev_mac_address'] = $dSz['dev_mac_address'] ?? ($dSz['dev']['mac_address'] ?? ($dSz['mac_address'] ?? null));
+                                    }
+                                    if (empty(trim((string)($arr['dev_storage'] ?? '')))) {
+                                        $arr['dev_storage'] = $dSz['dev_storage'] ?? ($dSz['dev']['storage'] ?? ($dSz['storage_capacity'] ?? ($dSz['dev_storage_capacity'] ?? ($dSz['storage'] ?? null))));
+                                    }
+                                    if (empty(trim((string)($arr['dev_colour'] ?? '')))) {
+                                        $arr['dev_colour'] = $dSz['dev_colour'] ?? ($dSz['dev']['colour'] ?? ($dSz['dev_color'] ?? ($dSz['colour'] ?? ($dSz['color'] ?? ($dSz['device_color'] ?? null)))));
+                                    }
+                                    if (empty(trim((string)($arr['dev_marks'] ?? '')))) {
+                                        $arr['dev_marks'] = $dSz['dev_marks'] ?? ($dSz['dev']['marks'] ?? ($dSz['dev_other_marks'] ?? ($dSz['marks'] ?? ($dSz['distinguishing_marks'] ?? ($dSz['other_marks'] ?? null)))));
                                     }
                                     break;
                                 }
                             }
-                            if (empty($arr['dev_storage'])) {
+                            if (empty(trim((string)($arr['dev_model'] ?? '')))) {
+                                $arr['dev_model'] = $this->dev_model ?? ($this->underlyingRecord->dev_model ?? null);
+                            }
+                            if (empty(trim((string)($arr['dev_serial_no'] ?? '')))) {
+                                $arr['dev_serial_no'] = $this->dev_serial_no ?? ($this->underlyingRecord->dev_serial_no ?? null);
+                            }
+                            if (empty(trim((string)($arr['dev_imei1'] ?? '')))) {
+                                $arr['dev_imei1'] = $this->dev_imei1 ?? ($this->underlyingRecord->dev_imei1 ?? null);
+                            }
+                            if (empty(trim((string)($arr['dev_imei2'] ?? '')))) {
+                                $arr['dev_imei2'] = $this->dev_imei2 ?? ($this->underlyingRecord->dev_imei2 ?? null);
+                            }
+                            if (empty(trim((string)($arr['dev_mac_address'] ?? '')))) {
+                                $arr['dev_mac_address'] = $this->dev_mac_address ?? ($this->underlyingRecord->dev_mac_address ?? null);
+                            }
+                            if (empty(trim((string)($arr['dev_storage'] ?? '')))) {
                                 $arr['dev_storage'] = $this->dev_storage ?? ($this->underlyingRecord->dev_storage ?? null);
                             }
-                            if (empty($arr['dev_colour'])) {
+                            if (empty(trim((string)($arr['dev_colour'] ?? '')))) {
                                 $arr['dev_colour'] = $this->dev_colour ?? ($this->underlyingRecord->dev_colour ?? null);
                             }
-                            if (empty($arr['dev_marks'])) {
+                            if (empty(trim((string)($arr['dev_marks'] ?? '')))) {
                                 $arr['dev_marks'] = $this->dev_marks ?? ($this->underlyingRecord->dev_marks ?? null);
                             }
                         }
+
+                        $arr['dev'] = [
+                            'model'       => $arr['dev_model'],
+                            'serial_no'   => $arr['dev_serial_no'],
+                            'imei1'       => $arr['dev_imei1'],
+                            'imei2'       => $arr['dev_imei2'],
+                            'mac_address' => $arr['dev_mac_address'],
+                            'storage'     => $arr['dev_storage'],
+                            'colour'      => $arr['dev_colour'],
+                            'marks'       => $arr['dev_marks'],
+                        ];
+                        $arr['device_model']  = $arr['dev_model'];
+                        $arr['device_serial'] = $arr['dev_serial_no'];
 
                         $matchedExhibits[] = $arr;
                     }
@@ -3701,15 +3779,26 @@ class ForensicCase extends Model
                 if (!isset($seenKeys[$key])) {
                     $seenKeys[$key] = true;
                     $dArr = $sz;
-                    if (empty($dArr['dev_storage'])) {
-                        $dArr['dev_storage'] = $sz['dev_storage'] ?? ($sz['storage_capacity'] ?? ($sz['dev_storage_capacity'] ?? ($sz['storage'] ?? null)));
-                    }
-                    if (empty($dArr['dev_colour'])) {
-                        $dArr['dev_colour'] = $sz['dev_colour'] ?? ($sz['dev_color'] ?? ($sz['colour'] ?? ($sz['color'] ?? ($sz['device_color'] ?? null))));
-                    }
-                    if (empty($dArr['dev_marks'])) {
-                        $dArr['dev_marks'] = $sz['dev_marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['distinguishing_marks'] ?? ($sz['other_marks'] ?? null))));
-                    }
+                    $dArr['dev_model']       = $dArr['dev_model'] ?? ($sz['dev']['model'] ?? ($sz['device_model'] ?? ($sz['model'] ?? ($this->dev_model ?? null))));
+                    $dArr['dev_serial_no']   = $dArr['dev_serial_no'] ?? ($sz['dev']['serial_no'] ?? ($sz['device_serial'] ?? ($sz['serial_no'] ?? ($sz['serial_number'] ?? ($this->dev_serial_no ?? null)))));
+                    $dArr['dev_imei1']       = $dArr['dev_imei1'] ?? ($sz['dev']['imei1'] ?? ($sz['dev_imei_1'] ?? ($sz['imei1'] ?? ($sz['imei_1'] ?? ($this->dev_imei1 ?? null)))));
+                    $dArr['dev_imei2']       = $dArr['dev_imei2'] ?? ($sz['dev']['imei2'] ?? ($sz['dev_imei_2'] ?? ($sz['imei2'] ?? ($sz['imei_2'] ?? ($this->dev_imei2 ?? null)))));
+                    $dArr['dev_mac_address'] = $dArr['dev_mac_address'] ?? ($sz['dev']['mac_address'] ?? ($sz['mac_address'] ?? ($this->dev_mac_address ?? null)));
+                    $dArr['dev_storage']     = $dArr['dev_storage'] ?? ($sz['dev']['storage'] ?? ($sz['storage_capacity'] ?? ($sz['dev_storage_capacity'] ?? ($sz['storage'] ?? ($this->dev_storage ?? null)))));
+                    $dArr['dev_colour']      = $dArr['dev_colour'] ?? ($sz['dev']['colour'] ?? ($sz['dev_color'] ?? ($sz['colour'] ?? ($sz['color'] ?? ($sz['device_color'] ?? ($this->dev_colour ?? null))))));
+                    $dArr['dev_marks']       = $dArr['dev_marks'] ?? ($sz['dev']['marks'] ?? ($sz['dev_other_marks'] ?? ($sz['marks'] ?? ($sz['distinguishing_marks'] ?? ($sz['other_marks'] ?? ($this->dev_marks ?? null))))));
+                    $dArr['dev'] = [
+                        'model'       => $dArr['dev_model'],
+                        'serial_no'   => $dArr['dev_serial_no'],
+                        'imei1'       => $dArr['dev_imei1'],
+                        'imei2'       => $dArr['dev_imei2'],
+                        'mac_address' => $dArr['dev_mac_address'],
+                        'storage'     => $dArr['dev_storage'],
+                        'colour'      => $dArr['dev_colour'],
+                        'marks'       => $dArr['dev_marks'],
+                    ];
+                    $dArr['device_model']  = $dArr['dev_model'];
+                    $dArr['device_serial'] = $dArr['dev_serial_no'];
                     $matchedExhibits[] = $dArr;
                 }
             }

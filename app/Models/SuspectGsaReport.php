@@ -144,11 +144,22 @@ class SuspectGsaReport extends Model
         return static::with('suspect:id,suspect_name')
             ->where(function ($q) use ($cStr, $id) {
                 if (!empty($cStr)) {
-                    $q->orWhere('case_number', $cStr);
-                }
-                if (!empty($id)) {
-                    $q->orWhere('multiple_suspect_case_id', $id)
-                      ->orWhere('single_suspect_case_id', $id);
+                    $q->where('case_number', $cStr);
+                    if (!empty($id)) {
+                        $q->orWhere(function ($sub) use ($id) {
+                            $sub->where(function ($nc) {
+                                $nc->whereNull('case_number')->orWhere('case_number', '');
+                            })->where(function ($idSub) use ($id) {
+                                $idSub->where('multiple_suspect_case_id', $id)
+                                      ->orWhere('single_suspect_case_id', $id);
+                            });
+                        });
+                    }
+                } elseif (!empty($id)) {
+                    $q->where(function ($sub) use ($id) {
+                        $sub->where('multiple_suspect_case_id', $id)
+                            ->orWhere('single_suspect_case_id', $id);
+                    });
                 }
             })
             ->active()

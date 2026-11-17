@@ -291,7 +291,7 @@ class CaseReferenceService
      * @param string|null $unit
      * @return string
      */
-    public function resolveExamReference(?ForensicCase $case, array $docketData = [], ?string $unit = null): string
+    public function resolveExamReference(mixed $case, array $docketData = [], ?string $unit = null): string
     {
         $saved = $docketData['lab_examination']['exam_reference']
             ?? $case?->lab_exam_reference

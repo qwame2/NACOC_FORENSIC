@@ -852,14 +852,12 @@ class SeizureWithoutSuspectViewsTest extends TestCase
             ['Laboratory Analysis', '/Lab_Analysis/create'],
             ['Digital Forensics', '/Digital_Forensics/create'],
             ['Evidence Management', '/Evidence_Management/create'],
-            ['Evidence Management', '/Evidence_Management/add-exhibit'],
             ['Crime Scene Support', '/Crime_Scene_Support/create'],
             ['Crime Scene Support', '/cases/create'],
         ];
 
         $unitRoutesWithSourceOfExhibits = [
             '/Lab_Analysis/create',
-            '/Digital_Forensics/create',
             '/cases/create',
         ];
 

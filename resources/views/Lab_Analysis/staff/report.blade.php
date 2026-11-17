@@ -130,7 +130,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <h1 class="text-sm font-black text-slate-900 font-mono-code uppercase tracking-wider">
-                                Laboratory Analysis Report &bull; LABORATORY ANALYSIS UNIT
+                                Laboratory Analysis Report | LABORATORY ANALYSIS UNIT
                             </h1>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold font-mono-code bg-emerald-100 text-emerald-800">
                                 Forensic Drug &amp; Suspect Register

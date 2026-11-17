@@ -20,227 +20,39 @@
         <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
-    <style>
-        body {
-            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-            background-color: #BBE7E4;
-            color: #0F172A;
-            margin: 0;
-            padding: 0;
-        }
-
-        .font-mono-code {
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Geometric angled background mimicking the reference image */
-        .fims-bg-canvas {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            background: linear-gradient(135deg, #BBE7E4 0%, #B2E2DF 50%, #C7ECE9 100%);
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .fims-bg-facet {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 75vw;
-            height: 100vh;
-            background: #CEF0ED;
-            clip-path: polygon(45% 0, 100% 0, 100% 100%, 0% 100%);
-            opacity: 0.85;
-        }
-
-        .fims-bg-facet-2 {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 50vw;
-            height: 60vh;
-            background: #AEE0DC;
-            clip-path: polygon(0 40%, 100% 100%, 0 100%);
-            opacity: 0.6;
-        }
-
-        .ref-input-line {
-            border-bottom: 2px solid #CBD5E1;
-            transition: all 0.2s ease;
-        }
-
-        .ref-input-line:focus-within {
-            border-bottom-color: #0D9488;
-        }
-    </style>
+@include('auth.partials.auth_styles')
 </head>
 
-<body
-    class="min-h-screen flex flex-col justify-between antialiased selection:bg-teal-700 selection:text-white transition-opacity duration-300 opacity-100 relative">
+<body class="antialiased selection:bg-teal-700 selection:text-white transition-opacity duration-300 opacity-100">
 
-    <!-- Geometric Pastel Background -->
-    <div class="fims-bg-canvas">
-        <div class="fims-bg-facet"></div>
-        <div class="fims-bg-facet-2"></div>
-    </div>
+    <div class="auth-shell auth-shell--wide">
+        @include('auth.partials.auth_brand', ['mode' => 'register'])
 
-    <!-- TOP SYSTEM STATUS BAR -->
-    <header
-        class="w-full px-6 py-3.5 flex items-center justify-between bg-white/95 border-b border-teal-900/10 shadow-sm relative z-10 backdrop-blur-sm">
-        <div class="flex items-center space-x-3.5">
-            <div
-                class="w-11 h-11 rounded-xl bg-white p-1 border border-teal-700/20 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
-                <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo" class="w-full h-full object-contain">
-            </div>
-            <div>
-                <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">
-                    FORENSIC INFORMATION MANAGEMENT SYSTEM (FIMS)</div>
-                <div class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">OFFICER ENROLLMENT &bull;
-                    FORENSICS DEPARTMENT</div>
-            </div>
-        </div>
-
-        <div class="flex items-center space-x-4">
-            <div class="text-right hidden sm:block">
-                <div class="text-xs font-bold text-slate-800 font-mono-code" id="liveClock">2026-09-05 00:00:00 UTC
-                </div>
-                <div class="text-[10px] font-mono-code text-teal-700 font-extrabold">ENROLLMENT PORTAL v4.2</div>
-            </div>
-        </div>
-    </header>
-
-    <!-- MAIN REGISTRATION CONTAINER -->
-    <main class="flex-1 flex items-center justify-center p-4 sm:p-6 my-6 relative z-10">
-        <div
-            class="w-full max-w-5xl bg-white rounded-3xl shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] border border-slate-200/80 overflow-hidden flex flex-col md:flex-row">
-
-            <!-- LEFT PANEL: Mint-Teal Curved Wave & Vector Graphic (From Reference Image) -->
-            <div
-                class="md:w-4/12 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800 text-white relative p-8 flex flex-col justify-between overflow-hidden">
-
-                <!-- Organic Curved Wave SVG Dividing Edge -->
-                <svg class="absolute top-0 bottom-0 right-0 h-full w-20 text-white hidden md:block translate-x-1"
-                    viewBox="0 0 100 100" preserveAspectRatio="none" fill="currentColor">
-                    <path d="M0,0 C65,25 20,70 100,100 L100,0 Z"></path>
-                </svg>
-
-                <!-- Vertical Insignia Typography from Reference Image -->
-                <div
-                    class="absolute left-6 top-8 bottom-8 flex items-center pointer-events-none select-none opacity-20">
-                    <span
-                        class="text-5xl font-black tracking-widest uppercase transform -rotate-90 origin-center text-white font-mono-code">FIMS</span>
-                </div>
-
-                <!-- Top Left Identity Crest -->
-                <div class="relative z-10 flex items-center space-x-3 pl-8">
-                    <div class="w-12 h-12 rounded-2xl bg-white p-1.5 shadow-md border border-white/30 shrink-0">
-                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Forensics Emblem"
-                            class="w-full h-full object-contain">
-                    </div>
-                    <div>
-                        <div class="text-[11px] font-black uppercase tracking-widest text-teal-200 font-mono-code">NACOC
-                            GHANA</div>
-                        <div class="text-xs font-bold text-white">Forensic Department</div>
-                    </div>
-                </div>
-
-                <!-- Isometric Forensic Evidence Terminal Illustration (Faithful to Reference Image) -->
-                <div class="relative z-10 my-auto py-6 flex flex-col items-center justify-center pl-6">
-                    <svg viewBox="0 0 320 220" class="w-full max-w-[240px] drop-shadow-2xl" fill="none">
-                        <!-- Isometric Tablet Base -->
-                        <polygon points="160,35 295,95 160,170 25,110" fill="#E2F7F5" stroke="#FFFFFF"
-                            stroke-width="3" />
-                        <polygon points="25,110 160,170 160,185 25,125" fill="#99D5CF" />
-                        <polygon points="160,170 295,95 295,110 160,185" fill="#75C2BC" />
-
-                        <!-- Tablet Screen Surface -->
-                        <polygon points="160,48 280,102 160,160 40,108" fill="#F4FCFB" />
-
-                        <!-- Isometric Forensic Chromatography Bars -->
-                        <path d="M75,98 L75,70 L82,67 L82,95 Z" fill="#0D9488" />
-                        <path d="M82,67 L88,70 L88,97 L82,95 Z" fill="#042F2E" />
-
-                        <path d="M92,94 L92,58 L99,55 L99,91 Z" fill="#14B8A6" />
-                        <path d="M99,55 L105,58 L105,93 L99,91 Z" fill="#0F766E" />
-
-                        <path d="M109,90 L109,48 L116,45 L116,86 Z" fill="#2DD4BF" />
-                        <path d="M116,45 L122,48 L122,89 L116,86 Z" fill="#0D9488" />
-
-                        <!-- Forensic Spectroscopy Polyline -->
-                        <polyline points="75,90 95,65 110,75 125,50 145,72 165,58" stroke="#0D9488" stroke-width="2.5"
-                            fill="none" stroke-linecap="round" />
-
-                        <!-- Chain of Custody Biometric Nodes -->
-                        <ellipse cx="205" cy="118" rx="20" ry="11" fill="none"
-                            stroke="#0D9488" stroke-width="2" stroke-dasharray="3 2" />
-                        <ellipse cx="205" cy="118" rx="12" ry="6.5" fill="none"
-                            stroke="#14B8A6" stroke-width="1.8" />
-                        <ellipse cx="205" cy="118" rx="4" ry="2" fill="#042F2E" />
-
-                        <!-- Evidence Tag / Document Grid -->
-                        <polygon points="195,68 250,92 225,104 170,80" fill="#E6FFFA" stroke="#14B8A6"
-                            stroke-width="1.5" />
-                    </svg>
-                </div>
-
-                <!-- Footer Tagline from Reference Image -->
-                <div class="relative z-10 pl-8">
-                    <p
-                        class="text-[10px] font-extrabold tracking-wider uppercase text-teal-100 font-mono-code leading-relaxed">
-                        INTRODUCING FORENSIC INFORMATION MANAGEMENT SYSTEM &bull; FIMS
-                    </p>
-                </div>
+        <main class="auth-panel">
+            <div class="flex items-center justify-end">
+                <span class="auth-switch">Already registered?
+                    <a href="{{ url('/login') }}"
+                        onclick="navigateWithFade(event, '{{ url('/login') }}')">Sign in</a></span>
             </div>
 
-            <!-- RIGHT PANEL: Clean Register Form with Original Code & IDs -->
-            <div class="md:w-8/12 p-8 sm:p-12 flex flex-col justify-between bg-white">
-
-                <!-- TOP HEADER -->
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <div>
-                        <h1 class="text-2xl sm:text-3xl font-black text-teal-800 tracking-tight">CREATE OFFICER ACCOUNT
-                        </h1>
-                        <p class="text-xs text-slate-500 mt-1">Register official service credentials for FIMS
-                            authorization</p>
-                    </div>
-                    <div
-                        class="w-12 h-12 rounded-xl bg-slate-50 p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
-                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Crest"
-                            class="w-full h-full object-contain">
-                    </div>
+            <div class="auth-panel__inner auth-panel__inner--wide">
+                <div class="auth-header">
+                    <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC crest" width="175" height="175"
+                        class="auth-logo">
+                    <h1 class="auth-title">Create your officer account</h1>
+                    <p class="auth-sub">Register your service credentials. A Head of Unit approves each account before it
+                        can sign in.</p>
                 </div>
 
-                <!-- FLASH & CONDITIONAL MANDATE BANNER -->
-                <div class="py-4 space-y-4">
+                <div class="mt-7 space-y-4">
                     @include('partials.flash')
 
-                    @if (!$hasForensicHead)
-                        <div
-                            class="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start space-x-3 shadow-2xs">
-                            <div
-                                class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <div
-                                    class="font-extrabold font-mono-code uppercase tracking-wider text-amber-900 text-xs">
-                                    DIRECTORATE COMMAND MANDATE &bull; REGISTRATION RESTRICTED</div>
-                                <div class="text-[11px] font-semibold text-amber-800 mt-0.5 leading-relaxed">
-                                    The <strong>Head of Forensic Directorate</strong> must register first as the primary
-                                    commanding authority before Unit Heads and Field Operational Staff members can
-                                    register accounts.
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <div id="registerErrorBox" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center space-x-2">
+                    <div id="registerErrorBox"
+                        class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center space-x-2"
+                        role="alert">
                         <svg class="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span id="registerErrorText"></span>
                     </div>
@@ -393,69 +205,47 @@
                             </div>
 
                             <!-- TOGGLE SWITCH / ROLE BANNER -->
-                            @if (!$hasForensicHead)
-                                <div
-                                    class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <div
-                                            class="w-7 h-7 rounded-lg bg-amber-500 text-white font-bold flex items-center justify-center shadow-xs">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <div class="text-xs font-extrabold text-amber-900">Mandatory Role: Head of
-                                                Forensic Directorate</div>
-                                            <div class="text-[10px] text-amber-700 font-medium">Primary System Command
-                                                Registration</div>
-                                        </div>
+                            <div
+                                class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div
+                                        class="w-7 h-7 rounded-lg bg-teal-100 border border-teal-200 flex items-center justify-center text-teal-700">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
                                     </div>
-                                    <span
-                                        class="px-2.5 py-1 bg-amber-600 text-white rounded-lg text-[10px] font-extrabold font-mono-code uppercase shadow-xs">DIRECTOR
-                                        HEAD</span>
+                                    <div>
+                                        <div class="text-xs font-bold text-slate-900">User is Staff Member</div>
+                                        <div class="text-[10px] text-slate-500">Toggle ON for operational clearance
+                                            (Toggle OFF for Unit Head)</div>
+                                    </div>
                                 </div>
-                            @else
-                                <div
-                                    class="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <div
-                                            class="w-7 h-7 rounded-lg bg-teal-100 border border-teal-200 flex items-center justify-center text-teal-700">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <div class="text-xs font-bold text-slate-900">User is Staff Member</div>
-                                            <div class="text-[10px] text-slate-500">Toggle ON for operational clearance
-                                                (Toggle OFF for Unit Head)</div>
-                                        </div>
-                                    </div>
 
-                                    <!-- TOGGLE SWITCH BUTTON -->
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="isStaffToggle" name="is_staff" {{ old('role', 'staff') === 'head' ? '' : 'checked' }}
-                                            onchange="toggleStaffStatus(this)" class="sr-only peer">
-                                        <input type="hidden" id="userRoleInput" name="role" value="{{ old('role', 'staff') }}">
-                                        <div
-                                            class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700">
-                                        </div>
-                                    </label>
-                                </div>
-                                <div id="unitHeadExistsWarning" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-start space-x-2">
-                                    <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    <span id="unitHeadExistsWarningText"></span>
-                                </div>
-                            @endif
+                                <!-- TOGGLE SWITCH BUTTON -->
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="isStaffToggle" name="is_staff" {{ old('role', 'staff') === 'head' ? '' : 'checked' }}
+                                        onchange="toggleStaffStatus(this)" class="sr-only peer">
+                                    <input type="hidden" id="userRoleInput" name="role" value="{{ old('role', 'staff') }}">
+                                    <div
+                                        class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700">
+                                    </div>
+                                </label>
+                            </div>
+                            <div id="unitHeadExistsWarning" class="hidden p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-start space-x-2">
+                                <svg class="w-4 h-4 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span id="unitHeadExistsWarningText"></span>
+                            </div>
 
                             @php
                                 $defaultUnit = isset($units) ? $units->first() : null;
-                                $defaultUnitName = old('unit', $defaultUnit ? $defaultUnit->name : 'Crime Scene Support');
+                                $defaultUnitName = old('unit', $defaultUnit ? (is_object($defaultUnit) ? $defaultUnit->name : $defaultUnit['name']) : 'Crime Scene Support');
+                                if ($hasForensicHead && in_array(strtolower(trim($defaultUnitName)), ['head of forensic', 'forensic head', 'forensic directorate'])) {
+                                    $defaultUnitName = 'Crime Scene Support';
+                                }
                                 $defaultHeadDisplay =
                                     isset($registeredHeads) && isset($registeredHeads[$defaultUnitName])
                                         ? $registeredHeads[$defaultUnitName]
@@ -463,17 +253,7 @@
                             @endphp
 
                             <!-- ROW 3: UNITS / DIVISION & ASSIGNED UNIT HEAD -->
-                            @if (!$hasForensicHead)
-                                <div class="col-span-1 sm:col-span-2 ref-input-line pb-1">
-                                    <label
-                                        class="block text-[11px] font-bold text-slate-600 font-mono-code uppercase mb-1">Assigned
-                                        Directorate / Division</label>
-                                    <input type="text" readonly value="Forensic Directorate"
-                                        class="w-full py-1.5 bg-transparent text-xs font-extrabold font-mono-code text-teal-900 cursor-not-allowed select-none">
-                                    <input type="hidden" name="unit" value="Forensic Directorate">
-                                </div>
-                            @else
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="unitsGrid">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="unitsGrid">
                                     <!-- UNITS CUSTOM SELECT -->
                                     <div id="unitsDropdownWrapper" class="col-span-1">
                                         <label
@@ -536,10 +316,45 @@
                                                                 'category' => 'CYBER & TECH',
                                                             ],
                                                         ];
+                                                        if (!$hasForensicHead) {
+                                                            $officialUnits[] = [
+                                                                'name' => 'Head of Forensic',
+                                                                'category' => 'COMMAND',
+                                                            ];
+                                                        }
                                                         $allUnitsList =
                                                             isset($units) && count($units) > 0
                                                                 ? $units
                                                                 : $officialUnits;
+
+                                                        if ($hasForensicHead) {
+                                                            $allUnitsList = collect($allUnitsList)->filter(function($u) {
+                                                                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                                                                $lower = strtolower(trim($name));
+                                                                return !in_array($lower, [
+                                                                    'head of forensic',
+                                                                    'forensic head',
+                                                                    'forensic directorate',
+                                                                    'directorate head',
+                                                                ], true);
+                                                            })->values();
+                                                        } else {
+                                                            $hasHofInAll = collect($allUnitsList)->contains(function($u) {
+                                                                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                                                                $lower = strtolower(trim($name));
+                                                                return in_array($lower, [
+                                                                    'head of forensic',
+                                                                    'forensic head',
+                                                                    'forensic directorate',
+                                                                ], true);
+                                                            });
+                                                            if (!$hasHofInAll) {
+                                                                $allUnitsList = collect($allUnitsList)->push((object)[
+                                                                    'name' => 'Head of Forensic',
+                                                                    'category' => 'COMMAND',
+                                                                ])->values();
+                                                            }
+                                                        }
                                                     @endphp
                                                     @foreach ($allUnitsList as $u)
                                                         @php
@@ -570,7 +385,6 @@
                                         </div>
                                     </div>
                                 </div>
-                            @endif
 
                             <!-- PASSWORD & CONFIRM PASSWORD -->
                             <div class="space-y-3">
@@ -689,8 +503,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                                             d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                     </svg>
-                                    <span
-                                        id="regBtnText">{{ !$hasForensicHead ? 'Register as Head of Forensic' : 'Create Service Account' }}</span>
+                                    <span id="regBtnText">Create Service Account</span>
                                 </button>
                             </div>
 
@@ -708,38 +521,16 @@
                         </div>
                     </form>
                 </div>
-
-                <!-- BOTTOM LINKS -->
-                <div
-                    class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-teal-700">
-                    <span class="text-[11px] text-slate-400 font-mono-code">NACOC FORENSICS &bull; HQ ACCRA</span>
-                    <div class="space-x-4">
-                        <a href="{{ url('/login') }}" class="hover:underline">Login Portal</a>
-                        <a href="#"
-                            onclick="alert('For enrollment assistance, contact NACOC Directorate Registrar: ext 4022'); return false;"
-                            class="hover:underline">Help</a>
-                    </div>
-                </div>
-
             </div>
 
-        </div>
-    </main>
-
-    <!-- FOOTER BAR -->
-    <footer
-        class="w-full px-6 py-3 bg-white/95 border-t border-teal-900/10 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-600 font-mono-code gap-2 relative z-10 backdrop-blur-sm">
-        <div>
-            Official Property of the Narcotics Control Commission, Ghana &bull; Forensic Information Management System
-        </div>
-        <div class="flex items-center space-x-4">
-            <a href="#" class="hover:text-teal-800">Security Policy</a>
-            <span>&bull;</span>
-            <a href="#" class="hover:text-teal-800">Chain of Custody Spec</a>
-            <span>&bull;</span>
-            <a href="#" class="hover:text-teal-800">IT Support Desk</a>
-        </div>
-    </footer>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span>Official system of the Narcotics Control Commission, Ghana</span>
+                <a href="#"
+                    onclick="alert('For enrollment assistance, contact NACOC Directorate Registrar: ext 4022'); return false;"
+                    class="auth-link">Need help?</a>
+            </div>
+        </main>
+    </div>
 
     <!-- PRESERVED EXACT JAVASCRIPT LOGIC -->
     <script>
@@ -1004,6 +795,18 @@
 
             document.getElementById('select2Menu').classList.add('hidden');
             document.getElementById('select2Arrow').classList.remove('rotate-180');
+
+            const isHof = val === 'Head of Forensic' || val === 'Forensic Directorate' || val.toLowerCase().includes('head of forensic');
+            if (isHof) {
+                const staffToggle = document.getElementById('isStaffToggle');
+                const roleInput = document.getElementById('userRoleInput');
+                if (staffToggle && staffToggle.checked) {
+                    staffToggle.checked = false;
+                }
+                if (roleInput) {
+                    roleInput.value = 'head';
+                }
+            }
 
             updateUnitHeadDisplay();
         }

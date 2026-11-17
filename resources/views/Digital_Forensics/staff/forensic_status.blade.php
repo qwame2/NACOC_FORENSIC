@@ -917,7 +917,7 @@
                             Monitor hardware write-blocker extraction, chip-off memory acquisition, passcode recovery, and case investigation status for electronic exhibits across NACOC active dockets.
                         </p>
                         <p class="text-[11px] text-slate-300 font-mono-code pt-0.5">
-                            Analyst: <strong class="text-white">{{ $staffName }}</strong> &bull; Unit Head: <strong class="text-emerald-400">{{ $headName }}</strong>
+                            Analyst: <strong class="text-white">{{ $staffName }}</strong> <span class="text-slate-500 mx-1">|</span> Unit Head: <strong class="text-emerald-400">{{ $headName }}</strong>
                         </p>
                     </div>
                 </div>
@@ -1101,7 +1101,7 @@
                                                         <p id="courtOrderFileNameDisplay" class="text-[11px] font-bold text-slate-700 group-hover:text-emerald-800 truncate max-w-[160px]">
                                                             Choose Court Order File(s)
                                                         </p>
-                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple or one-by-one</p>
+                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG | Multiple or one-by-one</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1250,7 +1250,7 @@
                                                         <p id="reportWitnessFileNameDisplay" class="text-[11px] font-bold text-slate-700 group-hover:text-emerald-800 truncate max-w-[160px]">
                                                             Choose Statement / Report File(s)
                                                         </p>
-                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple or one-by-one</p>
+                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG | Multiple or one-by-one</p>
                                                     </div>
                                                 </div>
                                             </div>

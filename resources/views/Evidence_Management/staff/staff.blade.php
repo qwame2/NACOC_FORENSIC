@@ -54,11 +54,11 @@
                     <div>
                         <div class="flex items-center gap-2 mb-1">
                             <span class="px-2.5 py-0.5 bg-amber-600 text-white text-[10px] font-extrabold font-mono-code rounded-md uppercase">STAFF WORKSTATION</span>
-                            <span class="text-xs text-slate-400">&bull;</span>
+                            <span class="text-xs text-slate-300">|</span>
                             <span class="text-xs font-bold text-slate-700 font-mono-code">VAULT INTAKE &amp; BARCODE AUDIT</span>
                         </div>
                         <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Evidence Vault Staff Operations</h1>
-                        <p class="text-xs text-slate-500 mt-1">LoggedIn Custodian: <strong class="text-slate-800">{{ $staffName }}</strong> &bull; Supervisor: <strong>{{ $headName }}</strong></p>
+                        <p class="text-xs text-slate-500 mt-1">LoggedIn Custodian: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Supervisor: <strong>{{ $headName }}</strong></p>
                     </div>
                 </div>
 

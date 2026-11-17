@@ -3,7 +3,7 @@
         'isStaff'          => true,
         'unitKey'          => 'lab_analysis',
         'userUnit'         => 'Lab Analysis Unit',
-        'unitBadge'        => 'LAB ANALYSIS UNIT • STAFF',
+        'unitBadge'        => 'LAB ANALYSIS UNIT | STAFF',
         'unitSubtitle'     => 'Laboratory Analysis Staff Workstation',
         'locationNoun'     => 'Lab Analysis Cases',
         'pageTitle'        => 'NACOC FORENSIC | Lab Analysis Staff Dashboard',

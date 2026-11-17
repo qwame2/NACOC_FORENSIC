@@ -279,17 +279,27 @@
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isReviewsApprovalsActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                     <span class="text-xs flex-1">Reviews &amp; Approvals</span>
                     @if($sidebarPendingApprovalsCount > 0)
-                        <span class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs">
+                        <span id="sidebarReviewsApprovalsBadge" class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse">
                             {{ $sidebarPendingApprovalsCount }}
+                        </span>
+                    @else
+                        <span id="sidebarReviewsApprovalsBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse" style="display: none !important;">
+                            0
                         </span>
                     @endif
                 </a>
                 <a href="{{ $notificationsUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isNotificationsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isNotificationsActive ? 'text-white' : 'text-amber-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                     <span class="text-xs flex-1">Notifications</span>
-                    <span id="sidebarNotificationsBadge" class="ml-auto {{ $isNotificationsActive ? 'bg-white/20 text-white' : ($sidebarNotificationsCount > 0 ? 'bg-amber-500/15 text-amber-800 border border-amber-300/60' : 'bg-slate-200 text-slate-600') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold">
-                        {{ $sidebarNotificationsCount }}
-                    </span>
+                    @if($sidebarNotificationsCount > 0)
+                        <span id="sidebarNotificationsBadge" class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs">
+                            {{ $sidebarNotificationsCount }}
+                        </span>
+                    @else
+                        <span id="sidebarNotificationsBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs" style="display: none !important;">
+                            0
+                        </span>
+                    @endif
                 </a>
                 <a href="{{ $fieldOfficersUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isFieldOfficersActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isFieldOfficersActive ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -297,6 +307,10 @@
                     @if($sidebarPendingStaffApprovalsCount > 0)
                         <span id="sidebarFieldOfficersBadge" class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse">
                             {{ $sidebarPendingStaffApprovalsCount }}
+                        </span>
+                    @else
+                        <span id="sidebarFieldOfficersBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse" style="display: none !important;">
+                            0
                         </span>
                     @endif
                 </a>
@@ -364,6 +378,8 @@
             </button>
         </form>
     </div>
+
+    @include('partials.sidebar_badge_poller')
 </aside>
 
 <script>

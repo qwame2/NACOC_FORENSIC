@@ -90,17 +90,23 @@ class CaseExhibitResolver
         $dbExsList = new Collection();
         if (isset($case->id)) {
             try {
-                $dbExsList = Exhibit::where(function ($q) use ($case, $isMultiCase) {
-                    if ($isMultiCase) {
-                        $q->where('multiple_suspect_case_id', $case->id);
-                    } else {
-                        $q->where('single_suspect_case_id', $case->id);
-                    }
+                $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
+                $dbExsList = Exhibit::where(function ($q) use ($case, $uId) {
+                    $q->where('single_suspect_case_id', $case->id)
+                        ->orWhere('multiple_suspect_case_id', $case->id)
+                        ->orWhere('single_suspect_case_id', $uId)
+                        ->orWhere('multiple_suspect_case_id', $uId);
                 })->get();
             } catch (\Throwable $e) {
                 $dbExsList = new Collection();
             }
         }
+
+        $allDocketSeizures = array_merge(
+            $docketData['seizures'] ?? [],
+            $docketData['associated_seizures'] ?? [],
+            $docketData['associate_exhibits'] ?? [],
+        );
 
         $addCaseExhibit = function ($item) use (
             &$allCaseExhibits,
@@ -130,10 +136,39 @@ class CaseExhibitResolver
             if (!isset($item['amount']) && in_array(strtolower(trim((string)$cat)), ['money', 'currency', 'cash'])) {
                 $item['amount'] = $item['seizure_quantity'] ?? ($item['quantity'] ?? null);
             }
+
+            // Ensure device fields are fully resolved on all exhibits
+            $item['dev_model'] = $item['dev_model'] ?? ($item['dev']['model'] ?? ($item['device_model'] ?? ($item['model'] ?? ($case->dev_model ?? null))));
+            $item['dev_serial_no'] = $item['dev_serial_no'] ?? ($item['dev']['serial_no'] ?? ($item['device_serial'] ?? ($item['serial_no'] ?? ($item['serial_number'] ?? ($case->dev_serial_no ?? null)))));
+            $item['dev_imei1'] = $item['dev_imei1'] ?? ($item['dev']['imei1'] ?? ($item['dev_imei_1'] ?? ($item['imei1'] ?? ($item['imei_1'] ?? ($case->dev_imei1 ?? null)))));
+            $item['dev_imei2'] = $item['dev_imei2'] ?? ($item['dev']['imei2'] ?? ($item['dev_imei_2'] ?? ($item['imei2'] ?? ($item['imei_2'] ?? ($case->dev_imei2 ?? null)))));
+            $item['dev_mac_address'] = $item['dev_mac_address'] ?? ($item['dev']['mac_address'] ?? ($item['mac_address'] ?? ($case->dev_mac_address ?? null)));
+            $item['dev_storage'] = $item['dev_storage'] ?? ($item['dev']['storage'] ?? ($item['storage_capacity'] ?? ($item['dev_storage_capacity'] ?? ($item['storage'] ?? ($case->dev_storage ?? null)))));
+            $item['dev_colour'] = $item['dev_colour'] ?? ($item['dev']['colour'] ?? ($item['dev_color'] ?? ($item['colour'] ?? ($item['color'] ?? ($item['device_color'] ?? ($case->dev_colour ?? null))))));
+            $item['dev_marks'] = $item['dev_marks'] ?? ($item['dev']['marks'] ?? ($item['dev_other_marks'] ?? ($item['marks'] ?? ($item['distinguishing_marks'] ?? ($item['other_marks'] ?? ($case->dev_marks ?? null))))));
+            $item['dev'] = [
+                'model'       => $item['dev_model'],
+                'serial_no'   => $item['dev_serial_no'],
+                'imei1'       => $item['dev_imei1'],
+                'imei2'       => $item['dev_imei2'],
+                'mac_address' => $item['dev_mac_address'],
+                'storage'     => $item['dev_storage'],
+                'colour'      => $item['dev_colour'],
+                'marks'       => $item['dev_marks'],
+            ];
+            $item['device_model'] = $item['dev_model'];
+            $item['device_serial'] = $item['dev_serial_no'];
+
             $name =
                 $item['seizure_name'] ??
                 ($item['commodity_name'] ??
                     ($item['name'] ?? ($item['weapon_model'] ?? 'Confiscated Exhibit')));
+
+            if ((str_contains(strtolower($cat), 'electronic') || str_contains(strtolower($cat), 'device')) && in_array(strtolower(trim((string)$name)), ['electronic devices', 'electronic device', 'device', 'devices', 'general exhibit', 'confiscated exhibit', 'exhibit', 'exhibits', 'n/a']) && !empty($item['dev_model'])) {
+                $name = $item['dev_model'];
+                $item['seizure_name'] = $item['dev_model'];
+                $item['commodity_name'] = $item['dev_model'];
+            }
 
             $key = !empty($dbId)
                 ? 'db_' . $dbId
@@ -141,8 +176,26 @@ class CaseExhibitResolver
                     ? 'ex_' . strtolower(trim($exNo))
                     : 'cn_' . strtolower(trim($cat)) . '_' . strtolower(trim($name)));
 
-            if (!isset($seenExhibitKeys[$key])) {
-                $seenExhibitKeys[$key] = true;
+            if (isset($seenExhibitKeys[$key])) {
+                $existingIdx = $seenExhibitKeys[$key];
+                if (isset($allCaseExhibits[$existingIdx])) {
+                    foreach (['dev_model', 'dev_serial_no', 'dev_imei1', 'dev_imei2', 'dev_mac_address', 'dev_storage', 'dev_colour', 'dev_marks'] as $df) {
+                        if (empty($allCaseExhibits[$existingIdx][$df]) && !empty($item[$df])) {
+                            $allCaseExhibits[$existingIdx][$df] = $item[$df];
+                        }
+                    }
+                    if (isset($allCaseExhibits[$existingIdx]['dev'])) {
+                        foreach (['model', 'serial_no', 'imei1', 'imei2', 'mac_address', 'storage', 'colour', 'marks'] as $subF) {
+                            if (empty($allCaseExhibits[$existingIdx]['dev'][$subF]) && !empty($item['dev'][$subF])) {
+                                $allCaseExhibits[$existingIdx]['dev'][$subF] = $item['dev'][$subF];
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            $seenExhibitKeys[$key] = count($allCaseExhibits);
 
                 $owner =
                     $item['owner_name'] ??
@@ -194,8 +247,7 @@ class CaseExhibitResolver
                         $allCaseExhibitPhotos[] = $p;
                     }
                 }
-            }
-        };
+            };
 
         foreach ($dbExsList as $dbE) {
             $arr = $dbE->toArray();
@@ -213,6 +265,70 @@ class CaseExhibitResolver
             $arr['weapon_calibre'] = $dbE->wpn_calibre;
             $arr['weapon_color'] = $dbE->wpn_colour;
             $arr['weapon_size_length'] = $dbE->wpn_size;
+
+            // Ensure device fields are fully mapped from DB model
+            $arr['dev_model']       = $dbE->dev_model;
+            $arr['dev_serial_no']   = $dbE->dev_serial_no;
+            $arr['dev_imei1']       = $dbE->dev_imei1;
+            $arr['dev_imei2']       = $dbE->dev_imei2;
+            $arr['dev_mac_address'] = $dbE->dev_mac_address;
+            $arr['dev_storage']     = $dbE->dev_storage;
+            $arr['dev_colour']      = $dbE->dev_colour;
+            $arr['dev_marks']       = $dbE->dev_marks;
+
+            $hasMissingDbDev = empty(trim((string)$arr['dev_model']))
+                || empty(trim((string)$arr['dev_serial_no']))
+                || empty(trim((string)$arr['dev_imei1']))
+                || empty(trim((string)$arr['dev_imei2']))
+                || empty(trim((string)$arr['dev_storage']))
+                || empty(trim((string)$arr['dev_colour']))
+                || empty(trim((string)$arr['dev_marks']))
+                || empty(trim((string)$arr['dev_mac_address']));
+
+            if ($hasMissingDbDev && !empty($allDocketSeizures)) {
+                $matchDocket = collect($allDocketSeizures)->first(function ($dSz) use ($dbE) {
+                    if (!is_array($dSz)) return false;
+                    if (!empty($dSz['id']) && (int)$dSz['id'] === (int)$dbE->id) return true;
+                    if (!empty($dSz['exhibit_number']) && !empty($dbE->exhibit_number) && (string)$dSz['exhibit_number'] === (string)$dbE->exhibit_number) return true;
+                    if (!empty($dSz['commodity_name']) && !empty($dbE->commodity_name) && strtolower(trim($dSz['commodity_name'])) === strtolower(trim($dbE->commodity_name))) return true;
+                    if (!empty($dSz['seizure_name']) && !empty($dbE->commodity_name) && strtolower(trim($dSz['seizure_name'])) === strtolower(trim($dbE->commodity_name))) return true;
+                    return false;
+                });
+                if ($matchDocket) {
+                    $arr['dev_model']       = $arr['dev_model'] ?: ($matchDocket['dev_model'] ?? ($matchDocket['dev']['model'] ?? ($matchDocket['device_model'] ?? ($matchDocket['model'] ?? null))));
+                    $arr['dev_serial_no']   = $arr['dev_serial_no'] ?: ($matchDocket['dev_serial_no'] ?? ($matchDocket['dev']['serial_no'] ?? ($matchDocket['device_serial'] ?? ($matchDocket['serial_no'] ?? ($matchDocket['serial_number'] ?? null)))));
+                    $arr['dev_imei1']       = $arr['dev_imei1'] ?: ($matchDocket['dev_imei1'] ?? ($matchDocket['dev']['imei1'] ?? ($matchDocket['dev_imei_1'] ?? ($matchDocket['imei1'] ?? ($matchDocket['imei_1'] ?? null)))));
+                    $arr['dev_imei2']       = $arr['dev_imei2'] ?: ($matchDocket['dev_imei2'] ?? ($matchDocket['dev']['imei2'] ?? ($matchDocket['dev_imei_2'] ?? ($matchDocket['imei2'] ?? ($matchDocket['imei_2'] ?? null)))));
+                    $arr['dev_mac_address'] = $arr['dev_mac_address'] ?: ($matchDocket['dev_mac_address'] ?? ($matchDocket['dev']['mac_address'] ?? ($matchDocket['mac_address'] ?? null)));
+                    $arr['dev_storage']     = $arr['dev_storage'] ?: ($matchDocket['dev_storage'] ?? ($matchDocket['dev']['storage'] ?? ($matchDocket['storage_capacity'] ?? ($matchDocket['dev_storage_capacity'] ?? ($matchDocket['storage'] ?? null)))));
+                    $arr['dev_colour']      = $arr['dev_colour'] ?: ($matchDocket['dev_colour'] ?? ($matchDocket['dev']['colour'] ?? ($matchDocket['dev_color'] ?? ($matchDocket['colour'] ?? ($matchDocket['color'] ?? ($matchDocket['device_color'] ?? null))))));
+                    $arr['dev_marks']       = $arr['dev_marks'] ?: ($matchDocket['dev_marks'] ?? ($matchDocket['dev']['marks'] ?? ($matchDocket['dev_other_marks'] ?? ($matchDocket['marks'] ?? ($matchDocket['distinguishing_marks'] ?? ($matchDocket['other_marks'] ?? null))))));
+                }
+            }
+
+            // Ensure vehicle fields are fully mapped from DB model
+            $arr['veh_make']        = $dbE->veh_make;
+            $arr['veh_model']       = $dbE->veh_model;
+            $arr['veh_type']        = $dbE->veh_type;
+            $arr['veh_year']        = $dbE->veh_year;
+            $arr['veh_colour']      = $dbE->veh_colour;
+            $arr['veh_reg_no']      = $dbE->veh_reg_no;
+            $arr['veh_vin']         = $dbE->veh_vin;
+            $arr['veh_engine_no']   = $dbE->veh_engine_no;
+            $arr['veh_country_reg'] = $dbE->veh_country_reg;
+            $arr['veh_owner']       = $dbE->veh_owner;
+            $arr['veh_driver']      = $dbE->veh_driver;
+            $arr['veh_owner_contact']  = $dbE->veh_owner_contact;
+            $arr['veh_docs_available'] = $dbE->veh_docs_available;
+            $arr['veh_doc_ref']        = $dbE->veh_doc_ref;
+            $arr['veh_condition']      = $dbE->veh_condition;
+            $arr['veh_fuel']           = $dbE->veh_fuel;
+            $arr['veh_keys_recv']      = $dbE->veh_keys_recv;
+            $arr['veh_key_count']      = $dbE->veh_key_count;
+            $arr['veh_damage']         = $dbE->veh_damage;
+            $arr['veh_mods']           = $dbE->veh_mods;
+            $arr['veh_features']       = $dbE->veh_features;
+
             $addCaseExhibit($arr);
         }
 
@@ -247,7 +363,10 @@ class CaseExhibitResolver
         $jointCaseExhibits = [];
         $seenJointKeys = [];
         foreach ($allCaseExhibits as $cEx) {
-            if ($this->ownershipResolver->isJointExhibit($cEx, $primaryAndCoNamesList)) {
+            $owner = $cEx['owner_name'] ?? ($cEx['suspect_name'] ?? ($cEx['associated_person'] ?? ($cEx['owner'] ?? '')));
+            $isJoint = $this->ownershipResolver->isJointExhibit($cEx, $primaryAndCoNamesList);
+            $isPrimaryCo = !$isMultiCase || $this->ownershipResolver->isPrimaryOrCoSuspectName($owner, $primaryAndCoNamesList);
+            if ($isJoint || $isPrimaryCo) {
                 $jKey = ($cEx['id'] ?? '') . '_' . ($cEx['seizure_name'] ?? ($cEx['commodity_name'] ?? ''));
                 if (!isset($seenJointKeys[$jKey])) {
                     $seenJointKeys[$jKey] = true;
@@ -255,7 +374,10 @@ class CaseExhibitResolver
                 }
             }
         }
-        $isJointExhibitCase = !empty($jointCaseExhibits);
+        if (empty($jointCaseExhibits) && !empty($allCaseExhibits)) {
+            $jointCaseExhibits = $allCaseExhibits;
+        }
+        $isJointExhibitCase = !empty($jointCaseExhibits) || !empty($allCaseExhibits);
         $jointDossierHeadingName = !empty($primarySuspectsCombinedNames)
             ? $primarySuspectsCombinedNames
             : 'Primary & Co-Suspect';
@@ -327,7 +449,10 @@ class CaseExhibitResolver
         $jointCaseExhibits = [];
         $seenJointKeys = [];
         foreach ($allCaseExhibits as $cEx) {
-            if ($this->ownershipResolver->isJointExhibit($cEx, $primaryAndCoNamesList)) {
+            $owner = $cEx['owner_name'] ?? ($cEx['suspect_name'] ?? ($cEx['associated_person'] ?? ($cEx['owner'] ?? '')));
+            $isJoint = $this->ownershipResolver->isJointExhibit($cEx, $primaryAndCoNamesList);
+            $isPrimaryCo = !$isMultiCase || $this->ownershipResolver->isPrimaryOrCoSuspectName($owner, $primaryAndCoNamesList);
+            if ($isJoint || $isPrimaryCo) {
                 $jKey = ($cEx['id'] ?? '') . '_' . ($cEx['seizure_name'] ?? ($cEx['commodity_name'] ?? ''));
                 if (!isset($seenJointKeys[$jKey])) {
                     $seenJointKeys[$jKey] = true;
@@ -347,7 +472,7 @@ class CaseExhibitResolver
         if (empty($jointCaseExhibits) && !empty($allCaseExhibits)) {
             $jointCaseExhibits = $allCaseExhibits;
         }
-        $isJointExhibitCase = !empty($jointCaseExhibits);
+        $isJointExhibitCase = !empty($jointCaseExhibits) || !empty($allCaseExhibits);
         $isMultiple = !empty($isMultiCase)
             || !empty($hasCoSuspectsInCase)
             || !empty($case->is_multiple)

@@ -13,7 +13,7 @@
                         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wider">
+                                    class="text-xs font-mono-code font-extrabold text-blue-700 uppercase tracking-wider">
                                     SUSPECT #{{ ($suspect['resolved_view']['sNum'] ?? ($suspect['suspect_number'] ?? ($index + 1))) }} MUGSHOTS
                                 </span>
                                 <div>

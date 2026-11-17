@@ -166,12 +166,114 @@
     .tnum { font-variant-numeric: tabular-nums; }
 
     /* ============ APP SHELL ============ */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
     .app {
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      min-height: 100dvh;
       width: 100%;
       background: var(--paper);
+    }
+
+    /* Desktop (>= 1024px): Fit the whole screen seamlessly as a unified command center */
+    @media (min-width: 1024px) {
+      body {
+        overflow: hidden;
+      }
+      .app {
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
+        overflow: hidden;
+      }
+      .topbar {
+        flex-shrink: 0;
+      }
+      .unit-strip {
+        flex-shrink: 0;
+      }
+      .map-hero {
+        flex: 1 1 0;
+        min-height: 0;
+        height: 100%;
+        padding: 12px 18px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) minmax(350px, 1fr);
+        gap: 14px;
+        align-items: stretch;
+        overflow: hidden;
+      }
+      .map-shell {
+        height: 100%;
+        min-height: 0;
+      }
+      .map-side-rail {
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+      }
+      .map-side-rail::-webkit-scrollbar {
+        width: 6px;
+      }
+      .map-side-rail::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .map-side-rail::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 999px;
+      }
+    }
+
+    /* Tablet and Mobile (< 1024px): Responsive fluid stacked view */
+    @media (max-width: 1023px) {
+      body {
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      .app {
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+      }
+      .map-hero {
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 14px 20px;
+        gap: 16px;
+        overflow: visible;
+      }
+      .map-shell {
+        width: 100%;
+        height: 52vh;
+        min-height: 380px;
+        max-height: 580px;
+      }
+      .map-side-rail {
+        width: 100%;
+        height: auto;
+        overflow: visible;
+      }
+    }
+
+    /* Small phones (<= 640px) */
+    @media (max-width: 640px) {
+      .map-shell {
+        min-height: 340px;
+        height: 48vh;
+        border-radius: var(--r-xl);
+      }
     }
 
     /* ============ TOP BAR ============ */
@@ -182,10 +284,11 @@
       box-shadow: 0 1px 0 var(--hairline);
     }
     .topbar-inner {
-      display: flex; align-items: center; gap: 16px;
-      padding: 12px 24px;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      max-width: 100%;
     }
-    @media (max-width: 768px) { .topbar-inner { padding: 10px 14px; gap: 10px; } }
+    @media (max-width: 768px) { .topbar-inner { padding: 8px 12px; gap: 8px; } }
 
     .brand {
       display: flex; align-items: center; gap: 10px;
@@ -200,6 +303,79 @@
     .brand-text .b1 { font-weight: 700; font-size: 13px; color: var(--ink-900); letter-spacing: -.005em; line-height: 1.15; }
     .brand-text .b2 { font-size: 9.5px; color: var(--ink-400); letter-spacing: .14em; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
     @media (max-width: 640px) { .brand-text { display: none; } }
+
+    /* Mobile Menu Drawer & Toggle */
+    .mobile-menu-toggle {
+      display: none;
+    }
+    @media (max-width: 1023px) {
+      .mobile-menu-toggle {
+        display: inline-flex;
+      }
+    }
+    .mobile-nav-panel {
+      background: var(--surface);
+      border-bottom: 1px solid var(--hairline);
+      padding: 12px 16px 16px;
+      box-shadow: var(--e3);
+      animation: slideDown .18s ease-out;
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .mobile-nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .mobile-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: var(--r-md);
+      color: var(--ink-700);
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background .14s, color .14s;
+    }
+    .mobile-nav-link:hover, .mobile-nav-link:active {
+      background: var(--paper);
+      color: var(--ink-900);
+    }
+    .mobile-nav-link.active {
+      background: var(--signal-50);
+      color: var(--signal-700);
+      font-weight: 600;
+    }
+    .mobile-nav-link .nb {
+      min-width: 18px; height: 18px; padding: 0 5px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--alert); color: #fff;
+      font-size: 9.5px; font-weight: 700; border-radius: var(--r-pill);
+      margin-left: auto;
+    }
+    .mobile-search-wrap {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      padding: 0 12px;
+      height: 38px;
+    }
+    .mobile-search-wrap input {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      outline: none;
+      font-size: 12.5px;
+      color: var(--ink-800);
+    }
 
     /* Center nav (desktop) */
     .nav {
@@ -355,7 +531,7 @@
       gap: 12px;
       min-width: 0;
     }
-    @media (max-width: 520px) {
+    @media (max-width: 580px) {
       .stats-split-grid { grid-template-columns: 1fr; }
     }
     .stats-split-grid .card { min-width: 0; display: flex; flex-direction: column; }
@@ -376,7 +552,7 @@
     .bar-chart-wrap {
       position: relative;
       width: 100%;
-      height: 195px;
+      height: 175px;
       padding: 10px 18px 14px;
     }
 
@@ -409,6 +585,21 @@
       justify-content: space-between;
       gap: 16px;
       padding-top: 4px;
+    }
+    @media (max-width: 580px) {
+      .radial-layout {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+      .radial-svg-wrap {
+        width: 160px;
+        height: 160px;
+      }
+      .radial-legend {
+        width: 100%;
+        min-width: 0;
+      }
     }
     .radial-svg-wrap {
       position: relative;
@@ -502,9 +693,43 @@
     /* Top bar inside map */
     .map-top {
       position: relative; z-index: 10;
-      padding: 18px 20px;
+      padding: 16px 20px;
       display: flex; align-items: flex-start; justify-content: space-between;
       gap: 12px; flex-wrap: wrap;
+    }
+    @media (max-width: 640px) {
+      .map-top {
+        padding: 10px 12px;
+        gap: 8px;
+      }
+      .map-title-block {
+        max-width: 100%;
+        padding: 5px 10px 5px 8px;
+        gap: 8px;
+      }
+      .map-title-block .ttl { font-size: 12px; }
+      .map-title-block .ttl-sub { display: none; }
+      .map-filter-wrap {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .map-filter {
+        width: 100%;
+        height: 32px;
+        font-size: 11px;
+        padding: 0 20px 0 8px;
+      }
+      .map-reset {
+        height: 32px;
+        width: 32px;
+      }
+    }
+    @media (max-width: 380px) {
+      .map-filter-wrap {
+        grid-template-columns: 1fr;
+      }
     }
 
     .map-title-block {
@@ -567,6 +792,18 @@
     /* Selected docket dock */
     .map-dock {
       position: absolute; left: 20px; right: 20px; bottom: 20px;
+      z-index: 10;
+      display: flex; align-items: stretch; gap: 12px;
+      max-width: 900px;
+    }
+    @media (max-width: 640px) {
+      .map-dock { left: 8px; right: 8px; bottom: 8px; flex-direction: column; gap: 8px; }
+      .dock-card { padding: 10px 12px; gap: 10px; }
+      .dock-title { font-size: 13px; }
+      .dock-sub { font-size: 10.5px; }
+      .dock-meta .meta-val { font-size: 16px; }
+      .dock-cta { min-height: 40px; justify-content: center; }
+    }
       z-index: 10;
       display: flex; align-items: stretch; gap: 12px;
       max-width: 900px;
@@ -719,6 +956,12 @@
       grid-template-columns: 1fr;
       gap: 16px;
       align-items: start;
+    }
+    .workspace:empty {
+      display: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      height: 0 !important;
     }
     @media (max-width: 768px) { .workspace { padding: 14px; } }
 
@@ -1017,6 +1260,17 @@
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
       outline: 2px solid var(--signal); outline-offset: 2px;
     }
+    @if(!empty($isStaffShell))
+    /* Remove decorative status dots and blinking indicator dots on staff dashboards */
+    .unit-strip .u-badge::before,
+    .icon-btn .dot-indicator,
+    .avatar .status-dot,
+    .tri-item .tri-lbl i,
+    .ops-list .ops-lbl i {
+      display: none !important;
+      animation: none !important;
+    }
+    @endif
   </style>
 </head>
 <body>
@@ -1044,16 +1298,44 @@
           <i data-lucide="folder-search" style="width:15px;height:15px;"></i>
           <span>Case Register</span>
         </a>
-        <a href="{{ $reportUrl }}" class="nav-link">
+        @if(!$isStaffShell && $unitKey === 'evidence_management')
+        <a href="{{ url('/Evidence_Management/vault') }}" class="nav-link">
+          <i data-lucide="archive" style="width:15px;height:15px;"></i>
+          <span>Exhibit Vault</span>
+          @if($vaultPendingBadge > 0)<span class="nb">{{ $vaultPendingBadge }}</span>@endif
+        </a>
+        @endif
+        @php
+          $shellUnitContext = $cfg['userUnit'] ?? request()->path();
+          $canShellGenerateReports = !$isStaffShell || !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('generate_reports', $shellUnitContext) : true);
+          $shellLockedReportTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
+        @endphp
+        <a @if($canShellGenerateReports) href="{{ $reportUrl }}" @endif
+           class="nav-link"
+           @if($isStaffShell)
+             data-staff-sitrep-btn="navbar"
+             data-sitrep-url="{{ $reportUrl }}"
+             aria-disabled="{{ $canShellGenerateReports ? 'false' : 'true' }}"
+             @if(!$canShellGenerateReports)
+               tabindex="0"
+               title="{{ $shellLockedReportTooltip }}"
+               data-locked-tooltip="{{ $shellLockedReportTooltip }}"
+               onclick="event.preventDefault(); event.stopPropagation(); return false;"
+               style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%); pointer-events: auto;"
+             @endif
+           @endif>
           <i data-lucide="bar-chart-3" style="width:15px;height:15px;"></i>
           <span>Reports</span>
+          @if($isStaffShell)
+            <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1 {{ $canShellGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          @endif
         </a>
         @if(!$isStaffShell && $authUser && $authUser->is_head)
           <a href="{{ $approvalsUrl }}" class="nav-link">
             <i data-lucide="clipboard-check" style="width:15px;height:15px;"></i>
             <span>Reviews &amp; Approvals</span>
             @if($pendingApprovalsCount > 0)
-              <span class="nb" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingApprovalsCount }}</span>
+              <span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingApprovalsCount }}</span>
             @endif
           </a>
           <a href="{{ $permissionsUrl }}" class="nav-link">
@@ -1111,7 +1393,9 @@
         @else
           {{ strtoupper(substr(trim($headName), 0, 2)) ?: 'NC' }}
         @endif
-        <span class="status-dot"></span>
+        @if(empty($isStaffShell))
+          <span class="status-dot"></span>
+        @endif
       </div>
 
       <form method="POST" action="{{ route('logout') }}" style="margin:0;">
@@ -1120,6 +1404,75 @@
           <i data-lucide="log-out" style="width:15px;height:15px;"></i>
         </button>
       </form>
+
+      <button type="button" class="icon-btn mobile-menu-toggle" id="mobileMenuBtn" aria-label="Toggle navigation menu" onclick="toggleMobileNav()">
+        <i data-lucide="menu" id="mobileMenuIcon" style="width:17px;height:17px;"></i>
+      </button>
+    </div>
+
+    <!-- MOBILE NAVIGATION PANEL (< 1024px) -->
+    <div class="mobile-nav-panel" id="mobileNavPanel" style="display:none;">
+      <nav class="mobile-nav-links" aria-label="Mobile navigation">
+        <a href="{{ $homeUrl }}" class="mobile-nav-link active">
+          <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="{{ $casesUrl }}" class="mobile-nav-link">
+          <i data-lucide="folder-search" style="width:16px;height:16px;"></i>
+          <span>Case Register</span>
+        </a>
+        @if(!$isStaffShell && $unitKey === 'evidence_management')
+        <a href="{{ url('/Evidence_Management/vault') }}" class="mobile-nav-link">
+          <i data-lucide="archive" style="width:16px;height:16px;"></i>
+          <span>Exhibit Vault</span>
+          @if($vaultPendingBadge > 0)<span class="nb">{{ $vaultPendingBadge }}</span>@endif
+        </a>
+        @endif
+        <a @if($canShellGenerateReports) href="{{ $reportUrl }}" @endif
+           class="mobile-nav-link"
+           @if($isStaffShell)
+             data-staff-sitrep-btn="navbar-mobile"
+             data-sitrep-url="{{ $reportUrl }}"
+             aria-disabled="{{ $canShellGenerateReports ? 'false' : 'true' }}"
+             @if(!$canShellGenerateReports)
+               tabindex="0"
+               title="{{ $shellLockedReportTooltip }}"
+               data-locked-tooltip="{{ $shellLockedReportTooltip }}"
+               onclick="event.preventDefault(); event.stopPropagation(); return false;"
+               style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%); pointer-events: auto;"
+             @endif
+           @endif>
+          <i data-lucide="bar-chart-3" style="width:16px;height:16px;"></i>
+          <span>Reports</span>
+          @if($isStaffShell)
+            <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1 {{ $canShellGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          @endif
+        </a>
+        @if(!$isStaffShell && $authUser && $authUser->is_head)
+          <a href="{{ $approvalsUrl }}" class="mobile-nav-link">
+            <i data-lucide="clipboard-check" style="width:16px;height:16px;"></i>
+            <span>Reviews &amp; Approvals</span>
+            @if($pendingApprovalsCount > 0)
+              <span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingApprovalsCount }}</span>
+            @endif
+          </a>
+          <a href="{{ $permissionsUrl }}" class="mobile-nav-link">
+            <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
+            <span>Permissions</span>
+          </a>
+        @endif
+        @if(!$isStaffShell && $notificationsUrl)
+        <a href="{{ $notificationsUrl }}" class="mobile-nav-link">
+          <i data-lucide="bell" style="width:16px;height:16px;"></i>
+          <span>Notifications</span>
+          @if($vaultPendingBadge > 0)<span class="nb">{{ $vaultPendingBadge }}</span>@endif
+        </a>
+        @endif
+      </nav>
+      <div class="mobile-search-wrap">
+        <i data-lucide="search" style="width:14px;height:14px;color:var(--ink-400);"></i>
+        <input type="search" placeholder="Search cases, suspects, case IDs…" aria-label="Mobile search" oninput="const s=document.getElementById('globalSearch'); if(s){ s.value=this.value; applyDashboardFilters(); }">
+      </div>
     </div>
   </header>
 
@@ -1976,6 +2329,16 @@
     };
 
     window.toggleShowAllRows = function () { showAllRows = !showAllRows; renderTable(); };
+
+    window.toggleMobileNav = function () {
+      const panel = document.getElementById('mobileNavPanel');
+      if (!panel) return;
+      const isHidden = panel.style.display === 'none' || !panel.style.display;
+      panel.style.display = isHidden ? 'block' : 'none';
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    };
 
     window.refreshRealtimeData = async function (isBackground) {
       const sp = document.getElementById('syncSpinner');

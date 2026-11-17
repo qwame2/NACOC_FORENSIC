@@ -135,7 +135,7 @@
                             <div class="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono-code truncate">
                                 <span>{{ $suspectCount }} Suspect{{ $suspectCount == 1 ? '' : 's' }}</span>
                                 @if(!empty($case->nationality))
-                                    <span class="truncate">&bull; {{ $case->nationality }}</span>
+                                    <span class="truncate">@if(request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*'))|@else&bull;@endif {{ $case->nationality }}</span>
                                 @endif
                             </div>
                         </td>

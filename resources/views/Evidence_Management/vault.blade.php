@@ -98,15 +98,6 @@
 
                 <!-- Right Toolbar Actions -->
                 <div class="flex items-center space-x-3">
-                    <a href="{{ url('/Evidence_Management') }}" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-semibold flex items-center space-x-1.5 transition-colors">
-                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-slate-500"></i>
-                        <span>Dashboard</span>
-                    </a>
-                    <a href="{{ url('/Evidence_Management/add-exhibit') }}" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-colors">
-                        <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-white"></i>
-                        <span>Add Exhibit</span>
-                    </a>
-                    <div class="h-6 w-px bg-slate-200"></div>
                     <div class="flex items-center space-x-2 pl-1">
                         <div class="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
                             {{ strtoupper(substr($officerName, 0, 2)) }}
@@ -739,7 +730,7 @@
                         </div>
 
                         <!-- 3. OFFICIAL CUSTODIAL STATE DISPLAY -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3">
+                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                                 <div class="flex items-center space-x-2">
                                     <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
@@ -754,6 +745,35 @@
                             <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 flex items-center space-x-2.5">
                                 <i data-lucide="lock" class="w-4 h-4 text-emerald-600 shrink-0"></i>
                                 <span class="leading-relaxed">Official Seizure custody is locked and secured under NACOC Evidence Management protocols. Status is automatically synchronized across the central registry and live scan verification.</span>
+                            </div>
+
+                            <!-- Chain of Custody Input & Custody Trail -->
+                            <div class="space-y-2 pt-2 border-t border-slate-100">
+                                <div class="flex items-center justify-between">
+                                    <label for="inspectChainOfCustody" class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                                        <i data-lucide="link" class="w-3.5 h-3.5 text-teal-600"></i>
+                                        <span>Chain of Custody</span>
+                                    </label>
+                                    <span class="text-[9.5px] font-mono-code font-bold uppercase text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
+                                        Custody Record
+                                    </span>
+                                </div>
+                                <div class="relative">
+                                    <textarea id="inspectChainOfCustody" 
+                                              rows="3" 
+                                              class="w-full text-xs font-mono-code p-3 rounded-2xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all resize-y placeholder:text-slate-400 text-slate-800 outline-none" 
+                                              placeholder="Enter chain of custody logs, transferring officers, station handovers, or vault intake details..."></textarea>
+                                </div>
+                                <div class="flex items-center justify-between pt-1">
+                                    <span class="text-[10px] text-slate-400 italic">Saved directly to central exhibit registry</span>
+                                    <button type="button" 
+                                            id="inspectSaveChainOfCustodyBtn" 
+                                            onclick="saveInspectChainOfCustody()" 
+                                            class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-2xs hover:shadow transition-all cursor-pointer">
+                                        <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                        <span>Save Chain of Custody</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1416,6 +1436,12 @@
             if (statusSelect) statusSelect.value = exhibit.custodial_status || 'In Vault Custody';
             const statusLabel = document.getElementById('inspectCustodialStatusLabel');
             if (statusLabel) statusLabel.textContent = exhibit.custodial_status || 'In Vault Custody';
+
+            // Chain of Custody Input in Vault Custodial State
+            const cocInput = document.getElementById('inspectChainOfCustody');
+            if (cocInput) {
+                cocInput.value = exhibit.chain_of_custody || '';
+            }
 
             // ==========================================
             // EVIDENCE PHOTOS GALLERY POPULATION
@@ -2219,6 +2245,54 @@
             } catch(e) {
                 console.error(e);
                 showVaultToast('Error communicating with server', 'error');
+            }
+        }
+
+        async function saveInspectChainOfCustody() {
+            if (!window.currentModalExhibit || !window.currentModalExhibit.id) return;
+            const ex = window.currentModalExhibit;
+            const input = document.getElementById('inspectChainOfCustody');
+            if (!input) return;
+            const val = input.value.trim();
+            const btn = document.getElementById('inspectSaveChainOfCustodyBtn');
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Saving...</span>`;
+            }
+
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            try {
+                const res = await fetch(`/Evidence_Management/exhibits/${ex.id}/update`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': token
+                    },
+                    body: JSON.stringify({ chain_of_custody: val })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    ex.chain_of_custody = val;
+                    if (data.exhibit) {
+                        Object.assign(ex, data.exhibit);
+                    }
+                    input.value = val;
+                    showVaultToast('Chain of custody updated successfully!', 'success');
+                } else {
+                    showVaultToast(data.message || 'Failed to update chain of custody', 'error');
+                }
+            } catch(e) {
+                console.error(e);
+                showVaultToast('Error communicating with server', 'error');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                }
+                if (window.lucide) window.lucide.createIcons();
             }
         }
 

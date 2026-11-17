@@ -20,6 +20,7 @@ class MoneyExhibitAmountPersistenceTest extends TestCase
         $this->user = User::factory()->create([
             'unit' => 'Evidence Management',
             'is_approved' => true,
+            'is_head' => true,
         ]);
     }
 

@@ -173,6 +173,7 @@ class LabExaminationManifestSyncTest extends TestCase
         $analyst = User::factory()->create([
             'unit' => 'Lab Analysis',
             'is_approved' => true,
+            'is_head' => true,
         ]);
 
         $payload = [
@@ -227,5 +228,50 @@ class LabExaminationManifestSyncTest extends TestCase
         // Verify docket_data seizures array is empty and has no ghost drug exhibit
         $docket = $createdCase->docket_data;
         $this->assertEmpty($docket['seizures'] ?? []);
+    }
+
+    #[Test]
+    public function lab_show_review_syncs_packaging_as_received_and_commodity_name_to_examination_information(): void
+    {
+        $analyst = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-LAB-SYNC',
+            'title' => 'State vs Kwame Mensah',
+            'suspect_name' => 'Kwame Mensah',
+            'unit_name' => 'Lab Analysis',
+            'status' => 'Pending Approval',
+            'docket_data' => [
+                'suspects' => [
+                    ['suspect_name' => 'Kwame Mensah', 'association_role' => 'Primary Suspect']
+                ],
+                'seizures' => []
+            ]
+        ]);
+
+        $response = $this->actingAs($analyst)->get("/cases/{$case->case_number}/review?from=Lab+Analysis");
+        $response->assertStatus(200);
+        $html = $response->getContent();
+
+        // 1. Packaging as Received / Commodity Name label exists
+        $this->assertStringContainsString('Packaging as Received / Commodity Name', $html);
+
+        // 2. Section 4 real-time input event listeners sync to Section 5
+        $this->assertStringContainsString("if (typeof syncSection4ExhibitsToLabSection === 'function')", $html);
+        $this->assertStringContainsString("if (typeof syncSection4ToSection5InReview === 'function')", $html);
+
+        // 3. selectDrugType triggers synchronization
+        $this->assertStringContainsString('function selectDrugType(', $html);
+        $this->assertMatchesRegularExpression('/function selectDrugType\([^\)]*\)\s*\{[\s\S]*?syncSection4ExhibitsToLabSection\(\);[\s\S]*?syncSection4ToSection5InReview\(\);/', $html);
+
+        // 4. filterDrugList triggers synchronization
+        $this->assertMatchesRegularExpression('/function filterDrugList\([^\)]*\)\s*\{[\s\S]*?syncSection4ExhibitsToLabSection\(\);[\s\S]*?syncSection4ToSection5InReview\(\);/', $html);
+
+        // 5. onLabExhibitSelected updates Examination Information metrology & description
+        $this->assertMatchesRegularExpression('/function onLabExhibitSelected\([^\)]*\)\s*\{[\s\S]*?sampleDescReview\.value\s*=\s*name;/', $html);
+        $this->assertMatchesRegularExpression('/function onLabExhibitSelected\([^\)]*\)\s*\{[\s\S]*?subIdReview\.value\s*=\s*name;/', $html);
     }
 }

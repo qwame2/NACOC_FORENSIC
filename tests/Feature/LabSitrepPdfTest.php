@@ -651,6 +651,7 @@ class LabSitrepPdfTest extends TestCase
     {
         $user = User::factory()->create([
             'unit' => 'Lab Analysis',
+            'is_head' => true,
             'is_approved' => true,
         ]);
 
@@ -733,6 +734,7 @@ class LabSitrepPdfTest extends TestCase
     {
         $user = User::factory()->create([
             'unit' => 'Lab Analysis',
+            'is_head' => true,
             'is_approved' => true,
         ]);
 
@@ -833,6 +835,7 @@ class LabSitrepPdfTest extends TestCase
     {
         $user = User::factory()->create([
             'unit' => 'Lab Analysis',
+            'is_head' => true,
             'is_approved' => true,
         ]);
 

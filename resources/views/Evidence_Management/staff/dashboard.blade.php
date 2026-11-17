@@ -4,7 +4,7 @@
         'isStaff'          => true,
         'unitKey'          => 'evidence_management',
         'userUnit'         => 'Evidence Management Unit',
-        'unitBadge'        => 'EVIDENCE MANAGEMENT UNIT • STAFF',
+        'unitBadge'        => 'EVIDENCE MANAGEMENT UNIT | STAFF',
         'unitSubtitle'     => 'Evidence Vault & Custody Staff Workstation',
         'locationNoun'     => 'Custody & Vault Cases',
         'pageTitle'        => 'NACOC FORENSIC | Evidence Management Staff Dashboard',

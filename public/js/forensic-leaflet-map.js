@@ -263,6 +263,17 @@
             map.invalidateSize();
         }, 120);
 
+        window.addEventListener('resize', function () {
+            map.invalidateSize();
+        });
+
+        if (typeof window.ResizeObserver !== 'undefined') {
+            var ro = new ResizeObserver(function () {
+                map.invalidateSize();
+            });
+            ro.observe(el);
+        }
+
         return controller;
     }
 

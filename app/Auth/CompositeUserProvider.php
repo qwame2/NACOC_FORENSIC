@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\UserProvider;
 use Illuminate\Contracts\Hashing\Hasher;
+use Illuminate\Support\Facades\Schema;
 
 class CompositeUserProvider implements UserProvider
 {
@@ -17,6 +18,9 @@ class CompositeUserProvider implements UserProvider
     public function retrieveById($identifier)
     {
         if (is_string($identifier) && str_starts_with($identifier, 'staff:')) {
+            if (!Schema::hasTable('staff_accounts')) {
+                return null;
+            }
             $id = (int) substr($identifier, 6);
             $staff = $id > 0 ? StaffAccount::find($id) : null;
             if ($staff && $staff->is_approved) {
@@ -67,6 +71,10 @@ class CompositeUserProvider implements UserProvider
         $user = $userQuery->first();
         if ($user) {
             return $user;
+        }
+
+        if (!Schema::hasTable('staff_accounts')) {
+            return null;
         }
 
         $staffQuery = StaffAccount::query();

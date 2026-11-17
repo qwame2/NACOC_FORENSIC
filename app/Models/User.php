@@ -30,6 +30,11 @@ class User extends Authenticatable
             'description' => 'Update case details, suspect biodata, and offence records',
             'category'    => 'Cases',
         ],
+        'add_associate' => [
+            'label'       => 'Add Associate',
+            'description' => 'Link accomplices, co-suspects, and associated exhibits to case records',
+            'category'    => 'Cases',
+        ],
         'manage_exhibits' => [
             'label'       => 'Manage Exhibit Vault',
             'description' => 'Log exhibits, update seized items, and assign QR custody tags',
@@ -65,12 +70,43 @@ class User extends Authenticatable
     public const STREAMLINED_PERMISSION_KEYS = [
         'create_cases',
         'edit_cases',
+        'add_associate',
+        'generate_reports',
+    ];
+
+    /**
+     * Applicable permissions shown on the permissions page for Lab Analysis.
+     * Excludes Manage Exhibit Vault, Digital Forensics, and Notifications & Handovers.
+     *
+     * @var list<string>
+     */
+    public const LAB_PERMISSION_KEYS = [
+        'create_cases',
+        'edit_cases',
+        'add_associate',
+        'record_lab_analysis',
+        'generate_reports',
+    ];
+
+    /**
+     * Applicable permissions shown on the permissions page for Evidence Management.
+     * Excludes Digital Forensics, Notifications & Handovers, and Lab & Drug Screening.
+     *
+     * @var list<string>
+     */
+    public const EM_PERMISSION_KEYS = [
+        'create_cases',
+        'edit_cases',
+        'add_associate',
+        'manage_exhibits',
         'generate_reports',
     ];
 
     /**
      * Return the applicable permission definitions for a given unit or route context.
      * Crime Scene Support and Digital Forensics display only the 4 core case/report permissions.
+     * Lab Analysis displays the 5 applicable permissions (excluding vault, digital, and notifications).
+     * Evidence Management displays the 5 applicable permissions (excluding digital, notifications, and lab).
      *
      * @return array<string, array{label: string, description: string, category: string}>
      */
@@ -84,6 +120,10 @@ class User extends Authenticatable
                 $slug = 'css';
             } elseif (str_contains($path, 'digital_forensics') || str_contains($path, 'digital-forensics')) {
                 $slug = 'dpf';
+            } elseif (str_contains($path, 'lab_analysis') || str_contains($path, 'lab-analysis') || str_contains($path, 'lab')) {
+                $slug = 'lab';
+            } elseif (str_contains($path, 'evidence_management') || str_contains($path, 'evidence-management') || str_contains($path, 'evidence') || str_contains($path, 'vault')) {
+                $slug = 'em';
             }
         }
 
@@ -91,6 +131,20 @@ class User extends Authenticatable
             return array_intersect_key(
                 self::AVAILABLE_PERMISSIONS,
                 array_flip(self::STREAMLINED_PERMISSION_KEYS)
+            );
+        }
+
+        if ($slug === 'lab') {
+            return array_intersect_key(
+                self::AVAILABLE_PERMISSIONS,
+                array_flip(self::LAB_PERMISSION_KEYS)
+            );
+        }
+
+        if ($slug === 'em') {
+            return array_intersect_key(
+                self::AVAILABLE_PERMISSIONS,
+                array_flip(self::EM_PERMISSION_KEYS)
             );
         }
 

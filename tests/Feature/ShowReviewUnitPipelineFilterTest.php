@@ -22,6 +22,7 @@ class ShowReviewUnitPipelineFilterTest extends TestCase
         parent::setUp();
         $this->officer = User::factory()->create([
             'unit' => 'Forensic Directorate',
+            'is_head' => true,
             'is_approved' => true,
         ]);
     }

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ForensicCase;
 use App\Models\StaffAccount;
 use App\Models\StaffCaseSubmission;
 use App\Models\User;
 use App\Services\CaseDocketService;
+use App\Services\CaseShowReviewPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -106,7 +108,7 @@ class StaffCaseSubmissionController extends Controller
             ->get();
 
         $reviewedSubmissions = (clone $baseQuery)
-            ->whereIn('status', ['Approved', 'Declined'])
+            ->whereIn('status', ['Approved', 'Declined', 'Rolled Back'])
             ->orderByDesc('reviewed_at')
             ->limit(25)
             ->get();
@@ -117,6 +119,88 @@ class StaffCaseSubmissionController extends Controller
             'pendingSubmissions' => $pendingSubmissions,
             'reviewedSubmissions' => $reviewedSubmissions,
         ]);
+    }
+
+    public function show(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (!$user || !$user->is_head) {
+            return redirect('/staff/dashboard')->with('error', 'Only Unit Heads can access Reviews & Approvals.');
+        }
+
+        $submission = StaffCaseSubmission::findOrFail($id);
+        if (!$this->headCanAccessSubmission($user, $submission, $request)) {
+            abort(403, 'You are not authorized to review submissions for another unit.');
+        }
+
+        $unitCtx = $this->resolveUnitContext($request);
+        $payload = is_array($submission->payload) ? $submission->payload : [];
+
+        $submitterUser = null;
+        if (!empty($submission->submitted_by)) {
+            $submitterUser = StaffAccount::find($submission->submitted_by) ?? User::find($submission->submitted_by);
+        }
+        if (!$submitterUser && !empty($submission->submitted_by_name)) {
+            $submitterUser = new User([
+                'fullname' => $submission->submitted_by_name,
+                'name' => $submission->submitted_by_name,
+                'unit' => $submission->unit_name ?? $unitCtx['sidebar'],
+            ]);
+        }
+
+        // Build a virtual ForensicCase instance populated from submission payload
+        $case = new ForensicCase();
+        $case->id = $submission->id;
+        $case->user_id = $submission->submitted_by;
+        if ($submitterUser) {
+            $case->setRelation('user', $submitterUser);
+        }
+        $case->case_number = $submission->case_number_preview ?? ($payload['case_number'] ?? ('SUB-' . $submission->id));
+        $case->title = $submission->title ?? ($payload['title'] ?? 'Staff Case Submission');
+        $case->unit_name = $submission->unit_name ?? ($payload['unit_name'] ?? $unitCtx['sidebar']);
+        $case->operation_code_name = $payload['operation_code_name'] ?? ($payload['operation_code'] ?? null);
+        $case->operation_code = $payload['operation_code'] ?? null;
+        $case->status = $submission->status ?? ($payload['status'] ?? 'Pending Approval');
+        $case->priority = $payload['priority'] ?? 'Medium';
+        $case->suspect_name = $submission->suspect_name ?? ($payload['suspect_name'] ?? null);
+        $case->ghana_card = $payload['ghana_card'] ?? null;
+        $case->location = $payload['location'] ?? ($payload['raid_location'] ?? null);
+        $case->description = $payload['description'] ?? ($payload['offense_description'] ?? null);
+        $case->arresting_officer = $payload['arresting_officer'] ?? null;
+        $case->investigating_officer = $payload['investigating_officer'] ?? null;
+        $case->submitting_officer = $payload['submitting_officer'] ?? ($submission->submitted_by_name ?? null);
+        $case->created_at = $submission->created_at ?? now();
+        $case->updated_at = $submission->updated_at ?? now();
+
+        $docketData = is_array($payload['docket_data'] ?? null) ? $payload['docket_data'] : [];
+        $docketData['created_by_name'] = $submission->submitted_by_name ?? ($submitterUser?->fullname ?? 'Staff Officer');
+        $docketData['created_by_unit'] = $submission->unit_name ?? $unitCtx['sidebar'];
+        $case->docket_data = $docketData;
+
+        $case->seizures = is_array($payload['seizures'] ?? null) ? $payload['seizures'] : [];
+        $case->search_warrant_document = $payload['search_warrant_document'] ?? null;
+        $case->description_of_exhibits = $payload['description_of_exhibits'] ?? null;
+        $case->laboratory_number = $payload['laboratory_number'] ?? null;
+
+        // Map unit key for CaseShowReviewPresenter: css, lab, dpf, em, hof
+        $presenterKey = match ($unitCtx['key']) {
+            'lab_analysis' => 'lab',
+            'digital_forensics' => 'dpf',
+            'evidence_management' => 'em',
+            'forensic_head' => 'hof',
+            default => 'css',
+        };
+
+        $presenter = app(CaseShowReviewPresenter::class)->presentForUnit($case, $presenterKey, $request, $user);
+
+        return view('head.submission_review', array_merge($presenter->toViewData(), [
+            'submission'  => $submission,
+            'case'        => $case,
+            'presenter'   => $presenter,
+            'unitContext' => $unitCtx,
+            'sidebarUnit' => $unitCtx['sidebar'],
+            'payload'     => $payload,
+        ]));
     }
 
     public function approve(Request $request, $id)
@@ -130,7 +214,7 @@ class StaffCaseSubmissionController extends Controller
         if (!$this->headCanAccessSubmission($head, $submission, $request)) {
             abort(403, 'You are not authorized to review or approve cases created by staff from another unit.');
         }
-        if ($submission->status !== 'Pending Approval') {
+        if ($submission->status !== 'Pending Approval' && $submission->status !== 'Rolled Back') {
             return back()->with('error', "Submission #{$submission->id} has already been {$submission->status}.");
         }
 
@@ -174,7 +258,7 @@ class StaffCaseSubmissionController extends Controller
         if (!$this->headCanAccessSubmission($head, $submission, $request)) {
             abort(403, 'You are not authorized to review or approve cases created by staff from another unit.');
         }
-        if ($submission->status !== 'Pending Approval') {
+        if ($submission->status !== 'Pending Approval' && $submission->status !== 'Rolled Back') {
             return back()->with('error', "Submission #{$submission->id} has already been {$submission->status}.");
         }
 
@@ -187,6 +271,170 @@ class StaffCaseSubmissionController extends Controller
         ]);
 
         return back()->with('status', "Submission #{$submission->id} has been declined and was not saved to the database.");
+    }
+
+    public function rollback(Request $request, $id)
+    {
+        $head = Auth::user();
+        if (!$head || !$head->is_head) {
+            return redirect('/staff/dashboard')->with('error', 'Only Unit Heads can request case rollbacks.');
+        }
+
+        $submission = StaffCaseSubmission::findOrFail($id);
+        if (!$this->headCanAccessSubmission($head, $submission, $request)) {
+            abort(403, 'You are not authorized to review or rollback cases created by staff from another unit.');
+        }
+
+        if ($submission->status === 'Approved') {
+            return back()->with('error', "Submission #{$submission->id} has already been approved and saved to database.");
+        }
+
+        // Parse corrections payload: can be array or JSON string
+        $rawCorrections = $request->input('corrections');
+        $corrections = [];
+        if (is_string($rawCorrections)) {
+            $decoded = json_decode($rawCorrections, true);
+            if (is_array($decoded)) {
+                $corrections = $decoded;
+            }
+        } elseif (is_array($rawCorrections)) {
+            $corrections = $rawCorrections;
+        }
+
+        $reviewNotes = trim((string) $request->input('review_notes'));
+        if (empty($reviewNotes) && empty($corrections)) {
+            $reviewNotes = 'Case rolled back for requested corrections. Please review the highlighted suspect details.';
+        }
+
+        $submission->update([
+            'status' => 'Rolled Back',
+            'rollback_corrections' => $corrections,
+            'review_notes' => $reviewNotes,
+            'reviewed_by' => $head->id,
+            'reviewed_by_name' => $head->fullname ?? $head->name ?? 'Unit Head',
+            'reviewed_at' => now(),
+            'rolled_back_at' => now(),
+        ]);
+
+        $unitCtx = $this->resolveUnitContext($request);
+        $redirectUrl = match ($unitCtx['key']) {
+            'lab_analysis' => url('/Lab_Analysis/reviews-approvals'),
+            'evidence_management' => url('/Evidence_Management/reviews-approvals'),
+            'digital_forensics' => url('/Digital_Forensics/reviews-approvals'),
+            'forensic_head' => url('/Forensic_Head/reviews-approvals'),
+            default => url('/Crime_Scene_Support/reviews-approvals'),
+        };
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Submission #{$submission->id} has been rolled back to staff for requested corrections.",
+                'redirect' => $redirectUrl,
+            ]);
+        }
+
+        return redirect($redirectUrl)->with('status', "Submission #{$submission->id} has been rolled back to {$submission->submitted_by_name} for requested corrections.");
+    }
+
+    public function staffRollbackIndex(Request $request)
+    {
+        $authUser = Auth::user();
+        $unitCtx = $this->resolveUnitContext($request);
+
+        $query = StaffCaseSubmission::where('status', 'Rolled Back');
+
+        if ($authUser && !$authUser->is_head) {
+            $query->where(function ($q) use ($authUser, $unitCtx) {
+                $q->where('submitted_by', $authUser->id)
+                  ->orWhere('submitted_by_name', $authUser->fullname ?? $authUser->name)
+                  ->orWhere('unit_name', 'LIKE', '%' . $unitCtx['sidebar'] . '%');
+            });
+        } else {
+            $query->forUnit($unitCtx['sidebar']);
+        }
+
+        $submissions = $query->orderByDesc('rolled_back_at')->orderByDesc('updated_at')->get();
+
+        return view('staff.case_rollback', [
+            'submissions' => $submissions,
+            'unitContext' => $unitCtx,
+            'sidebarUnit' => $unitCtx['sidebar'],
+            'authUser' => $authUser,
+        ]);
+    }
+
+    public function staffRollbackShow(Request $request, $id)
+    {
+        $authUser = Auth::user();
+        $submission = StaffCaseSubmission::findOrFail($id);
+
+        $unitCtx = $this->resolveUnitContext($request);
+        $payload = is_array($submission->payload) ? $submission->payload : [];
+        $corrections = is_array($submission->rollback_corrections) ? $submission->rollback_corrections : [];
+
+        return view('staff.case_rollback_edit', [
+            'submission' => $submission,
+            'payload' => $payload,
+            'corrections' => $corrections,
+            'unitContext' => $unitCtx,
+            'sidebarUnit' => $unitCtx['sidebar'],
+            'authUser' => $authUser,
+        ]);
+    }
+
+    public function staffRollbackResubmit(Request $request, $id)
+    {
+        $authUser = Auth::user();
+        $submission = StaffCaseSubmission::findOrFail($id);
+
+        $payload = is_array($submission->payload) ? $submission->payload : [];
+
+        // Collect inputs from the form except token and internal fields
+        $updates = $request->except(['_token', 'resubmit_notes', 'corrections_acknowledged']);
+        foreach ($updates as $k => $v) {
+            if ($v !== null) {
+                $payload[$k] = $v;
+            }
+        }
+
+        if ($request->filled('suspect_name')) {
+            $submission->suspect_name = trim((string) $request->input('suspect_name'));
+            $payload['suspect_name'] = $submission->suspect_name;
+        }
+        if ($request->filled('title')) {
+            $submission->title = trim((string) $request->input('title'));
+            $payload['title'] = $submission->title;
+        }
+        if ($request->filled('priority')) {
+            $submission->priority = strtoupper(trim((string) $request->input('priority')));
+            $payload['priority'] = $submission->priority;
+        }
+
+        $submission->payload = $payload;
+        $submission->status = 'Pending Approval';
+        $submission->rollback_corrections = null;
+        $submission->rolled_back_at = null;
+        $submission->review_notes = null;
+        $submission->save();
+
+        $unitCtx = $this->resolveUnitContext($request);
+        $redirectUrl = match ($unitCtx['key']) {
+            'lab_analysis' => url('/Lab_Analysis/staff/case-rollback'),
+            'evidence_management' => url('/Evidence_Management/staff/case-rollback'),
+            'digital_forensics' => url('/Digital_Forensics/staff/case-rollback'),
+            'forensic_head' => url('/Forensic_Head/staff/case-rollback'),
+            default => url('/Crime_Scene_Support/staff/case-rollback'),
+        };
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Submission #{$submission->id} has been updated and resubmitted to your Unit Head for approval.",
+                'redirect' => $redirectUrl,
+            ]);
+        }
+
+        return redirect($redirectUrl)->with('status', "Submission #{$submission->id} has been updated and resubmitted for Unit Head review and approval.");
     }
 }
 

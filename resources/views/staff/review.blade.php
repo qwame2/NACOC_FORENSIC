@@ -187,10 +187,12 @@
                 </div>
 
                 <div class="flex items-center gap-2 shrink-0">
-                    <a href="/cases/{{ $case->case_number }}/associate?from={{ urlencode($sidebarUnit) }}" class="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs rounded-xl transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                        <span>Add Associate</span>
-                    </a>
+                    @include('partials.add_associate_action', [
+                        'case' => $case,
+                        'variant' => 'button',
+                        'unitLabel' => null,
+                        'associateFrom' => $sidebarUnit,
+                    ])
                     <a href="/Forensic_Head/cases/{{ $case->case_number }}/pdf" target="_blank" class="inline-flex items-center gap-1.5 px-3.5 py-2 {{ $accentBtn }} text-white font-bold text-xs rounded-xl shadow-sm transition-all">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                         <span>Print Dossier</span>
@@ -208,7 +210,7 @@
                         <div class="space-y-1.5">
                             <div class="flex items-center flex-wrap gap-2">
                                 <span class="px-2.5 py-0.5 text-[10px] font-extrabold font-mono-code rounded-md border uppercase tracking-wider {{ $accentBadge }}">
-                                    {{ strtoupper($sidebarUnit) }} &bull; STAFF CASE REVIEW
+                                    {{ strtoupper($sidebarUnit) }} | STAFF CASE REVIEW
                                 </span>
                                 <span class="px-2.5 py-0.5 text-[10px] font-extrabold font-mono-code rounded-md border uppercase {{ $priorityBadgeClass }}">
                                     {{ $priorityUpper }} PRIORITY
@@ -220,8 +222,8 @@
                             <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ $case->title ?? 'Forensic Investigation Dossier' }}</h1>
                             <p class="text-xs text-slate-500 font-mono-code">
                                 Case Ref: <strong class="text-slate-900">{{ $case->case_number }}</strong>
-                                &bull; Originating Unit: <strong class="text-slate-700">{{ $case->unit_name ?? $sidebarUnit }}</strong>
-                                &bull; Logged: <strong class="text-slate-700">{{ $case->created_at ? $case->created_at->format('d M Y, H:i') : date('d M Y') }}</strong>
+                                <span class="text-slate-300 mx-1">|</span> Originating Unit: <strong class="text-slate-700">{{ $case->unit_name ?? $sidebarUnit }}</strong>
+                                <span class="text-slate-300 mx-1">|</span> Logged: <strong class="text-slate-700">{{ $case->created_at ? $case->created_at->format('d M Y, H:i') : date('d M Y') }}</strong>
                             </p>
                         </div>
 
@@ -324,7 +326,7 @@
                                     <h3 class="text-xl font-black text-slate-900">{{ $sName }}</h3>
                                     <div class="text-xs text-slate-500 font-mono-code">
                                         Alias: <strong class="text-slate-700">{{ $suspect['suspect_alias'] ?? 'None' }}</strong>
-                                        &bull; Role: <strong class="text-slate-700">{{ $suspect['role'] ?? (!empty($suspect['is_associate']) ? 'Associate / Accomplice' : 'Primary Suspect') }}</strong>
+                                        <span class="text-slate-300 mx-1">|</span> Role: <strong class="text-slate-700">{{ $suspect['role'] ?? (!empty($suspect['is_associate']) ? 'Associate / Accomplice' : 'Primary Suspect') }}</strong>
                                     </div>
                                 </div>
                                 <span class="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-extrabold font-mono-code">
@@ -410,7 +412,7 @@
                                     </div>
                                     <div class="text-[11px] font-mono-code text-slate-500 mt-0.5">
                                         Barcode: <strong class="text-slate-800">{{ $ex['barcode'] }}</strong>
-                                        &bull; Owner: <strong class="text-slate-800">{{ $ex['suspect_name'] }}</strong>
+                                        <span class="text-slate-300 mx-1">|</span> Owner: <strong class="text-slate-800">{{ $ex['suspect_name'] }}</strong>
                                     </div>
                                 </div>
                                 @if(!empty($ex['quantity']))
@@ -442,7 +444,7 @@
                                     <span class="text-[10px] font-bold uppercase text-purple-700 block">Digital Device Identifiers</span>
                                     <span class="font-mono-code font-bold text-purple-900">
                                         @if($ex['device_imei']) IMEI: {{ $ex['device_imei'] }} @endif
-                                        @if($ex['device_serial']) &bull; S/N: {{ $ex['device_serial'] }} @endif
+                                        @if($ex['device_serial']) <span class="text-purple-400 mx-1">|</span> S/N: {{ $ex['device_serial'] }} @endif
                                     </span>
                                 </div>
                                 @endif

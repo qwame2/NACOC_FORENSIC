@@ -317,7 +317,7 @@ class EvidenceManagementController extends Controller
      */
     public function createUnassignedExhibit()
     {
-        return view('Evidence_Management.add_exhibit');
+        return redirect()->route('evidence_management.vault');
     }
 
     /**
@@ -418,6 +418,7 @@ class EvidenceManagementController extends Controller
                 'seizure_reason'            => $sz['seizure_reason'] ?? null,
                 'source_of_exhibits'        => $sz['source_of_exhibits'] ?? null,
                 'exhibit_remark'            => $sz['exhibit_remark'] ?? null,
+                'chain_of_custody'          => $sz['chain_of_custody'] ?? ($request->input('chain_of_custody') ?? null),
                 'lab_remark'                => $sz['lab_remark'] ?? null,
                 'custodial_status'          => 'Seized',
                 'evidence_photos'           => $photos,
@@ -813,6 +814,7 @@ class EvidenceManagementController extends Controller
             'commodity_name'      => ['nullable', 'string', 'max:255'],
             'exhibit_category'    => ['nullable', 'string', 'max:100'],
             'exhibit_remark'      => ['nullable', 'string', 'max:1000'],
+            'chain_of_custody'    => ['nullable', 'string', 'max:5000'],
         ]);
 
         // 1. Process base64 QR badge image upload if provided
@@ -859,6 +861,11 @@ class EvidenceManagementController extends Controller
         // 6. Exhibit remarks
         if ($request->has('exhibit_remark')) {
             $exhibit->exhibit_remark = $validated['exhibit_remark'] ? trim($validated['exhibit_remark']) : null;
+        }
+
+        // 6b. Chain of Custody
+        if ($request->has('chain_of_custody')) {
+            $exhibit->chain_of_custody = $validated['chain_of_custody'] ? trim($validated['chain_of_custody']) : null;
         }
 
         $exhibit->save();
@@ -923,6 +930,7 @@ class EvidenceManagementController extends Controller
                         }
                     }
                     if ($exhibit->exhibit_remark) $sz['exhibit_remark'] = $exhibit->exhibit_remark;
+                    if ($exhibit->chain_of_custody !== null) $sz['chain_of_custody'] = $exhibit->chain_of_custody;
                     $updated = true;
                     break;
                 }
@@ -994,6 +1002,7 @@ class EvidenceManagementController extends Controller
                                 'seizure_reason'           => $sz['seizure_reason'] ?? null,
                                 'source_of_exhibits'       => $sz['source_of_exhibits'] ?? null,
                                 'exhibit_remark'           => $sz['exhibit_remark'] ?? null,
+                                'chain_of_custody'         => $sz['chain_of_custody'] ?? null,
                                 'lab_remark'               => $sz['lab_remark'] ?? $sc->confirmatory_remark,
                             ]);
                         }
@@ -1059,6 +1068,7 @@ class EvidenceManagementController extends Controller
                                 'seizure_reason'           => $sz['seizure_reason'] ?? null,
                                 'source_of_exhibits'       => $sz['source_of_exhibits'] ?? null,
                                 'exhibit_remark'           => $sz['exhibit_remark'] ?? null,
+                                'chain_of_custody'         => $sz['chain_of_custody'] ?? null,
                                 'lab_remark'               => $sz['lab_remark'] ?? $mc->confirmatory_remark,
                             ]);
                         }
@@ -1132,12 +1142,17 @@ class EvidenceManagementController extends Controller
         $validated = $request->validate([
             'custodial_status' => ['nullable', 'string'],
             'status_remark'    => ['nullable', 'string', 'max:500'],
+            'chain_of_custody' => ['nullable', 'string', 'max:5000'],
         ]);
 
         $oldStatus = $exhibit->custodial_status ?: 'Seized';
         $newStatus = 'Seized';
 
         $exhibit->custodial_status = 'Seized';
+
+        if ($request->has('chain_of_custody')) {
+            $exhibit->chain_of_custody = $validated['chain_of_custody'] ? trim($validated['chain_of_custody']) : null;
+        }
 
         if (!empty($validated['status_remark'])) {
             $note = "[Lodgement Note] " . trim($validated['status_remark']);

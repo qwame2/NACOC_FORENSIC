@@ -8,9 +8,7 @@
         $seizuresOnlyMode = !empty($seizuresOnlyMode)
             || in_array(request()->query('mode'), ['seizures_only', 'exhibit_only'], true)
             || request()->query('section') === 'seizures'
-            || request()->boolean('seizures_only')
-            || request()->is('Evidence_Management/add-exhibit')
-            || request()->is('evidence-management/add-exhibit');
+            || request()->boolean('seizures_only');
     @endphp
     @php
         $authUser = auth()->user();
@@ -1834,122 +1832,73 @@
                                     <span>3C. Offence Charges &amp; Custody Holding Facility</span>
                                 </div>
 
-                                <!-- ROW 5: RAID SCENE LOCATION, OFFENSE, DATE/TIME OF Arrested & HOLDING FACILITY -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div>
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                            Place of Incident <span class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newArrestedRaidLocation"
-                                                placeholder="e.g. East Legon Sector 4, Accra" required
-                                                class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                            Brief Facts/ Charge Description <span
-                                                class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative flex group">
-                                            <span
-                                                class="absolute left-3.5 top-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                                                </svg>
-                                            </span>
-                                            <textarea id="newArrestedOffense" rows="3"
-                                                placeholder="e.g. High-Purity Narcotics Trafficking &amp; Illegal Firearm Possession, Breach of Peace..." required
-                                                class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 resize-y min-h-[96px]"></textarea>
-                                        </div>
+                                <!-- ROW: PLACE OF INCIDENT, DATE OF ARREST, TIME OF ARREST & HOLDING FACILITY -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <!-- PLACE OF INCIDENT -->
+                                <div class="min-w-0">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Place of Incident <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedRaidLocation" placeholder="e.g. East Legon Sector 4, Accra" required class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
 
-                                <!-- ROW 6: DATE OF Arrested, TIME OF Arrested & HOLDING FACILITY -->
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
-                                    <!-- DATE OF Arrested -->
-                                    <div>
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                            Date of Arrest <span class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
-                                            </span>
-                                            <input type="date" id="newArrestedDate"
-                                                placeholder="Select Date of Arrest" required
-                                                class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
-                                        </div>
-                                    </div>
-
-                                    <!-- TIME OF Arrested -->
-                                    <div>
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                            Time of Arrest <span class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                            </span>
-                                            <input type="time" id="newArrestedTime"
-                                                placeholder="Select Time of Arrest" required
-                                                class="w-full pl-10 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
-                                        </div>
-                                    </div>
-
-                                    <!-- CUSTODY HOLDING FACILITY -->
-                                    <div>
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                            Assigned Custody Holding Facility <span
-                                                class="text-red-600 font-bold">*</span>
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m3 0h1m-4 0v-3m1-3h.01M10 9h.01M10 12h.01M14 9h.01M14 12h.01M14 15h.01M7 9h.01M7 12h.01M7 15h.01" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newArrestedFacility"
-                                                placeholder="e.g. NACOC High-Security Holding Cell Sector B" required
-                                                class="w-full pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
-                                        </div>
+                                <!-- DATE OF ARREST -->
+                                <div class="min-w-0">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Date of Arrest <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        </span>
+                                        <input type="date" id="newArrestedDate" placeholder="Select Date of Arrest" required class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
                                     </div>
                                 </div>
+
+                                <!-- TIME OF ARREST -->
+                                <div class="min-w-0">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Time of Arrest <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        </span>
+                                        <input type="time" id="newArrestedTime" placeholder="Select Time of Arrest" required class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs">
+                                    </div>
+                                </div>
+
+                                <!-- ASSIGNED CUSTODY HOLDING FACILITY -->
+                                <div class="min-w-0">
+                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5 truncate" title="Assigned Custody Holding Facility">
+                                        Assigned Custody Holding Facility <span class="text-red-600 font-bold">*</span>
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5m3 0h1m-4 0v-3m1-3h.01M10 9h.01M10 12h.01M14 9h.01M14 12h.01M14 15h.01M7 9h.01M7 12h.01M7 15h.01"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedFacility" placeholder="e.g. NACOC High-Security Holding Cell Sector B" required class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ROW: BRIEF FACTS/ CHARGE DESCRIPTION UNDERNEATH -->
+                            <div class="mt-5">
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                    Brief Facts/ Charge Description <span class="text-red-600 font-bold">*</span>
+                                </label>
+                                <div class="relative flex group">
+                                    <span class="absolute left-3.5 top-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                                    </span>
+                                    <textarea id="newArrestedOffense" rows="3" placeholder="e.g. High-Purity Narcotics Trafficking &amp; Illegal Firearm Possession, Breach of Peace..." required class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 resize-y min-h-[96px]"></textarea>
+                                </div>
+                            </div>
                             </div>
                         </div>
                     </div>
@@ -2103,39 +2052,6 @@
                                                         <span>Unassigned (Vault Lodgement)</span>
                                                         <span class="text-[9px] font-mono-code font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded shrink-0">NO SUSPECT</span>
                                                     </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- EXHIBIT TYPE DROPDOWN -->
-                                            <div class="relative z-30">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Exhibit Type
-                                                </label>
-                                                <div class="relative">
-                                                    <select
-                                                        class="exhibit-type-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
-                                                        <option value="">-- Select Type --</option>
-                                                        <option value="Drug Exhibit">Drug Exhibit</option>
-                                                        <option value="Non-Drug Exhibit">Non-Drug Exhibit</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <!-- DRUG CLASSIFICATION DROPDOWN -->
-                                            <div class="relative z-30">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                    Classify Drugs
-                                                </label>
-                                                <div class="relative">
-                                                    <select
-                                                        class="drug-classification-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
-                                                        <option value="N/A">N/A</option>
-                                                        <option value="Class A">Class A</option>
-                                                        <option value="Class B">Class B</option>
-                                                        <option value="Class C">Class C</option>
-                                                    </select>
                                                 </div>
                                             </div>
 
@@ -4146,220 +4062,6 @@
                                                 </div>
                                             </div>
 
-                                            <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL (shown when Electronic Devices is selected) -->
-                                            <div id="deviceFieldsWrapper"
-                                                class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200/80 shadow-2xs space-y-3">
-                                                <div class="flex items-center space-x-2 text-slate-800">
-                                                    <div
-                                                        class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                        </svg>
-                                                    </div>
-                                                    <span
-                                                        class="text-xs font-extrabold uppercase tracking-wider text-blue-950">Electronic
-                                                        Device Forensic Specifications</span>
-                                                </div>
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
-                                                    <!-- 1. MODEL -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevModel"
-                                                                placeholder="e.g. iPhone 15 Pro Max"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 2. SERIAL NUMBER -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
-                                                            Number</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
-                                                            <input type="text" id="newDevSerialNo"
-                                                                placeholder="e.g. F2LZX984K102"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 3. IMEI 1 -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
-                                                            1 <span
-                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
-                                                                applicable)</span></label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevImei1"
-                                                                placeholder="e.g. 356938035643809"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 4. IMEI 2 -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
-                                                            2 <span
-                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
-                                                                applicable)</span></label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevImei2"
-                                                                placeholder="e.g. 356938035643817"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 5. MAC ADDRESS -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">MAC
-                                                            Address <span
-                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
-                                                                applicable)</span></label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevMacAddress"
-                                                                placeholder="e.g. 00:1A:2B:3C:4D:5E"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 6. STORAGE CAPACITY -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage
-                                                            Capacity</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevStorage"
-                                                                placeholder="e.g. 256 GB / 1 TB NVMe SSD"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 7. COLOUR -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevColour"
-                                                                placeholder="e.g. Space Gray / Midnight Black"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-
-                                                    <!-- 8. OTHER IDENTIFYING MARKS -->
-                                                    <div>
-                                                        <label
-                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Other
-                                                            Identifying Marks</label>
-                                                        <div class="relative flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text" id="newDevMarks"
-                                                                placeholder="e.g. Cracked back glass, custom sticker"
-                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- OTHER EXHIBIT DESCRIPTION PANEL (shown when Other Exhibits is selected) -->
-                                            <div id="otherExhibitDescriptionWrapper"
-                                                class="other-exhibit-description-wrapper hidden col-span-full bg-slate-50/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
-                                                <div class="flex items-center space-x-2 text-slate-800">
-                                                    <div
-                                                        class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
-                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                            stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L19.828 4.828a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                                        </svg>
-                                                    </div>
-                                                    <span
-                                                        class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Specify
-                                                        Other Exhibit Description &amp; Details</span>
-                                                </div>
-                                                <div>
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                                        Exhibit Description / Specifications <span
-                                                            class="text-red-600 font-bold">*</span>
-                                                    </label>
-                                                    <textarea id="newOtherExhibitDescription" name="other_exhibit_description" rows="3"
-                                                        placeholder="Type detailed description and specifications of this exhibit..."
-                                                        class="other-exhibit-description-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 font-sans"></textarea>
-                                                </div>
-                                            </div>
-
                                             <!-- ESTIMATED STREET VALUE -->
                                             <div>
                                                 <label
@@ -4374,6 +4076,38 @@
                                                 </div>
                                             </div>
 
+
+                                    <!-- ROW 2: EXHIBIT TYPE & DRUG CLASSIFICATION (EVIDENCE VAULT CATEGORIZATION) -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- EXHIBIT TYPE DROPDOWN -->
+                                        <div class="relative z-20">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Exhibit Type
+                                            </label>
+                                            <div class="relative">
+                                                <select class="exhibit-type-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                                    <option value="">-- Select Type --</option>
+                                                    <option value="Drug Exhibit">Drug Exhibit</option>
+                                                    <option value="Non-Drug Exhibit">Non-Drug Exhibit</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- DRUG CLASSIFICATION DROPDOWN -->
+                                        <div class="relative z-20">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Classify Drugs
+                                            </label>
+                                            <div class="relative">
+                                                <select class="drug-classification-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                                    <option value="N/A">N/A</option>
+                                                    <option value="Class A">Class A</option>
+                                                    <option value="Class B">Class B</option>
+                                                    <option value="Class C">Class C</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                             <!-- QUANTITY, PACKAGING TYPE, WEIGHT & UNIT METRICS PANEL -->
                                             <div
                                                 class="col-span-full bg-white/90 p-4 rounded-2xl border border-slate-300/80 shadow-2xs space-y-3">
@@ -4734,218 +4468,192 @@
                                                 </div>
                                             </div>
 
-                                            <!-- CONCEALMENT METHOD -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Concealment
-                                                    &amp; Packaging Notes</label>
-                                                <div class="relative flex items-center group">
-                                                    <span
-                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                                                        </svg>
-                                                    </span>
-                                                    <input type="text" id="newSeizureConcealment"
-                                                        placeholder="e.g. Vacuum foil wrapped in false trunk bottom"
-                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                </div>
-                                            </div>
-
-                                            <!-- DATE & TIME SEIZED -->
-                                            <div class="grid grid-cols-2 gap-2">
-                                                <!-- DATE SEIZED -->
-                                                <div>
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date
-                                                        Seized <span class="text-red-600 font-bold">*</span></label>
-                                                    <div class="relative flex items-center group">
-                                                        <span
-                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                            <svg class="w-4 h-4" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="date" id="newSeizureDate"
-                                                            class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                    </div>
-                                                </div>
-
-                                                <!-- TIME SEIZED -->
-                                                <div>
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time
-                                                        Seized</label>
-                                                    <div class="relative flex items-center group">
-                                                        <span
-                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                            <svg class="w-4 h-4" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="time" id="newSeizureTime"
-                                                            class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- LOCATION SEIZED -->
-                                            <div>
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location
-                                                    Seized <span class="text-red-600 font-bold">*</span></label>
-                                                <div class="relative flex items-center group">
-                                                    <span
-                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                        </svg>
-                                                    </span>
-                                                    <input type="text" id="newSeizureLocation"
-                                                        placeholder="e.g. Tema Port, Gate 4 — Container Terminal"
-                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                                </div>
-                                            </div>
-
-                                            <!-- SEIZING OFFICERS (MULTI-ROW) -->
-                                            <div class="col-span-full md:col-span-2">
-                                                <div class="flex items-center justify-between mb-1.5">
-                                                    <label
-                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                        Seizing Officer(s) <span
-                                                            class="text-red-600 font-bold">*</span>
-                                                    </label>
-                                                    <button type="button" onclick="addSeizureOfficerRow()"
-                                                        class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
-                                                        <svg class="w-3 h-3 mr-1" fill="none"
+                                            <!-- ELECTRONIC DEVICE SPECIFICATIONS PANEL (shown when Electronic Devices is selected) -->
+                                            <div id="deviceFieldsWrapper" class="hidden col-span-full bg-blue-50/70 p-4 rounded-2xl border border-blue-200/80 shadow-2xs space-y-4">
+                                                <div class="flex items-center space-x-2 text-slate-800">
+                                                    <div
+                                                        class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
                                                             stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2.5" d="M12 4v16m8-8H4" />
+                                                                stroke-width="2"
+                                                                d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                         </svg>
-                                                        Add Seizing Officer
-                                                    </button>
+                                                    </div>
+                                                    <span
+                                                        class="text-xs font-extrabold uppercase tracking-wider text-blue-950">Electronic
+                                                        Device Forensic Specifications</span>
                                                 </div>
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
+                                                    <!-- 1. MODEL -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Model</label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevModel"
+                                                                placeholder="e.g. iPhone 15 Pro Max"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                        </div>
+                                                    </div>
 
-                                                <!-- OFFICER ROWS CONTAINER -->
-                                                <div id="seizureOfficersContainer" class="space-y-2">
-                                                    <!-- Row 1 -->
-                                                    <div
-                                                        class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
-                                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                            <div class="relative flex items-center group">
-                                                                <span
-                                                                    class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                    <svg class="w-3.5 h-3.5" fill="none"
-                                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="2"
-                                                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                                    </svg>
-                                                                </span>
-                                                                <input type="text"
-                                                                    class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400"
-                                                                    placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
-                                                            </div>
-                                                            <div class="flex items-center gap-1.5">
-                                                                <div class="relative flex-1 flex items-center group">
-                                                                    <span
-                                                                        class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                        <svg class="w-3.5 h-3.5" fill="none"
-                                                                            stroke="currentColor"
-                                                                            viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round"
-                                                                                stroke-linejoin="round"
-                                                                                stroke-width="2"
-                                                                                d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4" />
-                                                                        </svg>
-                                                                    </span>
-                                                                    <input type="text"
-                                                                        class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code"
-                                                                        placeholder="Service ID / Badge No (e.g. SD-0042)">
-                                                                </div>
-                                                                <button type="button"
-                                                                    onclick="removeSeizureOfficerRow(this)"
-                                                                    class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer"
-                                                                    title="Remove Officer">
-                                                                    <svg class="w-4 h-4" fill="none"
-                                                                        stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="2"
-                                                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                    </svg>
-                                                                </button>
-                                                            </div>
+                                                    <!-- 2. SERIAL NUMBER -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Serial
+                                                            Number</label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors font-mono-code font-bold text-xs">#</span>
+                                                            <input type="text" id="newDevSerialNo"
+                                                                placeholder="e.g. F2LZX984K102"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 3. IMEI 1 -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
+                                                            1 <span
+                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
+                                                                applicable)</span></label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevImei1"
+                                                                placeholder="e.g. 356938035643809"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 4. IMEI 2 -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">IMEI
+                                                            2 <span
+                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
+                                                                applicable)</span></label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevImei2"
+                                                                placeholder="e.g. 356938035643817"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 5. MAC ADDRESS -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">MAC
+                                                            Address <span
+                                                                class="text-[9px] text-slate-400 font-normal lowercase">(if
+                                                                applicable)</span></label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevMacAddress"
+                                                                placeholder="e.g. 00:1A:2B:3C:4D:5E"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400 font-mono-code">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 6. STORAGE CAPACITY -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Storage
+                                                            Capacity</label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevStorage"
+                                                                placeholder="e.g. 256 GB / 1 TB NVMe SSD"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 7. COLOUR -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Colour</label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevColour"
+                                                                placeholder="e.g. Space Gray / Midnight Black"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 8. OTHER IDENTIFYING MARKS -->
+                                                    <div>
+                                                        <label
+                                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Other
+                                                            Identifying Marks</label>
+                                                        <div class="relative flex items-center group">
+                                                            <span
+                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                                <svg class="w-3.5 h-3.5" fill="none"
+                                                                    stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round"
+                                                                        stroke-linejoin="round" stroke-width="2"
+                                                                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newDevMarks"
+                                                                placeholder="e.g. Cracked back glass, custom sticker"
+                                                                class="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 placeholder:text-slate-400">
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            @include('partials.seized_item_source_custody_fields', ['showSourceOfExhibits' => false])
-
-                                            <!-- REASON FOR SEIZURE -->
-                                            <div class="col-span-full md:col-span-1">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason
-                                                    for Seizure <span class="text-red-600 font-bold">*</span></label>
-                                                <div class="relative flex items-start group">
-                                                    <span
-                                                        class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                        </svg>
-                                                    </span>
-                                                    <textarea id="newSeizureReason" rows="3"
-                                                        placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop."
-                                                        class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
-                                                </div>
-                                            </div>
-
-                                            <!-- REMARKS / EXHIBIT REMARK -->
-                                            <div class="col-span-full md:col-span-1">
-                                                <label
-                                                    class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                                    <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
-                                                    <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
-                                                </label>
-                                                <div class="relative flex items-start group">
-                                                    <span
-                                                        class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                                        </svg>
-                                                    </span>
-                                                    <textarea id="newSeizureRemark" name="exhibit_remark" rows="3"
-                                                        placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
-                                                        class="seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
-                                                </div>
-                                            </div>
-
-                                        </div>
-
                                         <!-- VEHICLE SPECIFIC FIELDS -->
-                                        <div id="vehicleFieldsWrapper"
-                                            class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div id="vehicleFieldsWrapper" class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-4 space-y-4">
                                             <div class="flex items-center gap-2 mb-2">
                                                 <div
                                                     class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -5304,8 +5012,7 @@
                                         </div>
 
                                         <!-- WEAPON SPECIFIC FIELDS -->
-                                        <div id="weaponFieldsWrapper"
-                                            class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div id="weaponFieldsWrapper" class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-4 space-y-4">
                                             <div class="flex items-center gap-2 mb-2">
                                                 <div
                                                     class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -5448,8 +5155,7 @@
                                         </div>
 
                                         <!-- AMMUNITION SPECIFIC FIELDS -->
-                                        <div id="ammoFieldsWrapper"
-                                            class="hidden pt-4 border-t border-slate-300/60 mt-4 space-y-5">
+                                        <div id="ammoFieldsWrapper" class="hidden col-span-full pt-4 border-t border-slate-300/60 mt-4 space-y-4">
                                             <div class="flex items-center gap-2 mb-2">
                                                 <div
                                                     class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -5577,8 +5283,221 @@
                                             </div>
                                         </div>
 
+                                            <!-- OTHER EXHIBIT DESCRIPTION PANEL (shown when Other Exhibits is selected) -->
+                                            <div id="otherExhibitDescriptionWrapper" class="other-exhibit-description-wrapper hidden col-span-full bg-slate-50/90 p-4 rounded-2xl border border-slate-200/80 space-y-2">
+                                                <div class="flex items-center space-x-2 text-slate-800">
+                                                    <div
+                                                        class="w-6 h-6 rounded-md bg-slate-700 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                                                        <svg class="w-3.5 h-3.5" fill="none"
+                                                            stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L19.828 4.828a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                                        </svg>
+                                                    </div>
+                                                    <span
+                                                        class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Specify
+                                                        Other Exhibit Description &amp; Details</span>
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                        Exhibit Description / Specifications <span
+                                                            class="text-red-600 font-bold">*</span>
+                                                    </label>
+                                                    <textarea id="newOtherExhibitDescription" name="other_exhibit_description" rows="3"
+                                                        placeholder="Type detailed description and specifications of this exhibit..."
+                                                        class="other-exhibit-description-input w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400 font-sans"></textarea>
+                                                </div>
+                                            </div>
+
+
+                                    <!-- CONCEALMENT METHOD -->
+                                    <div class="col-span-1 md:col-span-2">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Concealment &amp; Packaging Notes
+                                        </label>
+                                        <div class="relative flex items-center group">
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                                </svg>
+                                            </span>
+                                            <input type="text" id="newSeizureConcealment"
+                                                placeholder="e.g. Vacuum foil wrapped in false trunk bottom"
+                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                        </div>
+                                    </div>
+
+                                    <!-- DATE & TIME SEIZED -->
+                                    <div class="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <!-- DATE SEIZED -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Date Seized <span class="text-red-600 font-bold">*</span>
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                </span>
+                                                <input type="date" id="newSeizureDate" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                            </div>
+                                        </div>
+                                        <!-- TIME SEIZED -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Time Seized
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                </span>
+                                                <input type="time" id="newSeizureTime" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ROW: LOCATION SEIZED & INVESTIGATING OFFICER -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- LOCATION SEIZED -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Location Seized
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureLocation" name="location_seized" placeholder="e.g. Tema Port, Gate 2"
+                                                    class="seizure-location-input w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                            </div>
+                                        </div>
+
+                                        <!-- INVESTIGATING OFFICER -->
+                                        <div class="min-w-0">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Investigating Officer
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                    placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                    class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs transition-all">
+                                            </div>
+                                        </div>
+                                    </div>
+                                                <!-- ROW: SEIZING OFFICERS & SOURCE/REQUESTING UNIT -->
+                                                <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                                                    <!-- SEIZING OFFICERS (MULTI-ROW) -->
+                                                    <div>
+                                                        <div class="flex items-center justify-between mb-1.5">
+                                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                                Seizing Officer(s) <span class="text-red-600 font-bold">*</span>
+                                                            </label>
+                                                            <button type="button" onclick="addSeizureOfficerRow(this)" class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
+                                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                                Add Seizing Officer
+                                                            </button>
+                                                        </div>
+
+                                                        <!-- OFFICER ROWS CONTAINER -->
+                                                        <div id="seizureOfficersContainer" class="space-y-2">
+                                                            <!-- Row 1 -->
+                                                            <div class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
+                                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                    <div class="relative flex items-center group">
+                                                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                                        </span>
+                                                                        <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
+                                                                    </div>
+                                                                    <div class="flex items-center gap-1.5">
+                                                                        <div class="relative flex-1 flex items-center group">
+                                                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                                                                            </span>
+                                                                            <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
+                                                                        </div>
+                                                                        <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
+                                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- SOURCE / REQUESTING UNIT -->
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                            Source/Requesting Unit
+                                                        </label>
+                                                        <div class="relative flex items-center group">
+                                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                                                </svg>
+                                                            </span>
+                                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- ROW: REASON FOR SEIZURE & REMARKS / OBSERVATIONS -->
+                                                <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <!-- REASON FOR SEIZURE -->
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason for Seizure <span class="text-red-600 font-bold">*</span></label>
+                                                        <div class="relative flex items-start group">
+                                                            <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                            </span>
+                                                            <textarea id="newSeizureReason" name="seizure_reason" rows="3" placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- REMARKS / OBSERVATIONS (OPTIONAL) -->
+                                                    <div>
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                            <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                                            <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
+                                                        </label>
+                                                        <div class="relative flex items-start group">
+                                                            <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                                </svg>
+                                                            </span>
+                                                            <textarea id="newSeizureRemark" name="exhibit_remark" rows="3" data-alt-id="newSeizureExhibitRemark"
+                                                                placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
+                                                                class="newSeizureExhibitRemark seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- CHAIN OF CUSTODY (OPTIONAL) -->
+                                                    <div class="col-span-full">
+                                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                            <span class="flex items-center space-x-1.5">
+                                                                <svg class="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                                                <span>Chain of Custody <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                                            </span>
+                                                            <span class="text-[9px] font-mono-code font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 uppercase">CUSTODY TRAIL</span>
+                                                        </label>
+                                                        <div class="relative flex items-start group">
+                                                            <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                            </span>
+                                                            <textarea id="newSeizureChainOfCustody" name="chain_of_custody" rows="2" data-alt-id="newSeizureChainOfCustody"
+                                                                placeholder="e.g. Seized by Arresting Officer -> Handed over to Evidence Custodian -> Registered in Vault..."
+                                                                class="newSeizureChainOfCustody seizure-chain-of-custody-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 placeholder:text-slate-400 resize-none font-mono-code"></textarea>
+                                                        </div>
+                                                    </div>
                                         <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
-                                        <div class="pt-2 border-t border-slate-300/60 space-y-3">
+                                        <div class="col-span-full pt-2 border-t border-slate-300/60 space-y-3">
                                             <div class="flex items-center justify-between">
                                                 <label
                                                     class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
@@ -5586,13 +5505,13 @@
                                                         class="text-slate-400 font-normal">(Multiple Supported)</span>
                                                 </label>
                                                 <span id="seizurePhotosCount"
-                                                    class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300">0
+                                                    class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300 seizure-photos-count">0
                                                     Photos Uploaded</span>
                                             </div>
 
                                             <!-- DROPZONE BOX -->
-                                            <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload()"
-                                                class="w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
+                                            <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload(this)" ondragover="event.preventDefault(); this.classList.add('border-emerald-600', 'bg-emerald-50/50');" ondragleave="this.classList.remove('border-emerald-600', 'bg-emerald-50/50');" ondrop="handleSeizurePhotoDrop(event, this);"
+                                                class="seizure-photo-dropzone w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
                                                 <div id="placeholderSeizureBox"
                                                     class="flex flex-col items-center space-y-1 text-slate-400 group-hover:text-black transition-colors">
                                                     <div
@@ -5611,21 +5530,29 @@
                                                         PNG, JPG, WEBP evidence photos (up to 15MB each)</span>
                                                 </div>
                                             </div>
-                                            <input type="file" id="fileSeizurePhoto" accept="image/*" multiple
-                                                class="hidden" onchange="previewSeizurePhotos(event)">
+                                            <input type="file" id="fileSeizurePhoto" accept="image/*" multiple class="fileSeizurePhoto hidden" onchange="previewSeizurePhotos(event, this)">
 
                                             <!-- DYNAMIC MULTIPLE PHOTOS GALLERY GRID -->
                                             <div id="seizurePhotosGrid"
-                                                class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
+                                                class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2 seizurePhotosGrid">
                                             </div>
                                         </div>
                                     </div>
-                                    <!-- END SEIZURES LIST CONTAINER -->
 
-                                    
+                                    </div>
                                 </div>
                             </div>
+                            <!-- END SEIZURES LIST CONTAINER -->
+
+                            <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
+                            <div class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
+                                <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow transition-all group">
+                                    <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                    Add Another Seized Item(s)
+                                </button>
+                            </div>
                         </div>
+                    </div>
                             <!-- DEDICATED SECTIONS 1 TO 4 DOCKET ACTIONS BAR (LAB ANALYSIS ONLY) -->
                             <div
                                 class="{{ $isLabAnalysis ? '' : 'hidden' }} p-6 bg-white rounded-2xl border border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -7274,38 +7201,100 @@
 
         let seizedExhibitDataUrls = [];
 
-        function triggerSeizurePhotoUpload() {
-            const input = document.getElementById('fileSeizurePhoto');
+        function getBlockSeizurePhotos(block) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            if (!targetBlock) return window.seizedExhibitDataUrls || [];
+            if (!targetBlock._seizurePhotos) {
+                targetBlock._seizurePhotos = [];
+            }
+            return targetBlock._seizurePhotos;
+        }
+
+        function setBlockSeizurePhotos(block, photosArray) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            if (!targetBlock) {
+                window.seizedExhibitDataUrls = Array.isArray(photosArray) ? photosArray : [];
+                return;
+            }
+            targetBlock._seizurePhotos = Array.isArray(photosArray) ? [...photosArray] : [];
+            renderSeizureBlockPhotosGrid(targetBlock);
+            syncGlobalSeizurePhotos();
+        }
+
+        function syncGlobalSeizurePhotos() {
+            const firstBlock = document.querySelector('.seizure-block');
+            window.seizedExhibitDataUrls = firstBlock ? getBlockSeizurePhotos(firstBlock) : [];
+        }
+
+        function triggerSeizurePhotoUpload(triggerEl) {
+            const block = triggerEl ? triggerEl.closest('.seizure-block') : document.querySelector('.seizure-block');
+            const input = block ? (block.querySelector('.fileSeizurePhoto') || block.querySelector('#fileSeizurePhoto')) : document.getElementById('fileSeizurePhoto');
             if (input) input.click();
         }
 
-        function previewSeizurePhotos(event) {
+        function previewSeizurePhotos(event, inputEl) {
+            const block = (inputEl ? inputEl.closest('.seizure-block') : null) || (event.target ? event.target.closest('.seizure-block') : null) || document.querySelector('.seizure-block');
             const files = Array.from(event.target.files || []);
             if (!files || files.length === 0) return;
 
+            loadSeizurePhotoFiles(files, block, () => {
+                if (event.target) event.target.value = '';
+            });
+        }
+
+        function handleSeizurePhotoDrop(event, dropzoneEl) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (dropzoneEl) {
+                dropzoneEl.classList.remove('border-emerald-600', 'border-emerald-500', 'bg-emerald-50/50');
+            }
+            const block = dropzoneEl ? dropzoneEl.closest('.seizure-block') : document.querySelector('.seizure-block');
+            const dt = event.dataTransfer;
+            const files = Array.from(dt?.files || []).filter(file => file.type.startsWith('image/'));
+            if (files.length === 0) return;
+
+            loadSeizurePhotoFiles(files, block);
+        }
+
+        function loadSeizurePhotoFiles(files, block, callback) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            const photos = getBlockSeizurePhotos(targetBlock);
             let loadedCount = 0;
+
             files.forEach(file => {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    seizedExhibitDataUrls.push(e.target.result);
+                    photos.push(e.target.result);
                     loadedCount++;
                     if (loadedCount === files.length) {
-                        renderSeizurePhotosGrid();
-                        saveDocketFormDraft();
+                        renderSeizureBlockPhotosGrid(targetBlock);
+                        syncGlobalSeizurePhotos();
+                        if (typeof saveDocketFormDraft === 'function') {
+                            saveDocketFormDraft();
+                        }
+                        if (callback) callback();
                     }
                 };
                 reader.readAsDataURL(file);
             });
         }
 
-        function renderSeizurePhotosGrid() {
-            const grid = document.getElementById('seizurePhotosGrid');
-            const countBadge = document.getElementById('seizurePhotosCount');
+        function renderSeizurePhotosGrid(block) {
+            renderSeizureBlockPhotosGrid(block);
+        }
+
+        function renderSeizureBlockPhotosGrid(block) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            if (!targetBlock) return;
+
+            const grid = targetBlock.querySelector('.seizurePhotosGrid') || targetBlock.querySelector('#seizurePhotosGrid');
+            const countBadge = targetBlock.querySelector('.seizure-photos-count') || targetBlock.querySelector('#seizurePhotosCount');
             if (!grid) return;
 
+            const photos = getBlockSeizurePhotos(targetBlock);
             grid.innerHTML = '';
 
-            if (seizedExhibitDataUrls.length === 0) {
+            if (photos.length === 0) {
                 grid.classList.add('hidden');
                 if (countBadge) countBadge.classList.add('hidden');
                 return;
@@ -7314,32 +7303,44 @@
             grid.classList.remove('hidden');
             if (countBadge) {
                 countBadge.classList.remove('hidden');
-                countBadge.innerText =
-                    `${seizedExhibitDataUrls.length} Photo${seizedExhibitDataUrls.length > 1 ? 's' : ''} Uploaded`;
+                countBadge.innerText = `${photos.length} Photo${photos.length > 1 ? 's' : ''} Uploaded`;
             }
 
-            seizedExhibitDataUrls.forEach((dataUrl, index) => {
+            photos.forEach((dataUrl, index) => {
                 const card = document.createElement('div');
-                card.className =
-                    'relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs h-24 flex items-center justify-center';
+                card.className = 'relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs h-24 flex items-center justify-center seizure-photo-item';
                 card.innerHTML = `
                     <img src="${dataUrl}" class="w-full h-full object-cover" alt="Exhibit Photo ${index + 1}">
                     <div class="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-1">
-                        <button type="button" onclick="removeSingleSeizurePhoto(${index}, event)" class="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-xs" title="Delete Photo">
+                        <button type="button" class="remove-photo-btn p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-xs" title="Delete Photo">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
                     </div>
                     <span class="absolute bottom-1 left-1 px-1.5 py-0.5 bg-slate-900/80 text-white text-[9px] font-mono-code font-bold rounded">#${index + 1}</span>
                 `;
+                card.querySelector('.remove-photo-btn').addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    removeSingleBlockSeizurePhoto(targetBlock, index);
+                });
                 grid.appendChild(card);
             });
         }
 
+        function removeSingleBlockSeizurePhoto(block, index) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            const photos = getBlockSeizurePhotos(targetBlock);
+            photos.splice(index, 1);
+            renderSeizureBlockPhotosGrid(targetBlock);
+            syncGlobalSeizurePhotos();
+            if (typeof saveDocketFormDraft === 'function') {
+                saveDocketFormDraft();
+            }
+        }
+
         function removeSingleSeizurePhoto(index, e) {
             if (e) e.stopPropagation();
-            seizedExhibitDataUrls.splice(index, 1);
-            renderSeizurePhotosGrid();
-            saveDocketFormDraft();
+            const block = (e && e.target) ? e.target.closest('.seizure-block') : document.querySelector('.seizure-block');
+            removeSingleBlockSeizurePhoto(block, index);
         }
 
 
@@ -7686,6 +7687,7 @@
                     }
 
                     const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
+                    const chainOfCustody = block.querySelector('#newSeizureChainOfCustody')?.value?.trim() || block.querySelector('.seizure-chain-of-custody-input')?.value?.trim() || block.querySelector('[name="chain_of_custody"]')?.value?.trim() || '';
 
                     seizuresList.push({
                         item_number: itemNum,
@@ -7724,6 +7726,7 @@
                         source_requesting_unit: sourceRequestingUnit,
                         seizure_reason: seizureReason,
                         exhibit_remark: exhibitRemark,
+                        chain_of_custody: chainOfCustody,
                         dev_model: devModel,
                         dev_serial_no: devSerialNo,
                         dev_imei1: devImei1,
@@ -7803,6 +7806,8 @@
                             loaded_status: wpnLoadedStatus,
                             condition: wpnCondition
                         }
+,
+                    evidence_photos: getBlockSeizurePhotos(block)
                     });
 
                     let parts = [];
@@ -8085,6 +8090,7 @@
                         source_requesting_unit: primarySeizure.source_requesting_unit || null,
                         seizure_reason: primarySeizure.seizure_reason || null,
                         exhibit_remark: primarySeizure.exhibit_remark || null,
+                        chain_of_custody: primarySeizure.chain_of_custody || null,
                         exhibit_type: primarySeizure.exhibit_type || null,
                         drug_classification: primarySeizure.drug_classification || null,
                         valuation: valuationText,
@@ -8289,7 +8295,12 @@
                 selectedCaseTypeLabel: document.getElementById('selectedCaseTypeLabel')?.innerText
             };
 
-            draft['_seizedExhibitDataUrls'] = seizedExhibitDataUrls;
+            const perBlockPhotos = [];
+            document.querySelectorAll('.seizure-block').forEach(b => {
+                perBlockPhotos.push(getBlockSeizurePhotos(b));
+            });
+            draft['_seizurePhotosPerBlock'] = perBlockPhotos;
+            draft['_seizedExhibitDataUrls'] = perBlockPhotos[0] || [];
             draft['_additionalPhonesList'] = typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [];
 
             try {
@@ -8316,13 +8327,21 @@
                 const draft = JSON.parse(raw);
                 let restoredCount = 0;
 
-                if (Array.isArray(draft._seizedExhibitDataUrls) && draft._seizedExhibitDataUrls.length > 0) {
+                if (Array.isArray(draft._seizurePhotosPerBlock) && draft._seizurePhotosPerBlock.length > 0) {
+                    const blocks = document.querySelectorAll('.seizure-block');
+                    draft._seizurePhotosPerBlock.forEach((photos, idx) => {
+                        if (blocks[idx]) {
+                            setBlockSeizurePhotos(blocks[idx], photos);
+                        }
+                    });
+                } else if (Array.isArray(draft._seizedExhibitDataUrls) && draft._seizedExhibitDataUrls.length > 0) {
                     seizedExhibitDataUrls = draft._seizedExhibitDataUrls;
-                    renderSeizurePhotosGrid();
+                    const firstBlock = document.querySelector('.seizure-block');
+                    if (firstBlock) setBlockSeizurePhotos(firstBlock, seizedExhibitDataUrls);
                 }
 
                 Object.keys(draft).forEach(id => {
-                    if (id === '_custom_labels' || id === '_seizedExhibitDataUrls') return;
+                    if (id === '_custom_labels' || id === '_seizedExhibitDataUrls' || id === '_seizurePhotosPerBlock') return;
                     if (id === 'caseEntryTypeSelect' || id === 'newArrestedGender' || id === 'nationalitySelect' ||
                         id === 'newArrestedNationality' || id === 'newArrestedMarital') return;
                     const el = document.getElementById(id);
@@ -9356,6 +9375,7 @@
             setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
             setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
+            setVal('#newSeizureChainOfCustody', data.chain_of_custody);
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
             if (officer) {
@@ -9422,6 +9442,11 @@
                 setVal('.other-exhibit-description-input', otherDesc);
                 const otherWrap = block.querySelector('#otherExhibitDescriptionWrapper, .other-exhibit-description-wrapper');
                 if (otherWrap) otherWrap.classList.remove('hidden');
+            }
+
+            const exhibitPhotos = Array.isArray(data.evidence_photos) ? data.evidence_photos : (Array.isArray(data.photos) ? data.photos : (data.evidence_photos ? [data.evidence_photos] : []));
+            if (exhibitPhotos && exhibitPhotos.length > 0) {
+                setBlockSeizurePhotos(block, exhibitPhotos);
             }
         }
 
@@ -9512,6 +9537,7 @@
             const commodityTextWrapper = clone.querySelector('#commodityTextWrapper');
             if (commodityTextWrapper) commodityTextWrapper.classList.remove('hidden');
 
+            clone._seizurePhotos = [];
             const clonePhotoGrid = clone.querySelector('.seizurePhotosGrid');
             if (clonePhotoGrid) {
                 clonePhotoGrid.innerHTML = '';
@@ -11407,43 +11433,7 @@
                 if (raidRefInput) raidRefInput.value = refParam;
             }
 
-            const dropzone = document.getElementById('seizurePhotoDropzone');
-            if (dropzone) {
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    dropzone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        dropzone.classList.add('border-emerald-600', 'bg-emerald-50/50');
-                    }, false);
-                });
-                ['dragleave', 'drop'].forEach(eventName => {
-                    dropzone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        dropzone.classList.remove('border-emerald-600', 'bg-emerald-50/50');
-                    }, false);
-                });
-                dropzone.addEventListener('drop', (e) => {
-                    const dt = e.dataTransfer;
-                    const files = Array.from(dt.files || []);
-                    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-                    if (imageFiles.length === 0) return;
-
-                    let loadedCount = 0;
-                    imageFiles.forEach(file => {
-                        const reader = new FileReader();
-                        reader.onload = function(evt) {
-                            seizedExhibitDataUrls.push(evt.target.result);
-                            loadedCount++;
-                            if (loadedCount === imageFiles.length) {
-                                renderSeizurePhotosGrid();
-                                saveDocketFormDraft();
-                            }
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                }, false);
-            }
+            
             // Live Suspect Biodata Duplicate Check Listeners
             ['newArrestedID', 'newArrestedName', 'newArrestedDOB', 'newArrestedPhone'].forEach(id => {
                 const el = document.getElementById(id);

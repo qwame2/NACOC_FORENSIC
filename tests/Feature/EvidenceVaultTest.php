@@ -933,6 +933,7 @@ class EvidenceVaultTest extends TestCase
     {
         $officer = User::factory()->create([
             'unit'        => 'Evidence Management',
+            'is_head'     => true,
             'is_approved' => true,
         ]);
 

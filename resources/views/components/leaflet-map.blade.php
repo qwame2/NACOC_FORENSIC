@@ -21,7 +21,7 @@
     data-attribution="{{ $attribution }}"
     role="region"
     aria-label="Interactive Forensic Case Location Map"
-    style="height: {{ $height }}; min-height: 440px; width: 100%;"
-    {{ $attributes->merge(['class' => 'relative w-full z-0 ' . $class]) }}
+    style="height: {{ $height }}; width: 100%; min-height: 100%;"
+    {{ $attributes->merge(['class' => 'relative w-full h-full z-0 ' . $class]) }}
 ></div>
 

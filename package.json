@@ -4,7 +4,12 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "prepare": "node scripts/setup-hooks.mjs",
+        "setup:hooks": "node scripts/setup-hooks.mjs",
+        "safe-add": "node scripts/security-preinstall-check.mjs",
+        "security:check": "npm audit --audit-level=high",
+        "security:audit": "npm audit && composer audit --locked"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

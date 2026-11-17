@@ -71,8 +71,8 @@ class LabAnalysisShowReviewModuleSwitcherTest extends TestCase
         $this->assertStringContainsString('id="gsaUploadSection"', $html);
         $this->assertStringContainsString('id="section5LabExamination"', $html);
         $this->assertStringNotContainsString('id="saveGsaFilesBtn"', $html);
-        $this->assertStringNotContainsString('id="saveSection4SeizureBtn"', $html);
-        $this->assertStringNotContainsString('id="section4ActionButtons"', $html);
+        $this->assertStringContainsString('id="saveSection4SeizureBtn"', $html);
+        $this->assertStringContainsString('id="section4ActionButtons"', $html);
         $this->assertStringContainsString('id="gsaActionButtons"', $html);
         $this->assertStringContainsString('id="saveGsaDetailsBtn"', $html);
         $this->assertStringContainsString('Save Seizure Item &amp; GSA Details', $html);
@@ -293,5 +293,68 @@ class LabAnalysisShowReviewModuleSwitcherTest extends TestCase
         // Guard on onReviewLabExhibitChange
         $this->assertStringContainsString("if (window.activeLabWorkflowMode === 'nlr')", $reviewHtml);
         $this->assertStringContainsString("if (window.activeLabWorkflowMode === 'gsa')", $reviewHtml);
+    }
+
+    #[Test]
+    public function nlr_examination_button_shows_form_and_removes_duplicate_laboratory_examination_result_table(): void
+    {
+        $case = MultipleSuspectCase::create([
+            'case_number' => 'LAB-2026-NLR-DUPE-TEST',
+            'title' => 'Republic v NLR Dupe Check',
+            'unit_name' => 'Lab Analysis',
+            'status' => 'Pending Approval',
+            'user_id' => $this->officer->id,
+            'total_suspects_count' => 1,
+        ]);
+        $suspect = CaseSuspect::create([
+            'multiple_suspect_case_id' => $case->id,
+            'suspect_number' => 1,
+            'role' => 'Primary Suspect',
+            'suspect_name' => 'Ama Serwaa',
+        ]);
+        $exhibit = Exhibit::create([
+            'multiple_suspect_case_id' => $case->id,
+            'case_suspect_id' => $suspect->id,
+            'associated_person' => 'Ama Serwaa',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Methamphetamine',
+        ]);
+
+        \App\Models\LaboratoryExaminationResult::create([
+            'case_type' => 'multiple',
+            'multiple_suspect_case_id' => $case->id,
+            'suspect_id' => $suspect->id,
+            'exhibit_id' => $exhibit->id,
+            'laboratory_number' => 'LAB-NUM-888',
+            'exam_reference' => 'NLA-FM-T888-F',
+            'analyst' => 'Forensic Chemist',
+            'date_received' => '2026-10-15',
+            'date_started' => '2026-10-16',
+            'date_completed' => '2026-10-18',
+            'presumptive_result' => 'YES (Marquis Positive)',
+            'confirmatory_result' => 'YES',
+            'substance_identification' => 'Methamphetamine',
+            'has_saved' => true,
+        ]);
+
+        $response = $this->actingAs($this->officer)->get('/cases/' . $case->id . '/review?unit=Lab+Analysis&suspect=Ama+Serwaa');
+        $response->assertStatus(200);
+        $html = $response->getContent();
+
+        // 1. Ensure duplicate read-only table is completely removed from section5ReadOnlyDisplay
+        $this->assertStringNotContainsString('id="displayLabExamRef"', $html);
+        $this->assertStringNotContainsString('id="section5RemarkDisplay"', $html);
+        $this->assertStringNotContainsString('id="section5FindingsDisplay"', $html);
+        $this->assertStringNotContainsString('STRUCTURED READ-ONLY LABORATORY EXAMINATION TABLE', $html);
+
+        // 2. Ensure switchToNlrExamSection shows form container instead of readOnlyView
+        $this->assertStringContainsString("nlrSec.classList.add('hidden')", $html);
+        $this->assertStringContainsString("readOnlyView.classList.add('hidden')", $html);
+        $this->assertStringContainsString("nlrForm.classList.remove('hidden')", $html);
+        $this->assertStringContainsString("const targetSec = nlrForm;", $html);
+
+        // 3. Ensure Examination Information Form is present
+        $this->assertStringContainsString('id="section5FormContainer"', $html);
+        $this->assertStringContainsString('id="section5LabForm"', $html);
     }
 }

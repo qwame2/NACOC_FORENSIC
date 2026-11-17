@@ -9,7 +9,7 @@
                                 </div>
                                 <div>
                                     <h3 class="font-extrabold text-slate-900 text-base">Search Warrant Document Upload</h3>
-                                    <p class="text-xs text-slate-500">Attach the signed Search Warrant copy authorized for this operation (PDF, JPG, PNG, WEBP, DOC, DOCX &bull; Max 10 MB)</p>
+                                    <p class="text-xs text-slate-500">Attach the signed Search Warrant copy authorized for this operation (PDF, JPG, PNG, WEBP, DOC, DOCX @if(request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*'))|@else&bull;@endif Max 10 MB)</p>
                                 </div>
                             </div>
                             <span class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-[10px] font-mono-code font-bold uppercase self-start sm:self-center">Search Warrant</span>

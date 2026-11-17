@@ -1,4 +1,5 @@
 @php
+    $hideDotsForStaff = request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*');
     $revokedUser = $revokedUser ?? auth()->user();
     $isInitiallyRevoked = $isInitiallyRevoked ?? ($revokedUser && !$revokedUser->is_head && !$revokedUser->is_approved);
     $resolvedUnit = $revokedUser ? \App\Enums\ForensicUnit::resolve($revokedUser->unit) : null;
@@ -29,7 +30,7 @@
             </div>
             <div>
                 <div class="text-[10px] font-mono-code font-extrabold uppercase tracking-widest text-rose-100">
-                    Access Suspended &bull; Account Revoked
+                    @if($hideDotsForStaff) Access Suspended | Account Revoked @else Access Suspended &bull; Account Revoked @endif
                 </div>
                 <h2 id="staffRevokedModalTitle" class="text-base font-extrabold tracking-tight mt-0.5">
                     Staff Account Disabled
@@ -62,7 +63,11 @@
 
             <div class="flex items-center justify-between pt-2 border-t border-slate-100 gap-3">
                 <div class="inline-flex items-center gap-2 text-[11px] font-mono-code font-semibold text-slate-500">
-                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    @if($hideDotsForStaff)
+                        <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    @else
+                        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    @endif
                     <span>Awaiting unit head reactivation...</span>
                 </div>
 
@@ -143,7 +148,10 @@
                 const currentPath = window.location ? window.location.pathname : '';
                 const url = STATUS_ENDPOINT + (STATUS_ENDPOINT.indexOf('?') === -1 ? '?' : '&') + 'path=' + encodeURIComponent(currentPath);
                 const res = await fetch(url, {
-                    headers: { 'Accept': 'application/json' },
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     credentials: 'same-origin'
                 });
                 if (!res.ok) return;
@@ -161,6 +169,22 @@
                 if (typeof data.can_create_cases === 'boolean') {
                     applyCreateCasesButtonState(data.can_create_cases);
                 }
+                if (typeof data.can_edit_cases === 'boolean') {
+                    applyEditCasesButtonState(data.can_edit_cases);
+                }
+                if (typeof data.can_add_associate === 'boolean') {
+                    window.__nacocCanAddAssociate = data.can_add_associate;
+                    applyAddAssociateButtonState(data.can_add_associate);
+                }
+                if (typeof data.can_record_lab_analysis === 'boolean') {
+                    applyDrugScreeningButtonState(data.can_record_lab_analysis);
+                }
+                if (typeof data.can_manage_exhibits === 'boolean') {
+                    applyVaultButtonState(data.can_manage_exhibits);
+                }
+                if (typeof data.can_generate_reports === 'boolean') {
+                    applySitrepReportsButtonState(data.can_generate_reports);
+                }
             } catch (e) {
                 // Silent catch during background status watchdog
             } finally {
@@ -168,27 +192,33 @@
             }
         }
 
-        function applyCreateCasesButtonState(canCreate) {
-            const lockedMsg = 'Locked: Create New Cases permission is disabled by your Head of Unit';
-            const createButtons = document.querySelectorAll('[data-staff-create-btn]');
-            createButtons.forEach(function (btn) {
-                const targetUrl = btn.getAttribute('data-create-url') || btn.getAttribute('href') || '';
-                if (targetUrl && !btn.getAttribute('data-create-url')) {
-                    btn.setAttribute('data-create-url', targetUrl);
+        function applyPermissionButtonState(config) {
+            const buttons = document.querySelectorAll(config.selector);
+            buttons.forEach(function (btn) {
+                const targetUrl = btn.getAttribute(config.urlAttr) || btn.getAttribute('href') || '';
+                if (targetUrl && !btn.getAttribute(config.urlAttr)) {
+                    btn.setAttribute(config.urlAttr, targetUrl);
                 }
 
                 const lockBadge = btn.querySelector('[data-lock-badge]');
+                const enabledClasses = (btn.getAttribute('data-enabled-class') || '').split(/\s+/).filter(Boolean);
+                const disabledClasses = (btn.getAttribute('data-disabled-class') || '').split(/\s+/).filter(Boolean);
 
-                if (!canCreate) {
+                if (!config.allowed) {
                     btn.removeAttribute('href');
                     btn.setAttribute('aria-disabled', 'true');
                     btn.setAttribute('tabindex', '0');
-                    btn.setAttribute('title', lockedMsg);
-                    btn.setAttribute('data-locked-tooltip', lockedMsg);
+                    btn.setAttribute('title', config.lockedMsg);
+                    btn.setAttribute('data-locked-tooltip', config.lockedMsg);
+                    if (config.preventClickWhenLocked) {
+                        btn.setAttribute('onclick', 'event.preventDefault(); event.stopPropagation(); return false;');
+                    }
                     btn.style.pointerEvents = '';
                     btn.style.opacity = '0.55';
                     btn.style.cursor = 'not-allowed';
                     btn.style.filter = 'grayscale(100%)';
+                    enabledClasses.forEach(function (cls) { btn.classList.remove(cls); });
+                    disabledClasses.forEach(function (cls) { btn.classList.add(cls); });
                     if (lockBadge) lockBadge.classList.remove('hidden');
                 } else {
                     if (targetUrl) {
@@ -198,17 +228,88 @@
                     btn.removeAttribute('tabindex');
                     btn.removeAttribute('title');
                     btn.removeAttribute('data-locked-tooltip');
+                    if (config.preventClickWhenLocked) {
+                        btn.removeAttribute('onclick');
+                    }
                     btn.style.pointerEvents = '';
                     btn.style.opacity = '';
                     btn.style.cursor = '';
                     btn.style.filter = '';
+                    disabledClasses.forEach(function (cls) { btn.classList.remove(cls); });
+                    enabledClasses.forEach(function (cls) { btn.classList.add(cls); });
                     if (lockBadge) lockBadge.classList.add('hidden');
                 }
             });
 
-            if (!canCreate && /\/(staff\/)?create(\b|\/|$)/i.test(window.location.pathname)) {
+            if (!config.allowed && config.reloadPattern && config.reloadPattern.test(window.location.pathname)) {
                 window.location.reload();
             }
+        }
+
+        function applyCreateCasesButtonState(canCreate) {
+            applyPermissionButtonState({
+                selector: '[data-staff-create-btn]',
+                urlAttr: 'data-create-url',
+                allowed: canCreate,
+                lockedMsg: 'Locked: Create New Cases permission is disabled by your Head of Unit',
+                preventClickWhenLocked: false,
+                reloadPattern: /\/(staff\/)?create(\b|\/|$)/i,
+            });
+        }
+
+        function applyEditCasesButtonState(canEdit) {
+            applyPermissionButtonState({
+                selector: '[data-staff-edit-btn]',
+                urlAttr: 'data-edit-url',
+                allowed: canEdit,
+                lockedMsg: 'Locked: Edit Case & Suspects permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/cases\/[^\/]+\/edit(\b|\/|$)/i,
+            });
+        }
+
+        function applyAddAssociateButtonState(canAddAssociate) {
+            applyPermissionButtonState({
+                selector: '[data-staff-associate-btn]',
+                urlAttr: 'data-associate-url',
+                allowed: canAddAssociate,
+                lockedMsg: 'Locked: Add Associate permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/cases\/[^\/]+\/associate(\b|\/|$)/i,
+            });
+        }
+
+        function applyDrugScreeningButtonState(canScreen) {
+            applyPermissionButtonState({
+                selector: '[data-staff-drug-screening-btn]',
+                urlAttr: 'data-drug-screening-url',
+                allowed: canScreen,
+                lockedMsg: 'Locked: Lab & Drug Screening permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/(staff\/)?drug-screening(\b|\/|$)/i,
+            });
+        }
+
+        function applyVaultButtonState(canVault) {
+            applyPermissionButtonState({
+                selector: '[data-staff-vault-btn]',
+                urlAttr: 'data-vault-url',
+                allowed: canVault,
+                lockedMsg: 'Locked: Manage Exhibit Vault permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/Evidence_Management\/vault(\b|\/|$)/i,
+            });
+        }
+
+        function applySitrepReportsButtonState(canReport) {
+            applyPermissionButtonState({
+                selector: '[data-staff-sitrep-btn]',
+                urlAttr: 'data-sitrep-url',
+                allowed: canReport,
+                lockedMsg: 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/(staff\/report|lab_sitrep_pdf|report_pdf)(\b|\/|$)/i,
+            });
         }
 
         // Global custom tooltip for locked/disabled buttons across staff and command views

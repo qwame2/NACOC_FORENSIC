@@ -3,7 +3,7 @@
         'isStaff'          => true,
         'unitKey'          => 'crime_scene_support',
         'userUnit'         => 'Crime Scene Support Unit',
-        'unitBadge'        => 'Crime Scene Support Unit • Staff',
+        'unitBadge'        => 'Crime Scene Support Unit | Staff',
         'unitSubtitle'     => 'Field Operations & Incident Workstation',
         'locationNoun'     => 'Field Seizures',
         'pageTitle'        => 'NACOC FORENSIC | Crime Scene Support Staff Dashboard',

@@ -537,6 +537,88 @@ class FieldOfficersPageAndApprovalTest extends TestCase
     }
 
     #[Test]
+    public function field_officers_pages_do_not_render_status_indicator_dots_or_blinking_toast_dot(): void
+    {
+        $directorateHead = User::factory()->head()->create([
+            'unit' => 'Forensic Directorate',
+            'is_approved' => true,
+        ]);
+
+        $labHead = User::factory()->head()->create([
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+        ]);
+
+        StaffAccount::create([
+            'fullname' => 'Online Approved Staff',
+            'username' => 'online.staff',
+            'service_id' => 'SD-881',
+            'phone_number' => '0244000881',
+            'unit' => 'Lab Analysis',
+            'is_approved' => true,
+            'last_seen_at' => now(),
+            'password' => bcrypt('password'),
+        ]);
+
+        StaffAccount::create([
+            'fullname' => 'Pending Offline Staff',
+            'username' => 'pending.staff',
+            'service_id' => 'SD-882',
+            'phone_number' => '0244000882',
+            'unit' => 'Lab Analysis',
+            'is_approved' => false,
+            'last_seen_at' => null,
+            'password' => bcrypt('password'),
+        ]);
+
+        foreach ([
+            [$directorateHead, '/field-officers'],
+            [$labHead, '/Lab_Analysis/field-officers'],
+        ] as [$viewer, $uri]) {
+            $resp = $this->actingAs($viewer)->get($uri);
+            $resp->assertStatus(200);
+            $resp->assertSee('Online Approved Staff');
+            $resp->assertSee('Pending Offline Staff');
+            $resp->assertDontSee('bg-emerald-500 rounded-full animate-pulse', false);
+            $resp->assertDontSee('bg-amber-500 rounded-full animate-pulse', false);
+            $resp->assertDontSee('w-1.5 h-1.5 rounded-full', false);
+            $resp->assertDontSee('w-2 h-2 bg-emerald-500 rounded-full', false);
+            $resp->assertSee('id="fieldOfficersToastDot"', false);
+        }
+    }
+
+    #[Test]
+    public function login_and_approval_check_do_not_throw_500_when_staff_accounts_table_is_missing(): void
+    {
+        $head = User::factory()->head()->create([
+            'username' => 'samhead',
+            'service_id' => 'SD-999',
+            'unit' => 'Forensic Directorate',
+            'is_approved' => true,
+            'password' => bcrypt('HeadPass2026!'),
+        ]);
+
+        \Illuminate\Support\Facades\Schema::dropIfExists('staff_accounts');
+
+        $this->getJson('/api/check-user-approval?login_id=sam')
+            ->assertStatus(200)
+            ->assertJson(['exists' => false]);
+
+        $this->postJson('/login', [
+            'login_id' => 'sam',
+            'password' => 'wrongpass',
+        ])->assertStatus(401)
+            ->assertJson(['success' => false]);
+
+        $this->postJson('/login', [
+            'login_id' => $head->username,
+            'password' => 'HeadPass2026!',
+        ])->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('redirect_url', '/Forensic_Head');
+    }
+
+    #[Test]
     public function unit_sidebar_renders_field_officers_link_for_every_unit_context(): void
     {
         $officer = User::factory()->create([
@@ -580,10 +662,10 @@ class FieldOfficersPageAndApprovalTest extends TestCase
         ]);
 
         // No pending staff yet -> badge hidden
-        $this->actingAs($labHead)
-            ->get('/Lab_Analysis/field-officers')
-            ->assertStatus(200)
-            ->assertDontSee('id="sidebarFieldOfficersBadge"', false);
+        $labZeroResp = $this->actingAs($labHead)
+            ->get('/Lab_Analysis/field-officers');
+        $labZeroResp->assertStatus(200);
+        $this->assertMatchesRegularExpression('/id="sidebarFieldOfficersBadge"[^>]*class="[^"]*hidden/', $labZeroResp->getContent());
 
         // 2 pending Lab Analysis staff, 1 approved Lab Analysis staff, 1 pending CSS staff, 1 unapproved head
         StaffAccount::create(['fullname' => 'Lab Pending 1', 'username' => 'lp1', 'service_id' => 'SD-501', 'phone_number' => '0244000501', 'unit' => 'Lab Analysis', 'is_approved' => false, 'password' => bcrypt('password')]);

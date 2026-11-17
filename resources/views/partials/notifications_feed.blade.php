@@ -1,6 +1,7 @@
 <div id="notificationsFeedBody" class="space-y-3">
     @forelse($notifications as $item)
         @php
+            $hideDotsForStaff = request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*') || (auth()->check() && !auth()->user()->is_head);
             $severity = $item['severity'] ?? 'slate';
             $isUnread = empty($item['is_read']);
             $accentClasses = match ($severity) {
@@ -33,7 +34,7 @@
             <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div class="space-y-1.5 min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
-                        @if($isUnread)
+                        @if($isUnread && !$hideDotsForStaff)
                             <span class="w-2 h-2 rounded-full bg-emerald-600 shrink-0" title="Unread"></span>
                         @endif
                         <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold font-mono-code uppercase border {{ $badgeTone }}">
@@ -68,7 +69,7 @@
 
                     @if(!empty($item['actor_name']) || !empty($item['time_human']))
                         <p class="text-[11px] text-slate-500 font-medium">
-                            {{ collect([$item['actor_name'] ?? '', $item['time_human'] ?? ''])->filter()->implode(' • ') }}
+                            {{ collect([$item['actor_name'] ?? '', $item['time_human'] ?? ''])->filter()->implode($hideDotsForStaff ? ' | ' : ' • ') }}
                         </p>
                     @endif
                 </div>

@@ -77,6 +77,7 @@ class LabExhibitRemarkTest extends TestCase
         $user = User::factory()->create([
             'unit' => 'Lab Analysis',
             'is_approved' => true,
+            'is_head' => true,
         ]);
 
         $payload = [

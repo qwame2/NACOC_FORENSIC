@@ -209,6 +209,7 @@ class CaseDocketService
             'seizure_reason'       => ['nullable', 'string'],
             'source_of_exhibits'   => ['nullable', 'string'],
             'exhibit_remark'       => ['nullable', 'string'],
+            'chain_of_custody'     => ['nullable', 'string'],
             'lab_remark'           => ['nullable', 'string'],
             'lab_exhibit_no'       => ['nullable', 'string', 'max:255'],
             'lab_exhibit_number'   => ['nullable', 'string', 'max:255'],
@@ -748,6 +749,7 @@ class CaseDocketService
             'seizure_reason'           => $validated['seizure_reason'] ?? ($request->input('seizure_reason') ?? ($docketData['seizures'][0]['seizure_reason'] ?? null)),
             'source_of_exhibits'       => $validated['source_of_exhibits'] ?? ($request->input('source_of_exhibits') ?? ($docketData['seizures'][0]['source_of_exhibits'] ?? ($docketData['seizures'][0]['source'] ?? null))),
             'exhibit_remark'           => $validated['exhibit_remark'] ?? ($request->input('exhibit_remark') ?? null),
+            'chain_of_custody'         => $validated['chain_of_custody'] ?? ($request->input('chain_of_custody') ?? ($docketData['seizures'][0]['chain_of_custody'] ?? null)),
             'exhibit_type'             => $validated['exhibit_type'] ?? null,
             'drug_classification'      => $validated['drug_classification'] ?? null,
             'contents'                 => $validated['contents'] ?? ($request->input('contents') ?? null),
@@ -2557,6 +2559,27 @@ class CaseDocketService
                         if (isset($exObj['presumptive_result'])) $docketData['seizures'][$eIdx]['presumptive_result'] = $exObj['presumptive_result'];
                         if (isset($exObj['evidence_photos']))   $docketData['seizures'][$eIdx]['evidence_photos']   = is_array($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : [];
 
+                        // Device attributes
+                        foreach (['dev_model', 'dev_serial_no', 'dev_imei1', 'dev_imei2', 'dev_mac_address', 'dev_storage', 'dev_colour', 'dev_marks'] as $devField) {
+                            if (isset($exObj[$devField])) {
+                                $docketData['seizures'][$eIdx][$devField] = $exObj[$devField];
+                            }
+                        }
+
+                        // Vehicle attributes
+                        foreach (['veh_make', 'veh_model', 'veh_type', 'veh_year', 'veh_colour', 'veh_reg_no', 'veh_vin', 'veh_engine_no', 'veh_country_reg', 'veh_owner', 'veh_driver', 'veh_owner_contact', 'veh_docs_available', 'veh_doc_ref', 'veh_condition', 'veh_fuel', 'veh_keys_recv', 'veh_key_count', 'veh_damage', 'veh_mods', 'veh_features'] as $vehField) {
+                            if (isset($exObj[$vehField])) {
+                                $docketData['seizures'][$eIdx][$vehField] = $exObj[$vehField];
+                            }
+                        }
+
+                        // Weapon attributes
+                        foreach (['wpn_model', 'wpn_serial_no', 'wpn_calibre', 'wpn_colour', 'wpn_size', 'wpn_marks', 'wpn_location_found', 'wpn_loaded_status', 'wpn_condition'] as $wpnField) {
+                            if (isset($exObj[$wpnField])) {
+                                $docketData['seizures'][$eIdx][$wpnField] = $exObj[$wpnField];
+                            }
+                        }
+
                         if ($eIdx === 0) {
                             if (!empty($szName)) $case->seizure_name_drug = $szName;
                             if (isset($exObj['exhibit_category'])) $case->exhibit_category = $exObj['exhibit_category'];
@@ -2887,7 +2910,12 @@ class CaseDocketService
                                 : null)));
 
                 $targetSuspectId = null;
-                if ($assocPersonName) {
+                $isExplicitJointOwner = !empty($assocPersonName) && (
+                    str_contains(strtolower($assocPersonName), 'all suspect') ||
+                    str_contains(strtolower($assocPersonName), 'joint') ||
+                    str_contains(strtolower($assocPersonName), 'both')
+                );
+                if ($assocPersonName && !$isExplicitJointOwner) {
                     foreach ($allSuspectsInCase as $sp) {
                         if (strtolower(trim($sp->suspect_name)) === strtolower(trim($assocPersonName))) {
                             $targetSuspectId = $sp->id;
@@ -2896,7 +2924,7 @@ class CaseDocketService
                         }
                     }
                 }
-                if (!$targetSuspectId && !empty($exhibit['associate_id'])) {
+                if (!$targetSuspectId && !$isExplicitJointOwner && !empty($exhibit['associate_id'])) {
                     foreach ($allSuspectsInCase as $sp) {
                         if ($sp->associate_id === $exhibit['associate_id']) {
                             $targetSuspectId = $sp->id;
@@ -2905,7 +2933,7 @@ class CaseDocketService
                         }
                     }
                 }
-                if (!$targetSuspectId && isset($allSuspectsInCase[$exIdx])) {
+                if (!$targetSuspectId && !$isExplicitJointOwner && isset($allSuspectsInCase[$exIdx])) {
                     $targetSuspectId = $allSuspectsInCase[$exIdx]->id;
                     $assocPersonName = $allSuspectsInCase[$exIdx]->suspect_name;
                 }
@@ -2957,14 +2985,14 @@ class CaseDocketService
                 $wpnLoadedStatus  = $exhibit['wpn_loaded_status'] ?? ($exhibit['wpn']['loaded_status'] ?? null);
                 $wpnCondition     = $exhibit['wpn_condition'] ?? ($exhibit['wpn']['condition'] ?? null);
 
-                $devModel  = $exhibit['dev_model'] ?? ($exhibit['device_model'] ?? ($exhibit['device_make_model'] ?? null));
-                $devSerial = $exhibit['dev_serial_no'] ?? ($exhibit['device_serial'] ?? ($exhibit['serial_number'] ?? null));
-                $devImei1  = $exhibit['dev_imei1'] ?? ($exhibit['dev_imei_1'] ?? ($exhibit['imei_1'] ?? ($exhibit['imei1'] ?? null)));
-                $devImei2  = $exhibit['dev_imei2'] ?? ($exhibit['dev_imei_2'] ?? ($exhibit['imei_2'] ?? ($exhibit['imei2'] ?? null)));
-                $devMac    = $exhibit['dev_mac_address'] ?? ($exhibit['mac_address'] ?? null);
-                $devStorage= $exhibit['dev_storage'] ?? ($exhibit['storage_capacity'] ?? ($exhibit['dev_storage_capacity'] ?? ($exhibit['storage'] ?? null)));
-                $devColour = $exhibit['dev_colour'] ?? ($exhibit['dev_color'] ?? ($exhibit['device_color'] ?? ($exhibit['colour'] ?? ($exhibit['color'] ?? null))));
-                $devMarks  = $exhibit['dev_marks'] ?? ($exhibit['dev_other_marks'] ?? ($exhibit['distinguishing_marks'] ?? ($exhibit['marks'] ?? ($exhibit['other_marks'] ?? null))));
+                $devModel  = $exhibit['dev_model'] ?? ($exhibit['dev']['model'] ?? ($exhibit['device_model'] ?? ($exhibit['device_make_model'] ?? ($exhibit['model'] ?? null))));
+                $devSerial = $exhibit['dev_serial_no'] ?? ($exhibit['dev']['serial_no'] ?? ($exhibit['device_serial'] ?? ($exhibit['serial_no'] ?? ($exhibit['serial_number'] ?? null))));
+                $devImei1  = $exhibit['dev_imei1'] ?? ($exhibit['dev']['imei1'] ?? ($exhibit['dev_imei_1'] ?? ($exhibit['imei_1'] ?? ($exhibit['imei1'] ?? null))));
+                $devImei2  = $exhibit['dev_imei2'] ?? ($exhibit['dev']['imei2'] ?? ($exhibit['dev_imei_2'] ?? ($exhibit['imei_2'] ?? ($exhibit['imei2'] ?? null))));
+                $devMac    = $exhibit['dev_mac_address'] ?? ($exhibit['dev']['mac_address'] ?? ($exhibit['mac_address'] ?? null));
+                $devStorage= $exhibit['dev_storage'] ?? ($exhibit['dev']['storage'] ?? ($exhibit['storage_capacity'] ?? ($exhibit['dev_storage_capacity'] ?? ($exhibit['storage'] ?? null))));
+                $devColour = $exhibit['dev_colour'] ?? ($exhibit['dev']['colour'] ?? ($exhibit['dev_color'] ?? ($exhibit['device_color'] ?? ($exhibit['colour'] ?? ($exhibit['color'] ?? null)))));
+                $devMarks  = $exhibit['dev_marks'] ?? ($exhibit['dev']['marks'] ?? ($exhibit['dev_other_marks'] ?? ($exhibit['distinguishing_marks'] ?? ($exhibit['marks'] ?? ($exhibit['other_marks'] ?? null)))));
 
                 $ammoDetails = $exhibit['ammunition_details'] ?? ($exhibit['ammo'] ?? null);
                 if (empty($ammoDetails)) {
@@ -3023,6 +3051,7 @@ class CaseDocketService
                     'seizure_reason'           => $exhibit['seizure_reason'] ?? ($exhibit['reason'] ?? null),
                     'source_of_exhibits'       => $exhibit['source_of_exhibits'] ?? ($exhibit['source'] ?? null),
                     'exhibit_remark'           => $exhibit['exhibit_remark'] ?? null,
+                    'chain_of_custody'         => $exhibit['chain_of_custody'] ?? null,
                     'lab_remark'               => $exhibit['lab_remark'] ?? ($exhibit['confirmatory_remark'] ?? null),
                     'veh_make'                 => $vehMake,
                     'veh_model'                => $vehModel,
@@ -3170,6 +3199,16 @@ class CaseDocketService
                     'dev_storage'        => $devStorage,
                     'dev_colour'         => $devColour,
                     'dev_marks'          => $devMarks,
+                    'dev' => [
+                        'model'       => $devModel,
+                        'serial_no'   => $devSerial,
+                        'imei1'       => $devImei1,
+                        'imei2'       => $devImei2,
+                        'mac_address' => $devMac,
+                        'storage'     => $devStorage,
+                        'colour'      => $devColour,
+                        'marks'       => $devMarks,
+                    ],
                     'ammunition_details' => $ammoDetails,
                     'ammo'               => $ammoDetails,
                     'other_exhibit_description' => $exhibit['other_exhibit_description'] ?? ($exhibit['other_description'] ?? null),
@@ -3461,7 +3500,46 @@ class CaseDocketService
             'source_requesting_unit'    => $szItem['source_requesting_unit'] ?? ($fallbackFields['source_requesting_unit'] ?? null),
             'source_of_exhibits'        => $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? ($fallbackFields['source_of_exhibits'] ?? null)),
             'exhibit_remark'            => $szItem['exhibit_remark'] ?? ($fallbackFields['exhibit_remark'] ?? null),
+            'chain_of_custody'          => $szItem['chain_of_custody'] ?? ($fallbackFields['chain_of_custody'] ?? null),
             'lab_remark'                => $szItem['lab_remark'] ?? ($szItem['confirmatory_remark'] ?? null),
+            'veh_make'                  => $szItem['veh_make'] ?? ($szItem['veh']['make'] ?? ($szItem['vehicle_make'] ?? null)),
+            'veh_model'                 => $szItem['veh_model'] ?? ($szItem['veh']['model'] ?? ($szItem['vehicle_model'] ?? null)),
+            'veh_type'                  => $szItem['veh_type'] ?? ($szItem['veh']['type'] ?? ($szItem['vehicle_type'] ?? null)),
+            'veh_year'                  => $szItem['veh_year'] ?? ($szItem['veh']['year'] ?? ($szItem['vehicle_year'] ?? null)),
+            'veh_colour'                => $szItem['veh_colour'] ?? ($szItem['veh']['colour'] ?? ($szItem['vehicle_color_type'] ?? ($szItem['vehicle_colour'] ?? null))),
+            'veh_reg_no'                => $szItem['veh_reg_no'] ?? ($szItem['veh']['reg_no'] ?? ($szItem['vehicle_registration'] ?? null)),
+            'veh_vin'                   => $szItem['veh_vin'] ?? ($szItem['veh']['vin'] ?? ($szItem['vehicle_chassis_vin'] ?? ($szItem['vin'] ?? null))),
+            'veh_engine_no'             => $szItem['veh_engine_no'] ?? ($szItem['veh']['engine_no'] ?? ($szItem['engine_number'] ?? null)),
+            'veh_country_reg'           => $szItem['veh_country_reg'] ?? ($szItem['veh']['country_reg'] ?? ($szItem['country_of_registration'] ?? null)),
+            'veh_owner'                 => $szItem['veh_owner'] ?? ($szItem['veh']['owner'] ?? ($szItem['vehicle_owner'] ?? null)),
+            'veh_driver'                => $szItem['veh_driver'] ?? ($szItem['veh']['driver'] ?? ($szItem['vehicle_driver'] ?? null)),
+            'veh_owner_contact'         => $szItem['veh_owner_contact'] ?? ($szItem['veh']['owner_contact'] ?? null),
+            'veh_docs_available'        => $szItem['veh_docs_available'] ?? ($szItem['veh']['docs_available'] ?? null),
+            'veh_doc_ref'               => $szItem['veh_doc_ref'] ?? ($szItem['veh']['doc_ref'] ?? null),
+            'veh_condition'             => $szItem['veh_condition'] ?? ($szItem['veh']['condition'] ?? null),
+            'veh_fuel'                  => $szItem['veh_fuel'] ?? ($szItem['veh']['fuel'] ?? null),
+            'veh_keys_recv'             => $szItem['veh_keys_recv'] ?? ($szItem['veh']['keys_recv'] ?? null),
+            'veh_key_count'             => $szItem['veh_key_count'] ?? ($szItem['veh']['key_count'] ?? null),
+            'veh_damage'                => $szItem['veh_damage'] ?? ($szItem['veh']['damage'] ?? null),
+            'veh_mods'                  => $szItem['veh_mods'] ?? ($szItem['veh']['mods'] ?? null),
+            'veh_features'              => $szItem['veh_features'] ?? ($szItem['veh']['features'] ?? null),
+            'wpn_model'                 => $szItem['wpn_model'] ?? ($szItem['wpn']['model'] ?? ($szItem['weapon_model'] ?? ($szItem['weapon_type'] ?? null))),
+            'wpn_serial_no'             => $szItem['wpn_serial_no'] ?? ($szItem['wpn']['serial_no'] ?? ($szItem['weapon_serial'] ?? ($szItem['serial_number'] ?? null))),
+            'wpn_calibre'               => $szItem['wpn_calibre'] ?? ($szItem['wpn']['calibre'] ?? ($szItem['weapon_calibre'] ?? ($szItem['calibre'] ?? null))),
+            'wpn_colour'                => $szItem['wpn_colour'] ?? ($szItem['wpn']['colour'] ?? ($szItem['weapon_colour'] ?? null)),
+            'wpn_size'                  => $szItem['wpn_size'] ?? ($szItem['wpn']['size'] ?? ($szItem['weapon_size'] ?? null)),
+            'wpn_marks'                 => $szItem['wpn_marks'] ?? ($szItem['wpn']['marks'] ?? null),
+            'wpn_location_found'        => $szItem['wpn_location_found'] ?? ($szItem['wpn']['location_found'] ?? null),
+            'wpn_loaded_status'         => $szItem['wpn_loaded_status'] ?? ($szItem['wpn']['loaded_status'] ?? null),
+            'wpn_condition'             => $szItem['wpn_condition'] ?? ($szItem['wpn']['condition'] ?? null),
+            'dev_model'                 => $szItem['dev_model'] ?? ($szItem['dev']['model'] ?? ($szItem['device_model'] ?? ($szItem['device_make_model'] ?? ($szItem['model'] ?? null)))),
+            'dev_serial_no'             => $szItem['dev_serial_no'] ?? ($szItem['dev']['serial_no'] ?? ($szItem['device_serial'] ?? ($szItem['serial_no'] ?? ($szItem['serial_number'] ?? null)))),
+            'dev_imei1'                 => $szItem['dev_imei1'] ?? ($szItem['dev']['imei1'] ?? ($szItem['dev_imei_1'] ?? ($szItem['imei_1'] ?? ($szItem['imei1'] ?? null)))),
+            'dev_imei2'                 => $szItem['dev_imei2'] ?? ($szItem['dev']['imei2'] ?? ($szItem['dev_imei_2'] ?? ($szItem['imei_2'] ?? ($szItem['imei2'] ?? null)))),
+            'dev_mac_address'           => $szItem['dev_mac_address'] ?? ($szItem['dev']['mac_address'] ?? ($szItem['mac_address'] ?? null)),
+            'dev_storage'               => $szItem['dev_storage'] ?? ($szItem['dev']['storage'] ?? ($szItem['storage_capacity'] ?? ($szItem['dev_storage_capacity'] ?? ($szItem['storage'] ?? null)))),
+            'dev_colour'                => $szItem['dev_colour'] ?? ($szItem['dev']['colour'] ?? ($szItem['dev_color'] ?? ($szItem['device_color'] ?? ($szItem['colour'] ?? ($szItem['color'] ?? null))))),
+            'dev_marks'                 => $szItem['dev_marks'] ?? ($szItem['dev']['marks'] ?? ($szItem['dev_other_marks'] ?? ($szItem['distinguishing_marks'] ?? ($szItem['marks'] ?? ($szItem['other_marks'] ?? null))))),
             'evidence_photos'           => (!empty($szItem['evidence_photos']) && is_array($szItem['evidence_photos']))
                 ? array_values($szItem['evidence_photos'])
                 : null,

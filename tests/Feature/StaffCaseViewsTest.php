@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ForensicCase;
+use App\Models\StaffCaseSubmission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -143,6 +144,191 @@ class StaffCaseViewsTest extends TestCase
             $response->assertSee('Back to Case Register');
             $response->assertDontSee('Unit Permissions');
             $response->assertDontSee('href="http://localhost/cases"', false);
+        }
+    }
+
+    #[Test]
+    public function every_unit_staff_page_removes_blinking_dots_and_indicator_dots(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Dot Check Staff Officer',
+            'unit' => 'Crime Scene Support',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $case = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'FX-2026-DOT-001',
+            'title' => 'Staff No Dots Verification',
+            'unit_name' => 'Crime Scene Support',
+            'suspect_name' => 'Kwaku Botwe',
+            'exhibit_category' => 'Drugs',
+            'status' => 'Submitted',
+            'case_status' => 'Under Investigation',
+            'priority' => 'HIGH',
+            'user_id' => $staffUser->id,
+        ]);
+
+        $dashboardRoutes = [
+            '/Crime_Scene_Support/staff/dashboard',
+            '/Lab_Analysis/staff/dashboard',
+            '/Evidence_Management/staff/dashboard',
+            '/Digital_Forensics/staff/dashboard',
+            '/Forensic_Head/staff/dashboard',
+        ];
+
+        foreach ($dashboardRoutes as $route) {
+            $response = $this->actingAs($staffUser)->get($route);
+            $response->assertStatus(200);
+            $response->assertDontSee('<span class="status-dot"></span>', false);
+            $response->assertSee('.icon-btn .dot-indicator', false);
+            $response->assertDontSee('w-1.5 h-1.5 rounded-full', false);
+            $response->assertDontSee('w-2 h-2 rounded-full', false);
+            $response->assertDontSee('w-2.5 h-2.5 rounded-full', false);
+            $response->assertDontSee('rounded-full animate-pulse', false);
+        }
+
+        $unitStaffRoutes = [
+            '/Crime_Scene_Support/staff/case',
+            '/Lab_Analysis/staff/case',
+            '/Evidence_Management/staff/case',
+            '/Digital_Forensics/staff/case',
+            '/Forensic_Head/staff/case',
+            '/Crime_Scene_Support/staff/create',
+            '/Lab_Analysis/staff/create',
+            '/Evidence_Management/staff/create',
+            '/Digital_Forensics/staff/create',
+            '/Forensic_Head/staff/create',
+            '/Crime_Scene_Support/staff/report',
+            '/Lab_Analysis/staff/report',
+            '/Evidence_Management/staff/report',
+            '/Digital_Forensics/staff/report',
+            '/Forensic_Head/staff/report',
+            '/Digital_Forensics/staff/forensic-status',
+            "/Crime_Scene_Support/staff/cases/{$case->case_number}/review",
+            "/Lab_Analysis/staff/cases/{$case->case_number}/review",
+            "/Evidence_Management/staff/cases/{$case->case_number}/review",
+            "/Digital_Forensics/staff/cases/{$case->case_number}/review",
+            "/Forensic_Head/staff/cases/{$case->case_number}/review",
+        ];
+
+        foreach ($unitStaffRoutes as $route) {
+            $response = $this->actingAs($staffUser)->get($route);
+            $response->assertStatus(200);
+            $response->assertDontSee('w-1.5 h-1.5 rounded-full', false);
+            $response->assertDontSee('w-2 h-2 rounded-full', false);
+            $response->assertDontSee('w-2.5 h-2.5 rounded-full', false);
+            $response->assertDontSee('rounded-full animate-pulse', false);
+            $response->assertDontSee('Access Suspended &bull; Account Revoked', false);
+        }
+    }
+
+    #[Test]
+    public function evidence_management_staff_case_renders_green_action_buttons(): void
+    {
+        User::factory()->create([
+            'fullname' => 'Chief Vault Custodian',
+            'unit' => 'Evidence Management',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $emStaff = User::factory()->create([
+            'fullname' => 'EM Vault Custodian',
+            'unit' => 'Evidence Management',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $case = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'EMU-2026-BTN-01',
+            'title' => 'Green Button Custody Register',
+            'unit_name' => 'Evidence Management',
+            'suspect_name' => 'Ama Serwaa',
+            'exhibit_category' => 'Drugs',
+            'status' => 'Vaulted',
+            'case_status' => 'Under Investigation',
+            'priority' => 'HIGH',
+            'user_id' => $emStaff->id,
+        ]);
+
+        $response = $this->actingAs($emStaff)->get('/Evidence_Management/staff/case');
+        $response->assertStatus(200);
+        $response->assertSee('Create New Case');
+        $response->assertSee('Exhibit Vault');
+        $response->assertSee('Ledger Report');
+        $response->assertSee('bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/25', false);
+        $response->assertSee('bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600', false);
+        $response->assertSee('bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200', false);
+        $response->assertSee('hover:bg-emerald-50 hover:text-emerald-700', false);
+        $response->assertSee('background: #059669;', false);
+        $response->assertDontSee('bg-amber-600 hover:bg-amber-700', false);
+        $response->assertSee("/Evidence_Management/staff/cases/{$case->case_number}/review", false);
+    }
+
+    #[Test]
+    public function every_unit_staff_case_renders_dropdown_filters_instead_of_tab_buttons(): void
+    {
+        $units = [
+            'Crime Scene Support' => '/Crime_Scene_Support/staff/case',
+            'Digital Forensics' => '/Digital_Forensics/staff/case',
+            'Evidence Management' => '/Evidence_Management/staff/case',
+            'Forensic Head' => '/Forensic_Head/staff/case',
+            'Lab Analysis' => '/Lab_Analysis/staff/case',
+        ];
+
+        foreach ($units as $unitName => $route) {
+            User::factory()->create([
+                'fullname' => "{$unitName} Unit Head",
+                'unit' => $unitName,
+                'is_head' => true,
+                'is_approved' => true,
+            ]);
+
+            $staff = User::factory()->create([
+                'fullname' => "{$unitName} Staff Officer",
+                'unit' => $unitName,
+                'is_head' => false,
+                'is_approved' => true,
+            ]);
+
+            $response = $this->actingAs($staff)->get($route);
+            $response->assertStatus(200);
+
+            // Assert buttons are removed
+            $response->assertDontSee('id="statusFilterTabs"', false);
+            $response->assertDontSee("onclick=\"setStaffStatusFilter('all', this)\"", false);
+            $response->assertDontSee("onclick=\"setStaffStatusFilter('active', this)\"", false);
+            $response->assertDontSee("onclick=\"setStaffStatusFilter('evidence', this)\"", false);
+            $response->assertDontSee("onclick=\"setStaffStatusFilter('completed', this)\"", false);
+
+            // Assert Scene Status Filter is removed
+            $response->assertDontSee('id="staffStatusFilter"', false);
+            $response->assertDontSee('<option value="evidence">', false);
+            $response->assertDontSee('All Scenes (', false);
+
+            // Assert Date From and To filters are present
+            $response->assertSee('id="staffDateFrom"', false);
+            $response->assertSee('id="staffDateTo"', false);
+            $response->assertSee('From:', false);
+            $response->assertSee('To:', false);
+
+            // Assert Priority filter with All Priorities, High, Low
+            $response->assertSee('id="staffPriorityFilter"', false);
+            $response->assertSee('All Priorities', false);
+            $response->assertSee('<option value="high">High</option>', false);
+            $response->assertSee('<option value="low">Low</option>', false);
+            $response->assertDontSee('<option value="critical">Critical</option>', false);
+
+            // Assert Approval filter with All Approval States, Pending Approval, Approved, Head Created
+            $response->assertSee('id="staffApprovalFilter"', false);
+            $response->assertSee('All Approval States', false);
+            $response->assertSee('Pending Approval', false);
+            $response->assertSee('<option value="approved">Approved</option>', false);
+            $response->assertSee('Head Created', false);
+            $response->assertDontSee('<option value="declined">Declined</option>', false);
+
+            $response->assertSee('resetStaffCaseFilters()', false);
         }
     }
 
@@ -328,11 +514,18 @@ class StaffCaseViewsTest extends TestCase
 
         $submission = \App\Models\StaffCaseSubmission::firstOrFail();
 
-        // 3. Head views Reviews & Approvals page and approves -> saves to database
+        // 3. Head views Reviews & Approvals page, inspects dossier, and approves -> saves to database
         $reviewPage = $this->actingAs($headUser)->get('/Crime_Scene_Support/reviews-approvals');
         $reviewPage->assertStatus(200);
         $reviewPage->assertSee('Kofi Mensah');
-        $reviewPage->assertSee('Approve &amp; Save', false);
+        $reviewPage->assertSee('Review Dossier');
+        $reviewPage->assertSee("/Crime_Scene_Support/reviews-approvals/{$submission->id}", false);
+        $reviewPage->assertDontSee('Quick Inspect');
+
+        $dossierPage = $this->actingAs($headUser)->get("/Crime_Scene_Support/reviews-approvals/{$submission->id}");
+        $dossierPage->assertStatus(200);
+        $dossierPage->assertSee('Kofi Mensah');
+        $dossierPage->assertSee('Approve &amp; Save', false);
 
         $approveRes = $this->actingAs($headUser)->post("/reviews-approvals/{$submission->id}/approve");
         $approveRes->assertRedirect();
@@ -422,6 +615,65 @@ class StaffCaseViewsTest extends TestCase
             $response->assertSee('/Digital_Forensics/staff/forensic-status', false);
             $response->assertDontSee('Unit Sitrep &amp; Reports', false);
             $response->assertDontSee('Unit Permissions');
+        }
+    }
+
+    #[Test]
+    public function every_unit_staff_case_rollback_page_renders_with_correction_queue(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'CSSU Rollback Officer',
+            'unit' => 'Crime Scene Support',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        // Empty state for another unit with no rolled-back submissions
+        $this->actingAs($staffUser)
+            ->get('/Lab_Analysis/staff/case-rollback')
+            ->assertStatus(200)
+            ->assertSee('Case Rollback &amp; Corrections', false)
+            ->assertSee('No Rolled Back Cases for Lab Analysis')
+            ->assertDontSee('CORRECTION &amp; RESUBMISSION WORKSTATION', false);
+
+        $submission = StaffCaseSubmission::create([
+            'submitted_by' => $staffUser->id,
+            'submitted_by_name' => $staffUser->fullname,
+            'unit_name' => 'Crime Scene Support',
+            'case_number_preview' => 'NCC-2026-8841',
+            'title' => 'Republic vs Kwaku Mensah',
+            'suspect_name' => 'Kwaku Mensah',
+            'priority' => 'HIGH',
+            'status' => 'Rolled Back',
+            'reviewed_by_name' => 'Commander Mensah',
+            'review_notes' => 'Re-upload clearer front mugshot and verify suspect nationality.',
+            'rollback_corrections' => [
+                ['field' => 'Suspect Bio-Data', 'note' => 'Verify nationality field'],
+                ['field' => 'Mugshot Captures', 'note' => 'Blurry front capture'],
+            ],
+            'rolled_back_at' => now(),
+            'reviewed_at' => now(),
+            'payload' => ['suspect_name' => 'Kwaku Mensah'],
+        ]);
+
+        foreach ([
+            '/Crime_Scene_Support/staff/case-rollback',
+            '/Lab_Analysis/staff/case-rollback',
+            '/Evidence_Management/staff/case-rollback',
+            '/Digital_Forensics/staff/case-rollback',
+            '/Forensic_Head/staff/case-rollback',
+        ] as $prefixRoute) {
+            $editPath = $prefixRoute . '/' . $submission->id;
+            $response = $this->actingAs($staffUser)->get($prefixRoute);
+            $response->assertStatus(200);
+            $response->assertSee('Returned Submissions Requiring Corrections');
+            $response->assertSee('Kwaku Mensah');
+            $response->assertSee('Suspect Bio-Data');
+            $response->assertSee('Mugshot Captures');
+            $response->assertSee('2 Sections Flagged');
+            $response->assertSee('Open &amp; Fix Corrections', false);
+            $response->assertSee($editPath, false);
+            $response->assertDontSee('CORRECTION &amp; RESUBMISSION WORKSTATION', false);
         }
     }
 }

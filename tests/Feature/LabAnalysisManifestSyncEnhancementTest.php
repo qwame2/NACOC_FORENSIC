@@ -154,7 +154,7 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
     #[Test]
     public function case_creation_saves_contents_and_description_of_exhibits_in_db(): void
     {
-        $officer = $this->createLabOfficer();
+        $officer = $this->createLabOfficer(true);
 
         $payload = [
             'case_number' => 'NFC-2026-STORE-EX01',
@@ -289,6 +289,12 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
         // Verify Location Seized input is NOT present on Lab Analysis create page
         $responseLab->assertDontSee('Location Seized', false);
         $responseLab->assertDontSee('id="newSeizureLocation"', false);
+
+        // Verify Location Seized input is NOT present on Lab Analysis staff create page
+        $responseLabStaff = $this->actingAs($officer)->get('/Lab_Analysis/staff/create');
+        $responseLabStaff->assertStatus(200);
+        $responseLabStaff->assertDontSee('Location Seized', false);
+        $responseLabStaff->assertDontSee('id="newSeizureLocation"', false);
 
         // Verify Location Seized input remains present on other unit create pages
         $responseDpf = $this->actingAs($officer)->get('/Digital_Forensics/create');

@@ -201,7 +201,7 @@ class LabSuspectCreationAndMutualExclusivityTest extends TestCase
         $user = User::factory()->create([
             'fullname' => 'Lab Officer Smith',
             'unit' => 'Forensic Laboratory',
-            'is_head' => false,
+            'is_head' => true,
         ]);
 
         $gsaFile = UploadedFile::fake()->create('gsa_certificate.pdf', 500, 'application/pdf');
@@ -265,7 +265,7 @@ class LabSuspectCreationAndMutualExclusivityTest extends TestCase
         $user = User::factory()->create([
             'fullname' => 'Lab Officer Smith',
             'unit' => 'Forensic Laboratory',
-            'is_head' => false,
+            'is_head' => true,
         ]);
 
         $caseNumber = 'NCC-2026-NLR-ONLY-02';

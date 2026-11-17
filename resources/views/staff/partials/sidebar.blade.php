@@ -90,12 +90,15 @@
         $accentShadow = 'shadow-emerald-600/25';
     }
 
-    $isStaffCaseActive = request()->is('*/staff/case*') || request()->is('staff/case*');
+    $isStaffRollbackActive = request()->is('*/staff/case-rollback*') || request()->is('staff/case-rollback*');
+    $isStaffCaseActive = !$isStaffRollbackActive && (request()->is('*/staff/case*') || request()->is('staff/case*'));
+    $isStaffDrugScreeningActive = request()->is('*/staff/drug-screening*') || request()->is('*/drug-screening*');
+    $isStaffVaultActive = request()->is('*/vault*') || request()->is('vault*') || request()->is('*/exhibit-vault*') || request()->is('exhibit-vault*');
     $isStaffCreateActive = request()->is('*/staff/create*') || request()->is('staff/create*');
     $isStaffReportActive = request()->is('*/staff/report*') || request()->is('staff/report*');
     $isStaffForensicStatusActive = request()->is('*/staff/forensic-status*') || request()->is('*/staff/forensic_status*');
     $isStaffProfileActive = request()->is('profile*') || request()->routeIs('profile*');
-    $isStaffHomeActive = request()->is('*/staff/dashboard*') || request()->is('staff/dashboard*') || (!$isStaffCaseActive && !$isStaffCreateActive && !$isStaffReportActive && !$isStaffForensicStatusActive && !$isStaffProfileActive && (request()->is('*/staff') || request()->is('staff')));
+    $isStaffHomeActive = request()->is('*/staff/dashboard*') || request()->is('staff/dashboard*') || (!$isStaffCaseActive && !$isStaffRollbackActive && !$isStaffDrugScreeningActive && !$isStaffVaultActive && !$isStaffCreateActive && !$isStaffReportActive && !$isStaffForensicStatusActive && !$isStaffProfileActive && (request()->is('*/staff') || request()->is('staff')));
 @endphp
 
 <!-- MODERN EXECUTIVE GREY STAFF OFFICERS SIDEBAR -->
@@ -135,6 +138,70 @@
                     <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffCaseActive ? 'text-white' : $accentText }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <span>Case Register</span>
                 </a>
+
+                @if($unitKey === 'lab')
+                @php
+                    $canStaffDrugScreening = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('record_lab_analysis', request()->path()) : true);
+                    $lockedDrugScreeningTooltip = 'Locked: Lab & Drug Screening permission is disabled by your Head of Unit';
+                    $drugScreeningUrl = url('/Lab_Analysis/staff/drug-screening');
+                    $drugScreeningEnabledClasses = $isStaffDrugScreeningActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $drugScreeningDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
+                @endphp
+                <a @if($canStaffDrugScreening) href="{{ $drugScreeningUrl }}" @endif
+                   data-staff-drug-screening-btn="sidebar"
+                   data-drug-screening-url="{{ $drugScreeningUrl }}"
+                   aria-disabled="{{ $canStaffDrugScreening ? 'false' : 'true' }}"
+                   @if(!$canStaffDrugScreening)
+                       tabindex="0"
+                       title="{{ $lockedDrugScreeningTooltip }}"
+                       data-locked-tooltip="{{ $lockedDrugScreeningTooltip }}"
+                       onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                       style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                   @endif
+                   class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ !$canStaffDrugScreening ? $drugScreeningDisabledClasses : $drugScreeningEnabledClasses }}"
+                   data-enabled-class="{{ $drugScreeningEnabledClasses }}"
+                   data-disabled-class="{{ $drugScreeningDisabledClasses }}">
+                    <span class="flex items-center min-w-0">
+                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffDrugScreening ? 'text-slate-400' : ($isStaffDrugScreeningActive ? 'text-white' : 'text-teal-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                        </svg>
+                        <span class="truncate">Drug Screening</span>
+                    </span>
+                    <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5 {{ $canStaffDrugScreening ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </a>
+                @endif
+
+                @if($unitKey === 'evidence')
+                @php
+                    $canStaffManageExhibits = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('manage_exhibits', request()->path()) : true);
+                    $lockedVaultTooltip = 'Locked: Manage Exhibit Vault permission is disabled by your Head of Unit';
+                    $vaultUrl = url('/Evidence_Management/vault');
+                    $vaultEnabledClasses = $isStaffVaultActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $vaultDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
+                @endphp
+                <a @if($canStaffManageExhibits) href="{{ $vaultUrl }}" @endif
+                   data-staff-vault-btn="sidebar"
+                   data-vault-url="{{ $vaultUrl }}"
+                   aria-disabled="{{ $canStaffManageExhibits ? 'false' : 'true' }}"
+                   @if(!$canStaffManageExhibits)
+                       tabindex="0"
+                       title="{{ $lockedVaultTooltip }}"
+                       data-locked-tooltip="{{ $lockedVaultTooltip }}"
+                       onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                       style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                   @endif
+                   class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ !$canStaffManageExhibits ? $vaultDisabledClasses : $vaultEnabledClasses }}"
+                   data-enabled-class="{{ $vaultEnabledClasses }}"
+                   data-disabled-class="{{ $vaultDisabledClasses }}">
+                    <span class="flex items-center min-w-0">
+                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffManageExhibits ? 'text-slate-400' : ($isStaffVaultActive ? 'text-white' : 'text-emerald-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        <span class="truncate">Exhibit Vault</span>
+                    </span>
+                    <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5 {{ $canStaffManageExhibits ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                </a>
+                @endif
 
                 @if($unitKey === 'digital')
                 <a href="{{ url('/Digital_Forensics/staff/forensic-status') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffForensicStatusActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
@@ -180,7 +247,6 @@
                         'directorate' => url('/Forensic_Head/staff/case-rollback'),
                         default => url('/Crime_Scene_Support/staff/case-rollback'),
                     };
-                    $isStaffRollbackActive = request()->is('*/staff/case-rollback*') || request()->is('staff/case-rollback*');
                 @endphp
                 <a href="{{ $staffRollbackUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffRollbackActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
                     <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffRollbackActive ? 'text-white' : 'text-rose-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
@@ -196,10 +262,30 @@
                         default => url('/Crime_Scene_Support/staff/report'),
                     };
                     $isStaffReportActive = request()->is('*/staff/report*') || request()->is('staff/report*');
+                    $canStaffGenerateReports = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('generate_reports', request()->path()) : true);
+                    $lockedReportsTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
+                    $reportEnabledClasses = $isStaffReportActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $reportDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
                 @endphp
-                <a href="{{ $staffReportUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffReportActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffReportActive ? 'text-white' : 'text-cyan-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    <span>Unit Sitrep &amp; Reports</span>
+                <a @if($canStaffGenerateReports) href="{{ $staffReportUrl }}" @endif
+                   data-staff-sitrep-btn="sidebar"
+                   data-sitrep-url="{{ $staffReportUrl }}"
+                   aria-disabled="{{ $canStaffGenerateReports ? 'false' : 'true' }}"
+                   @if(!$canStaffGenerateReports)
+                       tabindex="0"
+                       title="{{ $lockedReportsTooltip }}"
+                       data-locked-tooltip="{{ $lockedReportsTooltip }}"
+                       onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                       style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                   @endif
+                   class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ !$canStaffGenerateReports ? $reportDisabledClasses : $reportEnabledClasses }}"
+                   data-enabled-class="{{ $reportEnabledClasses }}"
+                   data-disabled-class="{{ $reportDisabledClasses }}">
+                    <span class="flex items-center min-w-0">
+                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffGenerateReports ? 'text-slate-400' : ($isStaffReportActive ? 'text-white' : 'text-cyan-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span class="truncate">Unit Sitrep &amp; Reports</span>
+                    </span>
+                    <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5 {{ $canStaffGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 </a>
                 @endif
 
@@ -232,4 +318,6 @@
             </form>
         </div>
     </div>
+
+    @include('partials.sidebar_badge_poller')
 </aside>

@@ -22,9 +22,13 @@ class SchemaCache
      */
     public static function hasColumn(string $table, string $column): bool
     {
-        $columns = Cache::remember("schema.columns.{$table}", 3600, function () use ($table) {
-            return Schema::hasTable($table) ? Schema::getColumnListing($table) : [];
-        });
+        try {
+            $columns = Cache::remember("schema.columns.{$table}", 3600, function () use ($table) {
+                return Schema::hasTable($table) ? Schema::getColumnListing($table) : [];
+            });
+        } catch (\Throwable $e) {
+            $columns = Schema::hasTable($table) ? Schema::getColumnListing($table) : [];
+        }
 
         return in_array($column, $columns, true);
     }

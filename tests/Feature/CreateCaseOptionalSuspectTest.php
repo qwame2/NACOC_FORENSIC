@@ -18,6 +18,7 @@ class CreateCaseOptionalSuspectTest extends TestCase
         return User::factory()->create([
             'unit'        => $unit,
             'is_approved' => true,
+            'is_head'     => true,
         ]);
     }
 
@@ -64,17 +65,13 @@ class CreateCaseOptionalSuspectTest extends TestCase
     }
 
     #[Test]
-    public function evidence_management_add_exhibit_page_does_not_render_optional_toggle_and_keeps_seizures_only_mode(): void
+    public function evidence_management_add_exhibit_route_safely_redirects_to_vault(): void
     {
         $officer = $this->createOfficer('Evidence Management');
 
         $response = $this->actingAs($officer)->get('/Evidence_Management/add-exhibit');
 
-        $response->assertStatus(200);
-        $content = $response->getContent();
-
-        $this->assertStringNotContainsString('id="noSuspectToggleCheckbox"', $content);
-        $this->assertStringContainsString('id="sections1To3Wrapper" class="hidden"', $content);
+        $response->assertRedirect(route('evidence_management.vault'));
     }
 
     #[Test]

@@ -20,353 +20,119 @@
         <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
 
-    <style>
-        body {
-            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-            background-color: #BBE7E4;
-            color: #0F172A;
-            margin: 0;
-            padding: 0;
-        }
-
-        .font-mono-code {
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        /* Geometric angled background mimicking the reference image */
-        .fims-bg-canvas {
-            position: fixed;
-            inset: 0;
-            z-index: 0;
-            background: linear-gradient(135deg, #BBE7E4 0%, #B2E2DF 50%, #C7ECE9 100%);
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        .fims-bg-facet {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 75vw;
-            height: 100vh;
-            background: #CEF0ED;
-            clip-path: polygon(45% 0, 100% 0, 100% 100%, 0% 100%);
-            opacity: 0.85;
-        }
-
-        .fims-bg-facet-2 {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 50vw;
-            height: 60vh;
-            background: #AEE0DC;
-            clip-path: polygon(0 40%, 100% 100%, 0 100%);
-            opacity: 0.6;
-        }
-
-        /* Custom Underline Input Style from Reference */
-        .ref-input-line {
-            border-bottom: 2px solid #CBD5E1;
-            transition: all 0.2s ease;
-        }
-
-        .ref-input-line:focus-within {
-            border-bottom-color: #0D9488;
-        }
-    </style>
+@include('auth.partials.auth_styles')
 </head>
 
-<body
-    class="min-h-screen flex flex-col justify-between antialiased selection:bg-teal-700 selection:text-white transition-opacity duration-300 opacity-100 relative">
+<body class="antialiased selection:bg-teal-700 selection:text-white transition-opacity duration-300 opacity-100">
 
-    <!-- Geometric Pastel Background -->
-    <div class="fims-bg-canvas">
-        <div class="fims-bg-facet"></div>
-        <div class="fims-bg-facet-2"></div>
-    </div>
+    <div class="auth-shell">
+        @include('auth.partials.auth_brand', ['mode' => 'login'])
 
-    <!-- TOP SYSTEM STATUS BAR -->
-    <header
-        class="w-full px-6 py-3.5 flex items-center justify-between bg-white/95 border-b border-teal-900/10 shadow-sm relative z-10 backdrop-blur-sm">
-        <div class="flex items-center space-x-3.5">
-            <div
-                class="w-11 h-11 rounded-xl bg-white p-1 border border-teal-700/20 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
-                <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo" class="w-full h-full object-contain">
-            </div>
-            <div>
-                <div class="font-extrabold text-slate-900 tracking-wider text-xs font-mono-code leading-none mb-0.5">
-                    FORENSIC INFORMATION MANAGEMENT SYSTEM (FIMS)</div>
-                <div class="text-[10px] text-teal-700 font-bold uppercase tracking-wider">NARCOTICS CONTROL
-                    COMMISSION GHANA &bull; FORENSICS DEPARTMENT</div>
-            </div>
-        </div>
-
-        <div class="flex items-center space-x-4">
-            <div class="text-right hidden sm:block">
-                <div class="text-xs font-bold text-slate-800 font-mono-code" id="liveClock">2026-09-05 00:00:00 UTC
-                </div>
-                <div class="text-[10px] font-mono-code text-teal-700 font-extrabold tracking-wider">SECURE PORTAL v4.2
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- MAIN LOGIN CONTAINER -->
-    <main class="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto relative z-10">
-        <div
-            class="w-full max-w-4xl bg-white rounded-3xl shadow-[0_24px_60px_-12px_rgba(15,23,42,0.18)] border border-slate-200/80 overflow-hidden flex flex-col md:flex-row min-h-[540px]">
-
-            <!-- LEFT PANEL: Mint-Teal Curved Wave & Vector Graphic (From Reference Image) -->
-            <div
-                class="md:w-5/12 bg-gradient-to-br from-teal-600 via-teal-700 to-teal-800 text-white relative p-8 flex flex-col justify-between overflow-hidden">
-
-                <!-- Organic Curved Wave SVG Dividing Edge -->
-                <svg class="absolute top-0 bottom-0 right-0 h-full w-24 text-white hidden md:block translate-x-1"
-                    viewBox="0 0 100 100" preserveAspectRatio="none" fill="currentColor">
-                    <path d="M0,0 C65,25 20,70 100,100 L100,0 Z"></path>
-                </svg>
-
-                <!-- Vertical Insignia Typography from Reference Image -->
-                <div
-                    class="absolute left-6 top-8 bottom-8 flex items-center pointer-events-none select-none opacity-20">
-                    <span
-                        class="text-5xl font-black tracking-widest uppercase transform -rotate-90 origin-center text-white font-mono-code">FIMS</span>
-                </div>
-
-                <!-- Top Left Identity Crest -->
-                <div class="relative z-10 flex items-center space-x-3 pl-8">
-                    <div class="w-12 h-12 rounded-2xl bg-white p-1.5 shadow-md border border-white/30 shrink-0">
-                        <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Forensics Emblem"
-                            class="w-full h-full object-contain">
-                    </div>
-                    <div>
-                        <div class="text-[11px] font-black uppercase tracking-widest text-teal-200 font-mono-code">NACOC
-                            GHANA</div>
-                        <div class="text-xs font-bold text-white">Forensic Department</div>
-                    </div>
-                </div>
-
-                <!-- Isometric Forensic Evidence Terminal Illustration (Faithful to Reference Image) -->
-                <div class="relative z-10 my-auto py-6 flex flex-col items-center justify-center pl-6">
-                    <svg viewBox="0 0 320 220" class="w-full max-w-[260px] drop-shadow-2xl" fill="none">
-                        <!-- Isometric Tablet Base -->
-                        <polygon points="160,35 295,95 160,170 25,110" fill="#E2F7F5" stroke="#FFFFFF"
-                            stroke-width="3" />
-                        <polygon points="25,110 160,170 160,185 25,125" fill="#99D5CF" />
-                        <polygon points="160,170 295,95 295,110 160,185" fill="#75C2BC" />
-
-                        <!-- Tablet Screen Surface -->
-                        <polygon points="160,48 280,102 160,160 40,108" fill="#F4FCFB" />
-
-                        <!-- Isometric Forensic Chromatography Bars -->
-                        <path d="M75,98 L75,70 L82,67 L82,95 Z" fill="#0D9488" />
-                        <path d="M82,67 L88,70 L88,97 L82,95 Z" fill="#042F2E" />
-
-                        <path d="M92,94 L92,58 L99,55 L99,91 Z" fill="#14B8A6" />
-                        <path d="M99,55 L105,58 L105,93 L99,91 Z" fill="#0F766E" />
-
-                        <path d="M109,90 L109,48 L116,45 L116,86 Z" fill="#2DD4BF" />
-                        <path d="M116,45 L122,48 L122,89 L116,86 Z" fill="#0D9488" />
-
-                        <path d="M126,86 L126,65 L133,62 L133,83 Z" fill="#0D9488" />
-                        <path d="M133,62 L139,65 L139,85 L133,83 Z" fill="#042F2E" />
-
-                        <!-- Forensic Spectroscopy Polyline -->
-                        <polyline points="75,90 95,65 110,75 125,50 145,72 165,58" stroke="#0D9488" stroke-width="2.5"
-                            fill="none" stroke-linecap="round" />
-
-                        <!-- Chain of Custody Biometric Nodes -->
-                        <ellipse cx="205" cy="118" rx="20" ry="11" fill="none"
-                            stroke="#0D9488" stroke-width="2" stroke-dasharray="3 2" />
-                        <ellipse cx="205" cy="118" rx="12" ry="6.5" fill="none"
-                            stroke="#14B8A6" stroke-width="1.8" />
-                        <ellipse cx="205" cy="118" rx="4" ry="2" fill="#042F2E" />
-
-                        <!-- Evidence Tag / Document Grid -->
-                        <polygon points="195,68 250,92 225,104 170,80" fill="#E6FFFA" stroke="#14B8A6"
-                            stroke-width="1.5" />
-                        <line x1="185" y1="78" x2="225" y2="95" stroke="#99F6E4"
-                            stroke-width="2" />
-                        <line x1="190" y1="83" x2="235" y2="102" stroke="#99F6E4"
-                            stroke-width="2" />
-                    </svg>
-                </div>
-
-                <!-- Footer Tagline from Reference Image -->
-                <div class="relative z-10 pl-8">
-                    <p
-                        class="text-[10px] font-extrabold tracking-wider uppercase text-teal-100 font-mono-code leading-relaxed">
-                        INTRODUCING FORENSIC INFORMATION MANAGEMENT SYSTEM &bull; FIMS
-                    </p>
-                </div>
+        <main class="auth-panel">
+            <div class="flex items-center justify-end">
+                <span class="auth-switch">No account yet?
+                    <a href="{{ url('/register') }}"
+                        onclick="navigateWithFade(event, '{{ url('/register') }}')">Register as officer</a></span>
             </div>
 
-            <!-- RIGHT PANEL: Clean Login Form with Original Code & IDs -->
-            <div class="md:w-7/12 p-8 sm:p-12 flex flex-col justify-between bg-white">
-
-                <!-- TOP HEADER -->
-                <div class="flex items-center justify-between pb-6 border-b border-slate-100">
-                    <div>
-                        <h1 class="text-3xl font-black text-teal-800 tracking-tight">LOGIN</h1>
-                        <p class="text-xs text-slate-500 mt-1">Authorized personnel only &bull; Access custody records
-                        </p>
-                    </div>
-                    <div
-                        class="w-12 h-12 rounded-xl bg-slate-50 p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
-                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Crest"
-                            class="w-full h-full object-contain">
-                    </div>
+            <div class="auth-panel__inner">
+                <div class="auth-header mb-6">
+                    <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC crest" width="175" height="175"
+                        class="auth-logo">
+                    <h1 class="auth-title">Sign in</h1>
+                    <p class="auth-sub">Authorised personnel only. Your session and actions are logged.</p>
                 </div>
 
-                <!-- ORIGINAL FORM CONTAINER -->
-                <div class="py-6">
+                <div class="auth-card">
                     @include('partials.flash')
 
-                    <div id="loginInlineError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center space-x-2">
+                    <div id="loginInlineError"
+                        class="hidden mb-5 p-3.5 bg-red-50/90 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center space-x-2.5 shadow-xs"
+                        role="alert">
                         <svg class="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span id="loginInlineErrorText"></span>
                     </div>
 
-                    <form id="loginForm" method="POST" action="{{ url('/login') }}"
-                        onsubmit="handleLoginSubmit(event)">
+                    <form id="loginForm" method="POST" action="{{ url('/login') }}" onsubmit="handleLoginSubmit(event)"
+                        class="space-y-4">
                         @csrf
-                        <div class="space-y-6">
 
-                            <!-- USERNAME / EMAIL / SERVICE ID INPUT (Underline Ref-Style) -->
-                            <div class="ref-input-line pb-1.5">
-                                <label
-                                    class="block text-[11px] font-bold text-slate-600 font-mono-code uppercase mb-1">
-                                    Username / Email / Service ID
-                                </label>
-                                <div class="relative flex items-center">
-                                    <input type="text" id="serviceId" name="login_id" required
-                                        value="{{ old('login_id') }}"
-                                        placeholder="e.g. SD-345, smensah or officer@nacoc.gov.gh"
-                                        class="w-full py-2 bg-transparent text-sm text-slate-900 font-semibold placeholder-slate-400 focus:outline-none pr-8">
-                                    <div class="absolute right-0 text-teal-700 pointer-events-none">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                @error('login_id')
-                                    <p class="text-xs text-red-600 mt-1 font-semibold">{{ $message }}</p>
-                                @enderror
+                        <div class="ref-input-line">
+                            <label for="serviceId" class="block">
+                                <svg class="w-3.5 h-3.5 text-teal-700 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span>Username, email or service ID</span>
+                            </label>
+                            <div class="relative flex items-center">
+                                <input type="text" id="serviceId" name="login_id" required autocomplete="username"
+                                    value="{{ old('login_id') }}" placeholder="SD-345, smensah or email@nacoc.gov.gh"
+                                    class="w-full py-1 bg-transparent font-semibold text-slate-900 placeholder-slate-400 focus:outline-none">
                             </div>
+                            @error('login_id')
+                                <p class="text-xs text-red-600 mt-1 font-semibold">{{ $message }}</p>
+                            @enderror
+                        </div>
 
-                            <!-- PASSWORD INPUT (Underline Ref-Style) -->
-                            <div class="ref-input-line pb-1.5">
-                                <div class="flex items-center justify-between mb-1">
-                                    <label class="block text-[11px] font-bold text-slate-600 font-mono-code uppercase">
-                                        Password
-                                    </label>
-                                </div>
-                                <div class="relative flex items-center">
-                                    <input type="password" id="passwordInput" name="password" required
-                                        placeholder="Enter Security Passcode"
-                                        class="w-full py-2 bg-transparent text-sm text-slate-900 font-semibold placeholder-slate-400 focus:outline-none pr-8">
-                                    <button type="button" onclick="togglePasswordVisibility()"
-                                        class="absolute right-0 text-teal-700 hover:text-teal-900 cursor-pointer focus:outline-none"
-                                        aria-label="Toggle password visibility">
-                                        <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                @error('password')
-                                    <p class="text-xs text-red-600 mt-1 font-semibold">{{ $message }}</p>
-                                @enderror
-                            </div>
-
-                            <!-- REMEMBER ME & 2FA BADGE -->
-                            <div class="flex items-center justify-between pt-1">
-                                <label class="flex items-center space-x-2 cursor-pointer">
-                                    <input type="checkbox" checked
-                                        class="w-4 h-4 rounded text-teal-700 focus:ring-teal-700 border-slate-300">
-                                    <span class="text-xs text-slate-600 font-medium">Remember credentials</span>
-                                </label>
-
-                                <span
-                                    class="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md font-mono-code font-bold flex items-center gap-1">
-                                    <svg class="w-3.5 h-3.5 text-teal-700" fill="none" stroke="currentColor"
+                        <div class="ref-input-line">
+                            <label for="passwordInput" class="block">
+                                <svg class="w-3.5 h-3.5 text-teal-700 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                <span>Password</span>
+                            </label>
+                            <div class="relative flex items-center">
+                                <input type="password" id="passwordInput" name="password" required
+                                    autocomplete="current-password" placeholder="Enter your password"
+                                    class="w-full py-1 bg-transparent font-semibold text-slate-900 placeholder-slate-400 focus:outline-none pr-9">
+                                <button type="button" onclick="togglePasswordVisibility()"
+                                    class="absolute right-0 p-1 text-slate-400 hover:text-teal-700 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 rounded-lg"
+                                    aria-label="Toggle password visibility">
+                                    <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor"
                                         viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    2FA Active
-                                </span>
-                            </div>
-
-                            <!-- SUBMIT BUTTON (Teal Pill Button from Reference) -->
-                            <div class="pt-3">
-                                <button type="submit" id="submitBtn"
-                                    class="w-full py-3.5 px-6 bg-teal-700 hover:bg-teal-800 active:bg-teal-900 text-white text-sm font-extrabold rounded-2xl shadow-md shadow-teal-700/30 transition-all hover:scale-[1.01] flex items-center justify-center space-x-2 cursor-pointer">
-                                    <span id="btnText">Sign In to FIMS</span>
-                                    <svg class="w-4 h-4 text-white ml-1" fill="none" stroke="currentColor"
-                                        viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                            d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
                                 </button>
                             </div>
-
-                            <!-- REGISTER LINK -->
-                            <div class="text-center pt-2">
-                                <p class="text-xs text-slate-600">
-                                    Don't have an account?
-                                    <a href="{{ url('/register') }}"
-                                        onclick="navigateWithFade(event, '{{ url('/register') }}')"
-                                        class="font-bold text-teal-700 hover:text-teal-900 hover:underline transition-colors">
-                                        Register as Officer
-                                    </a>
-                                </p>
-                            </div>
-
+                            @error('password')
+                                <p class="text-xs text-red-600 mt-1 font-semibold">{{ $message }}</p>
+                            @enderror
                         </div>
+
+                        <div class="flex items-center justify-between pt-1">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" checked
+                                    class="w-4 h-4 rounded text-teal-700 focus:ring-teal-700 border-slate-300">
+                                <span class="text-xs text-slate-600 font-medium">Keep me signed in</span>
+                            </label>
+                            <a href="#" onclick="showResetToast(); return false;" class="auth-link text-xs">Forgot
+                                password?</a>
+                        </div>
+
+                        <button type="submit" id="submitBtn" class="auth-cta">
+                            <svg class="w-4 h-4 text-white/90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                            <span id="btnText">Sign in to FIMS</span>
+                        </button>
                     </form>
                 </div>
-
-                <!-- BOTTOM LINKS (Forgot / Help from Reference Image) -->
-                <div
-                    class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-teal-700">
-                    <span class="text-[11px] text-slate-400 font-mono-code">NACOC &bull; ISO/IEC 17025</span>
-                    <div class="space-x-4">
-                        <a href="#" onclick="showResetToast(); return false;"
-                            class="hover:underline">Forgot?</a>
-                        <a href="#"
-                            onclick="alert('For system access assistance, contact NACOC IT Helpdesk: ext 4022'); return false;"
-                            class="hover:underline">Help</a>
-                    </div>
-                </div>
-
             </div>
 
-        </div>
-    </main>
-
-    <!-- FOOTER BAR -->
-    <footer
-        class="w-full px-6 py-3 bg-white/95 border-t border-teal-900/10 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-600 font-mono-code gap-2 relative z-10 backdrop-blur-sm">
-        <div>
-            Official Property of the Narcotics Control Commission, Ghana &bull; Forensic Information Management System
-        </div>
-        <div class="flex items-center space-x-4">
-            <a href="#" class="hover:text-teal-800">Security Policy</a>
-            <span>&bull;</span>
-            <a href="#" class="hover:text-teal-800">Chain of Custody Spec</a>
-            <span>&bull;</span>
-            <a href="#" class="hover:text-teal-800">IT Support Desk</a>
-        </div>
-    </footer>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                <span>Official system of the Narcotics Control Commission, Ghana</span>
+                <a href="#"
+                    onclick="alert('For system access assistance, contact NACOC IT Helpdesk: ext 4022'); return false;"
+                    class="auth-link">Need help?</a>
+            </div>
+        </main>
+    </div>
 
     <!-- ACCOUNT APPROVED POPOVER MODAL CONTAINER -->
     <div id="loginAccountApprovedPopoverModal"
@@ -749,6 +515,7 @@
                 return;
             }
 
+            stopApprovalPolling();
             submitBtn.disabled = true;
             btnText.innerHTML = `
                 <span class="inline-flex items-center">
@@ -766,6 +533,7 @@
 
                 const response = await fetch(form.action, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': csrfToken,

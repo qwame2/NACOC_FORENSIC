@@ -13,11 +13,11 @@
                         <div class="flex items-center justify-between pb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+                                    class="text-xs font-mono-code font-extrabold text-emerald-700 uppercase tracking-wider">
                                     SUSPECT #{{ $suspect['resolved_view']['sNum'] }} DOSSIER
                                 </span>
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold uppercase tracking-wider border {{ $suspect['resolved_view']['dispBadgeCls'] }}">
+                                    class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider {{ str_contains($suspect['resolved_view']['sDisp'], 'Active') ? 'text-amber-700' : (str_contains($suspect['resolved_view']['sDisp'], 'Cleared') ? 'text-emerald-700' : 'text-slate-700') }}">
                                     {{ strtoupper($suspect['resolved_view']['sDisp']) }}
                                 </span>
                                                                 @if ($suspect['resolved_view']['sHeaderDrugScreening'])
@@ -52,26 +52,26 @@
                         </div>
 
                         <!-- CASE CREATION & STATUS AUDIT TRACKING -->
-                        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
-                            <div class="flex items-center gap-2">
+                        <div data-no-rollback="true" class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
+                            <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Case Created By:</span>
                                 <span class="font-bold text-slate-900 font-mono-code">{{ $suspect['resolved_view']['caseCreatorName'] }} <span class="text-emerald-700 font-bold">({{ $suspect['resolved_view']['caseCreatorUnit'] }})</span></span>
                                 @if ($suspect['resolved_view']['caseCreatedAt'])
-                                    <span class="text-slate-400 text-[10px] font-mono-code">• {{ $suspect['resolved_view']['caseCreatedAt'] }}</span>
+                                    <span class="text-slate-400 text-[10px] font-mono-code">{{ (request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*')) ? '|' : '•' }} {{ $suspect['resolved_view']['caseCreatedAt'] }}</span>
                                 @endif
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 p-1.5 rounded-lg border border-transparent transition-all rollback-allowed-item" data-rollback-allowed="true" data-rollback-target="Arresting Officer">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Arresting Officer:</span>
                                 <span class="font-bold text-slate-900 font-mono-code bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">{{ $suspect['resolved_view']['arrestingOfficerName'] }}</span>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Status Updated By:</span>
                                 @if (!empty($suspect['resolved_view']['statusUpdatedBy']))
                                     <span class="font-bold text-slate-900 font-mono-code bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
                                         {{ $suspect['resolved_view']['statusUpdatedBy'] }} <span class="text-amber-700 font-bold">({{ $suspect['resolved_view']['statusUpdatedByUnit'] ?: 'Unit Head' }})</span>
                                     </span>
                                     @if ($suspect['resolved_view']['statusUpdatedAt'])
-                                        <span class="text-slate-400 text-[10px] font-mono-code">• {{ $suspect['resolved_view']['statusUpdatedAt'] }}</span>
+                                        <span class="text-slate-400 text-[10px] font-mono-code">{{ (request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*')) ? '|' : '•' }} {{ $suspect['resolved_view']['statusUpdatedAt'] }}</span>
                                     @endif
                                 @else
                                     <span class="italic text-slate-400 font-mono-code">Initial ({{ $suspect['resolved_view']['caseCreatorName'] }})</span>
@@ -369,7 +369,7 @@
                                                     @if ($isMoneyExA || !empty($aEx['amount']))
                                                         {{ !empty($aEx['amount']) ? "Amount: {$aEx['amount']}" : (!empty($aEx['seizure_quantity']) ? "Amount: {$aEx['seizure_quantity']}" : 'N/A') }}
                                                     @elseif (!empty($aEx['seizure_quantity']) || !empty($aEx['seizure_weight']))
-                                                        {{ implode(' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
+                                                        {{ implode((request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*')) ? ' | ' : ' • ', array_filter([!empty($aEx['seizure_quantity']) ? "Qty: {$aEx['seizure_quantity']}" : null, !empty($aEx['seizure_weight']) ? "Wt: {$aEx['seizure_weight']} " . ($aEx['seizure_unit'] ?? '') : null])) }}
                                                     @else
                                                         N/A
                                                     @endif
@@ -1194,8 +1194,7 @@
                                 @endif
                             @endif
                         @endif
-                        {{-- ATTACHED GSA & NLR REPORT FILES FOR THIS SUSPECT --}}
-                                                @include('partials.gsa_report_files', ['gsaFiles' => $suspect['resolved_view']['sGsaFiles'], 'gsaForName' => $suspect['resolved_view']['sName']])
+                        {{-- ATTACHED REPORT FILES CONTAINER IS MOVED DIRECTLY ON TOP OF SEIZURES (COMMODITIES INVENTORY) --}}
 
                         {{-- ATTACHED DRUG SCREENING RESULT FOR THIS SPECIFIC SUSPECT --}}
                                                 @include('partials.suspect_drug_screening_card', [

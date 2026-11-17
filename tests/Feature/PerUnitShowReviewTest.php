@@ -189,8 +189,9 @@ class PerUnitShowReviewTest extends TestCase
 
         $this->assertHtmlContains('Back to Case Directory', $html);
         $this->assertHtmlContains("selectExhibitCategory('Electronic Devices', event)", $html);
-        $this->assertHtmlContains("selectExhibitCategory('Storage Media', event)", $html);
-        $this->assertHtmlContains("selectExhibitCategory('Communication Hardware', event)", $html);
+        $this->assertHtmlContains('id="deviceSelectWrapper"', $html);
+        $this->assertHtmlContains('id="deviceSearchInput"', $html);
+        $this->assertHtmlContains('id="newSeizureNameDevice"', $html);
         $this->assertHtmlNotContains('id="section5LabExamination"', $html);
         $this->assertHtmlNotContains('id="gsaUploadSection"', $html);
         $this->assertHtmlNotContains('Classify Drugs', $html);

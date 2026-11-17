@@ -73,12 +73,14 @@ class UnitNotificationsPageTest extends TestCase
             'is_head' => true,
             'is_approved' => true,
         ]);
-        $pendingLabStaff = User::factory()->create([
+        $pendingLabStaff = \App\Models\StaffAccount::create([
             'fullname' => 'Pending Lab Analyst',
+            'username' => 'pending_lab_analyst_777',
             'unit' => 'Lab Analysis',
             'service_id' => 'NAC-LAU-777',
-            'is_head' => false,
+            'phone_number' => '0244000777',
             'is_approved' => false,
+            'password' => bcrypt('password'),
         ]);
 
         // Cross-unit drug exhibit without suspect
@@ -162,5 +164,50 @@ class UnitNotificationsPageTest extends TestCase
         // Audit zero console.log in notification views
         $indexSrc = file_get_contents(resource_path('views/notifications/index.blade.php'));
         $this->assertDoesNotMatchRegularExpression('/console\.(log|warn|error|info|debug)/i', $indexSrc);
+    }
+
+    public function test_sidebar_notifications_badge_hidden_when_zero_and_bg_red_when_present(): void
+    {
+        $labHead = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        // When 0 notifications exist, badge is hidden (not visible)
+        $respZero = $this->actingAs($labHead)->get('/Lab_Analysis/create');
+        $respZero->assertOk();
+        $this->assertMatchesRegularExpression('/id="sidebarNotificationsBadge"[^>]*class="[^"]*hidden[^"]*bg-red-600/', $respZero->getContent());
+
+        // When an unread notification event exists, badge displays count and has bg-red-600
+        $cssHead = User::factory()->create([
+            'unit' => 'Crime Scene Support',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-NOTIF-999',
+            'title' => 'Test Notification Case',
+            'unit_name' => 'Crime Scene Support',
+            'user_id' => $cssHead->id,
+            'suspect_name' => 'Test Suspect',
+            'status' => 'Pending Approval',
+        ]);
+        CaseHandover::create([
+            'case_number' => $case->case_number,
+            'single_suspect_case_id' => $case->id,
+            'from_user_id' => $cssHead->id,
+            'from_unit' => 'Crime Scene Support',
+            'to_user_id' => $labHead->id,
+            'to_unit' => 'Lab Analysis',
+            'status' => 'Pending Acknowledgement',
+            'request_notes' => 'Red badge test handover',
+        ]);
+
+        $respActive = $this->actingAs($labHead)->get('/Lab_Analysis/create');
+        $respActive->assertOk();
+        $content = $respActive->getContent();
+        $this->assertMatchesRegularExpression('/id="sidebarNotificationsBadge"[^>]*class="[^"]*bg-red-600/', $content);
+        $this->assertDoesNotMatchRegularExpression('/id="sidebarNotificationsBadge"[^>]*class="[^"]*hidden/', $content);
     }
 }

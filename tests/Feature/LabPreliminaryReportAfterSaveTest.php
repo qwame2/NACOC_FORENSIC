@@ -53,7 +53,7 @@ class LabPreliminaryReportAfterSaveTest extends TestCase
     #[Test]
     public function saving_lab_drug_case_returns_and_persists_preliminary_report_and_pdf_renders(): void
     {
-        $officer = $this->createLabOfficer();
+        $officer = $this->createLabOfficer(true);
 
         $payload = [
             'case_number' => 'NCC-2026-PRELIM-01',
@@ -129,7 +129,7 @@ class LabPreliminaryReportAfterSaveTest extends TestCase
     #[Test]
     public function saving_lab_drug_case_without_gsa_or_section5_still_generates_preliminary_report(): void
     {
-        $officer = $this->createLabOfficer();
+        $officer = $this->createLabOfficer(true);
 
         $payload = [
             'case_number' => 'NCC-2026-PRELIM-02',
@@ -174,7 +174,7 @@ class LabPreliminaryReportAfterSaveTest extends TestCase
     public function saving_lab_case_with_gsa_upload_does_not_activate_preliminary_report_download(): void
     {
         Storage::fake('public');
-        $officer = $this->createLabOfficer();
+        $officer = $this->createLabOfficer(true);
         $gsaFile = UploadedFile::fake()->create('gsa_certificate.pdf', 120, 'application/pdf');
 
         $payload = [
@@ -208,5 +208,33 @@ class LabPreliminaryReportAfterSaveTest extends TestCase
         $this->assertNull($response->json('preliminary_report'));
         $this->assertEquals(1, SuspectGsaReport::where('case_number', 'NCC-2026-PRELIM-GSA')->count());
         $this->assertEquals(0, SuspectPreliminaryReport::where('case_number', 'NCC-2026-PRELIM-GSA')->count());
+    }
+
+    #[Test]
+    public function staff_submission_with_gsa_multipart_upload_stages_cleanly_for_head_approval(): void
+    {
+        Storage::fake('public');
+        $staff = $this->createLabOfficer(false);
+        $gsaFile = UploadedFile::fake()->create('staff_gsa_certificate.pdf', 120, 'application/pdf');
+
+        $response = $this->actingAs($staff)->post('/cases', [
+            'case_number' => 'NCC-2026-STAFF-GSA',
+            'title' => 'Republic vs Staff GSA Suspect',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Staff GSA Suspect',
+            'has_seizures' => true,
+            'exhibit_category' => 'Drugs',
+            'seizure_name' => 'Heroin',
+            'gsa_report_images' => [$gsaFile],
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('pending_approval', true);
+
+        $this->assertDatabaseHas('staff_case_submissions', [
+            'suspect_name' => 'Staff GSA Suspect',
+            'status' => 'Pending Approval',
+        ]);
     }
 }

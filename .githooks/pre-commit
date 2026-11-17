@@ -1,0 +1,6 @@
+#!/bin/sh
+# NACOC Forensic Portal Pre-Commit Security Hook
+# Intercepts dependency modifications and enforces vulnerability audits
+
+node scripts/git-pre-commit.mjs
+

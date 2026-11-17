@@ -248,8 +248,8 @@
 
     <!-- INLINE ACTION TOAST -->
     <div id="fieldOfficersToast" class="fixed bottom-5 right-5 z-50 hidden transition-all duration-300 translate-y-2">
-        <div class="flex items-center space-x-3 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl border border-slate-700">
-            <span class="w-2 h-2 rounded-full bg-emerald-400" id="fieldOfficersToastDot"></span>
+        <div class="flex items-center space-x-2.5 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl border border-slate-700">
+            <svg id="fieldOfficersToastDot" class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5 13l4 4L19 7" /></svg>
             <span class="text-xs font-semibold" id="fieldOfficersToastMsg">Status updated.</span>
         </div>
     </div>
@@ -445,7 +445,7 @@
 
             msgEl.textContent = message;
             if (dotEl) {
-                dotEl.className = isError ? 'w-2 h-2 rounded-full bg-rose-400' : 'w-2 h-2 rounded-full bg-emerald-400';
+                dotEl.setAttribute('class', isError ? 'w-4 h-4 text-rose-400 shrink-0' : 'w-4 h-4 text-emerald-400 shrink-0');
             }
 
             toast.classList.remove('hidden', 'translate-y-2');

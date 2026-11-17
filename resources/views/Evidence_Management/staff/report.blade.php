@@ -199,8 +199,8 @@
 
             <!-- PRINT-ONLY HEADER BANNER -->
             <div class="print-only-header p-6 border-b border-slate-300 text-center">
-                <div class="text-xs uppercase tracking-widest font-extrabold text-slate-600">Republic of Ghana • Narcotics Control Commission</div>
-                <h1 class="text-lg font-black text-slate-900 font-mono-code uppercase mt-1">Evidence Management Unit • Exhibits Master Audit Report</h1>
+                <div class="text-xs uppercase tracking-widest font-extrabold text-slate-600">Republic of Ghana | Narcotics Control Commission</div>
+                <h1 class="text-lg font-black text-slate-900 font-mono-code uppercase mt-1">Evidence Management Unit | Exhibits Master Audit Report</h1>
                 <div class="text-[11px] text-slate-600 mt-1 font-mono-code">
                     Generated: {{ now()->format('d M Y, H:i') }} | Officer: {{ $authUser ? ($authUser->fullname ?? $authUser->name ?? 'System Generated') : 'System Generated' }} | Total Ledger Records: {{ $totalExhibitsCount }}
                 </div>
@@ -689,7 +689,7 @@
                         <h2 class="text-sm font-extrabold tracking-tight text-white" id="modalCommodityTitle">Exhibit Dossier</h2>
                         <div class="flex items-center space-x-2 text-[11px] text-slate-400 font-mono-code">
                             <span class="text-emerald-400 font-bold" id="modalExhibitNum">EXH-0000</span>
-                            <span>•</span>
+                            <span class="text-slate-500">|</span>
                             <span id="modalPropertyId">Property ID: Unassigned</span>
                         </div>
                     </div>
@@ -797,7 +797,6 @@
                 <div class="p-4 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-2.5">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                             <h3 class="font-bold text-slate-900 text-xs sm:text-[13px] uppercase tracking-wide">
                                 Physical Assets &amp; Non-Drug Seized Property Log
                             </h3>
@@ -819,7 +818,6 @@
                 <div class="p-4 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-2.5">
                     <div class="flex items-center justify-between flex-wrap gap-2">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                             <h3 class="font-bold text-slate-900 text-xs sm:text-[13px] uppercase tracking-wide">
                                 Seized Currency &amp; Money Received Register
                             </h3>
@@ -878,7 +876,7 @@
                 <button type="button" 
                         onclick="proceedWithoutNotes()" 
                         class="px-4 py-2.5 text-slate-600 hover:text-slate-900 font-semibold text-xs rounded-xl hover:bg-slate-100 transition-colors cursor-pointer">
-                    Skip &bull; Generate Without Notes
+                    Skip | Generate Without Notes
                 </button>
 
                 <div class="flex items-center gap-2.5">
@@ -990,7 +988,6 @@
             card.innerHTML = `
                 <div class="flex items-center justify-between gap-3 flex-wrap">
                     <div class="flex-1 flex flex-wrap items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                         <label class="text-[11px] font-bold text-slate-500 uppercase font-mono-code shrink-0">Target Table:</label>
                         
                         <!-- Automatically Picked System-Assigned Table Name Badge -->

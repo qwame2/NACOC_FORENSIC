@@ -138,7 +138,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <h1 class="text-sm font-black text-slate-900 font-mono-code uppercase tracking-wider">
-                                Crime Scene Support &bull; Field Operations &amp; Case Report
+                                Crime Scene Support | Field Operations &amp; Case Report
                             </h1>
                         </div>
                         <p class="text-[11px] text-slate-500 font-medium">
@@ -160,8 +160,8 @@
 
             <!-- PRINT-ONLY HEADER BANNER -->
             <div class="print-only-header p-6 border-b border-slate-300 text-center">
-                <div class="text-xs uppercase tracking-widest font-extrabold text-slate-600">Republic of Ghana • Narcotics Control Commission</div>
-                <h1 class="text-lg font-black text-slate-900 font-mono-code uppercase mt-1">Crime Scene Support Unit • Field Operations &amp; Case Audit Report</h1>
+                <div class="text-xs uppercase tracking-widest font-extrabold text-slate-600">Republic of Ghana | Narcotics Control Commission</div>
+                <h1 class="text-lg font-black text-slate-900 font-mono-code uppercase mt-1">Crime Scene Support Unit | Field Operations &amp; Case Audit Report</h1>
                 <div class="text-[11px] text-slate-600 mt-1 font-mono-code">
                     Generated: {{ now()->format('d M Y, H:i') }} | Officer: {{ $authUser ? $authUser->fullname : 'System Generated' }} | Total Registered Cases: {{ $totalCasesCount }}
                 </div>
@@ -496,7 +496,6 @@
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                         <label for="reportStatusInput" class="font-extrabold text-[11px] uppercase tracking-wider text-slate-800 font-mono-code flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                             <span>STATUS</span>
                         </label>
                         <span class="text-[10px] font-mono-code text-slate-400">Operational state</span>
@@ -512,7 +511,6 @@
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                         <label for="reportRecommendationInput" class="font-extrabold text-[11px] uppercase tracking-wider text-slate-800 font-mono-code flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                             <span>RECOMMENDATION</span>
                         </label>
                         <span class="text-[10px] font-mono-code text-slate-400">Inter-unit directives</span>
@@ -528,7 +526,6 @@
                 <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                         <label for="reportConclusionInput" class="font-extrabold text-[11px] uppercase tracking-wider text-slate-800 font-mono-code flex items-center gap-1.5">
-                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
                             <span>CONCLUSION</span>
                         </label>
                         <span class="text-[10px] font-mono-code text-slate-400">Executive summary</span>
@@ -547,7 +544,7 @@
                 <button type="button" 
                         onclick="proceedWithoutNotes()" 
                         class="px-4 py-2 text-slate-600 hover:text-slate-900 font-semibold text-xs rounded-xl hover:bg-slate-100 transition-colors cursor-pointer">
-                    Skip &bull; Generate Without Notes
+                    Skip | Generate Without Notes
                 </button>
 
                 <div class="flex items-center gap-2">

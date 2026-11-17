@@ -338,24 +338,12 @@
 
                                                 <div id="actionMenu-{{ $case->case_number }}"
                                                     class="case-action-menu hidden fixed z-[99999] w-52 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 space-y-1 text-left font-sans">
-                                                    <a href="/cases/{{ $case->case_number }}/associate?from={{ urlencode($landingUnitContext) }}"
-                                                        class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">
-                                                        <div
-                                                            class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                                viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                                            </svg>
-                                                        </div>
-                                                        <div>
-                                                            <div class="font-extrabold leading-tight">Add Associate
-                                                            </div>
-                                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">
-                                                                Link accomplices &amp; exhibits</div>
-                                                        </div>
-                                                    </a>
+                                                    @include('partials.add_associate_action', [
+                                                        'case' => $case,
+                                                        'variant' => 'menu',
+                                                        'unitLabel' => $landingUnitContext ?? null,
+                                                        'associateFrom' => $landingUnitContext ?? '',
+                                                    ])
 
                                                     <a href="/cases/{{ $case->case_number }}/review?edit=true&from={{ urlencode($landingUnitContext) }}"
                                                         class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-amber-50 hover:text-amber-700 rounded-xl flex items-center space-x-2.5 transition-colors group text-decoration-none">

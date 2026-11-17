@@ -1483,28 +1483,41 @@ class CaseShowReviewPresenter
 
         $hasDeviceData =
             !empty($aEx['dev_model']) ||
+            !empty($aEx['dev']['model']) ||
             !empty($aEx['dev_serial_no']) ||
+            !empty($aEx['dev']['serial_no']) ||
             !empty($aEx['dev_imei1']) ||
             !empty($aEx['dev_imei_1']) ||
+            !empty($aEx['dev']['imei1']) ||
             !empty($aEx['dev_imei2']) ||
             !empty($aEx['dev_imei_2']) ||
+            !empty($aEx['dev']['imei2']) ||
             !empty($aEx['dev_mac_address']) ||
+            !empty($aEx['dev']['mac_address']) ||
             !empty($aEx['dev_storage']) ||
+            !empty($aEx['dev']['storage']) ||
             !empty($aEx['storage_capacity']) ||
             !empty($aEx['dev_storage_capacity']) ||
             !empty($aEx['storage']) ||
             !empty($aEx['dev_colour']) ||
+            !empty($aEx['dev']['colour']) ||
             !empty($aEx['dev_color']) ||
             !empty($aEx['colour']) ||
             !empty($aEx['color']) ||
             !empty($aEx['device_color']) ||
             !empty($aEx['dev_marks']) ||
+            !empty($aEx['dev']['marks']) ||
             !empty($aEx['dev_other_marks']) ||
             !empty($aEx['marks']) ||
             !empty($aEx['other_marks']) ||
             !empty($aEx['distinguishing_marks']) ||
             !empty($aEx['device_model']) ||
             !empty($aEx['device_serial']) ||
+            !empty($case->dev_model) ||
+            !empty($case->dev_serial_no) ||
+            !empty($case->dev_imei1) ||
+            !empty($case->dev_imei2) ||
+            !empty($case->dev_mac_address) ||
             !empty($case->dev_storage) ||
             !empty($case->dev_colour) ||
             !empty($case->dev_marks);
@@ -1524,6 +1537,13 @@ class CaseShowReviewPresenter
             $aAmmo = json_decode($aAmmo, true) ?: [];
         }
         $isAmmoEx = str_contains($catLower, 'ammo') || str_contains($catLower, 'ammunition') || (!empty($aAmmo) && is_array($aAmmo) && array_filter($aAmmo));
+
+        $resolveDevField = function(...$vals) {
+            foreach ($vals as $v) {
+                if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
+            }
+            return 'N/A';
+        };
 
         return [
             'cleanValA' => $cleanValA,
@@ -1571,14 +1591,71 @@ class CaseShowReviewPresenter
             'wMarks' => $aEx['weapon_distinguishing_marks'] ?? ($aEx['wpn_marks'] ?? null),
             'wPhotos' => $exPhotos,
             'wPhotosFormatted' => $exPhotosFormatted,
-            'dModel' => $aEx['dev_model'] ?? ($aEx['device_model'] ?? 'N/A'),
-            'dSerial' => $aEx['dev_serial_no'] ?? ($aEx['device_serial'] ?? ($aEx['serial_number'] ?? 'N/A')),
-            'dImei1' => $aEx['dev_imei1'] ?? ($aEx['dev_imei_1'] ?? ($aEx['imei1'] ?? 'N/A')),
-            'dImei2' => $aEx['dev_imei2'] ?? ($aEx['dev_imei_2'] ?? ($aEx['imei2'] ?? 'N/A')),
-            'dMac' => $aEx['dev_mac_address'] ?? ($aEx['mac_address'] ?? 'N/A'),
-            'dStorage' => !empty($aEx['dev_storage']) ? $aEx['dev_storage'] : (!empty($aEx['storage_capacity']) ? $aEx['storage_capacity'] : (!empty($aEx['dev_storage_capacity']) ? $aEx['dev_storage_capacity'] : (!empty($aEx['storage']) ? $aEx['storage'] : (!empty($case->dev_storage) ? $case->dev_storage : 'N/A')))),
-            'dColor' => !empty($aEx['dev_colour']) ? $aEx['dev_colour'] : (!empty($aEx['dev_color']) ? $aEx['dev_color'] : (!empty($aEx['colour']) ? $aEx['colour'] : (!empty($aEx['color']) ? $aEx['color'] : (!empty($aEx['device_color']) ? $aEx['device_color'] : (!empty($case->dev_colour) ? $case->dev_colour : 'N/A'))))),
-            'dMarks' => !empty($aEx['dev_marks']) ? $aEx['dev_marks'] : (!empty($aEx['dev_other_marks']) ? $aEx['dev_other_marks'] : (!empty($aEx['marks']) ? $aEx['marks'] : (!empty($aEx['other_marks']) ? $aEx['other_marks'] : (!empty($aEx['distinguishing_marks']) ? $aEx['distinguishing_marks'] : (!empty($case->dev_marks) ? $case->dev_marks : 'N/A'))))),
+            'dModel' => $resolveDevField(
+                $aEx['dev_model'] ?? null,
+                $aEx['dev']['model'] ?? null,
+                $aEx['device_model'] ?? null,
+                $aEx['model'] ?? null,
+                $case->dev_model ?? null,
+                $aEx['seizure_name'] ?? null,
+                $aEx['commodity_name'] ?? null
+            ),
+            'dSerial' => $resolveDevField(
+                $aEx['dev_serial_no'] ?? null,
+                $aEx['dev']['serial_no'] ?? null,
+                $aEx['device_serial'] ?? null,
+                $aEx['serial_no'] ?? null,
+                $aEx['serial_number'] ?? null,
+                $case->dev_serial_no ?? null
+            ),
+            'dImei1' => $resolveDevField(
+                $aEx['dev_imei1'] ?? null,
+                $aEx['dev']['imei1'] ?? null,
+                $aEx['dev_imei_1'] ?? null,
+                $aEx['imei1'] ?? null,
+                $aEx['imei_1'] ?? null,
+                $case->dev_imei1 ?? null
+            ),
+            'dImei2' => $resolveDevField(
+                $aEx['dev_imei2'] ?? null,
+                $aEx['dev']['imei2'] ?? null,
+                $aEx['dev_imei_2'] ?? null,
+                $aEx['imei2'] ?? null,
+                $aEx['imei_2'] ?? null,
+                $case->dev_imei2 ?? null
+            ),
+            'dMac' => $resolveDevField(
+                $aEx['dev_mac_address'] ?? null,
+                $aEx['dev']['mac_address'] ?? null,
+                $aEx['mac_address'] ?? null,
+                $case->dev_mac_address ?? null
+            ),
+            'dStorage' => $resolveDevField(
+                $aEx['dev_storage'] ?? null,
+                $aEx['dev']['storage'] ?? null,
+                $aEx['storage_capacity'] ?? null,
+                $aEx['dev_storage_capacity'] ?? null,
+                $aEx['storage'] ?? null,
+                $case->dev_storage ?? null
+            ),
+            'dColor' => $resolveDevField(
+                $aEx['dev_colour'] ?? null,
+                $aEx['dev']['colour'] ?? null,
+                $aEx['dev_color'] ?? null,
+                $aEx['colour'] ?? null,
+                $aEx['color'] ?? null,
+                $aEx['device_color'] ?? null,
+                $case->dev_colour ?? null
+            ),
+            'dMarks' => $resolveDevField(
+                $aEx['dev_marks'] ?? null,
+                $aEx['dev']['marks'] ?? null,
+                $aEx['dev_other_marks'] ?? null,
+                $aEx['marks'] ?? null,
+                $aEx['other_marks'] ?? null,
+                $aEx['distinguishing_marks'] ?? null,
+                $case->dev_marks ?? null
+            ),
         ];
     }
 

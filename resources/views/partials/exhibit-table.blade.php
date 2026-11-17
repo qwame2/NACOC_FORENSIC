@@ -8,8 +8,80 @@
     'exhibits' => [],
     'defaultOwnerName' => 'Primary Suspect',
     'case' => null,
+    'suspects' => [],
 ])
                 @if (!empty($exhibits) && count($exhibits) > 0)
+                    @php
+                        // Resolve mugshot mapping for suspect(s) by name
+                        $suspectListForMugshot = !empty($suspects) ? $suspects : ($suspectsList ?? []);
+                        if (empty($suspectListForMugshot) && !empty($case)) {
+                            if (is_object($case) && method_exists($case, 'getSuspectsList')) {
+                                $suspectListForMugshot = $case->getSuspectsList();
+                            } elseif (is_object($case) && method_exists($case, 'suspects') && $case->relationLoaded('suspects')) {
+                                $suspectListForMugshot = $case->suspects->all();
+                            } elseif (!empty($case->docket_data['suspects']) && is_array($case->docket_data['suspects'])) {
+                                $suspectListForMugshot = $case->docket_data['suspects'];
+                            }
+                        }
+                        if (empty($suspectListForMugshot) && !empty($case->underlyingRecord) && method_exists($case->underlyingRecord, 'suspects')) {
+                            $suspectListForMugshot = $case->underlyingRecord->suspects()->orderBy('suspect_number')->get()->all();
+                        }
+
+                        $isMultipleCase = !empty($isMultiple)
+                            || !empty($isMultiCase)
+                            || ($case instanceof \App\Models\MultipleSuspectCase)
+                            || (($case->underlyingRecord ?? null) instanceof \App\Models\MultipleSuspectCase)
+                            || (!empty($case->case_type) && strtoupper((string)$case->case_type) === 'MULTIPLE')
+                            || count($suspectListForMugshot) > 1
+                            || (int) ($case->total_suspects_count ?? 1) > 1;
+
+                        $suspectMugshotMap = [];
+                        $allMultiFrontMugshots = [];
+                        $seenSuspectPhotos = [];
+
+                        foreach ($suspectListForMugshot as $sIdx => $sItem) {
+                            $sName = is_array($sItem)
+                                ? ($sItem['resolved_view']['sName'] ?? ($sItem['suspect_name'] ?? ('Suspect #' . ($sIdx + 1))))
+                                : ($sItem->suspect_name ?? ('Suspect #' . ($sIdx + 1)));
+                            $sNameKey = strtolower(trim((string) $sName));
+
+                            $sPhoto = is_array($sItem)
+                                ? ($sItem['resolved_view']['sFront'] ?? ($sItem['mugshot_front'] ?? null))
+                                : ($sItem->mugshot_front ?? null);
+
+                            if (!empty($sNameKey) && !empty($sPhoto)) {
+                                $suspectMugshotMap[$sNameKey] = $sPhoto;
+                            }
+                            if (!empty($sNameKey) && !isset($seenSuspectPhotos[$sNameKey])) {
+                                $seenSuspectPhotos[$sNameKey] = true;
+                                $allMultiFrontMugshots[] = [
+                                    'name' => $sName,
+                                    'photo' => $sPhoto,
+                                ];
+                            }
+                        }
+
+                        $caseTopFront = $case->mugshot_front ?? ($case->docket_data['mugshot_front'] ?? null);
+                        $casePrimName = strtolower(trim((string) ($case->suspect_name ?? ($case->docket_data['suspect_name'] ?? ''))));
+                        if (!empty($casePrimName) && !empty($caseTopFront) && empty($suspectMugshotMap[$casePrimName])) {
+                            $suspectMugshotMap[$casePrimName] = $caseTopFront;
+                        }
+                        if (!empty($caseTopFront) && empty($suspectMugshotMap['*default*'])) {
+                            $suspectMugshotMap['*default*'] = $caseTopFront;
+                        }
+                        if (!empty($caseTopFront) && !empty($casePrimName) && !isset($seenSuspectPhotos[$casePrimName])) {
+                            $seenSuspectPhotos[$casePrimName] = true;
+                            array_unshift($allMultiFrontMugshots, [
+                                'name' => $case->suspect_name ?? ($case->docket_data['suspect_name'] ?? 'Primary Suspect'),
+                                'photo' => $caseTopFront,
+                            ]);
+                        } elseif (empty($allMultiFrontMugshots) && !empty($caseTopFront)) {
+                            $allMultiFrontMugshots[] = [
+                                'name' => $case->suspect_name ?? ($case->docket_data['suspect_name'] ?? 'Primary Suspect'),
+                                'photo' => $caseTopFront,
+                            ];
+                        }
+                    @endphp
                     <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
                     <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm mt-4">
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200">
@@ -47,7 +119,7 @@
                                 <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
                                     <tr>
                                         <th class="py-2.5 px-4 font-bold">Item #</th>
-                                        <th class="py-2.5 px-4 font-bold">Exhibit Image</th>
+                                        <th class="py-2.5 px-4 font-bold">Suspect(s) Image</th>
                                         <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
                                         <th class="py-2.5 px-4 font-bold">Category</th>
                                         <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
@@ -60,24 +132,65 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-800">
                                     @foreach ($exhibits as $eIdx => $szItem)
-                                                                                <tr>
+                                        @php
+                                            $ownerRaw = trim((string) ($szItem['resolved_owner'] ?? ($szItem['associated_person'] ?? ($szItem['owner_name'] ?? ($szItem['suspect_ownership'] ?? $defaultOwnerName)))));
+                                            $ownerLower = strtolower($ownerRaw);
+
+                                            $rowMugshots = [];
+                                            if ($isMultipleCase && count($allMultiFrontMugshots) > 1) {
+                                                $rowMugshots = $allMultiFrontMugshots;
+                                            } else {
+                                                $suspectImg = null;
+                                                if (!empty($ownerLower) && isset($suspectMugshotMap[$ownerLower])) {
+                                                    $suspectImg = $suspectMugshotMap[$ownerLower];
+                                                } else {
+                                                    // Try substring matching or fallback
+                                                    foreach ($suspectMugshotMap as $mk => $mv) {
+                                                        if ($mk !== '*default*' && !empty($mk) && (str_contains($ownerLower, $mk) || str_contains($mk, $ownerLower))) {
+                                                            $suspectImg = $mv;
+                                                            break;
+                                                        }
+                                                    }
+                                                    if (empty($suspectImg)) {
+                                                        $suspectImg = $suspectMugshotMap['*default*'] ?? (!empty($suspectMugshotMap) ? reset($suspectMugshotMap) : null);
+                                                    }
+                                                }
+                                                if (!empty($suspectImg)) {
+                                                    $rowMugshots[] = [
+                                                        'name' => $ownerRaw,
+                                                        'photo' => $suspectImg,
+                                                    ];
+                                                }
+                                            }
+                                        @endphp
+                                        <tr>
                                             <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">
                                                 #{{ $eIdx + 1 }}</td>
                                             <td class="py-2.5 px-4">
-                                                @if (!empty($szItem['formatted_item_photos']) && count($szItem['formatted_item_photos']) > 0)
-                                                                                                        <div class="relative group inline-block">
-                                                        <img src="{{ $szItem['formatted_item_photos'][0] }}" alt="{{ $szItem['seizure_name'] ?? ($szItem['commodity_name'] ?? ($szItem['name'] ?? ($szItem['weapon_model'] ?? 'N/A'))) }}"
-                                                            data-img-src="{{ $szItem['formatted_item_photos'][0] }}"
-                                                            data-img-title="{{ $szItem['seizure_name'] ?? ($szItem['commodity_name'] ?? ($szItem['name'] ?? ($szItem['weapon_model'] ?? 'N/A'))) }} — {{ $szItem['resolved_owner'] ?? $defaultOwnerName }}"
-                                                            class="h-12 w-12 object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform"
-                                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
-                                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
-                                                        @if (count($szItem['formatted_item_photos']) > 1)
-                                                            <span
-                                                                class="absolute -bottom-1 -right-1 bg-slate-900 text-white text-[9px] font-mono-code font-bold px-1 rounded-full shadow">
-                                                                +{{ count($szItem['formatted_item_photos']) - 1 }}
-                                                            </span>
-                                                        @endif
+                                                @php
+                                                    $hasAnyPhoto = false;
+                                                    foreach ($rowMugshots as $mShot) {
+                                                        if (!empty($mShot['photo'])) {
+                                                            $hasAnyPhoto = true;
+                                                            break;
+                                                        }
+                                                    }
+                                                @endphp
+                                                @if ($hasAnyPhoto)
+                                                    <div class="flex items-center gap-1.5 flex-nowrap">
+                                                        @foreach ($rowMugshots as $mShot)
+                                                            @if (!empty($mShot['photo']))
+                                                                <div class="relative group inline-block shrink-0">
+                                                                    <img src="{{ $mShot['photo'] }}" alt="{{ $mShot['name'] }} — Front Mugshot"
+                                                                        data-img-src="{{ $mShot['photo'] }}"
+                                                                        data-img-title="Suspect Front Mugshot — {{ $mShot['name'] }}"
+                                                                        class="{{ count($rowMugshots) > 1 ? 'h-11 w-11' : 'h-12 w-12' }} object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform"
+                                                                        title="{{ $mShot['name'] }} (Front Mugshot)"
+                                                                        onclick="if (typeof openMugshotModal === 'function') { openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title')); } else if (typeof openImageLightbox === 'function') { openImageLightbox(this.getAttribute('data-img-src'), this.getAttribute('data-img-title')); }"
+                                                                        onerror="if(!this.dataset.triedStorage && !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
+                                                                </div>
+                                                            @endif
+                                                        @endforeach
                                                     </div>
                                                 @else
                                                     <span

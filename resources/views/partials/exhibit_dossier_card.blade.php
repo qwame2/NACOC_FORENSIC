@@ -119,6 +119,9 @@
                                 ? $rawCommodityNameP
                                 : ($rawSeizureNameP ?? ($pEx['name'] ?? 'N/A'));
                         }
+                        if (in_array(strtolower(trim((string)$displayNameP)), ['electronic devices', 'electronic device', 'device', 'devices', 'general exhibit', 'confiscated exhibit', 'exhibit', 'exhibits', 'n/a']) && !empty($pEx['dev_model'] ?? ($pEx['dev']['model'] ?? ($pEx['device_model'] ?? null)))) {
+                            $displayNameP = $pEx['dev_model'] ?? ($pEx['dev']['model'] ?? ($pEx['device_model'] ?? null));
+                        }
                     @endphp
                     <div class="font-extrabold text-slate-900 text-xs mt-0.5">
                         {{ $displayNameP }}
@@ -131,7 +134,7 @@
                         @if ($isMoneyExP || !empty($pEx['amount']))
                             {{ !empty($pEx['amount']) ? "Amount: {$pEx['amount']}" : (!empty($pEx['seizure_quantity']) ? "Amount: {$pEx['seizure_quantity']}" : 'N/A') }}
                         @elseif (!empty($pEx['seizure_quantity']) || !empty($pEx['seizure_weight']))
-                            {{ implode(' • ', array_filter([!empty($pEx['seizure_quantity']) ? "Qty: {$pEx['seizure_quantity']}" : null, !empty($pEx['seizure_weight']) ? "Wt: {$pEx['seizure_weight']} " . ($pEx['seizure_unit'] ?? '') : null])) }}
+                            {{ implode((request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*')) ? ' | ' : ' • ', array_filter([!empty($pEx['seizure_quantity']) ? "Qty: {$pEx['seizure_quantity']}" : null, !empty($pEx['seizure_weight']) ? "Wt: {$pEx['seizure_weight']} " . ($pEx['seizure_unit'] ?? '') : null])) }}
                         @else
                             N/A
                         @endif
@@ -249,28 +252,41 @@
 
                     $hasDeviceData =
                         !empty($pEx['dev_model']) ||
+                        !empty($pEx['dev']['model']) ||
                         !empty($pEx['dev_serial_no']) ||
+                        !empty($pEx['dev']['serial_no']) ||
                         !empty($pEx['dev_imei1']) ||
                         !empty($pEx['dev_imei_1']) ||
+                        !empty($pEx['dev']['imei1']) ||
                         !empty($pEx['dev_imei2']) ||
                         !empty($pEx['dev_imei_2']) ||
+                        !empty($pEx['dev']['imei2']) ||
                         !empty($pEx['dev_mac_address']) ||
+                        !empty($pEx['dev']['mac_address']) ||
                         !empty($pEx['dev_storage']) ||
+                        !empty($pEx['dev']['storage']) ||
                         !empty($pEx['storage_capacity']) ||
                         !empty($pEx['dev_storage_capacity']) ||
                         !empty($pEx['storage']) ||
                         !empty($pEx['dev_colour']) ||
+                        !empty($pEx['dev']['colour']) ||
                         !empty($pEx['dev_color']) ||
                         !empty($pEx['colour']) ||
                         !empty($pEx['color']) ||
                         !empty($pEx['device_color']) ||
                         !empty($pEx['dev_marks']) ||
+                        !empty($pEx['dev']['marks']) ||
                         !empty($pEx['dev_other_marks']) ||
                         !empty($pEx['marks']) ||
                         !empty($pEx['other_marks']) ||
                         !empty($pEx['distinguishing_marks']) ||
                         !empty($pEx['device_model']) ||
                         !empty($pEx['device_serial']) ||
+                        !empty($case->dev_model) ||
+                        !empty($case->dev_serial_no) ||
+                        !empty($case->dev_imei1) ||
+                        !empty($case->dev_imei2) ||
+                        !empty($case->dev_mac_address) ||
                         !empty($case->dev_storage) ||
                         !empty($case->dev_colour) ||
                         !empty($case->dev_marks);
@@ -666,14 +682,80 @@
 
                 @if ($isDevEx)
                     @php
-                        $dModel = $pEx['dev_model'] ?? ($pEx['device_model'] ?? ($pEx['seizure_name'] ?? ($pEx['commodity_name'] ?? ($pEx['name'] ?? 'N/A'))));
-                        $dSerial = $pEx['dev_serial_no'] ?? ($pEx['device_serial'] ?? 'N/A');
-                        $dImei1 = $pEx['dev_imei1'] ?? ($pEx['dev_imei_1'] ?? ($pEx['imei1'] ?? 'N/A'));
-                        $dImei2 = $pEx['dev_imei2'] ?? ($pEx['dev_imei_2'] ?? ($pEx['imei2'] ?? 'N/A'));
-                        $dMac = $pEx['dev_mac_address'] ?? ($pEx['mac_address'] ?? 'N/A');
-                        $dStorage = $pEx['dev_storage'] ?? ($pEx['storage_capacity'] ?? ($pEx['dev_storage_capacity'] ?? ($pEx['storage'] ?? ($case->dev_storage ?? 'N/A'))));
-                        $dColor = $pEx['dev_colour'] ?? ($pEx['dev_color'] ?? ($pEx['colour'] ?? ($pEx['color'] ?? ($pEx['device_color'] ?? ($case->dev_colour ?? 'N/A')))));
-                        $dMarks = $pEx['dev_marks'] ?? ($pEx['dev_other_marks'] ?? ($pEx['marks'] ?? ($pEx['other_marks'] ?? ($pEx['distinguishing_marks'] ?? ($case->dev_marks ?? 'N/A')))));
+                        if (!isset($resolveDevField) || !is_callable($resolveDevField)) {
+                            $resolveDevField = function(...$vals) {
+                                foreach ($vals as $v) {
+                                    if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
+                                }
+                                return 'N/A';
+                            };
+                        }
+                        $dModel = $resolveDevField(
+                            $pEx['dev_model'] ?? null,
+                            $pEx['dev']['model'] ?? null,
+                            $pEx['device_model'] ?? null,
+                            $pEx['model'] ?? null,
+                            $case->dev_model ?? null,
+                            $pEx['seizure_name'] ?? null,
+                            $pEx['commodity_name'] ?? null,
+                            $pEx['name'] ?? null
+                        );
+                        $dSerial = $resolveDevField(
+                            $pEx['dev_serial_no'] ?? null,
+                            $pEx['dev']['serial_no'] ?? null,
+                            $pEx['device_serial'] ?? null,
+                            $pEx['serial_no'] ?? null,
+                            $pEx['serial_number'] ?? null,
+                            $case->dev_serial_no ?? null
+                        );
+                        $dImei1 = $resolveDevField(
+                            $pEx['dev_imei1'] ?? null,
+                            $pEx['dev']['imei1'] ?? null,
+                            $pEx['dev_imei_1'] ?? null,
+                            $pEx['imei1'] ?? null,
+                            $pEx['imei_1'] ?? null,
+                            $case->dev_imei1 ?? null
+                        );
+                        $dImei2 = $resolveDevField(
+                            $pEx['dev_imei2'] ?? null,
+                            $pEx['dev']['imei2'] ?? null,
+                            $pEx['dev_imei_2'] ?? null,
+                            $pEx['imei2'] ?? null,
+                            $pEx['imei_2'] ?? null,
+                            $case->dev_imei2 ?? null
+                        );
+                        $dMac = $resolveDevField(
+                            $pEx['dev_mac_address'] ?? null,
+                            $pEx['dev']['mac_address'] ?? null,
+                            $pEx['mac_address'] ?? null,
+                            $case->dev_mac_address ?? null
+                        );
+                        $dStorage = $resolveDevField(
+                            $pEx['dev_storage'] ?? null,
+                            $pEx['dev']['storage'] ?? null,
+                            $pEx['storage_capacity'] ?? null,
+                            $pEx['dev_storage_capacity'] ?? null,
+                            $pEx['storage'] ?? null,
+                            $case->dev_storage ?? null
+                        );
+                        $dColor = $resolveDevField(
+                            $pEx['dev_colour'] ?? null,
+                            $pEx['dev']['colour'] ?? null,
+                            $pEx['dev_color'] ?? null,
+                            $pEx['colour'] ?? null,
+                            $pEx['color'] ?? null,
+                            $pEx['device_color'] ?? null,
+                            $case->dev_colour ?? null
+                        );
+                        $dMarks = $resolveDevField(
+                            $pEx['dev_marks'] ?? null,
+                            $pEx['dev']['marks'] ?? null,
+                            $pEx['dev_other_marks'] ?? null,
+                            $pEx['marks'] ?? null,
+                            $pEx['other_marks'] ?? null,
+                            $pEx['distinguishing_marks'] ?? null,
+                            $case->dev_marks ?? null
+                        );
                     @endphp
                     <div
                         class="col-span-full bg-white text-slate-800 p-5 rounded-2xl border border-slate-200/90 space-y-4 mt-2 shadow-xs">

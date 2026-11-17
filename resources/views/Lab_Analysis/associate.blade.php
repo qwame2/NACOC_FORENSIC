@@ -4346,13 +4346,13 @@
                                                     class="text-slate-400 font-normal">(Multiple Supported)</span>
                                             </label>
                                             <span id="seizurePhotosCount"
-                                                class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300">0
+                                                class="hidden px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-100 text-black border border-slate-300 seizure-photos-count">0
                                                 Photos Uploaded</span>
                                         </div>
 
                                         <!-- DROPZONE BOX -->
-                                        <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload()"
-                                            class="w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
+                                        <div id="seizurePhotoDropzone" onclick="triggerSeizurePhotoUpload(this)" ondragover="event.preventDefault(); this.classList.add('border-emerald-600', 'bg-emerald-50/50');" ondragleave="this.classList.remove('border-emerald-600', 'bg-emerald-50/50');" ondrop="handleSeizurePhotoDrop(event, this);"
+                                            class="seizure-photo-dropzone w-full min-h-[90px] bg-white rounded-xl border-2 border-dashed border-slate-300 hover:border-emerald-500 flex flex-col items-center justify-center p-4 cursor-pointer group transition-colors shadow-2xs text-center">
                                             <div id="placeholderSeizureBox"
                                                 class="flex flex-col items-center space-y-1 text-slate-400 group-hover:text-black transition-colors">
                                                 <div
@@ -4371,12 +4371,11 @@
                                                     PNG, JPG, WEBP evidence photos (up to 15MB each)</span>
                                             </div>
                                         </div>
-                                        <input type="file" id="fileSeizurePhoto" accept="image/*" multiple
-                                            class="hidden" onchange="previewSeizurePhotos(event)">
+                                        <input type="file" id="fileSeizurePhoto" accept="image/*" multiple class="fileSeizurePhoto hidden" onchange="previewSeizurePhotos(event, this)">
 
                                         <!-- DYNAMIC MULTIPLE PHOTOS GALLERY GRID -->
                                         <div id="seizurePhotosGrid"
-                                            class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
+                                            class="hidden grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2 seizurePhotosGrid">
                                         </div>
                                     </div>
                                 </div>
@@ -6915,43 +6914,7 @@
                 }
             }
 
-            const dropzone = document.getElementById('seizurePhotoDropzone');
-            if (dropzone) {
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    dropzone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        dropzone.classList.add('border-emerald-600', 'bg-emerald-50/50');
-                    }, false);
-                });
-                ['dragleave', 'drop'].forEach(eventName => {
-                    dropzone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        dropzone.classList.remove('border-emerald-600', 'bg-emerald-50/50');
-                    }, false);
-                });
-                dropzone.addEventListener('drop', (e) => {
-                    const dt = e.dataTransfer;
-                    const files = Array.from(dt.files || []);
-                    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-                    if (imageFiles.length === 0) return;
-
-                    let loadedCount = 0;
-                    imageFiles.forEach(file => {
-                        const reader = new FileReader();
-                        reader.onload = function(evt) {
-                            seizedExhibitDataUrls.push(evt.target.result);
-                            loadedCount++;
-                            if (loadedCount === imageFiles.length) {
-                                renderSeizurePhotosGrid();
-                                saveDocketFormDraft();
-                            }
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                }, false);
-            }
+            
             // Live Suspect Biodata Duplicate Check Listeners
             ['newArrestedID', 'newArrestedName', 'newArrestedDOB', 'newArrestedPhone'].forEach(id => {
                 const el = document.getElementById(id);
@@ -8105,6 +8068,13 @@
             const firstBlock = container.querySelector('.seizure-block');
             if (!tpl && !firstBlock) return;
             const clone = tpl ? tpl.cloneNode(true) : firstBlock.cloneNode(true);
+            clone._seizurePhotos = [];
+            const clonePhotoGrid = clone.querySelector('.seizurePhotosGrid') || clone.querySelector('#seizurePhotosGrid');
+            if (clonePhotoGrid) { clonePhotoGrid.innerHTML = ''; clonePhotoGrid.classList.add('hidden'); }
+            const clonePhotoCount = clone.querySelector('.seizure-photos-count') || clone.querySelector('#seizurePhotosCount');
+            if (clonePhotoCount) { clonePhotoCount.innerText = '0 Photos Uploaded'; clonePhotoCount.classList.add('hidden'); }
+            const cloneFileInput = clone.querySelector('.fileSeizurePhoto') || clone.querySelector('#fileSeizurePhoto');
+            if (cloneFileInput) cloneFileInput.value = '';
             container.appendChild(clone);
             if (shouldUpdate) {
                 updateSeizureBlockNumbers();
@@ -8173,32 +8143,147 @@
         }
 
         let seizedExhibitDataUrls = [];
-        function triggerSeizurePhotoUpload() {
-            document.getElementById('fileSeizurePhoto')?.click();
+
+        function getBlockSeizurePhotos(block) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            if (!targetBlock) return window.seizedExhibitDataUrls || [];
+            if (!targetBlock._seizurePhotos) {
+                targetBlock._seizurePhotos = [];
+            }
+            return targetBlock._seizurePhotos;
         }
-        function previewSeizurePhotos(event) {
+
+        function setBlockSeizurePhotos(block, photosArray) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            if (!targetBlock) {
+                window.seizedExhibitDataUrls = Array.isArray(photosArray) ? photosArray : [];
+                return;
+            }
+            targetBlock._seizurePhotos = Array.isArray(photosArray) ? [...photosArray] : [];
+            renderSeizureBlockPhotosGrid(targetBlock);
+            syncGlobalSeizurePhotos();
+        }
+
+        function syncGlobalSeizurePhotos() {
+            const firstBlock = document.querySelector('.seizure-block');
+            window.seizedExhibitDataUrls = firstBlock ? getBlockSeizurePhotos(firstBlock) : [];
+        }
+
+        function triggerSeizurePhotoUpload(triggerEl) {
+            const block = triggerEl ? triggerEl.closest('.seizure-block') : document.querySelector('.seizure-block');
+            const input = block ? (block.querySelector('.fileSeizurePhoto') || block.querySelector('#fileSeizurePhoto')) : document.getElementById('fileSeizurePhoto');
+            if (input) input.click();
+        }
+
+        function previewSeizurePhotos(event, inputEl) {
+            const block = (inputEl ? inputEl.closest('.seizure-block') : null) || (event.target ? event.target.closest('.seizure-block') : null) || document.querySelector('.seizure-block');
             const files = Array.from(event.target.files || []);
-            if (!files.length) return;
-            const grid = document.getElementById('seizurePhotosGrid');
-            const countBadge = document.getElementById('seizurePhotosCount');
+            if (!files || files.length === 0) return;
+
+            loadSeizurePhotoFiles(files, block, () => {
+                if (event.target) event.target.value = '';
+            });
+        }
+
+        function handleSeizurePhotoDrop(event, dropzoneEl) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (dropzoneEl) {
+                dropzoneEl.classList.remove('border-emerald-600', 'border-emerald-500', 'bg-emerald-50/50');
+            }
+            const block = dropzoneEl ? dropzoneEl.closest('.seizure-block') : document.querySelector('.seizure-block');
+            const dt = event.dataTransfer;
+            const files = Array.from(dt?.files || []).filter(file => file.type.startsWith('image/'));
+            if (files.length === 0) return;
+
+            loadSeizurePhotoFiles(files, block);
+        }
+
+        function loadSeizurePhotoFiles(files, block, callback) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            const photos = getBlockSeizurePhotos(targetBlock);
+            let loadedCount = 0;
+
             files.forEach(file => {
                 const reader = new FileReader();
-                reader.onload = function(ev) {
-                    seizedExhibitDataUrls.push(ev.target.result);
-                    if (grid) {
-                        grid.classList.remove('hidden');
-                        const card = document.createElement('div');
-                        card.className = 'relative rounded-xl overflow-hidden border border-slate-200 bg-white h-24';
-                        card.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover" alt="Exhibit Photo">`;
-                        grid.appendChild(card);
-                    }
-                    if (countBadge) {
-                        countBadge.classList.remove('hidden');
-                        countBadge.innerText = `${seizedExhibitDataUrls.length} Photo${seizedExhibitDataUrls.length > 1 ? 's' : ''} Uploaded`;
+                reader.onload = function(e) {
+                    photos.push(e.target.result);
+                    loadedCount++;
+                    if (loadedCount === files.length) {
+                        renderSeizureBlockPhotosGrid(targetBlock);
+                        syncGlobalSeizurePhotos();
+                        if (typeof saveDocketFormDraft === 'function') {
+                            saveDocketFormDraft();
+                        }
+                        if (callback) callback();
                     }
                 };
                 reader.readAsDataURL(file);
             });
+        }
+
+        function renderSeizurePhotosGrid(block) {
+            renderSeizureBlockPhotosGrid(block);
+        }
+
+        function renderSeizureBlockPhotosGrid(block) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            if (!targetBlock) return;
+
+            const grid = targetBlock.querySelector('.seizurePhotosGrid') || targetBlock.querySelector('#seizurePhotosGrid');
+            const countBadge = targetBlock.querySelector('.seizure-photos-count') || targetBlock.querySelector('#seizurePhotosCount');
+            if (!grid) return;
+
+            const photos = getBlockSeizurePhotos(targetBlock);
+            grid.innerHTML = '';
+
+            if (photos.length === 0) {
+                grid.classList.add('hidden');
+                if (countBadge) countBadge.classList.add('hidden');
+                return;
+            }
+
+            grid.classList.remove('hidden');
+            if (countBadge) {
+                countBadge.classList.remove('hidden');
+                countBadge.innerText = `${photos.length} Photo${photos.length > 1 ? 's' : ''} Uploaded`;
+            }
+
+            photos.forEach((dataUrl, index) => {
+                const card = document.createElement('div');
+                card.className = 'relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-2xs h-24 flex items-center justify-center seizure-photo-item';
+                card.innerHTML = `
+                    <img src="${dataUrl}" class="w-full h-full object-cover" alt="Exhibit Photo ${index + 1}">
+                    <div class="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-1">
+                        <button type="button" class="remove-photo-btn p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-xs" title="Delete Photo">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                    <span class="absolute bottom-1 left-1 px-1.5 py-0.5 bg-slate-900/80 text-white text-[9px] font-mono-code font-bold rounded">#${index + 1}</span>
+                `;
+                card.querySelector('.remove-photo-btn').addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    removeSingleBlockSeizurePhoto(targetBlock, index);
+                });
+                grid.appendChild(card);
+            });
+        }
+
+        function removeSingleBlockSeizurePhoto(block, index) {
+            const targetBlock = block || document.querySelector('.seizure-block');
+            const photos = getBlockSeizurePhotos(targetBlock);
+            photos.splice(index, 1);
+            renderSeizureBlockPhotosGrid(targetBlock);
+            syncGlobalSeizurePhotos();
+            if (typeof saveDocketFormDraft === 'function') {
+                saveDocketFormDraft();
+            }
+        }
+
+        function removeSingleSeizurePhoto(index, e) {
+            if (e) e.stopPropagation();
+            const block = (e && e.target) ? e.target.closest('.seizure-block') : document.querySelector('.seizure-block');
+            removeSingleBlockSeizurePhoto(block, index);
         }
 
         function collectLabAssociateSeizuresJson() {
@@ -8251,6 +8336,7 @@
                         source_requesting_unit: reqUnit,
                         exhibit_remark: remark,
                         associated_person: assocPerson,
+                        evidence_photos: getBlockSeizurePhotos(block),
                     });
                 }
             });

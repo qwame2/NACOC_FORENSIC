@@ -45,9 +45,13 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
 
     if (!$loginId) {
         if ($since > 0) {
-            $recentApproval = \Illuminate\Support\Facades\Cache::get('nacoc_latest_staff_approval');
-            if (is_array($recentApproval) && (int) ($recentApproval['approved_at'] ?? 0) >= $since) {
-                return response()->json($recentApproval);
+            try {
+                $recentApproval = \Illuminate\Support\Facades\Cache::get('nacoc_latest_staff_approval');
+                if (is_array($recentApproval) && (int) ($recentApproval['approved_at'] ?? 0) >= $since) {
+                    return response()->json($recentApproval);
+                }
+            } catch (\Throwable $e) {
+                // Ignore cache errors on background approval checks
             }
         }
         return response()->json(['exists' => false]);
@@ -56,13 +60,13 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
     $lowerLoginId = strtolower($loginId);
     $user = User::whereRaw('LOWER(service_id) = ?', [$lowerLoginId])
         ->orWhereRaw('LOWER(username) = ?', [$lowerLoginId])
-        ->orWhereRaw('LOWER(COALESCE(email, "")) = ?', [$lowerLoginId])
+        ->orWhereRaw("LOWER(COALESCE(email, '')) = ?", [$lowerLoginId])
         ->first();
 
-    if (!$user) {
+    if (!$user && \Illuminate\Support\Facades\Schema::hasTable('staff_accounts')) {
         $user = \App\Models\StaffAccount::whereRaw('LOWER(service_id) = ?', [$lowerLoginId])
             ->orWhereRaw('LOWER(username) = ?', [$lowerLoginId])
-            ->orWhereRaw('LOWER(COALESCE(email, "")) = ?', [$lowerLoginId])
+            ->orWhereRaw("LOWER(COALESCE(email, '')) = ?", [$lowerLoginId])
             ->first();
     }
 
@@ -80,7 +84,12 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
         'service_id' => $user->service_id,
         'username' => $user->username,
     ]);
-});
+})->withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    \App\Http\Middleware\EnforceStaffAccountStatus::class,
+]);
 Route::post('/api/login', [AuthController::class, 'login']);
 Route::post('/api/logout', [AuthController::class, 'logout']);
 Route::get('/api/dashboard/realtime', [CaseReportController::class, 'dashboardRealtime']);
@@ -150,6 +159,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Forensic_Head/notifications', [NotificationsController::class, 'index'])->name('forensic_head.notifications');
     Route::post('/notifications/mark-read', [NotificationsController::class, 'markRead'])->name('notifications.mark_read');
     Route::post('/notifications/handovers/{id}/acknowledge', [NotificationsController::class, 'acknowledgeHandover'])->name('notifications.handovers.acknowledge');
+    Route::get('/api/sidebar/badge-counts', [NotificationsController::class, 'badgeCounts'])->name('api.sidebar.badge_counts');
 
     // MASTER CASE DIRECTORY & HISTORY ROUTES
     Route::get('/history', function (\Illuminate\Http\Request $request) {
@@ -470,8 +480,30 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Evidence_Management/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('evidence.reviews_approvals');
     Route::get('/Digital_Forensics/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('digital.reviews_approvals');
     Route::get('/Forensic_Head/reviews-approvals', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'index'])->name('forensic_head.reviews_approvals');
+    Route::get('/Crime_Scene_Support/reviews-approvals/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'show'])->name('crime_scene.reviews_approvals.show');
+    Route::get('/Lab_Analysis/reviews-approvals/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'show'])->name('lab.reviews_approvals.show');
+    Route::get('/Evidence_Management/reviews-approvals/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'show'])->name('evidence.reviews_approvals.show');
+    Route::get('/Digital_Forensics/reviews-approvals/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'show'])->name('digital.reviews_approvals.show');
+    Route::get('/Forensic_Head/reviews-approvals/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'show'])->name('forensic_head.reviews_approvals.show');
+    Route::get('/reviews-approvals/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'show'])->name('reviews_approvals.show');
     Route::post('/reviews-approvals/{id}/approve', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'approve'])->name('reviews_approvals.approve');
     Route::post('/reviews-approvals/{id}/decline', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'decline'])->name('reviews_approvals.decline');
+    Route::post('/reviews-approvals/{id}/rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'rollback'])->name('reviews_approvals.rollback');
+
+    // STAFF CASE ROLLBACK & CORRECTIONS ROUTES
+    Route::get('/Crime_Scene_Support/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('crime_scene.staff.rollback');
+    Route::get('/Crime_Scene_Support/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('crime_scene.staff.rollback.show');
+    Route::get('/Lab_Analysis/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('lab.staff.rollback');
+    Route::get('/Lab_Analysis/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('lab.staff.rollback.show');
+    Route::get('/Evidence_Management/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('evidence.staff.rollback');
+    Route::get('/Evidence_Management/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('evidence.staff.rollback.show');
+    Route::get('/Digital_Forensics/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('digital.staff.rollback');
+    Route::get('/Digital_Forensics/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('digital.staff.rollback.show');
+    Route::get('/Forensic_Head/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('forensic_head.staff.rollback');
+    Route::get('/Forensic_Head/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('forensic_head.staff.rollback.show');
+    Route::get('/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('staff.rollback');
+    Route::get('/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('staff.rollback.show');
+    Route::post('/staff/case-rollback/{id}/resubmit', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackResubmit'])->name('staff.rollback.resubmit');
 
     Route::get('/Crime_Scene_Support/staff', function () {
         return view('Crime_Scene_Support.staff.staff');
@@ -631,6 +663,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'show'])->name('lab.drug_screening.show');
     Route::put('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'update'])->name('lab.drug_screening.update');
     Route::delete('/Lab_Analysis/drug-screening/{id}', [DrugScreeningController::class, 'destroy'])->name('lab.drug_screening.destroy');
+
+    // LAB STAFF DRUG SCREENING ROUTES
+    Route::get('/Lab_Analysis/staff/drug-screening', [DrugScreeningController::class, 'index'])->name('lab.staff.drug_screening.index');
+    Route::get('/Lab_Analysis/staff/drug-screening/create', [DrugScreeningController::class, 'create'])->name('lab.staff.drug_screening.create');
+    Route::post('/Lab_Analysis/staff/drug-screening', [DrugScreeningController::class, 'store'])->name('lab.staff.drug_screening.store');
+    Route::get('/Lab_Analysis/staff/drug-screening/generate-report', [DrugScreeningController::class, 'generateReportPdf'])->name('lab.staff.drug_screening.generate_report');
+    Route::get('/Lab_Analysis/staff/drug-screening/report/pdf', [DrugScreeningController::class, 'generateReportPdf'])->name('lab.staff.drug_screening.report_pdf');
+    Route::get('/Lab_Analysis/staff/drug-screening/{id}/pdf', [DrugScreeningController::class, 'showPdf'])->name('lab.staff.drug_screening.pdf');
+    Route::get('/Lab_Analysis/staff/drug-screening/civilian-report/{id}', [DrugScreeningController::class, 'showPdf'])->name('lab.staff.drug_screening.civilian_pdf');
+    Route::get('/Lab_Analysis/staff/drug-screening/suspect/{id}', [DrugScreeningController::class, 'getBySuspect'])->name('lab.staff.drug_screening.suspect');
+    Route::get('/Lab_Analysis/staff/drug-screening/{id}', [DrugScreeningController::class, 'show'])->name('lab.staff.drug_screening.show');
+    Route::put('/Lab_Analysis/staff/drug-screening/{id}', [DrugScreeningController::class, 'update'])->name('lab.staff.drug_screening.update');
+    Route::delete('/Lab_Analysis/staff/drug-screening/{id}', [DrugScreeningController::class, 'destroy'])->name('lab.staff.drug_screening.destroy');
 
     // DEDICATED COURT EVIDENCE & SITREP REPOSITORY (ALL UNITS PDF REGISTRY)
     Route::get('/court-evidence', [CourtEvidenceController::class, 'index'])->name('court_evidence.index');

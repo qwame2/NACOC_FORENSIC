@@ -62,6 +62,7 @@ class CaseValidationTest extends TestCase
     {
         $user = User::factory()->create([
             'unit' => 'Crime Scene Support',
+            'is_head' => true,
             'is_approved' => true,
         ]);
 

@@ -217,9 +217,34 @@
         <div>
             <div class="px-3 text-[10px] font-bold font-mono-code uppercase text-slate-500 tracking-wider mb-2">Unit Management</div>
             <nav class="space-y-1 text-xs font-semibold">
+                <a href="http://127.0.0.1/Crime_Scene_Support/reviews-approvals" class="flex items-center px-3 py-2 rounded-xl transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-200/70">
+                    <svg class="w-4.5 h-4.5 mr-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                    <span class="text-xs flex-1">Reviews &amp; Approvals</span>
+                                            <span id="sidebarReviewsApprovalsBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse" style="display: none !important;">
+                            0
+                        </span>
+                                    </a>
+                <a href="http://127.0.0.1/Crime_Scene_Support/notifications" class="flex items-center px-3 py-2 rounded-xl transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-200/70">
+                    <svg class="w-4.5 h-4.5 mr-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    <span class="text-xs flex-1">Notifications</span>
+                                            <span id="sidebarNotificationsBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs" style="display: none !important;">
+                            0
+                        </span>
+                                    </a>
                 <a href="http://127.0.0.1/Crime_Scene_Support/field-officers" class="flex items-center px-3 py-2 rounded-xl transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-200/70">
                     <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
                     <span class="text-xs flex-1">Field Officers</span>
+                                            <span id="sidebarFieldOfficersBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse" style="display: none !important;">
+                            0
+                        </span>
+                                    </a>
+                <a href="http://127.0.0.1/Crime_Scene_Support/permissions" class="flex items-center px-3 py-2 rounded-xl transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-200/70">
+                    <svg class="w-4.5 h-4.5 mr-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <span class="text-xs flex-1">Permissions</span>
+                </a>
+                <a href="http://127.0.0.1/Crime_Scene_Support/staff-audit-logs" class="flex items-center px-3 py-2 rounded-xl transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-200/70">
+                    <svg class="w-4.5 h-4.5 mr-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <span class="text-xs flex-1">Staff Audit Logs</span>
                 </a>
                 <a href="http://127.0.0.1/profile/settings" class="flex items-center px-3 py-2 rounded-xl transition-colors text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold">
                     <svg class="w-4.5 h-4.5 mr-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -249,6 +274,143 @@
             </button>
         </form>
     </div>
+
+    <script>
+(function() {
+    if (window.__nacocSidebarBadgePollerInitialized) return;
+    window.__nacocSidebarBadgePollerInitialized = true;
+
+    const currentUnit = "Crime Scene Support";
+
+    function updateBadgeElement(elId, count) {
+        const badges = document.querySelectorAll('#' + elId);
+        if (!badges || badges.length === 0) return;
+        const num = parseInt(count, 10) || 0;
+        badges.forEach(function(badge) {
+            badge.textContent = String(num);
+            if (num > 0) {
+                badge.classList.remove('hidden');
+                badge.style.removeProperty('display');
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.classList.add('hidden');
+                badge.style.display = 'none';
+            }
+        });
+    }
+
+    let isFetching = false;
+    async function refreshSidebarBadges() {
+        if (isFetching) return;
+        isFetching = true;
+        try {
+            const url = '/api/sidebar/badge-counts' + (currentUnit ? ('?unit=' + encodeURIComponent(currentUnit)) : '');
+            const resp = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && data.success) {
+                    if (data.notifications !== undefined) {
+                        updateBadgeElement('sidebarNotificationsBadge', data.notifications);
+                    }
+                    if (data.reviews_approvals !== undefined) {
+                        updateBadgeElement('sidebarReviewsApprovalsBadge', data.reviews_approvals);
+                    }
+                    if (data.field_officers !== undefined) {
+                        updateBadgeElement('sidebarFieldOfficersBadge', data.field_officers);
+                    }
+                }
+            }
+        } catch (e) {
+            // Silently ignore network failures
+        } finally {
+            isFetching = false;
+        }
+    }
+
+    // Expose globally for manual or trigger-based updates
+    window.nacocRefreshSidebarBadges = refreshSidebarBadges;
+
+    function broadcastBadgeSync() {
+        try {
+            localStorage.setItem('nacoc_badge_sync', Date.now().toString());
+        } catch (e) {}
+    }
+
+    // 1. Regular 3-second live sync interval (matches asidebar "3s Sync" UI indicator)
+    setInterval(refreshSidebarBadges, 3000);
+
+    // 2. Immediate check when window regains focus or visibility
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            refreshSidebarBadges();
+        }
+    });
+    window.addEventListener('focus', refreshSidebarBadges);
+
+    // 3. Cross-tab sync: update the moment an action or request is submitted in any tab
+    window.addEventListener('storage', function(e) {
+        if (e.key === 'nacoc_badge_sync') {
+            refreshSidebarBadges();
+        }
+    });
+
+    // 4. Custom event for local in-page dispatches
+    window.addEventListener('nacoc:badge-update', function() {
+        broadcastBadgeSync();
+        refreshSidebarBadges();
+    });
+
+    // 5. Intercept all mutating fetch requests (POST/PUT/DELETE) so badges refresh immediately when a request is sent
+    if (typeof window.fetch === 'function') {
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            const response = await originalFetch.apply(this, args);
+            try {
+                const method = (args[1] && args[1].method) ? String(args[1].method).toUpperCase() : 'GET';
+                const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+                if (method !== 'GET' && !url.includes('/api/sidebar/badge-counts')) {
+                    broadcastBadgeSync();
+                    setTimeout(refreshSidebarBadges, 300);
+                }
+            } catch (e) {}
+            return response;
+        };
+    }
+
+    // 6. Intercept XMLHttpRequest for Axios / jQuery AJAX calls
+    if (typeof window.XMLHttpRequest === 'function') {
+        const originalOpen = XMLHttpRequest.prototype.open;
+        const originalSend = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            this._nacocMethod = method ? String(method).toUpperCase() : 'GET';
+            this._nacocUrl = String(url || '');
+            return originalOpen.call(this, method, url, ...rest);
+        };
+        XMLHttpRequest.prototype.send = function(...args) {
+            if (this._nacocMethod && this._nacocMethod !== 'GET' && !this._nacocUrl.includes('/api/sidebar/badge-counts')) {
+                this.addEventListener('load', function() {
+                    broadcastBadgeSync();
+                    setTimeout(refreshSidebarBadges, 300);
+                });
+            }
+            return originalSend.apply(this, args);
+        };
+    }
+
+    // 7. Form submission listener: broadcast sync immediately when any form is submitted
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form && form.method && form.method.toUpperCase() === 'POST') {
+            broadcastBadgeSync();
+        }
+    }, true);
+})();
+</script>
 </aside>
 
 <script>
@@ -448,7 +610,30 @@
             <!-- SCROLLABLE CONTENT -->
             <main class="flex-1 overflow-y-auto p-6 space-y-6">
 
-                <script>
+                <style>
+    @keyframes flashSlideInRight {
+        0% {
+            transform: translateX(110%);
+            opacity: 0;
+        }
+        100% {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes flashSlideOutRight {
+        0% {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(110%);
+            opacity: 0;
+        }
+    }
+</style>
+
+<script>
     // Global client-side trigger for top-right flash notifications
     if (typeof window.showFlashToast !== 'function') {
         window.showFlashToast = function(message, type = 'success', title = null) {
@@ -529,7 +714,7 @@
 
                 <!-- HERO DOSSIER HEADER BANNER -->
                 <div
-                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-slate-900 text-white shadow-xl border border-slate-800">
+                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-gray-500 bg-grey-500 text-white shadow-xl border border-gray-400">
                     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div class="space-y-3 flex-1">
                             <div class="flex items-center gap-3 flex-wrap">
@@ -548,7 +733,7 @@
                                 <h1
                                     class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
                                     Republic vs Kwame Mensah &amp; Abena Owusu
-                                    <span class="text-base text-slate-400 font-normal">|
+                                    <span class="text-base text-white font-normal">|
                                         NACOC/2026/0500</span>
                                 </h1>
                                 <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
@@ -561,15 +746,22 @@
                         <!-- QUICK ACTIONS IN HERO -->
                         <div class="flex items-center gap-3 shrink-0">
 
-                            <a href="/cases/NACOC/2026/0500/edit?from=Crime_Scene_Support"
-                                class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
-                                <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                <span>Edit Case/Update Case Records</span>
-                            </a>
+                            <a  href="/cases/NACOC/2026/0500/edit?from=Crime_Scene_Support"     data-staff-edit-btn="review"
+    data-edit-url="/cases/NACOC/2026/0500/edit?from=Crime_Scene_Support"
+    data-enabled-class="bg-amber-600 hover:bg-amber-500 text-white shadow-md cursor-pointer"
+    data-disabled-class="bg-slate-200 text-slate-400 border border-slate-300 select-none"
+    aria-disabled="false"
+        class="px-4 py-2.5 text-xs font-extrabold rounded-xl transition-all flex items-center gap-2 no-underline bg-amber-600 hover:bg-amber-500 text-white shadow-md cursor-pointer">
+    <svg class="w-4 h-4 shrink-0 text-amber-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+    <span>Edit Case/Update Case Records</span>
+    <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+</a>
                             <a href="/cases/NACOC/2026/0500/pdf" target="_blank"
                                 class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline">
                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor"
@@ -893,7 +1085,7 @@
                             <div class="font-bold text-slate-800 text-sm mt-1">
                                 N/A</div>
                         </div>
-                                                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                                                                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Laboratory Number</div>
                                 <div class="font-extrabold text-emerald-700 font-mono-code text-sm mt-1">Lab No. 042/2026</div>
                             </div>
@@ -907,7 +1099,7 @@
                         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wider">
+                                    class="text-xs font-mono-code font-extrabold text-blue-700 uppercase tracking-wider">
                                     SUSPECT #1 MUGSHOTS
                                 </span>
                                 <div>
@@ -997,11 +1189,11 @@
                         <div class="flex items-center justify-between pb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+                                    class="text-xs font-mono-code font-extrabold text-emerald-700 uppercase tracking-wider">
                                     SUSPECT #1 DOSSIER
                                 </span>
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold uppercase tracking-wider border bg-amber-100 text-amber-800 border-amber-300">
+                                    class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-amber-700">
                                     ACTIVE — UNDER INVESTIGATION
                                 </span>
                                                                                                                                         <span class="text-xs font-mono-code font-black uppercase tracking-wider text-red-600" title="Substances: THC, Cocaine">
@@ -1018,17 +1210,17 @@
                                                     </div>
 
                         <!-- CASE CREATION & STATUS AUDIT TRACKING -->
-                        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
-                            <div class="flex items-center gap-2">
+                        <div data-no-rollback="true" class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
+                            <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Case Created By:</span>
                                 <span class="font-bold text-slate-900 font-mono-code">Officer Creator <span class="text-emerald-700 font-bold">(Crime Scene Support)</span></span>
                                                                     <span class="text-slate-400 text-[10px] font-mono-code">• 15 Mar 2026, 10:30</span>
                                                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 p-1.5 rounded-lg border border-transparent transition-all rollback-allowed-item" data-rollback-allowed="true" data-rollback-target="Arresting Officer">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Arresting Officer:</span>
                                 <span class="font-bold text-slate-900 font-mono-code bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">N/A</span>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Status Updated By:</span>
                                                                     <span class="italic text-slate-400 font-mono-code">Initial (Officer Creator)</span>
                                                             </div>
@@ -1130,7 +1322,7 @@
                                 </div>
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest Date &amp; Time</div>
-                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                                                        <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         N/A
                                         
                                     </div>
@@ -1177,7 +1369,7 @@
                                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Raid
                                         Scene / Offence Location</div>
-                                    <div class="font-extrabold text-slate-900 text-sm">Airport Cargo Village</div>
+                                    <div class="font-extrabold text-slate-900 text-sm">N/A</div>
                                 </div>
                                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest
@@ -1197,7 +1389,7 @@
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Brief Facts/
                                     Charge Description</div>
                                 <p class="text-slate-800 leading-relaxed font-semibold">
-                                    On Sunday, 15 March 2026, officers of the Narcotics Control Commission (NACOC) conducted an intelligence-led operation at Airport Cargo Village to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to NACOC Headquarters for further investigation.
+                                    On Sunday, 15 March 2026, officers of the Narcotics Control Commission (NACOC) conducted a forensic operation at N/A to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to N/A for further investigation.
                                 </p>
                             </div>
                         </div>
@@ -1306,13 +1498,13 @@
                             <tbody class="bg-white">
                                                                     <tr class="border-b border-slate-200 last:border-b-0">
                                         <td
-                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-slate-900">
-                                            N/A</td>
+                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-emerald-800">
+                                            YES</td>
                                         <td
                                             class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue)</td>
+                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue</td>
                                         <td class="px-2 py-1 font-bold text-slate-900">
-                                            N/A</td>
+                                            —</td>
                                     </tr>
                                                             </tbody>
                         </table>
@@ -1386,7 +1578,7 @@
                                                                                                         <span
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
                                         <span>Cocaine</span>
-                                                                                                                    </span>
+                                                                                                                                                            </span>
                                                             </div>
                         </td>
                     </tr>
@@ -1472,7 +1664,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Exhibit Description:</td>
                     <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                        N/A
+                        Off-white compressed powder
                     </td>
                 </tr>
                                 <tr class="border-b border-slate-300">
@@ -1518,13 +1710,13 @@
                             <tbody class="bg-white">
                                                                     <tr class="border-b border-slate-200 last:border-b-0">
                                         <td
-                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-slate-900">
-                                            N/A</td>
+                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-emerald-800">
+                                            YES</td>
                                         <td
                                             class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue)</td>
+                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue</td>
                                         <td class="px-2 py-1 font-bold text-slate-900">
-                                            N/A</td>
+                                            —</td>
                                     </tr>
                                                             </tbody>
                         </table>
@@ -1547,20 +1739,20 @@
                                 <span
                                     class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Description:</span>
                                 <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
+                                    class="font-bold text-slate-900 ml-1">Off-white compressed powder</span>
                             </div>
                             <div class="p-2 bg-slate-50 border border-slate-200 rounded">
                                 <span
                                     class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Units:</span>
                                 <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
+                                    class="font-bold text-slate-900 ml-1">g</span>
                             </div>
                             <div class="p-2 bg-slate-50 border border-slate-200 rounded">
                                 <span
                                     class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Gross
                                     Wt:</span>
                                 <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
+                                    class="font-bold text-slate-900 ml-1">500.00</span>
                             </div>
                             <div class="p-2 bg-slate-50 border border-slate-200 rounded">
                                 <span
@@ -1589,7 +1781,20 @@
                     <td class="p-2.5 font-bold text-slate-900">
                         USP Reference Standard matched</td>
                 </tr>
-                                                                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                                                    <tr class="bg-amber-50/70 border-b border-slate-300">
+                        <td
+                            class="p-2.5 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
+                            Result (Detected Substances & Purity %):</td>
+                        <td class="p-2.5" colspan="3">
+                            <div class="flex flex-wrap gap-2">
+                                                                                                        <span
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
+                                        <span>Cocaine</span>
+                                                                                                                                                            </span>
+                                                            </div>
+                        </td>
+                    </tr>
+                                                                <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Test Methods:</td>
@@ -1616,47 +1821,13 @@
         </table>
     </div>
                                                                                                                                                 
-                                                <div class="gsa-attached-files mt-4 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span class="flex items-center gap-2 text-xs font-black text-blue-900 font-mono-code uppercase tracking-tight">
-                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                Attached Report Files (1)
-                                    <span class="text-blue-600 normal-case font-bold">&mdash; Kwame Mensah</span>
-                            </span>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                            <div class="bg-white border border-blue-200/90 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-blue-400 hover:shadow-sm transition-all">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                                                                                <div class="w-9 h-9 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-mono-code text-[9px] font-bold shrink-0 text-center" title="Preliminary Report">
-                                PRELIM
-                            </div>
-                                                <div class="min-w-0">
-                            <div class="text-xs font-bold text-slate-900 truncate" title="Preliminary_Report_NACOC_FSD_LAB_2026_0042.pdf">
-                                Preliminary_Report_NACOC_FSD_LAB_2026_0042.pdf</div>
-                            <div class="text-[10px] text-slate-500 font-mono-code">
-                                System Generated &bull;
-                                Mar 15, 2026 10:30
-                            </div>
-                                                    </div>
-                    </div>
-                                        <a href="http://127.0.0.1/Lab_Analysis/preliminary-report-pdf/NACOC/2026/0500" target="_blank"
-                        class="no-print px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold font-mono-code rounded-lg transition-colors shrink-0">
-                        Open
-                    </a>
-                </div>
-                    </div>
-    </div>
 
                         
                                                 <div class="suspect-drug-screening-report mt-4 space-y-2 font-sans">
         
         <div class="flex items-center justify-between gap-2.5 pb-1 border-b border-slate-300">
             <div class="flex items-center space-x-2 flex-wrap">
-                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                <h4 class="text-xs font-black text-slate-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>                <h4 class="text-xs font-black text-slate-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
                     <span>Drug Screening Report</span>
                     <span class="text-slate-400 font-normal">&mdash;</span>
                     <span class="text-slate-700">Kwame Mensah</span>
@@ -1734,7 +1905,7 @@
                         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-300 uppercase tracking-wider">
+                                    class="text-xs font-mono-code font-extrabold text-blue-700 uppercase tracking-wider">
                                     SUSPECT #2 MUGSHOTS
                                 </span>
                                 <div>
@@ -1828,11 +1999,11 @@
                         <div class="flex items-center justify-between pb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+                                    class="text-xs font-mono-code font-extrabold text-emerald-700 uppercase tracking-wider">
                                     SUSPECT #2 DOSSIER
                                 </span>
                                 <span
-                                    class="px-2.5 py-1 rounded-md text-[10px] font-mono-code font-bold uppercase tracking-wider border bg-amber-100 text-amber-800 border-amber-300">
+                                    class="text-[11px] font-mono-code font-extrabold uppercase tracking-wider text-amber-700">
                                     ACTIVE — UNDER INVESTIGATION
                                 </span>
                                                                                                 <div>
@@ -1848,17 +2019,17 @@
                                                     </div>
 
                         <!-- CASE CREATION & STATUS AUDIT TRACKING -->
-                        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
-                            <div class="flex items-center gap-2">
+                        <div data-no-rollback="true" class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans">
+                            <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Case Created By:</span>
                                 <span class="font-bold text-slate-900 font-mono-code">Officer Creator <span class="text-emerald-700 font-bold">(Crime Scene Support)</span></span>
                                                                     <span class="text-slate-400 text-[10px] font-mono-code">• 15 Mar 2026, 10:30</span>
                                                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 p-1.5 rounded-lg border border-transparent transition-all rollback-allowed-item" data-rollback-allowed="true" data-rollback-target="Arresting Officer">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Arresting Officer:</span>
                                 <span class="font-bold text-slate-900 font-mono-code bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">N/A</span>
                             </div>
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Status Updated By:</span>
                                                                     <span class="italic text-slate-400 font-mono-code">Initial (Officer Creator)</span>
                                                             </div>
@@ -1960,7 +2131,7 @@
                                 </div>
                                 <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest Date &amp; Time</div>
-                                    <div class="font-bold text-slate-800 text-sm mt-0.5">
+                                                                        <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         N/A
                                         
                                     </div>
@@ -2007,7 +2178,7 @@
                                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Raid
                                         Scene / Offence Location</div>
-                                    <div class="font-extrabold text-slate-900 text-sm">Airport Cargo Village</div>
+                                    <div class="font-extrabold text-slate-900 text-sm">N/A</div>
                                 </div>
                                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest
@@ -2027,7 +2198,7 @@
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Brief Facts/
                                     Charge Description</div>
                                 <p class="text-slate-800 leading-relaxed font-semibold">
-                                    On Sunday, 15 March 2026, officers of the Narcotics Control Commission (NACOC) conducted an intelligence-led operation at Airport Cargo Village to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to NACOC Headquarters for further investigation.
+                                    On Sunday, 15 March 2026, officers of the Narcotics Control Commission (NACOC) conducted a forensic operation at N/A to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to N/A for further investigation.
                                 </p>
                             </div>
                         </div>
@@ -2274,13 +2445,13 @@
                             <tbody class="bg-white">
                                                                     <tr class="border-b border-slate-200 last:border-b-0">
                                         <td
-                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-slate-900">
-                                            N/A</td>
+                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-emerald-800">
+                                            YES</td>
                                         <td
                                             class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue)</td>
+                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue</td>
                                         <td class="px-2 py-1 font-bold text-slate-900">
-                                            N/A</td>
+                                            —</td>
                                     </tr>
                                                             </tbody>
                         </table>
@@ -2354,7 +2525,7 @@
                                                                                                         <span
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
                                         <span>Cocaine</span>
-                                                                                                                    </span>
+                                                                                                                                                            </span>
                                                             </div>
                         </td>
                     </tr>
@@ -2415,7 +2586,7 @@
                         Analysis Reference:</td>
                     <td
                         class="p-2.5 font-black text-emerald-900 font-mono-code border-r border-slate-300 w-3/10">
-                        NACOC/FSD/LAB/2026/0043</td>
+                        NACOC/FSD/LAB/2026/0042</td>
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
                         Exhibit Number:</td>
@@ -2433,14 +2604,14 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Laboratory Number:</td>
                     <td class="p-2.5 font-black text-slate-900 font-mono-code">
-                        Lab No. 043/2026</td>
+                        Lab No. 042/2026</td>
                 </tr>
                 <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Exhibit Description:</td>
                     <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                        N/A
+                        Off-white compressed powder
                     </td>
                 </tr>
                                 <tr class="border-b border-slate-300">
@@ -2486,13 +2657,13 @@
                             <tbody class="bg-white">
                                                                     <tr class="border-b border-slate-200 last:border-b-0">
                                         <td
-                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-slate-900">
-                                            N/A</td>
+                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-emerald-800">
+                                            YES</td>
                                         <td
                                             class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue)</td>
+                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue</td>
                                         <td class="px-2 py-1 font-bold text-slate-900">
-                                            N/A</td>
+                                            —</td>
                                     </tr>
                                                             </tbody>
                         </table>
@@ -2515,20 +2686,20 @@
                                 <span
                                     class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Description:</span>
                                 <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
+                                    class="font-bold text-slate-900 ml-1">Off-white compressed powder</span>
                             </div>
                             <div class="p-2 bg-slate-50 border border-slate-200 rounded">
                                 <span
                                     class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Units:</span>
                                 <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
+                                    class="font-bold text-slate-900 ml-1">g</span>
                             </div>
                             <div class="p-2 bg-slate-50 border border-slate-200 rounded">
                                 <span
                                     class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Gross
                                     Wt:</span>
                                 <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
+                                    class="font-bold text-slate-900 ml-1">500.00</span>
                             </div>
                             <div class="p-2 bg-slate-50 border border-slate-200 rounded">
                                 <span
@@ -2555,21 +2726,34 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Test Specifications:</td>
                     <td class="p-2.5 font-bold text-slate-900">
-                        UNODC Manual matched</td>
+                        USP Reference Standard matched</td>
                 </tr>
-                                                                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                                                    <tr class="bg-amber-50/70 border-b border-slate-300">
+                        <td
+                            class="p-2.5 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
+                            Result (Detected Substances & Purity %):</td>
+                        <td class="p-2.5" colspan="3">
+                            <div class="flex flex-wrap gap-2">
+                                                                                                        <span
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
+                                        <span>Cocaine</span>
+                                                                                                                                                            </span>
+                                                            </div>
+                        </td>
+                    </tr>
+                                                                <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Test Methods:</td>
                     <td class="p-2.5 font-bold text-slate-900 border-r border-slate-300"
-                        colspan="3">Fast Blue B, Microscopy, GC-MS</td>
+                        colspan="3">Scott Test, GC-MS</td>
                 </tr>
                 <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Analysis Remark:</td>
                     <td class="p-2.5 font-bold text-slate-900" colspan="3">
-                        Associate sample confirmed.</td>
+                        High purity sample.</td>
                 </tr>
                                 <tr class="bg-slate-900 text-white">
                     <td
@@ -2577,46 +2761,13 @@
                         Analytical Findings:</td>
                     <td class="p-2.5 font-medium text-slate-100 leading-relaxed bg-slate-900"
                         colspan="3">
-                        Cannabis Sativa confirmed.
+                        The submitted exhibit tested positive for Cocaine Hydrochloride.
                     </td>
                 </tr>
             </tbody>
         </table>
     </div>
                                                                                                                                                 
-                                                <div class="gsa-attached-files mt-4 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
-        <div class="flex items-center justify-between gap-2 flex-wrap">
-            <span class="flex items-center gap-2 text-xs font-black text-blue-900 font-mono-code uppercase tracking-tight">
-                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                Attached Report Files (1)
-                                    <span class="text-blue-600 normal-case font-bold">&mdash; Abena Owusu</span>
-                            </span>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                            <div class="bg-white border border-blue-200/90 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-blue-400 hover:shadow-sm transition-all">
-                    <div class="flex items-center gap-2.5 min-w-0">
-                                                                                <div class="w-9 h-9 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-mono-code text-[9px] font-bold shrink-0 text-center" title="Preliminary Report">
-                                PRELIM
-                            </div>
-                                                <div class="min-w-0">
-                            <div class="text-xs font-bold text-slate-900 truncate" title="Preliminary_Report_NACOC_FSD_LAB_2026_0042.pdf">
-                                Preliminary_Report_NACOC_FSD_LAB_2026_0042.pdf</div>
-                            <div class="text-[10px] text-slate-500 font-mono-code">
-                                System Generated &bull;
-                                Mar 15, 2026 10:30
-                            </div>
-                                                    </div>
-                    </div>
-                                        <a href="http://127.0.0.1/Lab_Analysis/preliminary-report-pdf/NACOC/2026/0500" target="_blank"
-                        class="no-print px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold font-mono-code rounded-lg transition-colors shrink-0">
-                        Open
-                    </a>
-                </div>
-                    </div>
-    </div>
 
                         
                                                                     </div>
@@ -2815,7 +2966,9 @@
             </div>
 
                     
-                                                                <div class="gsa-attached-files mt-4 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
+                                    
+                
+                                                    <div class="gsa-attached-files mt-4 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
         <div class="flex items-center justify-between gap-2 flex-wrap">
             <span class="flex items-center gap-2 text-xs font-black text-blue-900 font-mono-code uppercase tracking-tight">
                 <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2823,23 +2976,21 @@
                         d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
                 Attached Report Files (1)
-                                    <span class="text-blue-600 normal-case font-bold">&mdash; Kwame Mensah</span>
                             </span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                            <div class="bg-white border border-blue-200/90 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-blue-400 hover:shadow-sm transition-all">
+                                            <div class="bg-white border border-blue-200/90 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-blue-400 hover:shadow-sm transition-all">
                     <div class="flex items-center gap-2.5 min-w-0">
-                                                                                <div class="w-9 h-9 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-mono-code text-[9px] font-bold shrink-0 text-center" title="Preliminary Report">
+                                                    <div class="w-9 h-9 bg-emerald-600 text-white rounded-lg flex items-center justify-center font-mono-code text-[9px] font-bold shrink-0 text-center" title="Preliminary Report">
                                 PRELIM
                             </div>
                                                 <div class="min-w-0">
                             <div class="text-xs font-bold text-slate-900 truncate" title="Preliminary_Report_NACOC_FSD_LAB_2026_0042.pdf">
                                 Preliminary_Report_NACOC_FSD_LAB_2026_0042.pdf</div>
                             <div class="text-[10px] text-slate-500 font-mono-code">
-                                System Generated &bull;
-                                Mar 15, 2026 10:30
+                                System Generated &bull;                                Mar 15, 2026 10:30
                             </div>
-                                                    </div>
+                                                                                </div>
                     </div>
                                         <a href="http://127.0.0.1/Lab_Analysis/preliminary-report-pdf/NACOC/2026/0500" target="_blank"
                         class="no-print px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-extrabold font-mono-code rounded-lg transition-colors shrink-0">
@@ -2848,421 +2999,8 @@
                 </div>
                     </div>
     </div>
-                    
-                    
-                                                                        <!-- LABORATORY EXAMINATION RESULT FOR KWAME MENSAH -->
-    <div id="labCard-kwamemensah" data-lab-card="true" class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-4">
-        <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
-            <div class="flex items-center space-x-3">
-                <div
-                    class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — KWAME MENSAH</h3>
-                    <p class="text-[11px] text-emerald-800 font-semibold">Official Laboratory Analysis Directorate Findings for Kwame Mensah</p>
-                </div>
-            </div>
-            <span
-                class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-200 text-emerald-950 border border-emerald-400">
-                ✓ VERIFIED RESULT LOGGED
-            </span>
-        </div>
-
-        <table
-            class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs bg-white">
-            <tbody>
-                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                        Analysis Reference:</td>
-                    <td
-                        class="p-2.5 font-black text-emerald-900 font-mono-code border-r border-slate-300 w-3/10">
-                        NACOC/FSD/LAB/2026/0042</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                        Exhibit Number:</td>
-                    <td class="p-2.5 font-black text-emerald-900 font-mono-code">
-                        EXH/2026/0001</td>
-                </tr>
-                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Case Reference:</td>
-                    <td
-                        class="p-2.5 font-black text-blue-900 font-mono-code border-r border-slate-300">
-                        NACOC/2026/0500</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Laboratory Number:</td>
-                    <td class="p-2.5 font-black text-slate-900 font-mono-code">
-                        Lab No. 042/2026</td>
-                </tr>
-                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Exhibit Description:</td>
-                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                        Off-white compressed powder
-                    </td>
-                </tr>
-                                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Analyst / Examiner:</td>
-                    <td class="p-2.5 font-black text-slate-900 border-r border-slate-300">
-                        Lab Analyst</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Examination Timeline:</td>
-                    <td class="p-2 bg-white">
-                                                <div
-                            class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
-                            <span>Received: <strong class="text-blue-900">2026-03-11</strong></span>
-                            <span>|</span>
-                            <span>Started: <strong class="text-amber-900">2026-03-12</strong></span>
-                            <span>|</span>
-                            <span>Completed: <strong class="text-emerald-900">2026-03-14</strong></span>
-                        </div>
-                    </td>
-                </tr>
-                                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Presumptive Reaction:</td>
-                    <td class="p-2 border-r border-slate-300 bg-white">
-                                                <table
-                            class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                            <thead
-                                class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                <tr class="border-b border-slate-300">
-                                    <th
-                                        class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                        Result</th>
-                                    <th
-                                        class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                        Presence of</th>
-                                    <th class="px-2 py-1 text-left bg-slate-200/70">
-                                        Purity/Percentage</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white">
-                                                                    <tr class="border-b border-slate-200 last:border-b-0">
-                                        <td
-                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-slate-900">
-                                            N/A</td>
-                                        <td
-                                            class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue)</td>
-                                        <td class="px-2 py-1 font-bold text-slate-900">
-                                            N/A</td>
-                                    </tr>
-                                                            </tbody>
-                        </table>
-                    </td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Confirmatory Test:</td>
-                    <td class="p-2.5 font-black text-emerald-900">
-                                                                            <span class="font-bold text-slate-500">N/A</span>
-                                            </td>
-                </tr>
-                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Sample Metrology:</td>
-                    <td class="p-2.5 bg-white" colspan="3">
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                            <div
-                                class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Description:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">Off-white compressed powder</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Units:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">g</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Gross
-                                    Wt:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">500.00</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Taken:</span>
-                                <span
-                                    class="font-bold text-emerald-900 ml-1">5.00</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Reserved:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">495.00</span>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Substance Identified:</td>
-                    <td class="p-2.5 font-black text-slate-950 border-r border-slate-300">
-                        Positive</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Test Specifications:</td>
-                    <td class="p-2.5 font-bold text-slate-900">
-                        USP Reference Standard matched</td>
-                </tr>
-                                                    <tr class="bg-amber-50/70 border-b border-slate-300">
-                        <td
-                            class="p-2.5 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
-                            Result (Detected Substances & Purity %):</td>
-                        <td class="p-2.5" colspan="3">
-                            <div class="flex flex-wrap gap-2">
-                                                                                                        <span
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
-                                        <span>Cocaine</span>
-                                                                                                                    </span>
-                                                            </div>
-                        </td>
-                    </tr>
-                                                                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Test Methods:</td>
-                    <td class="p-2.5 font-bold text-slate-900 border-r border-slate-300"
-                        colspan="3">Scott Test, GC-MS</td>
-                </tr>
-                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Analysis Remark:</td>
-                    <td class="p-2.5 font-bold text-slate-900" colspan="3">
-                        High purity sample.</td>
-                </tr>
-                                <tr class="bg-slate-900 text-white">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">
-                        Analytical Findings:</td>
-                    <td class="p-2.5 font-medium text-slate-100 leading-relaxed bg-slate-900"
-                        colspan="3">
-                        The submitted exhibit tested positive for Cocaine Hydrochloride.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-                                                    <!-- LABORATORY EXAMINATION RESULT FOR KWAME MENSAH -->
-    <div id="labCard-kwamemensah" data-lab-card="true" class="p-5 bg-emerald-50/80 border-2 border-emerald-300 rounded-2xl space-y-4 shadow-sm mt-4">
-        <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
-            <div class="flex items-center space-x-3">
-                <div
-                    class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — KWAME MENSAH</h3>
-                    <p class="text-[11px] text-emerald-800 font-semibold">Official Laboratory Analysis Directorate Findings for Kwame Mensah</p>
-                </div>
-            </div>
-            <span
-                class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-200 text-emerald-950 border border-emerald-400">
-                ✓ VERIFIED RESULT LOGGED
-            </span>
-        </div>
-
-        <table
-            class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs bg-white">
-            <tbody>
-                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                        Analysis Reference:</td>
-                    <td
-                        class="p-2.5 font-black text-emerald-900 font-mono-code border-r border-slate-300 w-3/10">
-                        NACOC/FSD/LAB/2026/0042</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                        Exhibit Number:</td>
-                    <td class="p-2.5 font-black text-emerald-900 font-mono-code">
-                        EXH/2026/0001</td>
-                </tr>
-                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Case Reference:</td>
-                    <td
-                        class="p-2.5 font-black text-blue-900 font-mono-code border-r border-slate-300">
-                        NACOC/2026/0500</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Laboratory Number:</td>
-                    <td class="p-2.5 font-black text-slate-900 font-mono-code">
-                        Lab No. 042/2026</td>
-                </tr>
-                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Exhibit Description:</td>
-                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                        N/A
-                    </td>
-                </tr>
-                                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Analyst / Examiner:</td>
-                    <td class="p-2.5 font-black text-slate-900 border-r border-slate-300">
-                        Lab Analyst</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Examination Timeline:</td>
-                    <td class="p-2 bg-white">
-                                                <div
-                            class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
-                            <span>Received: <strong class="text-blue-900">2026-03-11</strong></span>
-                            <span>|</span>
-                            <span>Started: <strong class="text-amber-900">2026-03-12</strong></span>
-                            <span>|</span>
-                            <span>Completed: <strong class="text-emerald-900">2026-03-14</strong></span>
-                        </div>
-                    </td>
-                </tr>
-                                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Presumptive Reaction:</td>
-                    <td class="p-2 border-r border-slate-300 bg-white">
-                                                <table
-                            class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                            <thead
-                                class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                <tr class="border-b border-slate-300">
-                                    <th
-                                        class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                        Result</th>
-                                    <th
-                                        class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                        Presence of</th>
-                                    <th class="px-2 py-1 text-left bg-slate-200/70">
-                                        Purity/Percentage</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white">
-                                                                    <tr class="border-b border-slate-200 last:border-b-0">
-                                        <td
-                                            class="px-2 py-1 border-r border-slate-300 font-extrabold text-slate-900">
-                                            N/A</td>
-                                        <td
-                                            class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                            1. Parcel A | Marquis: Positive | Scott: Positive (Blue)</td>
-                                        <td class="px-2 py-1 font-bold text-slate-900">
-                                            N/A</td>
-                                    </tr>
-                                                            </tbody>
-                        </table>
-                    </td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Confirmatory Test:</td>
-                    <td class="p-2.5 font-black text-emerald-900">
-                                                                            <span class="font-bold text-slate-500">N/A</span>
-                                            </td>
-                </tr>
-                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Sample Metrology:</td>
-                    <td class="p-2.5 bg-white" colspan="3">
-                                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                            <div
-                                class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Description:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Units:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Gross
-                                    Wt:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">N/A</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Taken:</span>
-                                <span
-                                    class="font-bold text-emerald-900 ml-1">5.00</span>
-                            </div>
-                            <div class="p-2 bg-slate-50 border border-slate-200 rounded">
-                                <span
-                                    class="font-mono-code font-bold text-slate-500 uppercase text-[9px]">Reserved:</span>
-                                <span
-                                    class="font-bold text-slate-900 ml-1">495.00</span>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Substance Identified:</td>
-                    <td class="p-2.5 font-black text-slate-950 border-r border-slate-300">
-                        Positive</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Test Specifications:</td>
-                    <td class="p-2.5 font-bold text-slate-900">
-                        USP Reference Standard matched</td>
-                </tr>
-                                                                                <tr class="bg-slate-100/90 border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Test Methods:</td>
-                    <td class="p-2.5 font-bold text-slate-900 border-r border-slate-300"
-                        colspan="3">Scott Test, GC-MS</td>
-                </tr>
-                <tr class="border-b border-slate-300">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Analysis Remark:</td>
-                    <td class="p-2.5 font-bold text-slate-900" colspan="3">
-                        High purity sample.</td>
-                </tr>
-                                <tr class="bg-slate-900 text-white">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">
-                        Analytical Findings:</td>
-                    <td class="p-2.5 font-medium text-slate-100 leading-relaxed bg-slate-900"
-                        colspan="3">
-                        The submitted exhibit tested positive for Cocaine Hydrochloride.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-                                                            
-                                    <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
+                
+                <!-- SEIZURES (COMMODITIES INVENTORY) FOR ALL SUSPECTS (SINGLE MASTER SECTION) -->
                     <div class="p-5 bg-white border border-slate-200 rounded-2xl space-y-4 shadow-sm mt-4">
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200">
                             <div>
@@ -3282,7 +3020,7 @@
                                 <thead class="bg-slate-100 text-slate-600 font-mono-code uppercase text-[10px]">
                                     <tr>
                                         <th class="py-2.5 px-4 font-bold">Item #</th>
-                                        <th class="py-2.5 px-4 font-bold">Exhibit Image</th>
+                                        <th class="py-2.5 px-4 font-bold">Suspect(s) Image</th>
                                         <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
                                         <th class="py-2.5 px-4 font-bold">Category</th>
                                         <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
@@ -3298,14 +3036,9 @@
                                             <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">
                                                 #1</td>
                                             <td class="py-2.5 px-4">
-                                                                                                                                                        <div class="relative group inline-block">
-                                                        <img src="http://127.0.0.1/storage/exhibits/cocaine_parcel.jpg" alt="Cocaine Hydrochloride"
-                                                            data-img-src="http://127.0.0.1/storage/exhibits/cocaine_parcel.jpg"
-                                                            data-img-title="Cocaine Hydrochloride — Kwame Mensah"
-                                                            class="h-12 w-12 object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform"
-                                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
-                                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='http://127.0.0.1/storage/' + this.src.split('/').pop();}" />
-                                                                                                            </div>
+                                                                                                                                                    <span
+                                                        class="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-mono-code rounded border border-slate-200">No
+                                                        Photo</span>
                                                                                             </td>
                                             <td class="py-2.5 px-4 font-mono-code font-black text-slate-950">
                                                 Kwame Mensah</td>
@@ -3329,14 +3062,9 @@
                                             <td class="py-2.5 px-4 font-mono-code font-bold text-slate-500">
                                                 #2</td>
                                             <td class="py-2.5 px-4">
-                                                                                                                                                        <div class="relative group inline-block">
-                                                        <img src="http://127.0.0.1/storage/exhibits/cannabis_slab.jpg" alt="Cannabis Sativa"
-                                                            data-img-src="http://127.0.0.1/storage/exhibits/cannabis_slab.jpg"
-                                                            data-img-title="Cannabis Sativa — Abena Owusu"
-                                                            class="h-12 w-12 object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform"
-                                                            onclick="openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title'))"
-                                                            onerror="if(!this.dataset.triedStorage &amp;&amp; !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='http://127.0.0.1/storage/' + this.src.split('/').pop();}" />
-                                                                                                            </div>
+                                                                                                                                                    <span
+                                                        class="px-2 py-1 bg-slate-100 text-slate-400 text-[10px] font-mono-code rounded border border-slate-200">No
+                                                        Photo</span>
                                                                                             </td>
                                             <td class="py-2.5 px-4 font-mono-code font-black text-slate-950">
                                                 Abena Owusu</td>
@@ -5115,26 +4843,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- SOURCE OF EXHIBITS -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
-                                                placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
-                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-
                                     <!-- SEIZING OFFICERS (MULTI-ROW) -->
                                     <div class="col-span-full">
                                         <div class="flex items-center justify-between mb-1.5">
@@ -5438,13 +5146,13 @@
                                     <tbody class="bg-white">
                                                                                     <tr class="border-b border-amber-100 last:border-b-0">
                                                 <td
-                                                    class="px-2 py-1 border-r border-amber-200 font-extrabold text-slate-900">
-                                                    N/A</td>
+                                                    class="px-2 py-1 border-r border-amber-200 font-extrabold text-emerald-800">
+                                                    YES</td>
                                                 <td
                                                     class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">
-                                                    Exhibit 1 (EXH/2026/0002): Fast Blue B -&gt; Positive (Purple-Red)</td>
+                                                    Exhibit 1 (EXH/2026/0002): Fast Blue B -&gt; Positive (Purple-Red</td>
                                                 <td class="px-2 py-1 font-bold text-slate-900">
-                                                    N/A</td>
+                                                    —</td>
                                             </tr>
                                                                             </tbody>
                                 </table>
@@ -6833,7 +6541,7 @@
                     const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                     const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                     const location = block.querySelector('#newSeizureLocation')?.value || '';
-                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.dataset?.preservedSourceOfExhibits || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
                     const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
@@ -8603,7 +8311,7 @@
             return document.querySelector('.seizure-block') || document;
         }
 
-        window._savedCaseExhibitsData = [{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0001","exhibit_category":"Drugs","commodity_name":"Cocaine Hydrochloride","seizure_quantity":"5 parcels","seizure_packaging":"Brown cello tape","seizure_weight":"500.00","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":"Airport Cargo Village","seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":"[\u0022exhibits\\\/cocaine_parcel.jpg\u0022]","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Kwame Mensah","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":"High purity sample.","veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0001","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Kwame Mensah","alias":null,"ghana_card":null,"gender":"Male","age":"35","nationality":"Ghanaian","mugshot":null,"role":"Primary Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1\/exhibits\/tag\/fixed-qr-token-exh-0001","single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":"Airport Cargo Village","offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null},"suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":1,"role":"Primary Suspect","associate_id":null,"suspect_name":"Kwame Mensah","suspect_alias":null,"ghana_card":null,"gender":"Male","dob":"1990-05-12","age":"35","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":"Airport Cargo Village","offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null},"category":"Drugs","seizure_name":"Cocaine Hydrochloride","owner_name":"Kwame Mensah","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"resolved_owner":"Kwame Mensah","resolved_item_photos":["exhibits\/cocaine_parcel.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1\/storage\/exhibits\/cocaine_parcel.jpg"],"formatted_case_gallery_photos":["http:\/\/127.0.0.1\/storage\/exhibits\/cocaine_parcel.jpg","http:\/\/127.0.0.1\/storage\/exhibits\/cannabis_slab.jpg"]},{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0002","exhibit_category":"Drugs","commodity_name":"Cannabis Sativa","seizure_quantity":"2 slabs","seizure_packaging":null,"seizure_weight":"150.50","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":null,"seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cannabis_slab.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Abena Owusu","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":null,"veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0002","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Abena Owusu","alias":null,"ghana_card":null,"gender":"Female","age":"31","nationality":"Ghanaian","mugshot":null,"role":"Associate Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1\/exhibits\/tag\/fixed-qr-token-exh-0002","single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":"Airport Cargo Village","offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null},"suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":2,"role":"Associate Suspect","associate_id":null,"suspect_name":"Abena Owusu","suspect_alias":null,"ghana_card":null,"gender":"Female","dob":"1994-08-20","age":"31","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null},"category":"Drugs","seizure_name":"Cannabis Sativa","owner_name":"Abena Owusu","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"resolved_owner":"Abena Owusu","resolved_item_photos":["exhibits\/cannabis_slab.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1\/storage\/exhibits\/cannabis_slab.jpg"]}];
+        window._savedCaseExhibitsData = [{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0001","exhibit_category":"Drugs","commodity_name":"Cocaine Hydrochloride","seizure_quantity":"5 parcels","seizure_packaging":"Brown cello tape","seizure_weight":"500.00","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":"Airport Cargo Village","seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cocaine_parcel.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Kwame Mensah","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":"High purity sample.","veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0001","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Kwame Mensah","alias":null,"ghana_card":null,"gender":"Male","age":"35","nationality":"Ghanaian","mugshot":null,"role":"Primary Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1\/exhibits\/tag\/fixed-qr-token-exh-0001","single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":null,"offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null,"search_warrant_document":null},"suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":1,"role":"Primary Suspect","associate_id":null,"suspect_name":"Kwame Mensah","suspect_alias":null,"ghana_card":null,"gender":"Male","dob":"1990-05-12","age":"35","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null},"category":"Drugs","seizure_name":"Cocaine Hydrochloride","owner_name":"Kwame Mensah","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"resolved_owner":"Kwame Mensah","resolved_item_photos":["exhibits\/cocaine_parcel.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1\/storage\/exhibits\/cocaine_parcel.jpg"],"formatted_case_gallery_photos":["http:\/\/127.0.0.1\/storage\/exhibits\/cocaine_parcel.jpg","http:\/\/127.0.0.1\/storage\/exhibits\/cannabis_slab.jpg"]},{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0002","exhibit_category":"Drugs","commodity_name":"Cannabis Sativa","seizure_quantity":"2 slabs","seizure_packaging":null,"seizure_weight":"150.50","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":null,"seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cannabis_slab.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Abena Owusu","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":null,"veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0002","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Abena Owusu","alias":null,"ghana_card":null,"gender":"Female","age":"31","nationality":"Ghanaian","mugshot":null,"role":"Associate Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1\/exhibits\/tag\/fixed-qr-token-exh-0002","single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":null,"offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null,"search_warrant_document":null},"suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":2,"role":"Associate Suspect","associate_id":null,"suspect_name":"Abena Owusu","suspect_alias":null,"ghana_card":null,"gender":"Female","dob":"1994-08-20","age":"31","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null},"category":"Drugs","seizure_name":"Cannabis Sativa","owner_name":"Abena Owusu","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"resolved_owner":"Abena Owusu","resolved_item_photos":["exhibits\/cannabis_slab.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1\/storage\/exhibits\/cannabis_slab.jpg"]}];
 
         function getPristineSeizureBlockTemplate() {
             if (!window._seizureBlockTemplate) {
@@ -8821,6 +8529,9 @@
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            if (data.source_of_exhibits || data.source) {
+                block.dataset.preservedSourceOfExhibits = data.source_of_exhibits || data.source;
+            }
             setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
             setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
@@ -9891,26 +9602,7 @@
             rows.forEach(row => {
                 const nameInput = row.querySelector('.seizure-officer-name');
                 const idInput = row.querySelector('.seizure-officer-service-id');
-                const name = nameInput ? nameInput.value.trim() : '';
-                const svcId = idInput ? idInput.value.trim() : '';
-                if (name && svcId) {
-                    list.push(`${name} (${svcId})`);
-                } else if (name) {
-                    list.push(name);
-                } else if (svcId) {
-                    list.push(`(ID: ${svcId})`);
-                }
-            });
-            return list.length > 0 ? list.join('; ') : null;
-        }
-
-        function triggerSeizurePhotoUpload(el) {
-            const block = el ? el.closest('.seizure-block') : document;
-            const input = block.querySelector('.fileSeizurePhoto');
-            if (input) input.click();
-        }
-
-        function handleSeizureDrop(e, dropzoneEl) {
+      
             if (e.preventDefault) e.preventDefault();
             if (e.stopPropagation) e.stopPropagation();
             const block = dropzoneEl ? dropzoneEl.closest('.seizure-block') : document;
@@ -10146,7 +9838,7 @@
                 const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                 const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                 const location = block.querySelector('#newSeizureLocation')?.value || '';
-                const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.dataset?.preservedSourceOfExhibits || '';
                 const seizingOfficer = getSeizureOfficersFormatted(block);
                 const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
                 const sourceRequestingUnit = block.querySelector('#newSeizureSourceRequestingUnit')?.value || block.querySelector('.seizure-source-requesting-unit-input')?.value || block.querySelector('[name="source_requesting_unit"]')?.value || '';
@@ -10996,7 +10688,7 @@
             console.log('[NACOC DEBUG] Lab Analysis unit status:', "COMPLETED");
             console.log('[NACOC DEBUG] Unit progress map:', {"Lab Analysis":{"status":"COMPLETED","officer":"Lab Analyst","updated_at":"2026-03-15 10:30:00","notes":"Laboratory Examination Information completed and signed off"},"Evidence Management":{"status":"PENDING","officer":"Officer Creator","updated_at":null,"notes":"Awaiting evidence receipt and vault custody intake"}});
             console.log('[NACOC DEBUG] Suspect-linked exhibits count:', 2);
-                        console.log('[NACOC DEBUG] sDossierLabExam (active):', {"exhibit_owner_name":null,"exam_reference":"NACOC\/FSD\/LAB\/2026\/0042","exhibit_number":"N\/A","laboratory_number":"Lab No. 042\/2026","analyst":"Lab Analyst","date_received":"2026-03-11","date_started":"2026-03-12","date_completed":"2026-03-14","presumptive_result":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue)","confirmatory_result":"GC-MS confirmed Cocaine Hydrochloride (88% purity)","sample_weight":{"description":"Off-white compressed powder","units_packaging":"g","gross_weight":"500.00","sample_taken":"5.00","reserved_samples":"495.00"},"substance_identification":"Positive","detected_substances":["Cocaine"],"test_methods":"Scott Test, GC-MS","specifications":"USP Reference Standard matched","remark":"High purity sample.","findings":"The submitted exhibit tested positive for Cocaine Hydrochloride.","purpose_of_examination":null,"preliminary_exam_procedure":null,"screening_method":null,"disposition_of_exhibit":null,"has_saved":true,"confirmatory":"YES","presumptive_rows":[{"result":"YES","presence":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue)","purity":"N\/A"}]});
+                        console.log('[NACOC DEBUG] sDossierLabExam (active):', {"exhibit_owner_name":null,"exam_reference":"NACOC\/FSD\/LAB\/2026\/0042","exhibit_number":"N\/A","laboratory_number":"Lab No. 042\/2026","analyst":"Lab Analyst","date_received":"2026-03-11","date_started":"2026-03-12","date_completed":"2026-03-14","presumptive_result":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue)","presumptive_presence":null,"presumptive_percentage":null,"confirmatory_result":"GC-MS confirmed Cocaine Hydrochloride (88% purity)","sample_weight":{"description":"Off-white compressed powder","units_packaging":"g","gross_weight":"500.00","sample_taken":"5.00","reserved_samples":"495.00"},"substance_identification":"Positive","detected_substances":["Cocaine"],"test_methods":"Scott Test, GC-MS","specifications":"USP Reference Standard matched","remark":"High purity sample.","findings":"The submitted exhibit tested positive for Cocaine Hydrochloride.","purpose_of_examination":null,"preliminary_exam_procedure":null,"screening_method":null,"disposition_of_exhibit":null,"has_saved":true,"confirmatory":"YES","presumptive_rows":[{"result":"YES","presence":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue","purity":"\u2014"}]});
             console.log('[NACOC DEBUG] sDossierHasSavedLab (active):', true);
             console.log('[NACOC DEBUG] savedJointLabExam:', null);
             console.log('[NACOC DEBUG] $isLabAnalysis:', false);
@@ -11046,8 +10738,7 @@
             </div>
             <div>
                 <div class="text-[10px] font-mono-code font-extrabold uppercase tracking-widest text-rose-100">
-                    Access Suspended &bull; Account Revoked
-                </div>
+                     Access Suspended &bull; Account Revoked                 </div>
                 <h2 id="staffRevokedModalTitle" class="text-base font-extrabold tracking-tight mt-0.5">
                     Staff Account Disabled
                 </h2>
@@ -11075,8 +10766,8 @@
 
             <div class="flex items-center justify-between pt-2 border-t border-slate-100 gap-3">
                 <div class="inline-flex items-center gap-2 text-[11px] font-mono-code font-semibold text-slate-500">
-                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    <span>Awaiting unit head reactivation...</span>
+                                            <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                                        <span>Awaiting unit head reactivation...</span>
                 </div>
 
                 <form method="POST" action="http://127.0.0.1/logout" class="m-0">
@@ -11152,8 +10843,13 @@
             isCheckingAccountStatus = true;
 
             try {
-                const res = await fetch(STATUS_ENDPOINT, {
-                    headers: { 'Accept': 'application/json' },
+                const currentPath = window.location ? window.location.pathname : '';
+                const url = STATUS_ENDPOINT + (STATUS_ENDPOINT.indexOf('?') === -1 ? '?' : '&') + 'path=' + encodeURIComponent(currentPath);
+                const res = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     credentials: 'same-origin'
                 });
                 if (!res.ok) return;
@@ -11167,11 +10863,237 @@
                 } else if (!shouldLock && isCurrentlyRevoked) {
                     applyRevokedOverlayState(false, data);
                 }
+
+                if (typeof data.can_create_cases === 'boolean') {
+                    applyCreateCasesButtonState(data.can_create_cases);
+                }
+                if (typeof data.can_edit_cases === 'boolean') {
+                    applyEditCasesButtonState(data.can_edit_cases);
+                }
+                if (typeof data.can_add_associate === 'boolean') {
+                    window.__nacocCanAddAssociate = data.can_add_associate;
+                    applyAddAssociateButtonState(data.can_add_associate);
+                }
+                if (typeof data.can_edit_cases === 'boolean') {
+                    applyEditCasesButtonState(data.can_edit_cases);
+                }
             } catch (e) {
                 // Silent catch during background status watchdog
             } finally {
                 isCheckingAccountStatus = false;
             }
+        }
+
+        function applyPermissionButtonState(config) {
+            const buttons = document.querySelectorAll(config.selector);
+            buttons.forEach(function (btn) {
+                const targetUrl = btn.getAttribute(config.urlAttr) || btn.getAttribute('href') || '';
+                if (targetUrl && !btn.getAttribute(config.urlAttr)) {
+                    btn.setAttribute(config.urlAttr, targetUrl);
+                }
+
+                const lockBadge = btn.querySelector('[data-lock-badge]');
+                const enabledClasses = (btn.getAttribute('data-enabled-class') || '').split(/\s+/).filter(Boolean);
+                const disabledClasses = (btn.getAttribute('data-disabled-class') || '').split(/\s+/).filter(Boolean);
+
+                if (!config.allowed) {
+                    btn.removeAttribute('href');
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.setAttribute('tabindex', '0');
+                    btn.setAttribute('title', config.lockedMsg);
+                    btn.setAttribute('data-locked-tooltip', config.lockedMsg);
+                    if (config.preventClickWhenLocked) {
+                        btn.setAttribute('onclick', 'event.preventDefault(); event.stopPropagation(); return false;');
+                    }
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '0.55';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.filter = 'grayscale(100%)';
+                    enabledClasses.forEach(function (cls) { btn.classList.remove(cls); });
+                    disabledClasses.forEach(function (cls) { btn.classList.add(cls); });
+                    if (lockBadge) lockBadge.classList.remove('hidden');
+                } else {
+                    if (targetUrl) {
+                        btn.setAttribute('href', targetUrl);
+                    }
+                    btn.setAttribute('aria-disabled', 'false');
+                    btn.removeAttribute('tabindex');
+                    btn.removeAttribute('title');
+                    btn.removeAttribute('data-locked-tooltip');
+                    if (config.preventClickWhenLocked) {
+                        btn.removeAttribute('onclick');
+                    }
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '';
+                    btn.style.cursor = '';
+                    btn.style.filter = '';
+                    disabledClasses.forEach(function (cls) { btn.classList.remove(cls); });
+                    enabledClasses.forEach(function (cls) { btn.classList.add(cls); });
+                    if (lockBadge) lockBadge.classList.add('hidden');
+                }
+            });
+
+            if (!config.allowed && config.reloadPattern && config.reloadPattern.test(window.location.pathname)) {
+                window.location.reload();
+            }
+        }
+
+        function applyCreateCasesButtonState(canCreate) {
+            applyPermissionButtonState({
+                selector: '[data-staff-create-btn]',
+                urlAttr: 'data-create-url',
+                allowed: canCreate,
+                lockedMsg: 'Locked: Create New Cases permission is disabled by your Head of Unit',
+                preventClickWhenLocked: false,
+                reloadPattern: /\/(staff\/)?create(\b|\/|$)/i,
+            });
+        }
+
+        function applyEditCasesButtonState(canEdit) {
+            applyPermissionButtonState({
+                selector: '[data-staff-edit-btn]',
+                urlAttr: 'data-edit-url',
+                allowed: canEdit,
+                lockedMsg: 'Locked: Edit Case & Suspects permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/cases\/[^\/]+\/edit(\b|\/|$)/i,
+            });
+        }
+
+        function applyAddAssociateButtonState(canAddAssociate) {
+            applyPermissionButtonState({
+                selector: '[data-staff-associate-btn]',
+                urlAttr: 'data-associate-url',
+                allowed: canAddAssociate,
+                lockedMsg: 'Locked: Add Associate permission is disabled by your Head of Unit',
+                preventClickWhenLocked: true,
+                reloadPattern: /\/cases\/[^\/]+\/associate(\b|\/|$)/i,
+            });
+        }
+
+        function applyEditCasesButtonState(canEdit) {
+            const lockedMsg = 'Locked: Edit Case & Suspects permission is disabled by your Head of Unit';
+            const editButtons = document.querySelectorAll('[data-staff-edit-btn]');
+            editButtons.forEach(function (btn) {
+                const targetUrl = btn.getAttribute('data-edit-url') || btn.getAttribute('href') || '';
+                if (targetUrl && !btn.getAttribute('data-edit-url')) {
+                    btn.setAttribute('data-edit-url', targetUrl);
+                }
+
+                const lockBadge = btn.querySelector('[data-lock-badge]');
+                const enabledClasses = (btn.getAttribute('data-enabled-class') || '').split(/\s+/).filter(Boolean);
+                const disabledClasses = (btn.getAttribute('data-disabled-class') || '').split(/\s+/).filter(Boolean);
+
+                if (!canEdit) {
+                    btn.removeAttribute('href');
+                    btn.setAttribute('aria-disabled', 'true');
+                    btn.setAttribute('tabindex', '0');
+                    btn.setAttribute('title', lockedMsg);
+                    btn.setAttribute('data-locked-tooltip', lockedMsg);
+                    btn.setAttribute('onclick', 'event.preventDefault(); event.stopPropagation(); return false;');
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '0.55';
+                    btn.style.cursor = 'not-allowed';
+                    btn.style.filter = 'grayscale(100%)';
+                    enabledClasses.forEach(function (cls) { btn.classList.remove(cls); });
+                    disabledClasses.forEach(function (cls) { btn.classList.add(cls); });
+                    if (lockBadge) lockBadge.classList.remove('hidden');
+                } else {
+                    if (targetUrl) {
+                        btn.setAttribute('href', targetUrl);
+                    }
+                    btn.setAttribute('aria-disabled', 'false');
+                    btn.removeAttribute('tabindex');
+                    btn.removeAttribute('title');
+                    btn.removeAttribute('data-locked-tooltip');
+                    btn.removeAttribute('onclick');
+                    btn.style.pointerEvents = '';
+                    btn.style.opacity = '';
+                    btn.style.cursor = '';
+                    btn.style.filter = '';
+                    disabledClasses.forEach(function (cls) { btn.classList.remove(cls); });
+                    enabledClasses.forEach(function (cls) { btn.classList.add(cls); });
+                    if (lockBadge) lockBadge.classList.add('hidden');
+                }
+            });
+
+            if (!canEdit && /\/cases\/[^\/]+\/edit(\b|\/|$)/i.test(window.location.pathname)) {
+                window.location.reload();
+            }
+        }
+
+        // Global custom tooltip for locked/disabled buttons across staff and command views
+        function initLockedButtonsTooltip() {
+            if (document.getElementById('nacocLockedBtnTooltip')) return;
+
+            const tip = document.createElement('div');
+            tip.id = 'nacocLockedBtnTooltip';
+            tip.setAttribute('role', 'tooltip');
+            tip.className = 'hidden fixed z-[999990] max-w-xs px-3 py-2 rounded-xl bg-slate-900 text-white text-[11px] font-semibold leading-snug shadow-xl border border-slate-700 pointer-events-none flex items-center gap-2';
+            tip.innerHTML = '<svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span id="nacocLockedBtnTooltipText"></span>';
+            document.body.appendChild(tip);
+
+            function findLockedTarget(el) {
+                if (!el || !el.closest) return null;
+                return el.closest('[data-locked-tooltip], [aria-disabled="true"][title], button:disabled[title]');
+            }
+
+            function showTipFor(target) {
+                const msg = target.getAttribute('data-locked-tooltip') || target.getAttribute('title');
+                if (!msg) return;
+                const textEl = document.getElementById('nacocLockedBtnTooltipText');
+                if (textEl) textEl.textContent = msg;
+
+                tip.classList.remove('hidden');
+                const rect = target.getBoundingClientRect();
+                const tipRect = tip.getBoundingClientRect();
+
+                let top = rect.top - tipRect.height - 8;
+                if (top < 8) {
+                    top = rect.bottom + 8;
+                }
+                let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+                left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8));
+
+                tip.style.top = Math.round(top) + 'px';
+                tip.style.left = Math.round(left) + 'px';
+            }
+
+            function hideTip() {
+                tip.classList.add('hidden');
+            }
+
+            document.addEventListener('mouseover', function (e) {
+                const target = findLockedTarget(e.target);
+                if (target) {
+                    showTipFor(target);
+                } else {
+                    hideTip();
+                }
+            });
+
+            document.addEventListener('focusin', function (e) {
+                const target = findLockedTarget(e.target);
+                if (target) showTipFor(target);
+            });
+
+            document.addEventListener('focusout', hideTip);
+            document.addEventListener('scroll', hideTip, true);
+
+            document.addEventListener('click', function (e) {
+                const target = findLockedTarget(e.target);
+                if (target && (target.getAttribute('aria-disabled') === 'true' || target.hasAttribute('data-locked-tooltip'))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showTipFor(target);
+                }
+            }, true);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLockedButtonsTooltip);
+        } else {
+            initLockedButtonsTooltip();
         }
 
         if (isCurrentlyRevoked) {
@@ -11189,6 +11111,7 @@
         window.addEventListener('focus', checkStaffAccountStatus);
     })();
 </script>
+
 
 </body>
 

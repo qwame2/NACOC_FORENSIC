@@ -18,7 +18,7 @@
                         </svg>
                         CARGO / PARCEL MODE ACTIVE
                     </span>
-                    <span class="text-xs text-amber-300/60">&bull;</span>
+                    <span class="text-xs text-amber-300/60">@if(request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*'))|@else&bull;@endif</span>
                     <span class="text-xs font-bold text-amber-300 font-mono-code">AIRPORT, SEAPORT, COURIER &amp; POSTAL INTERDICTION</span>
                 </div>
                 <h2 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2">

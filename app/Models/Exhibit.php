@@ -89,6 +89,7 @@ class Exhibit extends Model
         'contents',
         'description_of_exhibits',
         'custodial_status',
+        'chain_of_custody',
         'qr_token',
     ];
 

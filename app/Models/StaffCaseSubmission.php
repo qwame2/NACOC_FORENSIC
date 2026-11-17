@@ -22,12 +22,16 @@ class StaffCaseSubmission extends Model
         'reviewed_by_name',
         'reviewed_at',
         'review_notes',
+        'rollback_corrections',
+        'rolled_back_at',
         'approved_case_number',
     ];
 
     protected $casts = [
         'payload' => 'array',
+        'rollback_corrections' => 'array',
         'reviewed_at' => 'datetime',
+        'rolled_back_at' => 'datetime',
     ];
 
     public function scopeForUnit($query, string $unitContext)

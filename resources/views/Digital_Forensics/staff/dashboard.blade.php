@@ -3,7 +3,7 @@
         'isStaff'          => true,
         'unitKey'          => 'digital_forensics',
         'userUnit'         => 'Digital & Physical Forensic Unit',
-        'unitBadge'        => 'Digital & Physical Forensic Unit • Staff',
+        'unitBadge'        => 'Digital & Physical Forensic Unit | Staff',
         'unitSubtitle'     => 'Cyber Intelligence & Hardware Forensics',
         'locationNoun'     => 'Cases',
         'pageTitle'        => 'NACOC FORENSIC | Digital & Physical Forensics Staff Dashboard',

@@ -231,7 +231,7 @@
                                     class="font-black text-slate-900 font-mono-code text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-2xs">
                                     {{ $caseCreatorName }} <span class="text-emerald-700 font-bold">({{ $caseCreatorUnit }})</span>
                                     @if ($caseCreatedAt)
-                                        <span class="text-slate-400 font-normal text-[10px] ml-1">• {{ $caseCreatedAt }}</span>
+                                        <span class="text-slate-400 font-normal text-[10px] ml-1">{{ (request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*')) ? '|' : '•' }} {{ $caseCreatedAt }}</span>
                                     @endif
                                 </span>
                             </div>
@@ -251,7 +251,7 @@
                                     @if (!empty($statusUpdatedBy))
                                         {{ $statusUpdatedBy }} <span class="text-amber-700 font-bold">({{ $statusUpdatedByUnit ?: 'Unit Head' }})</span>
                                         @if ($statusUpdatedAt)
-                                            <span class="text-slate-400 font-normal text-[10px] ml-1">• {{ $statusUpdatedAt }}</span>
+                                            <span class="text-slate-400 font-normal text-[10px] ml-1">{{ (request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*')) ? '|' : '•' }} {{ $statusUpdatedAt }}</span>
                                         @endif
                                     @else
                                         <span class="text-slate-500 font-normal italic">Initial ({{ $caseCreatorName }})</span>

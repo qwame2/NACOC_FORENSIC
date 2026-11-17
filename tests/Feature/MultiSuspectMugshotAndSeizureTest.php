@@ -15,7 +15,7 @@ class MultiSuspectMugshotAndSeizureTest extends TestCase
     {
         $user = User::factory()->create([
             'unit' => 'Crime Scene Support',
-            'is_head' => false,
+            'is_head' => true,
         ]);
 
         $payload = [
@@ -95,7 +95,7 @@ class MultiSuspectMugshotAndSeizureTest extends TestCase
     {
         $user = User::factory()->create([
             'unit' => 'Cases',
-            'is_head' => false,
+            'is_head' => true,
         ]);
 
         $payload = [

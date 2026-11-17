@@ -37,6 +37,7 @@ class StaffAccount extends Authenticatable
         'is_approved' => 'boolean',
         'last_seen_at' => 'datetime',
         'permissions' => 'array',
+        'password' => 'hashed',
     ];
 
     public function getAuthIdentifier()
@@ -132,8 +133,12 @@ class StaffAccount extends Authenticatable
             return true;
         }
 
-        if (\Illuminate\Support\Facades\Cache::has('staff_online_' . $this->id)) {
-            return true;
+        try {
+            if (\Illuminate\Support\Facades\Cache::has('staff_online_' . $this->id)) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // Fall back to database last_seen_at if cache store is unavailable
         }
 
         if ($this->last_seen_at && $this->last_seen_at->gt(now()->subMinutes(5))) {
@@ -145,7 +150,11 @@ class StaffAccount extends Authenticatable
 
     public function markOnline(): void
     {
-        \Illuminate\Support\Facades\Cache::put('staff_online_' . $this->id, true, now()->addMinutes(5));
+        try {
+            \Illuminate\Support\Facades\Cache::put('staff_online_' . $this->id, true, now()->addMinutes(5));
+        } catch (\Throwable $e) {
+            // Ignore cache errors so authentication never fails if cache store is down
+        }
         if (\Illuminate\Support\Facades\Schema::hasColumn('staff_accounts', 'last_seen_at')) {
             if (!$this->last_seen_at || $this->last_seen_at->lt(now()->subSeconds(60))) {
                 $this->timestamps = false;
@@ -157,7 +166,11 @@ class StaffAccount extends Authenticatable
 
     public function markOffline(): void
     {
-        \Illuminate\Support\Facades\Cache::forget('staff_online_' . $this->id);
+        try {
+            \Illuminate\Support\Facades\Cache::forget('staff_online_' . $this->id);
+        } catch (\Throwable $e) {
+            // Ignore cache errors so logout never fails if cache store is down
+        }
         if (\Illuminate\Support\Facades\Schema::hasColumn('staff_accounts', 'last_seen_at')) {
             $this->timestamps = false;
             $this->forceFill(['last_seen_at' => null])->saveQuietly();

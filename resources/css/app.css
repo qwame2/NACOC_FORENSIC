@@ -17,3 +17,19 @@
     --shadow-finnova-dark: 0 25px 60px -15px rgba(10, 11, 20, 0.5);
     --shadow-tactical-glow: 0 0 50px rgba(16, 185, 129, 0.35);
 }
+
+/* Cross-browser input normalization for date, time, and form grids across Chrome, Firefox, Safari, Edge */
+input[type="date"],
+input[type="time"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+@-moz-document url-prefix() {
+    input[type="date"],
+    input[type="time"] {
+        padding-right: 0.5rem;
+    }
+}
+

@@ -20,6 +20,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $analystUser = User::factory()->create([
             'unit' => 'Lab Analysis',
             'is_approved' => true,
+            'is_head' => true,
         ]);
 
         // 2. Step 1: Officer submits a new arrest docket
@@ -834,6 +835,7 @@ class CaseLifecycleIntegrationTest extends TestCase
         $analystUser = User::factory()->create([
             'unit' => 'Lab Analysis',
             'is_approved' => true,
+            'is_head' => true,
         ]);
 
         // 1. Submit a new case with suspect biodata and lab examination information simultaneously

@@ -27,10 +27,21 @@
 </head>
 
 <body class="min-h-screen flex antialiased bg-slate-50 text-slate-800 selection:bg-emerald-600 selection:text-white">
+@php
+    $isStaffUser = auth()->user() instanceof \App\Models\StaffAccount || request()->is('*/staff*') || (auth()->user() && !auth()->user()->is_head);
+    $screeningBaseUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening') : url('/Lab_Analysis/drug-screening');
+    $screeningCreateUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening/create') : url('/Lab_Analysis/drug-screening/create');
+    $screeningReportPdfBase = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening/report/pdf') : url('/Lab_Analysis/drug-screening/report/pdf');
+    $screeningPdfBase = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening') : url('/Lab_Analysis/drug-screening');
+@endphp
 
     <div class="flex h-screen w-full overflow-hidden">
         <!-- SHARED SIDEBAR -->
-        @include('Crime_Scene_Support.partials.sidebar')
+        @if($isStaffUser)
+            @include('staff.partials.sidebar', ['sidebarUnit' => 'Lab Analysis'])
+        @else
+            @include('Crime_Scene_Support.partials.sidebar')
+        @endif
 
         <!-- MAIN WORKSPACE CONTAINER -->
         <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
@@ -52,15 +63,7 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <button type="button" onclick="openGenerateReportModal()"
-                        class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer border border-slate-700/80"
-                        title="Generate PDF Situational or Personal Report">
-                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                        </svg>
-                        <span>Generate Report</span>
-                    </button>
-                    <a href="{{ url('/Lab_Analysis/drug-screening/create') }}"
+                    <a href="{{ $screeningCreateUrl }}"
                         class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -274,12 +277,6 @@
                                 Official Forensic Laboratory register displaying all suspect drug screening outcomes, clinical assessment purposes, and laboratory examination findings for arrested persons and suspects in custody.
                             </p>
                         </div>
-                        <div class="flex items-center gap-3 shrink-0">
-                            <div class="text-right">
-                                <div class="text-[10px] font-mono-code uppercase text-slate-400">Analysis Officer</div>
-                                <div class="text-xs font-bold text-teal-600 font-mono-code">{{ $headName }}</div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -468,7 +465,7 @@
 
                         <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-start lg:justify-end">
                             <!-- SEARCH INPUT FOR SCREENING PROFILES TABLE -->
-                            <form method="GET" action="{{ url('/Lab_Analysis/drug-screening') }}" class="relative w-full sm:w-64" id="tableSearchForm" onsubmit="executeScreeningTableSearchImmediate(event)">
+                            <form method="GET" action="{{ $screeningBaseUrl }}" class="relative w-full sm:w-64" id="tableSearchForm" onsubmit="executeScreeningTableSearchImmediate(event)">
                                 <input type="hidden" name="type" id="screeningFilterType" value="{{ request()->query('type', '') }}">
                                 <input type="hidden" name="result" id="screeningFilterResult" value="{{ request()->query('result', '') }}">
                                 <input type="hidden" name="period" id="screeningFilterPeriod" value="{{ request()->query('period', '') }}">
@@ -1082,7 +1079,7 @@
                 container: '#drugScreeningTableContainer',
                 table: '#drugScreeningTable',
                 form: '#tableSearchForm',
-                endpoint: '/Lab_Analysis/drug-screening',
+                endpoint: '{{ $screeningBaseUrl }}',
                 debounce: 300,
                 columns: 9,
                 rows: 6,
@@ -1127,7 +1124,7 @@
             if (from) params.set('from', from);
             if (to) params.set('to', to);
 
-            const targetUrl = '/Lab_Analysis/drug-screening?' + params.toString();
+            const targetUrl = '{{ $screeningBaseUrl }}?' + params.toString();
             if (window.drugScreeningAjaxTable) {
                 window.drugScreeningAjaxTable.fetchData(targetUrl, true);
             } else {
@@ -1145,7 +1142,7 @@
             setConsolePeriod('general');
             updateConsoleScope();
 
-            const targetUrl = '/Lab_Analysis/drug-screening';
+            const targetUrl = '{{ $screeningBaseUrl }}';
             if (window.drugScreeningAjaxTable) {
                 window.drugScreeningAjaxTable.fetchData(targetUrl, true);
             } else {

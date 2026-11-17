@@ -1,0 +1,72 @@
+name: Dependency Security & Supply Chain Audit
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  schedule:
+    # Run every Monday at 06:00 UTC to catch newly disclosed vulnerabilities
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # 1. Block PRs introducing vulnerable or malicious packages before merge
+  dependency-review:
+    name: Pre-Merge Dependency Review (PR Guard)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Dependency Review Action
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC
+          comment-summary-in-pr: true
+
+  # 2. Comprehensive automated audit on Composer & NPM dependencies
+  security-audit:
+    name: Composer & NPM Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP Environment
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_mysql, bcmath, json, openssl, tokenizer, xml
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Copy Testing Environment File
+        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install NPM Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Composer Security Audit (PHP)
+        run: composer audit --locked
+
+      - name: Run NPM Security Audit (JavaScript)
+        run: npm audit --audit-level=high
+
+      - name: Run Unified Artisan Security Audit
+        run: php artisan security:audit
+

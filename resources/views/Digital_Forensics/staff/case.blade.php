@@ -67,11 +67,6 @@
         ::-webkit-scrollbar-track { background: #F1F5F9; }
         ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-        .filter-tab-btn.active-tab {
-            background: #059669;
-            color: #FFFFFF;
-            box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25);
-        }
     </style>
 </head>
 <body class="min-h-screen flex antialiased bg-slate-50 text-slate-900 selection:bg-purple-600 selection:text-white">
@@ -98,7 +93,6 @@
 
                 <div class="flex items-center gap-3">
                     <span class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-mono-code font-bold bg-purple-50 text-purple-800 border border-purple-200/80 shadow-2xs">
-                        <span class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
                         DFPU Staff Active
                     </span>
 
@@ -137,11 +131,11 @@
                                 <span class="px-2.5 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-extrabold font-mono-code rounded-md uppercase tracking-wider shadow-2xs">
                                     DIGITAL &amp; PHYSICAL FORENSICS (DPFU)
                                 </span>
-                                <span class="text-xs text-slate-400">&bull;</span>
+                                <span class="text-xs text-slate-300">|</span>
                                 <span class="text-xs font-bold text-slate-600 font-mono-code">STAFF CASE DIRECTORY</span>
                             </div>
-                            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Digital &amp; Mobile Device Registry</h1>
-                            <p class="text-xs text-slate-500 mt-1">Analyst: <strong class="text-slate-800">{{ $staffName }}</strong> &bull; Unit Lead: <strong>{{ $headName }}</strong></p>
+                            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Active Incident &amp; Case Registry</h1>
+                            <p class="text-xs text-slate-500 mt-1">Analyst: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Unit Lead: <strong>{{ $headName }}</strong></p>
                         </div>
 
                         <div class="flex items-center gap-2">
@@ -205,20 +199,57 @@
                 <!-- FILTER CONTROLS & TABLE CARD -->
                 <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden space-y-4 p-5">
                     
-                    <!-- STATUS FILTER TABS -->
+                    <!-- FILTER CONTROLS BAR -->
                     <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-                        <div class="flex items-center gap-1.5 flex-wrap" id="statusFilterTabs">
-                            <button type="button" onclick="setStaffStatusFilter('all', this)" class="filter-tab-btn active-tab px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer">
-                                All Devices <span class="ml-1 opacity-80">({{ $totalDigitalCount }})</span>
-                            </button>
-                            <button type="button" onclick="setStaffStatusFilter('triage', this)" class="filter-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all cursor-pointer">
-                                Triage
-                            </button>
-                            <button type="button" onclick="setStaffStatusFilter('extraction', this)" class="filter-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all cursor-pointer">
-                                Extraction
-                            </button>
-                            <button type="button" onclick="setStaffStatusFilter('completed', this)" class="filter-tab-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all cursor-pointer">
-                                Completed
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider font-mono-code mr-1">
+                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                <span>Filters:</span>
+                            </div>
+
+                            <!-- Date Filter: From and To -->
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <div class="flex items-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1 text-xs shadow-2xs transition-colors">
+                                    <label for="staffDateFrom" class="text-slate-500 font-bold font-mono-code text-[11px] cursor-pointer">From:</label>
+                                    <input type="date" id="staffDateFrom" onchange="filterStaffCaseRows()" oninput="filterStaffCaseRows()" class="bg-transparent border-0 text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                </div>
+                                <div class="flex items-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1 text-xs shadow-2xs transition-colors">
+                                    <label for="staffDateTo" class="text-slate-500 font-bold font-mono-code text-[11px] cursor-pointer">To:</label>
+                                    <input type="date" id="staffDateTo" onchange="filterStaffCaseRows()" oninput="filterStaffCaseRows()" class="bg-transparent border-0 text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                                </div>
+                            </div>
+
+                            <!-- Priority Filter -->
+                            <div class="relative">
+                                <select id="staffPriorityFilter" onchange="filterStaffCaseRows()" class="appearance-none pl-3 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-purple-600 transition-colors cursor-pointer shadow-2xs">
+                                    <option value="all">All Priorities</option>
+                                    <option value="high">High</option>
+                                    <option value="low">Low</option>
+                                </select>
+                                <span class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </span>
+                            </div>
+
+                            <!-- Approval Status Filter -->
+                            <div class="relative">
+                                <select id="staffApprovalFilter" onchange="filterStaffCaseRows()" class="appearance-none pl-3 pr-8 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-purple-600 transition-colors cursor-pointer shadow-2xs">
+                                    <option value="all">All Approval States</option>
+                                    <option value="pending">Pending Approval</option>
+                                    <option value="approved">Approved</option>
+                                    <option value="head">Head Created</option>
+                                </select>
+                                <span class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </span>
+                            </div>
+
+                            <!-- Clear / Reset Filter Button -->
+                            <button type="button" onclick="resetStaffCaseFilters()" title="Reset Filters" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                <span>Reset</span>
                             </button>
                         </div>
 
@@ -256,8 +287,14 @@
                                             default => 'bg-slate-200 text-slate-700 border-slate-300',
                                         };
                                         $subSuspect = $sub->suspect_name ?: 'Unassigned Target';
+                                        $rawSubDate = $sub->created_at ?? ($sub->incident_date ?? null);
+                                        try {
+                                            $subDate = $rawSubDate ? \Carbon\Carbon::parse($rawSubDate)->format('Y-m-d') : date('Y-m-d');
+                                        } catch (\Throwable $e) {
+                                            $subDate = date('Y-m-d');
+                                        }
                                     @endphp
-                                    <tr class="hover:bg-slate-50/80 transition-colors staff-case-row" data-caseref="{{ strtolower($sub->case_number_preview ?? ('sub-' . $sub->id)) }}" data-suspect="{{ strtolower($subSuspect) }}" data-operation="{{ strtolower($sub->title ?? '') }}" data-status="pending">
+                                    <tr class="hover:bg-slate-50/80 transition-colors staff-case-row" data-caseref="{{ strtolower($sub->case_number_preview ?? ('sub-' . $sub->id)) }}" data-suspect="{{ strtolower($subSuspect) }}" data-operation="{{ strtolower($sub->title ?? '') }}" data-status="pending" data-approval="pending" data-priority="{{ strtolower($sub->priority ?? 'high') }}" data-date="{{ $subDate }}">
                                         <td class="py-4 px-4 whitespace-nowrap">
                                             <div class="font-bold font-mono-code text-blue-600 text-xs">
                                                 {{ $sub->case_number_preview ?? ('SUB-' . $sub->id) }}
@@ -425,8 +462,15 @@
                                             $approvalLabel = 'Pending';
                                             $approvalClass = 'bg-amber-100 text-amber-800 border-amber-200';
                                         }
+
+                                        $rawCaseDate = $case->incident_date ?? ($case->created_at ?? ($dData['incident_date'] ?? null));
+                                        try {
+                                            $caseDate = $rawCaseDate ? \Carbon\Carbon::parse($rawCaseDate)->format('Y-m-d') : date('Y-m-d');
+                                        } catch (\Throwable $e) {
+                                            $caseDate = date('Y-m-d');
+                                        }
                                     @endphp
-                                    <tr class="hover:bg-slate-50/80 transition-colors staff-case-row" data-caseref="{{ strtolower($case->case_number ?? '') }}" data-suspect="{{ strtolower($suspectDisplayName) }}" data-operation="{{ strtolower(($case->title ?? $primaryDevice) . ' ' . $serialImei) }}" data-status="{{ $statusLower }}">
+                                    <tr class="hover:bg-slate-50/80 transition-colors staff-case-row" data-caseref="{{ strtolower($case->case_number ?? '') }}" data-suspect="{{ strtolower($suspectDisplayName) }}" data-operation="{{ strtolower(($case->title ?? $primaryDevice) . ' ' . $serialImei) }}" data-status="{{ $statusLower }}" data-approval="{{ strtolower($approvalLabel) }}" data-priority="{{ strtolower($case->priority ?? 'high') }}" data-date="{{ $caseDate }}">
                                         <td class="py-4 px-4 whitespace-nowrap">
                                             <a href="/Digital_Forensics/staff/cases/{{ $case->case_number }}/review" class="font-bold font-mono-code text-blue-600 text-xs hover:underline">
                                                 {{ $case->case_number }}
@@ -561,18 +605,12 @@
                                                         </div>
                                                     </a>
 
-                                                    <a href="/cases/{{ $case->case_number }}/associate?from={{ urlencode($sidebarUnit) }}"
-                                                        class="w-full text-left p-2.5 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl flex items-center space-x-2.5 transition-colors group">
-                                                        <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                                            </svg>
-                                                        </div>
-                                                        <div>
-                                                            <div class="font-extrabold leading-tight">Add Associate</div>
-                                                            <div class="text-[10px] text-slate-400 font-normal mt-0.5">Link accomplices &amp; exhibits</div>
-                                                        </div>
-                                                    </a>
+                                                    @include('partials.add_associate_action', [
+                                                        'case' => $case,
+                                                        'variant' => 'menu',
+                                                        'unitLabel' => 'Digital & Physical Forensics',
+                                                        'associateFrom' => $sidebarUnit,
+                                                    ])
                                                 </div>
                                             </div>
                                         </td>
@@ -589,6 +627,14 @@
                                     </tr>
                                     @endif
                                 @endforelse
+                                <tr id="noMatchingStaffRows" style="display: none;">
+                                    <td colspan="7" class="py-12 text-center text-slate-400">
+                                        <div class="flex flex-col items-center justify-center space-y-2">
+                                            <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                            <span class="font-medium text-xs text-slate-500">No cases match the selected filter criteria</span>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -607,37 +653,72 @@
     </div>
 
     <script>
-        let currentStatusFilter = 'all';
+        function setStaffStatusFilter(status) {
+            // Maintained for backward compatibility
+            filterStaffCaseRows();
+        }
 
-        function setStaffStatusFilter(status, btn) {
-            currentStatusFilter = status.toLowerCase();
-            document.querySelectorAll('#statusFilterTabs button').forEach(b => {
-                b.classList.remove('active-tab');
-                b.classList.add('bg-slate-50', 'text-slate-700');
-            });
-            btn.classList.add('active-tab');
-            btn.classList.remove('bg-slate-50', 'text-slate-700');
+        function resetStaffCaseFilters() {
+            const approvalSelect = document.getElementById('staffApprovalFilter');
+            const prioritySelect = document.getElementById('staffPriorityFilter');
+            const dateFrom = document.getElementById('staffDateFrom');
+            const dateTo = document.getElementById('staffDateTo');
+            const tableInput = document.getElementById('tableFilterInput');
+            const globalSearch = document.getElementById('globalSearch');
+
+            if (approvalSelect) approvalSelect.value = 'all';
+            if (prioritySelect) prioritySelect.value = 'all';
+            if (dateFrom) dateFrom.value = '';
+            if (dateTo) dateTo.value = '';
+            if (tableInput) tableInput.value = '';
+            if (globalSearch) globalSearch.value = '';
+
             filterStaffCaseRows();
         }
 
         function filterStaffCaseRows() {
             const query = (document.getElementById('globalSearch')?.value || document.getElementById('tableFilterInput')?.value || '').trim().toLowerCase();
+            const approvalFilter = (document.getElementById('staffApprovalFilter')?.value || 'all').toLowerCase();
+            const priorityFilter = (document.getElementById('staffPriorityFilter')?.value || 'all').toLowerCase();
+            const dateFrom = (document.getElementById('staffDateFrom')?.value || '').trim();
+            const dateTo = (document.getElementById('staffDateTo')?.value || '').trim();
+
             const rows = document.querySelectorAll('.staff-case-row');
+            let visibleCount = 0;
             rows.forEach(row => {
                 const cRef = row.getAttribute('data-caseref') || '';
                 const suspect = row.getAttribute('data-suspect') || '';
                 const operation = row.getAttribute('data-operation') || '';
-                const status = row.getAttribute('data-status') || '';
+                const approval = row.getAttribute('data-approval') || '';
+                const priority = row.getAttribute('data-priority') || '';
+                const rowDate = (row.getAttribute('data-date') || '').trim();
 
                 const matchesQuery = !query || cRef.includes(query) || suspect.includes(query) || operation.includes(query);
-                const matchesStatus = (currentStatusFilter === 'all') || status.includes(currentStatusFilter);
+                const matchesApproval = (approvalFilter === 'all') || approval.includes(approvalFilter);
+                const matchesPriority = (priorityFilter === 'all')
+                    || (priority === priorityFilter)
+                    || (priorityFilter === 'high' && (priority === 'critical' || priority === 'urgent'));
 
-                if (matchesQuery && matchesStatus) {
+                let matchesDate = true;
+                if (dateFrom && (!rowDate || rowDate < dateFrom)) {
+                    matchesDate = false;
+                }
+                if (dateTo && (!rowDate || rowDate > dateTo)) {
+                    matchesDate = false;
+                }
+
+                if (matchesQuery && matchesApproval && matchesPriority && matchesDate) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                 }
             });
+
+            const noMatchesRow = document.getElementById('noMatchingStaffRows');
+            if (noMatchesRow) {
+                noMatchesRow.style.display = (visibleCount === 0 && rows.length > 0) ? '' : 'none';
+            }
         }
 
         function closeAllStaffActionMenus() {

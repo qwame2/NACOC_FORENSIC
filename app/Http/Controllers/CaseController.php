@@ -68,6 +68,10 @@ class CaseController extends Controller
 
         $authUser = auth()->user();
         if ($authUser && !$authUser->is_head && !$request->boolean('approved_by_head')) {
+            if ($validationError = $this->validateStaffSubmissionPayload($request)) {
+                return $validationError;
+            }
+
             $rawInput = $request->except(['_token']);
             if ($request->hasFile('search_warrant_document')) {
                 $warrantFile = $request->file('search_warrant_document');
@@ -76,7 +80,7 @@ class CaseController extends Controller
                 }
             }
 
-            $payload = array_filter($rawInput, fn ($val) => !($val instanceof \Illuminate\Http\UploadedFile));
+            $payload = $this->stripUploadedFiles($rawInput);
             $unitName = trim((string) ($authUser->unit ?: $request->input('unit_name') ?: $request->input('unit') ?: 'Crime Scene Support'));
             $suspectName = trim((string) ($request->input('suspect_name') ?: $request->input('full_name') ?: $request->input('title') ?: 'Pending Suspect'));
             $title = trim((string) ($request->input('title') ?: $request->input('offense_type') ?: $request->input('operation_type') ?: 'Staff Case Submission'));
@@ -491,4 +495,82 @@ class CaseController extends Controller
     public function labReportPage(Request $request) { return app(CaseReportController::class)->labReportPage($request); }
     public function labSitrepReport(Request $request) { return app(CaseReportController::class)->labSitrepReport($request); }
     public function dashboardRealtime(Request $request) { return app(CaseReportController::class)->dashboardRealtime($request); }
+
+    /**
+     * Validate core staff submission inputs before staging into staff_case_submissions.
+     */
+    private function validateStaffSubmissionPayload(Request $request)
+    {
+        $noSuspect = filter_var($request->input('no_suspect'), FILTER_VALIDATE_BOOLEAN);
+
+        if ($noSuspect) {
+            $inputDocket = $this->decodeDocket($request->input('docket_data'));
+            $rawSeizuresInput = is_array($request->input('seizures')) ? $request->input('seizures') : ($inputDocket['seizures'] ?? []);
+            if (!is_array($rawSeizuresInput)) {
+                $rawSeizuresInput = [];
+            }
+            $hasExplicitTopSeizure = ForensicCase::hasTopLevelExhibitData($request->all());
+
+            if (count($rawSeizuresInput) === 0 && !$hasExplicitTopSeizure) {
+                $errors = ['seizures' => ['At least one seized commodity in Section 4 is required when Sections 1 to 3 (Suspect Details) are skipped.']];
+                if ($request->wantsJson() || $request->ajax()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Please record at least one seized exhibit or commodity in Section 4 when logging a case without a suspect.',
+                        'errors' => $errors,
+                    ], 422);
+                }
+                throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            }
+
+            return null;
+        }
+
+        \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'title' => ['required', 'string', 'max:255'],
+            'suspect_name' => ['required', 'string', 'max:255'],
+        ])->validate();
+
+        $inputDocket = $this->decodeDocket($request->input('docket_data'));
+        $validDocketSuspects = (isset($inputDocket['suspects']) && is_array($inputDocket['suspects']))
+            ? array_values(array_filter($inputDocket['suspects'], function ($s) {
+                $n = trim((string) ($s['suspect_name'] ?? ''));
+                return $n !== '' && $n !== 'Unnamed Suspect' && $n !== 'Unknown';
+            }))
+            : [];
+
+        $suspectName = trim((string) $request->input('suspect_name', ''));
+        if (empty($validDocketSuspects) && ($suspectName === '' || $suspectName === 'Unnamed Suspect' || $suspectName === 'Unknown')) {
+            $errors = ['suspect_name' => ['Suspect Full Legal Name is required to create a docket case.']];
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The suspect name field is required. You cannot save a case docket without entering suspect details.',
+                    'errors' => $errors,
+                ], 422);
+            }
+            throw \Illuminate\Validation\ValidationException::withMessages($errors);
+        }
+
+        return null;
+    }
+
+    /**
+     * Recursively strip UploadedFile instances so staged staff submission payloads encode cleanly to JSON.
+     */
+    private function stripUploadedFiles(array $data): array
+    {
+        $cleaned = [];
+        foreach ($data as $key => $value) {
+            if ($value instanceof \SplFileInfo) {
+                continue;
+            }
+            if (is_array($value)) {
+                $cleaned[$key] = $this->stripUploadedFiles($value);
+            } else {
+                $cleaned[$key] = $value;
+            }
+        }
+        return $cleaned;
+    }
 }

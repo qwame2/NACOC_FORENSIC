@@ -214,7 +214,7 @@
                             </svg>
                             @if ($totalAlertsCount > 0)
                                 <span
-                                    class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                                    class="ml-1 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-mono-code font-bold rounded leading-none">{{ $totalAlertsCount }}</span>
                             @endif
                         </button>
 
@@ -358,14 +358,14 @@
 
                 <!-- HERO DOSSIER HEADER BANNER -->
                 <div
-                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-slate-900 text-white shadow-xl border border-slate-800">
+                    class="relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-gray-500 bg-grey-500 text-white shadow-xl border border-gray-400">
                     <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                         <div class="space-y-3 flex-1">
                             <div class="flex items-center gap-3 flex-wrap">
                                 <span
                                     class="px-2 py-0.5 rounded text-[10px] font-bold font-mono-code bg-slate-800 text-amber-400 border border-slate-700">{{ $priority }}
                                     PRIORITY</span>
-                                <span class="text-slate-500">•</span>
+                                <span class="text-slate-400">|</span>
                                 <span id="headerStatusBadge">
                                     @if ($status === 'Approved' || $status === 'Authorized')
                                         <span class="status-badge status-done">
@@ -392,7 +392,7 @@
                                 <h1
                                     class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
                                     {{ $case->title }}
-                                    <span class="text-base text-slate-400 font-normal">|
+                                    <span class="text-base text-white font-normal">|
                                         {{ $case->case_number }}</span>
                                 </h1>
                                 <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl leading-relaxed">
@@ -405,15 +405,11 @@
                         <!-- QUICK ACTIONS IN HERO -->
                         <div class="flex items-center gap-3 shrink-0">
 
-                            <a href="/cases/{{ $case->case_number }}/edit?from=Lab_Analysis"
-                                class="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer no-underline">
-                                <svg class="w-4 h-4 text-amber-200" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                <span>Edit Case/Update Case Records</span>
-                            </a>
+                            @include('partials.edit_case_button', [
+                                'case' => $case,
+                                'editFrom' => 'Lab_Analysis',
+                                'unitLabel' => 'Lab Analysis',
+                            ])
                             <a href="/cases/{{ $case->case_number }}/pdf" target="_blank"
                                 class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline">
                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor"
@@ -524,27 +520,18 @@
                 @php @endphp
                                 @php @endphp
 
-                @if ($isJointExhibitCase)
+                @if (!empty($isJointExhibitCase) || !empty($jointCaseExhibits) || !empty($allCaseExhibits))
                     {{-- {{ $isMultiple ? 'PRIMARY & CO-SUSPECT' : 'PRIMARY' }} EXHIBIT DOSSIER ({{ $isMultiple ? 'JOINT OWNERSHIP SECTION' : 'PRIMARY SUSPECT SECTION' }} ON TOP OF SEIZURES INVENTORY) --}}
                     @include('partials.exhibit_dossier_card', [
                         'dossierBadgeText' => $dossierBadgeText,
                         'dossierHeadingText' => $dossierHeadingText,
                         'dossierHeadingName' => $jointDossierHeadingName,
-                        'dossierExhibits' => $jointCaseExhibits,
+                        'dossierExhibits' => !empty($jointCaseExhibits) ? $jointCaseExhibits : ($allCaseExhibits ?? []),
                         'dossierPhotos' => $allCaseExhibitPhotos,
                         'formatPhotoUrlHelper' => $formatPhotoUrlHelper,
                         'extractAllPhotosHelper' => $extractAllPhotosHelper,
                         'case' => $case,
                     ])
-
-                    {{-- ATTACHED GSA & NLR REPORT FILES CONTAINER UNDER PRIMARY & CO-SUSPECT SEIZURES & EXHIBITS --}}
-                    @php @endphp
-                    @if (!empty($jointCaseReportFiles) && count($jointCaseReportFiles) > 0)
-                        @include('partials.gsa_report_files', [
-                            'gsaFiles' => $jointCaseReportFiles,
-                            'gsaForName' => $jointDossierHeadingName,
-                        ])
-                    @endif
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
                     @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
@@ -564,16 +551,34 @@
                     @endif
                 @endif
 
-                                    @include('partials.exhibit-table', [
-                                        'exhibits' => $allCaseExhibits,
-                                        'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
-                                        'case' => $case,
-                                    ])
+                {{-- ATTACHED REPORT FILES CONTAINER ALWAYS ON TOP OF SEIZURES (COMMODITIES INVENTORY) --}}
+                @php
+                    $allCaseReportFiles = collect($allGsaForReview ?? [])
+                        ->merge(collect($allNlrForReview ?? []))
+                        ->merge(collect($jointCaseReportFiles ?? []))
+                        ->unique(function ($item) {
+                            return !empty($item->file_path) ? (string) $item->file_path : (get_class($item) . '_' . ($item->id ?? spl_object_id($item)));
+                        })
+                        ->values();
+                @endphp
+                @if ($allCaseReportFiles->count() > 0)
+                    @include('partials.gsa_report_files', [
+                        'gsaFiles' => $allCaseReportFiles,
+                        'gsaForName' => null,
+                    ])
+                @endif
+
+                @include('partials.exhibit-table', [
+                    'exhibits' => $allCaseExhibits,
+                    'defaultOwnerName' => $case->suspect_name ?? 'Primary Suspect',
+                    'case' => $case,
+                    'suspects' => $suspectsList ?? [],
+                ])
 
                 <!-- SECTION 5: EXAMINATION INFORMATION (LABORATORY ANALYSIS DIRECTORATE) -->
                                     @php @endphp
 
-                    <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl"
+                    <div class="dossier-card p-6 border border-slate-200 space-y-6 shadow-sm bg-white rounded-2xl hidden"
                         id="section5LabExamination">
 
                         <!-- OFFICIAL READ-ONLY FORENSIC EXAMINATION REPORT DISPLAY -->
@@ -581,287 +586,7 @@
                             data-has-any-saved-lab="{{ !empty($hasAnySavedLabData) ? '1' : '0' }}"
                             data-active-has-drug="{{ !empty($activeSuspectHasDrugExhibit) ? '1' : '0' }}"
                             data-active-has-saved-result="{{ !empty($activeSuspectHasSavedResult) ? '1' : '0' }}"
-                            class="space-y-4 {{ !$hasAnySavedLabData || !$activeSuspectHasDrugExhibit || !$activeSuspectHasSavedResult ? 'hidden' : '' }}">
-
-                            <!-- LABORATORY EXAMINATION HEADER -->
-                            <div class="flex items-center justify-between pb-3 border-b border-emerald-200">
-                                <div class="flex items-center space-x-3">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                stroke-width="2.5"
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-sm font-black text-slate-900">{{ $activeSuspectHasSavedResult ? 'LABORATORY EXAMINATION RESULT — ' . strtoupper($labOwnerName) : 'FORENSIC EXAMINATION PENDING — ' . strtoupper($labOwnerName) }}</h3>
-                                        <p class="text-[11px] text-emerald-800 font-semibold">Official Laboratory Analysis Directorate Findings for {{ $labOwnerName }}</p>
-                                    </div>
-                                </div>
-                                <span
-                                    class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-200 text-emerald-950 border border-emerald-400">
-                                    {{ $activeSuspectHasSavedResult ? '✓ VERIFIED RESULT LOGGED' : 'EXAMINATION PENDING' }}
-                                </span>
-                            </div>
-
-                            <!-- STRUCTURED READ-ONLY LABORATORY EXAMINATION TABLE -->
-                            <table
-                                class="w-full text-xs border-collapse border border-slate-300 rounded-xl overflow-hidden shadow-2xs">
-                                <tbody>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                                            Analysis Reference:</td>
-                                        <td class="p-3 font-black text-emerald-900 font-mono-code text-sm border-r border-slate-300 w-3/10 bg-white"
-                                            id="displayLabExamRef">{{ $savedLabExamRef }}</td>
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
-                                            Exhibit Number:</td>
-                                        <td class="p-3 font-black text-emerald-900 font-mono-code text-sm bg-white"
-                                            id="displayLabExhibitNo">{{ $savedLabExhibitNo ?: $labExhibitNo }}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Case Reference:</td>
-                                        <td class="p-3 font-black text-blue-900 font-mono-code border-r border-slate-300 bg-white"
-                                            id="displayLabCaseRef">{{ $savedLabCaseRef }}</td>
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Laboratory Number:</td>
-                                        <td class="p-3 font-black text-slate-900 font-mono-code bg-white"
-                                            id="section5LabUnitDisplay">{{ $savedLabNumber }}</td>
-                                    </tr>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Exhibit Description:</td>
-                                        <td class="p-3 font-bold text-slate-900 bg-white" colspan="3"
-                                            id="displayLabExhibitDesc">
-                                            {{ $savedLabExhibitDesc ?: ($savedLabSampleDesc ?: 'N/A') }}</td>
-                                    </tr>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Purpose of Examination:</td>
-                                        <td class="p-3 font-bold text-slate-900 bg-white" colspan="3"
-                                            id="displayLabPurposeOfExamination">
-                                            {{ $savedLabPurposeOfExamination ?: 'N/A' }}</td>
-                                    </tr>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Analyst / Examiner:</td>
-                                        <td class="p-3 font-black text-slate-900 border-r border-slate-300 bg-white"
-                                            id="section5AnalystDisplay">{{ $savedLabAnalyst }}</td>
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Examination Timeline:</td>
-                                        <td class="p-2 bg-white">
-                                            <table
-                                                class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                                                <thead
-                                                    class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                                    <tr class="border-b border-slate-300">
-                                                        <th
-                                                            class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                            Received</th>
-                                                        <th
-                                                            class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                            Started</th>
-                                                        <th class="px-2 py-1 text-left bg-slate-200/70">Completed</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="bg-white font-bold font-mono-code text-slate-900">
-                                                    <tr>
-                                                        <td class="px-2 py-1 border-r border-slate-300 text-blue-900"
-                                                            id="section5DateReceivedDisplay">
-                                                            {{ $savedLabDateReceived }}</td>
-                                                        <td class="px-2 py-1 border-r border-slate-300 text-amber-900"
-                                                            id="section5DateStartedDisplay">
-                                                            {{ $savedLabDateStarted }}</td>
-                                                        <td class="px-2 py-1 text-emerald-900"
-                                                            id="section5DateCompletedDisplay">
-                                                            {{ $savedLabDateCompleted }}</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                    <tr class="border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Presumptive Reaction:</td>
-                                        <td class="p-2 border-r border-slate-300 bg-white"
-                                            id="section5PresumptiveDisplay">
-                                            @php @endphp
-                                            <table
-                                                class="w-full text-xs border border-slate-300 rounded overflow-hidden">
-                                                <thead
-                                                    class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
-                                                    <tr class="border-b border-slate-300">
-                                                        <th
-                                                            class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                            Result</th>
-                                                        <th
-                                                            class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
-                                                            Presence of</th>
-                                                        <th class="px-2 py-1 text-left bg-slate-200/70">
-                                                            Purity/Percentage</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody class="bg-white">
-                                                    @foreach ($pRows as $pRow)
-                                                        <tr class="border-b border-slate-200 last:border-b-0">
-                                                            <td
-                                                                class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $pRow['result'] === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">
-                                                                {{ $pRow['result'] }}</td>
-                                                            <td
-                                                                class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
-                                                                {{ $pRow['presence'] }}</td>
-                                                            <td class="px-2 py-1 font-bold text-slate-900">
-                                                                {{ $pRow['purity'] }}</td>
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-                                            </table>
-                                        </td>
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Confirmatory Test:</td>
-                                        @php @endphp
-                                        <td class="p-3 font-black bg-white {{ $displayConfText === 'YES' ? 'text-emerald-950' : ($displayConfText === 'NO' ? 'text-red-950' : 'text-slate-600') }}"
-                                            id="section5ConfirmatoryDisplay">
-                                            <span class="inline-flex items-center space-x-1.5">
-                                                @if($displayConfText === 'YES')
-                                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                                                @elseif($displayConfText === 'NO')
-                                                    <span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-                                                @else
-                                                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                                                @endif
-                                                <span class="font-extrabold">{{ $displayConfText }}</span>
-                                            </span>
-                                        </td>
-                                    </tr>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Sample Metrology:</td>
-                                        <td class="p-3 bg-white" colspan="3">
-                                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                                <div
-                                                    class="col-span-2 sm:col-span-4 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                                    <div
-                                                        class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">
-                                                        Description</div>
-                                                    <div class="font-bold text-slate-950 text-xs mt-0.5"
-                                                        id="section5SampleDescDisplay">
-                                                        {{ $savedLabSampleDesc ?: 'N/A' }}</div>
-                                                </div>
-                                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                                    <div
-                                                        class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">
-                                                        Number of Units</div>
-                                                    <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5"
-                                                        id="section5SampleUnitsDisplay">
-                                                        {{ $savedLabSampleUnits ?: 'N/A' }}</div>
-                                                </div>
-                                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                                    <div
-                                                        class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">
-                                                        Gross Weight</div>
-                                                    <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5"
-                                                        id="section5SampleGrossDisplay">
-                                                        {{ $savedLabSampleGross ?: 'N/A' }}</div>
-                                                </div>
-                                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                                    <div
-                                                        class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">
-                                                        Sample Taken</div>
-                                                    @php @endphp
-                                                    <div class="font-mono-code font-bold text-emerald-900 text-xs mt-0.5"
-                                                        id="section5SampleTakenDisplay">
-                                                        {{ $displaySampleTaken }}
-                                                        @if (!empty($displaySampleTakenLabel))
-                                                            <span
-                                                                class="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">{{ $displaySampleTakenLabel }}</span>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                                <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                                    <div
-                                                        class="text-[9px] font-mono-code font-black text-slate-500 uppercase tracking-wider">
-                                                        Reserved Samples</div>
-                                                    <div class="font-mono-code font-bold text-slate-950 text-xs mt-0.5"
-                                                        id="section5SampleReservedDisplay">
-                                                        @if (!empty($savedLabSampleReserved))
-                                                            {{ $savedLabSampleReserved }}
-                                                        @else
-                                                            —<span
-                                                                class="ml-1 text-[9px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded">Not
-                                                                Recorded</span>
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr class="border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Substance Identified:</td>
-                                        <td class="p-3 font-black text-slate-950 bg-white border-r border-slate-300"
-                                            id="section5SubstanceIdDisplay">{{ $savedLabSubstanceId ?: 'N/A' }}</td>
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Test Specifications:</td>
-                                        <td class="p-3 font-bold text-slate-900 bg-white" id="section5SpecsDisplay">
-                                            {{ $savedLabSpecifications ?: 'N/A' }}</td>
-                                    </tr>
-                                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Result (Detected Substances & Purity %):</td>
-                                        <td class="p-3 bg-white font-bold text-slate-900 text-xs" colspan="3"
-                                            id="section5DetectedSubstancesDisplay">
-                                            @php @endphp
-                                            @if (count($detList) > 0)
-                                                <span>{{ implode(', ', $detList) }}</span>
-                                            @else
-                                                <span class="text-slate-700 font-bold italic text-xs">No individual
-                                                    compound breakdown logged</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    <tr class="border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Test / Examination Conducted:</td>
-                                        <td class="p-3 font-mono-code font-black text-slate-900 bg-white"
-                                            colspan="3" id="section5TestMethodsDisplay">
-                                            {{ $savedLabTestMethods ?: 'N/A' }}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-300">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                                            Analysis Remark:</td>
-                                        <td class="p-3 font-bold text-slate-900 bg-white" colspan="3"
-                                            id="section5RemarkDisplay">{{ $savedLabRemark ?: 'N/A' }}</td>
-                                    </tr>
-                                    <tr class="bg-slate-900 text-white">
-                                        <td
-                                            class="p-3 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">
-                                            Analytical Findings:</td>
-                                        <td class="p-3 font-medium text-slate-100 leading-relaxed bg-slate-900"
-                                            colspan="3" id="section5FindingsDisplay">
-                                            {{ $savedLabFindings ?: 'No specific laboratory analytical findings logged yet.' }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            class="hidden">
                         </div>
 
 
@@ -888,49 +613,44 @@
                         </div>
                     </div>
                 
-                <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD (ALL 4 UNITS) -->
-                <div id="seizureItemActivationCard"
-                    class="mt-8 bg-white border border-slate-300/80 rounded-2xl p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-slate-400">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div class="flex items-center space-x-3.5">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                </svg>
+                <!-- SECTION 4: SEIZURES (COMMODITIES & EXHIBITS) -->
+                <div class="mt-8 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-6 relative z-20 overflow-hidden">
+                    <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center font-bold shadow-md shadow-slate-200/60 shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                             </div>
                             <div>
-                                <div class="flex items-center gap-2">
-                                    <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">
-                                        Seizure Item Section
-                                    </h4>
-                                    <span id="seizureItemStatusBadge"
-                                        class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">
-                                        INACTIVE / HIDDEN
-                                    </span>
-                                </div>
-                                <p class="text-[11px] text-slate-500 font-medium mt-0.5">
-                                    Check the box to display and activate the Seizure Item section to record new exhibits or commodities for this case.
-                                </p>
+                                <h3 class="font-extrabold text-slate-900 text-base">Section 4: Seizures (Commodities)</h3>
+                                <p class="text-xs text-slate-500">Record illicit substance types, street valuation, and evidence vault allocation</p>
                             </div>
                         </div>
-
-                        <label for="toggleSeizureItemSectionCheckbox"
-                            id="labelToggleSeizureItemSection"
-                            class="inline-flex items-center gap-3 cursor-pointer select-none bg-slate-50 hover:bg-slate-100/90 px-4 py-2.5 rounded-xl border border-slate-300 transition-all duration-150 shrink-0 shadow-2xs">
-                            <input type="checkbox" id="toggleSeizureItemSectionCheckbox"
-                                onchange="toggleSeizureItemSection(this.checked)"
-                                class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
-                            <span class="text-xs font-extrabold text-slate-800 tracking-wide">
-                                Add / Record Seizure Item
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-mono-code font-bold rounded-lg border border-emerald-200/80 uppercase tracking-wider shadow-2xs">
+                                Contraband Inventory
                             </span>
+                        </div>
+                    </div>
+
+                    <!-- SEIZURE ITEM SECTION ACTIVATION TOGGLE CARD -->
+                    <div id="seizureItemActivationCard" class="space-y-2.5">
+                        <div class="flex items-center justify-between pb-1">
+                            <span class="text-xs font-black text-slate-900 uppercase font-mono-code tracking-wide">Seizure Item Section</span>
+                            <span id="seizureItemStatusBadge" class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase">
+                                INACTIVE / HIDDEN
+                            </span>
+                        </div>
+                        <label for="toggleSeizureItemSectionCheckbox" id="labelToggleSeizureItemSection" class="relative flex items-center space-x-3.5 p-4 bg-slate-50/80 hover:bg-slate-100/80 border border-slate-300/80 rounded-xl cursor-pointer hover:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all shadow-2xs select-none overflow-hidden">
+                            <input type="checkbox" id="toggleSeizureItemSectionCheckbox" onchange="toggleSeizureItemSection(this.checked)" class="w-5 h-5 text-emerald-600 rounded-md border-slate-300 focus:ring-emerald-600 focus:ring-2 cursor-pointer accent-emerald-600 shrink-0">
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <span class="text-xs font-extrabold text-slate-900">Seized Contraband / Illicit Commodities Recorded During Arrest</span>
+                                <span class="text-[11px] text-slate-500 font-medium">Check this box if any narcotics, weapons, cash, or contraband commodities were confiscated from this suspect</span>
+                            </div>
                         </label>
                     </div>
-                </div>
 
-                <!-- SECTION 4: SEIZURES (COMMODITIES & EXHIBITS) -->
-                <div id="section4Seizures"
-                    class="mt-8 bg-white/90 border border-slate-300/80 rounded-2xl p-6 shadow-sm hidden">
+                    <!-- CONDITIONAL SEIZURES DETAILS CONTAINER -->
+                    <div id="section4Seizures" class="hidden p-5 bg-emerald-50/40 rounded-2xl border border-emerald-200/80 space-y-5 shadow-2xs overflow-hidden">
                     <form id="section4SeizuresForm"
                         onsubmit="event.preventDefault(); return false;"
                         onkeydown="if(event.key === 'Enter' && event.target.tagName !== 'TEXTAREA') { event.preventDefault(); return false; }">
@@ -959,6 +679,12 @@
                                 <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all cursor-pointer">
                                     <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
                                     Add Seizure
+                                </button>
+                                <button type="button" onclick="resetSeizureItemSection(true)" title="Reset Seizure Item Section" class="inline-flex items-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-extrabold text-xs rounded-xl border border-slate-300 shadow-xs hover:shadow transition-all cursor-pointer">
+                                    <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    Reset Section
                                 </button>
                             </div>
                         </div>
@@ -1095,7 +821,7 @@
                                             class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Packaging as Received / Commodity Name <span class="text-red-600 font-bold">*</span></label>
 
                                         <!-- TEXT INPUT (shown for non-drug categories) -->
-                                        <div id="commodityTextWrapper" class="relative flex items-center group">
+                                        <div id="commodityTextWrapper" class="hidden relative flex items-center group">
                                             <span
                                                 class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
@@ -1111,7 +837,7 @@
                                         </div>
 
                                         <!-- DRUG SELECT DROPDOWN -->
-                                        <div id="drugSelectWrapper" class="hidden relative z-40">
+                                        <div id="drugSelectWrapper" class="relative z-40">
                                             <div class="relative">
                                                 <span
                                                     class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -2511,165 +2237,140 @@
                                         </div>
                                     </div>
 
-                                    <!-- LOCATION SEIZED -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location
-                                            Seized</label>
-                                        <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                            </span>
-                                            <input type="text" id="newSeizureLocation"
-                                                placeholder="e.g. Tema Port, Gate 4 — Container Terminal"
-                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                        </div>
-                                    </div>
-
                                     <!-- SOURCE OF EXHIBITS -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Source of Exhibits</label>
+                                    <div class="col-span-full">
+                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                            Source of Exhibits
+                                        </label>
                                         <div class="relative flex items-center group">
-                                            <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                                 </svg>
                                             </span>
                                             <input type="text" id="newSeizureSourceOfExhibits" name="source_of_exhibits"
                                                 placeholder="e.g. Tema Port Warehouse, Vessel Compartment, Suspect Residence..."
-                                                class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                class="seizure-source-of-exhibits-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                         </div>
                                     </div>
 
-                                    <!-- SEIZING OFFICERS (MULTI-ROW) -->
-                                    <div class="col-span-full">
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <label
-                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                Seizing Officer(s)
-                                            </label>
-                                            <button type="button" onclick="addSeizureOfficerRow(this)"
-                                                class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2.5" d="M12 4v16m8-8H4" />
-                                                </svg> Add Officer
-                                            </button>
+                                    <!-- ROW: LOCATION SEIZED & INVESTIGATING OFFICER -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- LOCATION SEIZED -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location Seized <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureLocation" name="location_seized" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
                                         </div>
-                                        <div id="seizureOfficersContainer" class="space-y-2">
-                                            <div
-                                                class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                    <div class="relative flex items-center group">
-                                                        <span
-                                                            class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                            <svg class="w-3.5 h-3.5" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                            </svg>
-                                                        </span>
-                                                        <input type="text"
-                                                            class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400"
-                                                            placeholder="Officer Full Name">
-                                                    </div>
-                                                    <div class="flex items-center gap-1.5">
-                                                        <div class="relative flex-1 flex items-center group">
-                                                            <span
-                                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                                <svg class="w-3.5 h-3.5" fill="none"
-                                                                    stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round"
-                                                                        stroke-linejoin="round" stroke-width="2"
-                                                                        d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4" />
-                                                                </svg>
-                                                            </span>
-                                                            <input type="text"
-                                                                class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code"
-                                                                placeholder="Service ID / Badge No (e.g. SD-0042)">
-                                                        </div>
-                                                        <button type="button"
-                                                            onclick="removeSeizureOfficerRow(this)"
-                                                            class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer"
-                                                            title="Remove Officer">
-                                                            <svg class="w-4 h-4" fill="none"
-                                                                stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                                    stroke-width="2"
-                                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </div>
+
+                                        <!-- INVESTIGATING OFFICER -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Investigating Officer
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                    placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                    class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                             </div>
                                         </div>
                                     </div>
 
-                                    <!-- INVESTIGATING OFFICER -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                            Investigating Officer
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                            </span>
-                                            <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
-                                                placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
-                                                class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                    <!-- ROW: SEIZING OFFICERS & SOURCE/REQUESTING UNIT -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                                        <!-- SEIZING OFFICERS (MULTI-ROW) -->
+                                        <div>
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                    Seizing Officer(s) <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <button type="button" onclick="addSeizureOfficerRow(this)" class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                    Add Seizing Officer
+                                                </button>
+                                            </div>
+
+                                            <!-- OFFICER ROWS CONTAINER -->
+                                            <div id="seizureOfficersContainer" class="space-y-2">
+                                                <!-- Row 1 -->
+                                                <div class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        <div class="relative flex items-center group">
+                                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                            </span>
+                                                            <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
+                                                        </div>
+                                                        <div class="flex items-center gap-1.5">
+                                                            <div class="relative flex-1 flex items-center group">
+                                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                                                                </span>
+                                                                <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
+                                                            </div>
+                                                            <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- SOURCE / REQUESTING UNIT -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Source/Requesting Unit
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                                    </svg>
+                                                </span>
+                                                <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                    placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                    class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <!-- SOURCE / REQUESTING UNIT -->
-                                    <div class="col-span-full md:col-span-2">
-                                        <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
-                                            Source/Requesting Unit
-                                        </label>
-                                        <div class="relative flex items-center group">
-                                            <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                            </span>
-                                            <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
-                                                placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
-                                                class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                    <!-- ROW: REASON FOR SEIZURE & REMARKS / OBSERVATIONS -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- REASON FOR SEIZURE -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Reason for Seizure <span class="text-red-600 font-bold">*</span></label>
+                                            <div class="relative flex items-start group">
+                                                <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </span>
+                                                <textarea id="newSeizureReason" name="seizure_reason" rows="3" placeholder="e.g. Suspected drug trafficking — commodity found concealed in vehicle false compartment during routine checkpoint stop." class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <!-- REMARKS / EXHIBIT REMARK -->
-                                    <div class="col-span-full pt-2 border-t border-slate-300/60">
-                                        <label
-                                            class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
-                                            <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
-                                            <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
-                                        </label>
-                                        <div class="relative flex items-start group">
-                                            <span
-                                                class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                                                </svg>
-                                            </span>
-                                            <textarea id="newSeizureRemark" name="exhibit_remark" rows="2"
-                                                placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
-                                                class="seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                        <!-- REMARKS / OBSERVATIONS (OPTIONAL) -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center justify-between">
+                                                <span>Remarks / Observations <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                                <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase">REMARK</span>
+                                            </label>
+                                            <div class="relative flex items-start group">
+                                                <span class="absolute left-3 top-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                    </svg>
+                                                </span>
+                                                <textarea id="newSeizureRemark" name="exhibit_remark" rows="3" data-alt-id="newSeizureExhibitRemark"
+                                                    placeholder="e.g. Broken seal, sample retrieved under chain-of-custody, custody observations, packaging notes..."
+                                                    class="newSeizureExhibitRemark seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -2719,10 +2420,24 @@
                             </div>
                         </div>
 
-                        
+                        <!-- ACTION BUTTONS -->
+                        <div id="section4ActionButtons" class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200 mt-6">
+                            <button type="button"
+                                onclick="toggleSeizureItemSection(false, false)"
+                                class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs rounded-xl transition-all cursor-pointer border-none">
+                                Cancel
+                            </button>
+                            <button type="button"
+                                id="saveSection4SeizureBtn"
+                                onclick="submitSection4SeizureForm(event)"
+                                class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center cursor-pointer border-none">
+                                <span id="saveSection4SeizureBtnText">Save Seizure / Exhibit</span>
+                            </button>
+                        </div>
 
                     </form>
                 </div>
+            </div>
 
                                     <!-- SECTION 4 TO 5 ACTION & REPORT GENERATION NAVIGATION BAR -->
                     <div class="mt-8 bg-slate-100/90 p-4 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
@@ -2990,7 +2705,7 @@
                                 class="text-[10px] font-mono-code font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                                 <span
                                     class="{{ $secondaryBadgeBg }} text-white px-1.5 py-0.5 rounded text-[9px]">{{ $secondaryBadge }}</span>
-                                <span>&bull;</span>
+                                <span class="text-amber-400">|</span>
                                 <span>SUSPECT #{{ $aSpIndex }}: {{ strtoupper($aSpName) }}</span>
                             </div>
                             <div class="text-sm font-black text-slate-900">LABORATORY EXAMINATION RESULT — {{ strtoupper($aSpName) }}</div>
@@ -3099,8 +2814,6 @@
                                 Confirmatory Test:</td>
                             <td class="p-3 font-black bg-white text-emerald-950">
                                 <span class="inline-flex items-center space-x-1.5">
-                                    <span
-                                        class="w-2.5 h-2.5 rounded-full {{ $assocConfirmatoryVal === 'YES' ? 'bg-emerald-600' : 'bg-slate-600' }}"></span>
                                     <span>{{ $assocConfirmatoryVal === 'YES' ? 'YES' : 'NO' }}</span>
                                 </span>
                             </td>
@@ -3232,23 +2945,10 @@
             const form = document.getElementById('section5LabForm');
             const readOnlyView = document.getElementById('section5ReadOnlyDisplay');
 
-            if (isSaved) {
-                if (readOnlyView) readOnlyView.classList.remove('hidden');
-                if (formContainer) formContainer.classList.add('hidden');
-                if (form) form.classList.add('hidden');
-                if (typeof emptySection5FormFields === 'function') {
-                    emptySection5FormFields();
-                }
-                return;
-            } else {
-                if (readOnlyView) readOnlyView.classList.add('hidden');
-                if (window.activeLabWorkflowMode === 'nlr') {
-                    if (formContainer) formContainer.classList.remove('hidden');
-                    if (form) form.classList.remove('hidden');
-                } else {
-                    if (formContainer) formContainer.classList.add('hidden');
-                    if (form) form.classList.add('hidden');
-                }
+            if (readOnlyView) readOnlyView.classList.add('hidden');
+            if (formContainer && window.activeLabWorkflowMode === 'nlr') {
+                formContainer.classList.remove('hidden');
+                if (form) form.classList.remove('hidden');
             }
 
             if (window.activeLabWorkflowMode === 'gsa') {
@@ -3305,7 +3005,7 @@
             if (grossInput) grossInput.value = grossWeightText;
             if (unitAddon && unitVal) unitAddon.textContent = unitVal;
 
-            if (hasSaved === 'true' || hasSaved === '1') {
+            if (isSaved) {
                 const detectedContainer = document.getElementById('detectedSubstancesListContainerReview');
                 if (detectedContainer) {
                     detectedContainer.innerHTML = '';
@@ -3334,14 +3034,26 @@
                 if (typeof toggleConfirmatoryTestReview === 'function') {
                     toggleConfirmatoryTestReview(savedConfirmatory === 'NO' ? 'NO' : (savedConfirmatory === 'YES' ? 'YES' : 'NEUTRAL'));
                 }
+
+                // Set Badge to Completed for saved exhibit
+                const badgeStatus = document.getElementById('section5BadgeStatus') || document.getElementById('badgeStatus');
+                if (badgeStatus) {
+                    badgeStatus.className =
+                        'px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300';
+                    badgeStatus.textContent = '✓ LAB COMPLETED';
+                }
             } else {
+                // Exhibit has not been examined yet — unlock all Section 5 controls for input
+                if (typeof unlockSection5Form === 'function') {
+                    unlockSection5Form();
+                }
+
                 if (takenInput) takenInput.value = '';
                 if (reservedInput) reservedInput.value = '';
                 if (notesInput) notesInput.value = '';
                 if (confMethods) confMethods.value = '';
                 if (confSpecs) confSpecs.value = '';
                 if (confRemark) confRemark.value = '';
-                if (confSpecs) confSpecs.value = '';
 
                 // Reset Presumptive Test
                 const presRadios = document.querySelectorAll('input[name="form_presumptive_radio"]');
@@ -3385,19 +3097,13 @@
                     toggleConfirmatoryTestReview('NEUTRAL');
                 }
 
-                // Reset Lab Status Badges
+                // Reset Lab Status Badges to PENDING for unexamined exhibit
                 const badgeStatus = document.getElementById('section5BadgeStatus') || document.getElementById(
                     'badgeStatus');
                 if (badgeStatus) {
-                    if (window.activeSuspectHasSavedLabResult) {
-                        badgeStatus.className =
-                            'px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300';
-                        badgeStatus.textContent = '✓ LAB COMPLETED';
-                    } else {
-                        badgeStatus.className =
-                            'px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase bg-slate-100 text-slate-800 border border-slate-300';
-                        badgeStatus.textContent = '⭕ LAB PENDING';
-                    }
+                    badgeStatus.className =
+                        'px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase bg-slate-100 text-slate-800 border border-slate-300';
+                    badgeStatus.textContent = '⭕ LAB PENDING';
                 }
             }
         }
@@ -4081,9 +3787,44 @@
 
             const labUnit = document.getElementById('formLabUnit')?.value || 'Chemistry & Narcotics Unit';
             const analyst = document.getElementById('formLabAnalyst')?.value || @json($labAnalyst ?? $defaultLabHeadName);
-            // ── Presumptive Reaction validation (no mock default) ──
+
+            // Active exhibit index resolution
+            const exhibitSelect = document.getElementById('labExhibitSelect');
+            const selectedOpt = exhibitSelect ? exhibitSelect.options[exhibitSelect.selectedIndex] : null;
+            const activeIdx = window.activeLabExhibitIndex || (selectedOpt ? (selectedOpt.getAttribute('data-index') || selectedOpt.value || '1') : '1');
+
+            // ── Presumptive Reaction validation (supports per-exhibit dynamic card, review radio, & legacy inputs) ──
+            let presumptiveChoice = null;
             const checkedRadio = document.querySelector('input[name="form_presumptive_radio"]:checked');
-            if (!checkedRadio) {
+            if (checkedRadio) {
+                presumptiveChoice = checkedRadio.value;
+            } else {
+                const dynYes = document.getElementById(`presumptiveTestYes_${activeIdx}`);
+                const dynNo = document.getElementById(`presumptiveTestNo_${activeIdx}`);
+                if (dynYes && dynYes.checked) {
+                    presumptiveChoice = 'YES';
+                } else if (dynNo && dynNo.checked) {
+                    presumptiveChoice = 'NO';
+                } else {
+                    const legYes = document.getElementById('presumptiveTestYes');
+                    const legNo = document.getElementById('presumptiveTestNo');
+                    if (legYes && legYes.checked) {
+                        presumptiveChoice = 'YES';
+                    } else if (legNo && legNo.checked) {
+                        presumptiveChoice = 'NO';
+                    } else {
+                        const customVal = (document.getElementById(`presumptiveReactionResultInput_${activeIdx}`)?.value ||
+                                           document.getElementById('presumptiveReactionResultInput')?.value || '').trim();
+                        if (customVal.toUpperCase().startsWith('YES')) {
+                            presumptiveChoice = 'YES';
+                        } else if (customVal.toUpperCase().startsWith('NO')) {
+                            presumptiveChoice = 'NO';
+                        }
+                    }
+                }
+            }
+
+            if (!presumptiveChoice) {
                 alert('Please select a Presumptive Reaction result (YES or NO) before saving the examination.');
                 if (saveBtn) saveBtn.disabled = false;
                 return;
@@ -4092,65 +3833,104 @@
             let presumptive;
             let presumptivePresence = null;
             let presumptivePercentage = null;
-            if (checkedRadio.value === 'NO') {
+            if (presumptiveChoice === 'NO') {
                 presumptive = 'NO';
             } else {
-                const rows = document.querySelectorAll(
-                    '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
+                let rows = document.querySelectorAll(`#presumptiveTestRowsContainer_${activeIdx} .presumptive-test-row`);
+                if (!rows || rows.length === 0) {
+                    rows = document.querySelectorAll('#presumptiveTestRowsContainerReview .presumptive-test-row-review');
+                }
+                if (!rows || rows.length === 0) {
+                    rows = document.querySelectorAll('#presumptiveTestRowsContainer .presumptive-test-row');
+                }
+
                 const validDetails = [];
                 const presList = [];
                 const pctList = [];
+                let hasPartialRow = false;
 
-                rows.forEach((row) => {
-                    const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
-                    const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
-                    if (presence && percent) {
-                        const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
-                        validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
-                        presList.push(presence);
-                        pctList.push(pctFormatted);
-                    }
-                });
-
-                if (validDetails.length === 0) {
-                    alert(
-                        'Please enter both "Presence of" and "Percentage (%)" for at least one presumptive test result before saving.'
-                    );
-                    if (saveBtn) saveBtn.disabled = false;
-                    return;
+                if (rows && rows.length > 0) {
+                    rows.forEach((row) => {
+                        const presence = (row.querySelector('.presumptive-presence-input')?.value ||
+                                          row.querySelector('.presumptive-presence-input-review')?.value || '').trim();
+                        const percent = (row.querySelector('.presumptive-percentage-input')?.value ||
+                                         row.querySelector('.presumptive-percentage-input-review')?.value || '').trim();
+                        if (presence && percent) {
+                            const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
+                            validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
+                            presList.push(presence);
+                            pctList.push(pctFormatted);
+                        } else if ((presence && !percent) || (!presence && percent)) {
+                            hasPartialRow = true;
+                        }
+                    });
                 }
 
-                const hasPartialRow = Array.from(rows).some((row) => {
-                    const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
-                    const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
-                    return (presence && !percent) || (!presence && percent);
-                });
                 if (hasPartialRow) {
                     alert('One or more presumptive test rows have only "Presence of" or only "Percentage (%)" filled. Please complete both fields or clear the row.');
                     if (saveBtn) saveBtn.disabled = false;
                     return;
                 }
 
-                presumptive = validDetails.length > 1
-                    ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
-                    : `YES (${validDetails[0]})`;
-                presumptivePresence = presList.join('; ');
-                presumptivePercentage = pctList.join('; ');
+                if (validDetails.length === 0) {
+                    const customResultInput = document.getElementById(`presumptiveReactionResultInput_${activeIdx}`) ||
+                                              document.getElementById('presumptiveReactionResultInput');
+                    const customVal = customResultInput?.value?.trim();
+                    if (customVal && customVal !== '' && !customVal.startsWith('NO')) {
+                        presumptive = customVal;
+                    } else {
+                        alert(
+                            'Please enter both "Presence of" and "Percentage (%)" for at least one presumptive test result before saving.'
+                        );
+                        if (saveBtn) saveBtn.disabled = false;
+                        return;
+                    }
+                } else {
+                    presumptive = validDetails.length > 1
+                        ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
+                        : `YES (${validDetails[0]})`;
+                    presumptivePresence = presList.join('; ');
+                    presumptivePercentage = pctList.join('; ');
+                }
             }
 
-            // ── Confirmatory Test validation (no mock default) ──
+            // ── Confirmatory Test validation (supports per-exhibit dynamic card, review radio, & legacy inputs) ──
+            let confirmatoryChoice = null;
             const confirmatoryChecked = document.querySelector('input[name="form_confirmatory_radio"]:checked');
-            if (!confirmatoryChecked) {
-                alert('Please select a Confirmatory Test result (YES or NO) before saving the examination.');
-                if (saveBtn) saveBtn.disabled = false;
-                return;
+            if (confirmatoryChecked) {
+                confirmatoryChoice = confirmatoryChecked.value;
+            } else {
+                const dynConfYes = document.getElementById(`confirmatoryTestYes_${activeIdx}`);
+                const dynConfNo = document.getElementById(`confirmatoryTestNo_${activeIdx}`);
+                if (dynConfYes && dynConfYes.checked) {
+                    confirmatoryChoice = 'YES';
+                } else if (dynConfNo && dynConfNo.checked) {
+                    confirmatoryChoice = 'NO';
+                } else {
+                    const legConfYes = document.getElementById('confirmatoryTestYes');
+                    const legConfNo = document.getElementById('confirmatoryTestNo');
+                    if (legConfYes && legConfYes.checked) {
+                        confirmatoryChoice = 'YES';
+                    } else if (legConfNo && legConfNo.checked) {
+                        confirmatoryChoice = 'NO';
+                    } else {
+                        const confResVal = (document.getElementById(`confirmatoryTestResultInput_${activeIdx}`)?.value ||
+                                            document.getElementById('confirmatoryTestResultInput')?.value || '').trim();
+                        if (confResVal.toUpperCase() === 'YES') {
+                            confirmatoryChoice = 'YES';
+                        } else if (confResVal.toUpperCase() === 'NO') {
+                            confirmatoryChoice = 'NO';
+                        }
+                    }
+                }
             }
-            const confirmatory = confirmatoryChecked.value === 'YES' ? 'YES' : 'NO';
+            if (!confirmatoryChoice) {
+                confirmatoryChoice = 'NO';
+            }
+            const confirmatory = confirmatoryChoice === 'YES' ? 'YES' : 'NO';
 
             const notes = document.getElementById('formLabNotes')?.value || '';
 
-            const exhibitSelect = document.getElementById('labExhibitSelect');
-            const selectedOpt = exhibitSelect ? exhibitSelect.options[exhibitSelect.selectedIndex] : null;
             const exhibitOwnerName = selectedOpt ? selectedOpt.getAttribute('data-owner') || '' : '';
             const exhibitIsAssociate = selectedOpt ? (selectedOpt.getAttribute('data-is-associate') === '1') : false;
 
@@ -4163,6 +3943,45 @@
                     status = 'IN_PROGRESS';
                 }
             }
+
+            const sampleDesc = document.getElementById(`sampleWeightDescription_${activeIdx}`)?.value
+                || document.getElementById('sampleWeightDescriptionReview')?.value
+                || document.getElementById('sampleWeightDescription')?.value
+                || '';
+            const sampleUnits = document.getElementById(`sampleWeightUnits_${activeIdx}`)?.value
+                || document.getElementById('sampleWeightUnitsReview')?.value
+                || document.getElementById('sampleWeightUnits')?.value
+                || '';
+            const sampleGross = document.getElementById(`sampleWeightGross_${activeIdx}`)?.value
+                || document.getElementById('sampleWeightGrossReview')?.value
+                || document.getElementById('sampleWeightGross')?.value
+                || '';
+            const sampleTaken = document.getElementById(`sampleWeightTaken_${activeIdx}`)?.value
+                || document.getElementById('sampleWeightTakenReview')?.value
+                || document.getElementById('sampleWeightTaken')?.value
+                || '';
+            const sampleReserved = document.getElementById(`sampleWeightReserved_${activeIdx}`)?.value
+                || document.getElementById('sampleWeightReservedReview')?.value
+                || document.getElementById('sampleWeightReserved')?.value
+                || '';
+            const confirmatorySubstance = document.getElementById(`confirmatorySubstanceIdentification_${activeIdx}`)?.value
+                || document.getElementById('confirmatorySubstanceIdentificationReview')?.value
+                || document.getElementById('confirmatorySubstanceIdentification')?.value
+                || '';
+            const detectedSubstances = (typeof getDetectedSubstancesDataForExhibit === 'function' ? getDetectedSubstancesDataForExhibit(activeIdx) : null)
+                || (typeof getDetectedSubstancesDataReview === 'function' ? getDetectedSubstancesDataReview() : []);
+            const confirmatoryMethods = document.getElementById(`confirmatoryTestMethods_${activeIdx}`)?.value
+                || document.getElementById('confirmatoryTestMethodsReview')?.value
+                || document.getElementById('confirmatoryTestMethods')?.value
+                || '';
+            const confirmatorySpecs = document.getElementById(`confirmatorySpecifications_${activeIdx}`)?.value
+                || document.getElementById('confirmatorySpecificationsReview')?.value
+                || document.getElementById('confirmatorySpecifications')?.value
+                || '';
+            const confirmatoryRemark = document.getElementById(`confirmatoryRemark_${activeIdx}`)?.value
+                || document.getElementById('confirmatoryRemarkReview')?.value
+                || document.getElementById('confirmatoryRemark')?.value
+                || '';
 
             try {
                 const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -4199,26 +4018,16 @@
                         presumptive_presence: presumptivePresence,
                         presumptive_percentage: presumptivePercentage,
                         confirmatory_test_result: confirmatory,
-                        sample_weight_description: document.getElementById(
-                            'sampleWeightDescriptionReview')?.value || '',
-                        sample_weight_units: document.getElementById('sampleWeightUnitsReview')
-                            ?.value || '',
-                        sample_weight_gross: document.getElementById('sampleWeightGrossReview')
-                            ?.value || '',
-                        sample_weight_taken: document.getElementById('sampleWeightTakenReview')
-                            ?.value || '',
-                        sample_weight_reserved: document.getElementById('sampleWeightReservedReview')
-                            ?.value || '',
-                        confirmatory_substance_identification: document.getElementById(
-                            'confirmatorySubstanceIdentificationReview')?.value || '',
-                        detected_substances: typeof getDetectedSubstancesDataReview === 'function' ?
-                            getDetectedSubstancesDataReview() : [],
-                        confirmatory_test_methods: document.getElementById(
-                            'confirmatoryTestMethodsReview')?.value || '',
-                        confirmatory_specifications: document.getElementById(
-                            'confirmatorySpecificationsReview')?.value || '',
-                        confirmatory_remark: document.getElementById('confirmatoryRemarkReview')
-                            ?.value || '',
+                        sample_weight_description: sampleDesc,
+                        sample_weight_units: sampleUnits,
+                        sample_weight_gross: sampleGross,
+                        sample_weight_taken: sampleTaken,
+                        sample_weight_reserved: sampleReserved,
+                        confirmatory_substance_identification: confirmatorySubstance,
+                        detected_substances: detectedSubstances,
+                        confirmatory_test_methods: confirmatoryMethods,
+                        confirmatory_specifications: confirmatorySpecs,
+                        confirmatory_remark: confirmatoryRemark,
                         disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')
                             ?.value || '',
                         lab_date_received: dateReceived,
@@ -4332,7 +4141,7 @@
                     }
                     const uConfirmatoryEl = document.getElementById('section5ConfirmatoryDisplay');
                     if (uConfirmatoryEl) uConfirmatoryEl.innerHTML =
-                        `<span class="w-2.5 h-2.5 rounded-full ${confirmatory === 'YES' ? 'bg-emerald-600' : 'bg-slate-500'}"></span><span>${confirmatory === 'YES' ? 'YES' : 'NO'}</span>`;
+                        `<span>${confirmatory === 'YES' ? 'YES' : 'NO'}</span>`;
                     const uDescEl = document.getElementById('section5SampleDescDisplay');
                     if (uDescEl) uDescEl.textContent = document.getElementById('sampleWeightDescriptionReview')
                         ?.value || 'N/A';
@@ -4443,7 +4252,7 @@
                     const readOnlyView = document.getElementById('section5ReadOnlyDisplay');
                     const formContainer = document.getElementById('section5FormContainer');
                     const form = document.getElementById('section5LabForm');
-                    if (readOnlyView) readOnlyView.classList.remove('hidden');
+                    if (readOnlyView) readOnlyView.classList.add('hidden');
                     if (formContainer) formContainer.classList.add('hidden');
                     if (form) form.classList.add('hidden');
 
@@ -5012,83 +4821,154 @@
 
                     const labUnit = document.getElementById('formLabUnit')?.value || 'Chemistry & Narcotics Unit';
                     const analyst = document.getElementById('formLabAnalyst')?.value || @json($labAnalyst ?? $defaultLabHeadName);
-                    // ── Presumptive Reaction validation (no mock default) ──
+
+                    // Active exhibit index resolution
+                    const activeIdx = window.activeLabExhibitIndex || (selectedOpt ? (selectedOpt.getAttribute('data-index') || selectedOpt.value || '1') : '1');
+
+                    // ── Presumptive Reaction validation (supports per-exhibit dynamic card, review radio, & legacy inputs) ──
+                    let presumptiveChoice = null;
                     const checkedRadio = document.querySelector('input[name="form_presumptive_radio"]:checked');
-                    if (!checkedRadio) {
+                    if (checkedRadio) {
+                        presumptiveChoice = checkedRadio.value;
+                    } else {
+                        const dynYes = document.getElementById(`presumptiveTestYes_${activeIdx}`);
+                        const dynNo = document.getElementById(`presumptiveTestNo_${activeIdx}`);
+                        if (dynYes && dynYes.checked) {
+                            presumptiveChoice = 'YES';
+                        } else if (dynNo && dynNo.checked) {
+                            presumptiveChoice = 'NO';
+                        } else {
+                            const legYes = document.getElementById('presumptiveTestYes');
+                            const legNo = document.getElementById('presumptiveTestNo');
+                            if (legYes && legYes.checked) {
+                                presumptiveChoice = 'YES';
+                            } else if (legNo && legNo.checked) {
+                                presumptiveChoice = 'NO';
+                            } else {
+                                const customVal = (document.getElementById(`presumptiveReactionResultInput_${activeIdx}`)?.value ||
+                                                   document.getElementById('presumptiveReactionResultInput')?.value || '').trim();
+                                if (customVal.toUpperCase().startsWith('YES')) {
+                                    presumptiveChoice = 'YES';
+                                } else if (customVal.toUpperCase().startsWith('NO')) {
+                                    presumptiveChoice = 'NO';
+                                }
+                            }
+                        }
+                    }
+
+                    if (!presumptiveChoice) {
                         alert('Please select a Presumptive Reaction result (YES or NO) before saving the examination.');
                         if (saveBtn4) saveBtn4.disabled = false;
                         if (saveBtn5) saveBtn5.disabled = false;
-                        if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
-                        if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
+                        if (saveBtnText4) saveBtnText4.innerText = defaultLabel;
+                        if (saveBtnText5) saveBtnText5.innerText = defaultLabel;
                         return;
                     }
 
                     let presumptive;
                     let presumptivePresence = null;
                     let presumptivePercentage = null;
-                    if (checkedRadio.value === 'NO') {
+                    if (presumptiveChoice === 'NO') {
                         presumptive = 'NO';
                     } else {
-                        const rows = document.querySelectorAll(
-                            '#presumptiveTestRowsContainerReview .presumptive-test-row-review');
+                        let rows = document.querySelectorAll(`#presumptiveTestRowsContainer_${activeIdx} .presumptive-test-row`);
+                        if (!rows || rows.length === 0) {
+                            rows = document.querySelectorAll('#presumptiveTestRowsContainerReview .presumptive-test-row-review');
+                        }
+                        if (!rows || rows.length === 0) {
+                            rows = document.querySelectorAll('#presumptiveTestRowsContainer .presumptive-test-row');
+                        }
+
                         const validDetails = [];
                         const presList = [];
                         const pctList = [];
+                        let hasPartialRow = false;
 
-                        rows.forEach((row) => {
-                            const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
-                            const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
-                            if (presence && percent) {
-                                const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
-                                validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
-                                presList.push(presence);
-                                pctList.push(pctFormatted);
-                            }
-                        });
-
-                        if (validDetails.length === 0) {
-                            alert(
-                                'Please enter both "Presence of" and "Percentage (%)" for at least one presumptive test result before saving.'
-                            );
-                            if (saveBtn4) saveBtn4.disabled = false;
-                            if (saveBtn5) saveBtn5.disabled = false;
-                            if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
-                            if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
-                            return;
+                        if (rows && rows.length > 0) {
+                            rows.forEach((row) => {
+                                const presence = (row.querySelector('.presumptive-presence-input')?.value ||
+                                                  row.querySelector('.presumptive-presence-input-review')?.value || '').trim();
+                                const percent = (row.querySelector('.presumptive-percentage-input')?.value ||
+                                                 row.querySelector('.presumptive-percentage-input-review')?.value || '').trim();
+                                if (presence && percent) {
+                                    const pctFormatted = percent.endsWith('%') ? percent : `${percent}%`;
+                                    validDetails.push(`Presence of: ${presence} - Purity/Percentage: ${pctFormatted}`);
+                                    presList.push(presence);
+                                    pctList.push(pctFormatted);
+                                } else if ((presence && !percent) || (!presence && percent)) {
+                                    hasPartialRow = true;
+                                }
+                            });
                         }
 
-                        const hasPartialRow = Array.from(rows).some((row) => {
-                            const presence = row.querySelector('.presumptive-presence-input-review')?.value?.trim() || '';
-                            const percent = row.querySelector('.presumptive-percentage-input-review')?.value?.trim() || '';
-                            return (presence && !percent) || (!presence && percent);
-                        });
                         if (hasPartialRow) {
                             alert('One or more presumptive test rows have only "Presence of" or only "Percentage (%)" filled. Please complete both fields or clear the row.');
                             if (saveBtn4) saveBtn4.disabled = false;
                             if (saveBtn5) saveBtn5.disabled = false;
-                            if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
-                            if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
+                            if (saveBtnText4) saveBtnText4.innerText = defaultLabel;
+                            if (saveBtnText5) saveBtnText5.innerText = defaultLabel;
                             return;
                         }
 
-                        presumptive = validDetails.length > 1
-                            ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
-                            : `YES (${validDetails[0]})`;
-                        presumptivePresence = presList.join('; ');
-                        presumptivePercentage = pctList.join('; ');
+                        if (validDetails.length === 0) {
+                            const customResultInput = document.getElementById(`presumptiveReactionResultInput_${activeIdx}`) ||
+                                                      document.getElementById('presumptiveReactionResultInput');
+                            const customVal = customResultInput?.value?.trim();
+                            if (customVal && customVal !== '' && !customVal.startsWith('NO')) {
+                                presumptive = customVal;
+                            } else {
+                                alert(
+                                    'Please enter both "Presence of" and "Percentage (%)" for at least one presumptive test result before saving.'
+                                );
+                                if (saveBtn4) saveBtn4.disabled = false;
+                                if (saveBtn5) saveBtn5.disabled = false;
+                                if (saveBtnText4) saveBtnText4.innerText = defaultLabel;
+                                if (saveBtnText5) saveBtnText5.innerText = defaultLabel;
+                                return;
+                            }
+                        } else {
+                            presumptive = validDetails.length > 1
+                                ? `YES (${validDetails.map((d, i) => `[${i + 1}] ${d}`).join('; ')})`
+                                : `YES (${validDetails[0]})`;
+                            presumptivePresence = presList.join('; ');
+                            presumptivePercentage = pctList.join('; ');
+                        }
                     }
 
-                    // ── Confirmatory Test validation (no mock default) ──
+                    // ── Confirmatory Test validation (supports per-exhibit dynamic card, review radio, & legacy inputs) ──
+                    let confirmatoryChoice = null;
                     const confirmatoryChecked = document.querySelector('input[name="form_confirmatory_radio"]:checked');
-                    if (!confirmatoryChecked) {
-                        alert('Please select a Confirmatory Test result (YES or NO) before saving the examination.');
-                        if (saveBtn4) saveBtn4.disabled = false;
-                        if (saveBtn5) saveBtn5.disabled = false;
-                        if (saveBtnText4) saveBtnText4.innerText = 'Save Seizure Item & Examination Information';
-                        if (saveBtnText5) saveBtnText5.innerText = 'Save Seizure Item & Examination Information';
-                        return;
+                    if (confirmatoryChecked) {
+                        confirmatoryChoice = confirmatoryChecked.value;
+                    } else {
+                        const dynConfYes = document.getElementById(`confirmatoryTestYes_${activeIdx}`);
+                        const dynConfNo = document.getElementById(`confirmatoryTestNo_${activeIdx}`);
+                        if (dynConfYes && dynConfYes.checked) {
+                            confirmatoryChoice = 'YES';
+                        } else if (dynConfNo && dynConfNo.checked) {
+                            confirmatoryChoice = 'NO';
+                        } else {
+                            const legConfYes = document.getElementById('confirmatoryTestYes');
+                            const legConfNo = document.getElementById('confirmatoryTestNo');
+                            if (legConfYes && legConfYes.checked) {
+                                confirmatoryChoice = 'YES';
+                            } else if (legConfNo && legConfNo.checked) {
+                                confirmatoryChoice = 'NO';
+                            } else {
+                                const confResVal = (document.getElementById(`confirmatoryTestResultInput_${activeIdx}`)?.value ||
+                                                    document.getElementById('confirmatoryTestResultInput')?.value || '').trim();
+                                if (confResVal.toUpperCase() === 'YES') {
+                                    confirmatoryChoice = 'YES';
+                                } else if (confResVal.toUpperCase() === 'NO') {
+                                    confirmatoryChoice = 'NO';
+                                }
+                            }
+                        }
                     }
-                    const confirmatory = confirmatoryChecked.value === 'YES' ? 'YES' : 'NO';
+                    if (!confirmatoryChoice) {
+                        confirmatoryChoice = 'NO';
+                    }
+                    const confirmatory = confirmatoryChoice === 'YES' ? 'YES' : 'NO';
 
                     const notes = document.getElementById('formLabNotes')?.value || '';
                     const exhibitOwnerName = selectedOpt ? selectedOpt.getAttribute('data-owner') || '' : '';
@@ -5104,6 +4984,45 @@
                             status = 'IN_PROGRESS';
                         }
                     }
+
+                    const sampleDesc = document.getElementById(`sampleWeightDescription_${activeIdx}`)?.value
+                        || document.getElementById('sampleWeightDescriptionReview')?.value
+                        || document.getElementById('sampleWeightDescription')?.value
+                        || '';
+                    const sampleUnits = document.getElementById(`sampleWeightUnits_${activeIdx}`)?.value
+                        || document.getElementById('sampleWeightUnitsReview')?.value
+                        || document.getElementById('sampleWeightUnits')?.value
+                        || '';
+                    const sampleGross = document.getElementById(`sampleWeightGross_${activeIdx}`)?.value
+                        || document.getElementById('sampleWeightGrossReview')?.value
+                        || document.getElementById('sampleWeightGross')?.value
+                        || '';
+                    const sampleTaken = document.getElementById(`sampleWeightTaken_${activeIdx}`)?.value
+                        || document.getElementById('sampleWeightTakenReview')?.value
+                        || document.getElementById('sampleWeightTaken')?.value
+                        || '';
+                    const sampleReserved = document.getElementById(`sampleWeightReserved_${activeIdx}`)?.value
+                        || document.getElementById('sampleWeightReservedReview')?.value
+                        || document.getElementById('sampleWeightReserved')?.value
+                        || '';
+                    const confirmatorySubstance = document.getElementById(`confirmatorySubstanceIdentification_${activeIdx}`)?.value
+                        || document.getElementById('confirmatorySubstanceIdentificationReview')?.value
+                        || document.getElementById('confirmatorySubstanceIdentification')?.value
+                        || '';
+                    const detectedSubstances = (typeof getDetectedSubstancesDataForExhibit === 'function' ? getDetectedSubstancesDataForExhibit(activeIdx) : null)
+                        || (typeof getDetectedSubstancesDataReview === 'function' ? getDetectedSubstancesDataReview() : []);
+                    const confirmatoryMethods = document.getElementById(`confirmatoryTestMethods_${activeIdx}`)?.value
+                        || document.getElementById('confirmatoryTestMethodsReview')?.value
+                        || document.getElementById('confirmatoryTestMethods')?.value
+                        || '';
+                    const confirmatorySpecs = document.getElementById(`confirmatorySpecifications_${activeIdx}`)?.value
+                        || document.getElementById('confirmatorySpecificationsReview')?.value
+                        || document.getElementById('confirmatorySpecifications')?.value
+                        || '';
+                    const confirmatoryRemark = document.getElementById(`confirmatoryRemark_${activeIdx}`)?.value
+                        || document.getElementById('confirmatoryRemarkReview')?.value
+                        || document.getElementById('confirmatoryRemark')?.value
+                        || '';
 
                     const res5 = await fetch(`/cases/${caseNumber}/update-unit-progress`, {
                         method: 'POST',
@@ -5137,26 +5056,16 @@
                             presumptive_presence: presumptivePresence,
                             presumptive_percentage: presumptivePercentage,
                             confirmatory_test_result: confirmatory,
-                            sample_weight_description: document.getElementById(
-                                'sampleWeightDescriptionReview')?.value || '',
-                            sample_weight_units: document.getElementById('sampleWeightUnitsReview')
-                                ?.value || '',
-                            sample_weight_gross: document.getElementById('sampleWeightGrossReview')
-                                ?.value || '',
-                            sample_weight_taken: document.getElementById('sampleWeightTakenReview')
-                                ?.value || '',
-                            sample_weight_reserved: document.getElementById('sampleWeightReservedReview')
-                                ?.value || '',
-                            confirmatory_substance_identification: document.getElementById(
-                                'confirmatorySubstanceIdentificationReview')?.value || '',
-                            detected_substances: typeof getDetectedSubstancesDataReview === 'function' ?
-                                getDetectedSubstancesDataReview() : [],
-                            confirmatory_test_methods: document.getElementById(
-                                'confirmatoryTestMethodsReview')?.value || '',
-                            confirmatory_specifications: document.getElementById(
-                                'confirmatorySpecificationsReview')?.value || '',
-                            confirmatory_remark: document.getElementById('confirmatoryRemarkReview')
-                                ?.value || '',
+                            sample_weight_description: sampleDesc,
+                            sample_weight_units: sampleUnits,
+                            sample_weight_gross: sampleGross,
+                            sample_weight_taken: sampleTaken,
+                            sample_weight_reserved: sampleReserved,
+                            confirmatory_substance_identification: confirmatorySubstance,
+                            detected_substances: detectedSubstances,
+                            confirmatory_test_methods: confirmatoryMethods,
+                            confirmatory_specifications: confirmatorySpecs,
+                            confirmatory_remark: confirmatoryRemark,
                             disposition_of_exhibit: document.getElementById('confirmatoryDispositionOfExhibit')
                                 ?.value || '',
                             lab_date_received: dateReceived,
@@ -5203,25 +5112,8 @@
 
         function emptySection5FormFields() {
             const formInputs = [
-                'labExamReferenceInput',
-                'labCaseReferenceInput',
-                'labExhibitNumberInput',
-                'labExhibitDescriptionInput',
-                'labPurposeOfExaminationInput',
-                'formLabNumber',
-                'formLabAnalyst',
-                'labDateReceivedInput',
-                'labDateStartedInput',
-                'labDateCompletedInput',
-                'sampleWeightDescriptionReview',
-                'sampleWeightUnitsReview',
-                'sampleWeightGrossReview',
                 'sampleWeightTakenReview',
                 'sampleWeightReservedReview',
-                'confirmatorySubstanceIdentificationReview',
-                'confirmatoryTestMethodsReview',
-                'confirmatorySpecificationsReview',
-                'confirmatoryRemarkReview',
                 'formLabNotes',
                 'presumptiveReactionResultInputReview'
             ];
@@ -5230,6 +5122,25 @@
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
+
+            // Ensure reference fields retain/get valid defaults
+            const examRefInput = document.getElementById('labExamReferenceInput');
+            if (examRefInput && (!examRefInput.value || examRefInput.value.trim() === '')) {
+                const randNum = Math.floor(1000 + Math.random() * 9000);
+                examRefInput.value = `NLA-FM-T${randNum}-F`;
+            }
+            const caseRefInput = document.getElementById('labCaseReferenceInput');
+            if (caseRefInput && (!caseRefInput.value || caseRefInput.value.trim() === '')) {
+                caseRefInput.value = window.caseNumber || @json($case->case_number ?? '');
+            }
+            const labNumInput = document.getElementById('formLabNumber');
+            if (labNumInput && (!labNumInput.value || labNumInput.value.trim() === '')) {
+                labNumInput.value = @json($labNumber ?? '');
+            }
+            const analystInput = document.getElementById('formLabAnalyst');
+            if (analystInput && (!analystInput.value || analystInput.value.trim() === '')) {
+                analystInput.value = @json(auth()->user()->fullname ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : '')));
+            }
 
             const unitAddon = document.getElementById('sampleWeightTakenUnitAddonReview');
             if (unitAddon) unitAddon.textContent = '';
@@ -5602,7 +5513,7 @@
                 if (form.classList.contains('hidden')) {
                     if (formContainer) formContainer.classList.remove('hidden');
                     form.classList.remove('hidden');
-                    if (readOnlyView) readOnlyView.classList.remove('hidden');
+                    if (readOnlyView) readOnlyView.classList.add('hidden');
                     const elements = form.querySelectorAll('input, select, textarea, button');
                     elements.forEach(el => {
                         el.disabled = false;
@@ -5624,7 +5535,7 @@
                 } else {
                     if (formContainer) formContainer.classList.add('hidden');
                     form.classList.add('hidden');
-                    if (readOnlyView) readOnlyView.classList.remove('hidden');
+                    if (readOnlyView) readOnlyView.classList.add('hidden');
                 }
             }
         }
@@ -5635,17 +5546,7 @@
             const readOnlyView = document.getElementById('section5ReadOnlyDisplay');
 
             if (readOnlyView) {
-                readOnlyView.classList.remove('hidden');
-            }
-            if (formContainer) {
-                formContainer.classList.add('hidden');
-            }
-            if (form) {
-                form.classList.add('hidden');
-            }
-
-            if (typeof emptySection5FormFields === 'function') {
-                emptySection5FormFields();
+                readOnlyView.classList.add('hidden');
             }
 
             if (!form) return;
@@ -5672,6 +5573,75 @@
                 if (svgEl) svgEl.remove();
                 const textSpan = document.getElementById('saveSection5LabBtnText');
                 if (textSpan) textSpan.innerHTML = 'LAB EXAMINATION SAVED & LOCKED';
+            }
+        }
+
+        function unlockSection5Form() {
+            const formContainer = document.getElementById('section5FormContainer');
+            const form = document.getElementById('section5LabForm');
+            if (!form) return;
+
+            const elements = form.querySelectorAll('input, select, textarea, button');
+            elements.forEach(el => {
+                const isImmutableRef = [
+                    'labExamReferenceInput',
+                    'labCaseReferenceInput',
+                    'formLabNumber'
+                ].includes(el.id);
+
+                const isAutoSampleWeight = [
+                    'sampleWeightDescription',
+                    'sampleWeightUnits',
+                    'sampleWeightGross',
+                    'sampleWeightReserved'
+                ].some(prefix => el.id && el.id.startsWith(prefix) && !el.id.includes('Taken'));
+
+                if (!isImmutableRef && !isAutoSampleWeight) {
+                    el.disabled = false;
+                    el.readOnly = false;
+                    el.removeAttribute('readonly');
+                    el.removeAttribute('disabled');
+                    el.classList.remove('cursor-not-allowed', 'opacity-75', 'bg-slate-100');
+                } else {
+                    el.disabled = false;
+                    el.removeAttribute('disabled');
+                    el.classList.remove('opacity-75');
+                    el.setAttribute('readonly', 'readonly');
+                }
+            });
+
+            form.querySelectorAll('.add-detected-substance-btn, .remove-detected-row-btn, .remove-screening-method-btn').forEach(btn => {
+                btn.style.display = '';
+            });
+
+            const saveBtn = document.getElementById('saveSection5LabBtn');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.removeAttribute('disabled');
+                saveBtn.className =
+                    'px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center cursor-pointer border-none';
+                const textSpan = document.getElementById('saveSection5LabBtnText');
+                if (textSpan) textSpan.innerHTML = 'Save Seizure Item &amp; Examination Information';
+            }
+
+            const examRefInput = document.getElementById('labExamReferenceInput');
+            if (examRefInput && (!examRefInput.value || examRefInput.value.trim() === '' || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28'))) {
+                const randNum = Math.floor(1000 + Math.random() * 9000);
+                examRefInput.value = `NLA-FM-T${randNum}-F`;
+            } else if (examRefInput && (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-'))) {
+                examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
+            }
+            const caseRefInput = document.getElementById('labCaseReferenceInput');
+            if (caseRefInput && (!caseRefInput.value || caseRefInput.value.trim() === '')) {
+                caseRefInput.value = window.caseNumber || @json($case->case_number ?? '');
+            }
+            const labNumInput = document.getElementById('formLabNumber');
+            if (labNumInput && (!labNumInput.value || labNumInput.value.trim() === '')) {
+                labNumInput.value = @json($labNumber ?? '');
+            }
+            const analystInput = document.getElementById('formLabAnalyst');
+            if (analystInput && (!analystInput.value || analystInput.value.trim() === '')) {
+                analystInput.value = @json(auth()->user()->fullname ?? ($authUser->fullname ?? ($defaultLabHeadName !== 'N/A' ? $defaultLabHeadName : '')));
             }
         }
 
@@ -5711,13 +5681,14 @@
                 }
             };
 
-            const isAlreadyCompleted = @json($activeSuspectHasSavedResult) || window.activeSuspectHasSavedLabResult;
-            if (isAlreadyCompleted) {
-                if (typeof emptySection5FormFields === 'function') {
-                    emptySection5FormFields();
-                }
+            const exhSel = document.getElementById('labExhibitSelect');
+            const selectedOpt = exhSel ? exhSel.options[exhSel.selectedIndex] : null;
+            const selectedExhibitIsSaved = selectedOpt ? (selectedOpt.getAttribute('data-has-saved') === 'true' || selectedOpt.getAttribute('data-has-saved') === '1') : false;
+
+            if (selectedExhibitIsSaved) {
                 lockSection5Form();
-                return;
+            } else {
+                unlockSection5Form();
             }
 
             const initDetContainer = document.getElementById('detectedSubstancesListContainerReview');
@@ -5814,14 +5785,15 @@
                 }
             }
 
-            const exhSel = document.getElementById('labExhibitSelect');
             if (exhSel && typeof onReviewLabExhibitChange === 'function') {
                 onReviewLabExhibitChange(exhSel);
             }
 
-            // Lock form if already completed
-            if (isAlreadyCompleted) {
+            // Lock form if currently selected exhibit is already completed
+            if (selectedExhibitIsSaved) {
                 lockSection5Form();
+            } else {
+                unlockSection5Form();
             }
 
             window.toggleSection5LabForm = function() {
@@ -6413,16 +6385,6 @@
             if (s4Checkbox && !s4Checkbox.checked) {
                 return;
             }
-            if (@json($activeSuspectHasSavedResult) || window.activeSuspectHasSavedLabResult) {
-                return;
-            }
-            const labExhibitSelect = document.getElementById('labExhibitSelect');
-            if (labExhibitSelect) {
-                const opt = labExhibitSelect.options[labExhibitSelect.selectedIndex];
-                if (opt && (opt.getAttribute('data-has-saved') === 'true' || opt.getAttribute('data-has-saved') === '1')) {
-                    return;
-                }
-            }
 
             const block = document.querySelector('.seizure-block');
             if (!block) return;
@@ -6433,36 +6395,76 @@
             const weight = block.querySelector('#newSeizureWeight')?.value || '';
             const unit = block.querySelector('#newSeizureUnit')?.value || block.querySelector('#unitSearchInput')?.value ||
                 '';
-            const drugName = block.querySelector('#newSeizureNameDrug')?.value ||
+            const drugName = (block.querySelector('#newSeizureNameDrug')?.value ||
                 block.querySelector('#drugSearchInput')?.value ||
-                block.querySelector('#newSeizureName')?.value || '';
+                block.querySelector('#newSeizureName')?.value || '').trim();
+
+            if (!drugName) return;
 
             const sampleDescInput = document.getElementById('sampleWeightDescriptionReview');
+            const sampleDescMain = document.getElementById('sampleWeightDescription');
+            const descInput = document.getElementById('labExhibitDescriptionInput');
             const substanceIdInput = document.getElementById('confirmatorySubstanceIdentificationReview');
+            const substanceIdMain = document.getElementById('confirmatorySubstanceIdentification');
             const unitsInput = document.getElementById('sampleWeightUnitsReview');
+            const unitsMain = document.getElementById('sampleWeightUnits');
             const grossInput = document.getElementById('sampleWeightGrossReview');
+            const grossMain = document.getElementById('sampleWeightGross');
             const unitAddon = document.getElementById('sampleWeightTakenUnitAddonReview');
 
             let unitsText = (qty && pkg) ? `${qty} ${pkg}`.trim() : (qty || pkg || '');
             let grossWeightText = (weight && unit) ? `${weight} ${unit}`.trim() : (weight || unit || unitsText || '');
 
-            if (sampleDescInput && drugName) {
-                sampleDescInput.value = drugName;
-            }
-            if (substanceIdInput && drugName) {
-                substanceIdInput.value = drugName;
-            }
-            if (unitsInput && unitsText) {
-                unitsInput.value = unitsText;
-            }
-            if (grossInput && grossWeightText) {
-                grossInput.value = grossWeightText;
-            }
+            if (sampleDescInput) sampleDescInput.value = drugName;
+            if (sampleDescMain) sampleDescMain.value = drugName;
+            if (substanceIdInput) substanceIdInput.value = drugName;
+            if (substanceIdMain) substanceIdMain.value = drugName;
+            if (unitsInput && unitsText) unitsInput.value = unitsText;
+            if (unitsMain && unitsText) unitsMain.value = unitsText;
+            if (grossInput && grossWeightText) grossInput.value = grossWeightText;
+            if (grossMain && grossWeightText) grossMain.value = grossWeightText;
+
             if (unitAddon && unit) {
                 unitAddon.textContent = unit;
             } else if (unitAddon && grossWeightText) {
                 const uMatch = grossWeightText.match(/(Kilograms?\s*\([^\)]+\)|Kilograms?|kg|Grams?|g|mg|lbs?|Litres?|L)/i);
                 if (uMatch) unitAddon.textContent = uMatch[1];
+            }
+
+            if (descInput) {
+                let formattedDesc = drugName;
+                const cat = block.querySelector('#newSeizureCategory')?.value || block.querySelector('#exhibitSearchInput')?.value || '';
+                const contents = block.querySelector('.seizure-contents-input')?.value || block.querySelector('#newSeizureContents')?.value || '';
+                const owner = block.querySelector('.seizure-associated-person-select')?.value || '';
+                if (cat) formattedDesc += ` | Category: ${cat}`;
+                if (contents) formattedDesc += ` | Contents: ${contents}`;
+                if (unitsText) formattedDesc += ` | Quantity/Packaging: ${unitsText}`;
+                if (grossWeightText) formattedDesc += ` | Net Weight/Metrics: ${grossWeightText}`;
+                if (owner) formattedDesc += ` | Suspect / Ownership: ${owner}`;
+                descInput.value = formattedDesc;
+            }
+
+            const confDesc1 = document.getElementById('sampleWeightDescription_1');
+            if (confDesc1) confDesc1.value = drugName;
+            const confUnits1 = document.getElementById('sampleWeightUnits_1');
+            if (confUnits1 && unitsText) confUnits1.value = unitsText;
+            const confGross1 = document.getElementById('sampleWeightGross_1');
+            if (confGross1 && grossWeightText) confGross1.value = grossWeightText;
+            const confSub1 = document.getElementById('confirmatorySubstanceIdentification_1');
+            if (confSub1) confSub1.value = drugName;
+
+            const confTitle1 = document.querySelector('#confirmatoryTestExhibitCard_1 .confirmatory-card-title');
+            if (confTitle1) confTitle1.innerHTML = `Confirmatory Test — Exhibit #1: <span class="text-emerald-700">${drugName}</span>`;
+            const presTitle1 = document.querySelector('#presumptiveTestExhibitCard_1 .presumptive-card-title');
+            if (presTitle1) presTitle1.innerHTML = `Presumptive Screening — Exhibit #1: <span class="text-emerald-700">${drugName}</span>`;
+
+            const firstCard = document.querySelector('#labExhibitCardsContainer .lab-exhibit-card:first-child');
+            if (firstCard) {
+                const cardTitle = firstCard.querySelector('.font-extrabold.text-slate-900.text-xs');
+                if (cardTitle) {
+                    cardTitle.innerText = drugName;
+                    cardTitle.title = drugName;
+                }
             }
         }
 
@@ -6473,16 +6475,7 @@
 
             if (!formContainer && !noDrugNotice && !readOnlyView) return;
 
-            // If active suspect already has a saved lab examination result, show read-only view
-            if ((window.activeSuspectHasSavedLabResult || @json($activeSuspectHasSavedResult)) && readOnlyView) {
-                readOnlyView.classList.remove('hidden');
-                if (formContainer) formContainer.classList.add('hidden');
-                if (noDrugNotice) noDrugNotice.classList.add('hidden');
-                if (typeof emptySection5FormFields === 'function') {
-                    emptySection5FormFields();
-                }
-                return;
-            }
+            if (readOnlyView) readOnlyView.classList.add('hidden');
 
             // In neutral mode (no module button clicked yet), keep examination form hidden
             if (window.activeLabWorkflowMode !== 'nlr') {
@@ -6504,6 +6497,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             evaluateLabExaminationVisibility();
             syncSection4ToSection5InReview();
+
+            // Real-time capturing listeners for all Section 4 input events to sync to Section 5
+            ['input', 'keyup', 'change', 'blur', 'paste'].forEach(function(eventType) {
+                document.addEventListener(eventType, function(e) {
+                    if (e.target && e.target.closest && (e.target.closest(
+                            '#seizuresDetailsContainer') || e.target.closest(
+                            '#seizuresListContainer') || e.target.closest(
+                            '#section4Seizures'))) {
+                        if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                            syncSection4ExhibitsToLabSection();
+                        }
+                        if (typeof syncSection4ToSection5InReview === 'function') {
+                            syncSection4ToSection5InReview();
+                        }
+                    }
+                }, true);
+            });
 
             document.addEventListener('input', function(e) {
                 syncSection4ToSection5InReview();
@@ -6539,6 +6549,9 @@
                 const firstBlock = container ? container.querySelector('.seizure-block') : null;
                 if (firstBlock) {
                     window._seizureBlockTemplate = firstBlock.cloneNode(true);
+                    window._seizureBlockTemplate.querySelectorAll('input, select, textarea, button').forEach(el => {
+                        el.disabled = false;
+                    });
                     window._seizureBlockTemplate.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea').forEach(input => {
                         input.value = '';
                     });
@@ -6585,7 +6598,99 @@
             return false;
         }
 
-        function setSeizureBlocksCount(val) {
+                function resetSeizureItemSection(promptConfirm = false) {
+            const container = document.getElementById('seizuresListContainer');
+            if (!container) return;
+
+            if (promptConfirm) {
+                let hasData = false;
+                const blocks = container.querySelectorAll('.seizure-block');
+                for (const b of blocks) {
+                    if (typeof seizureBlockHasData === 'function' && seizureBlockHasData(b)) {
+                        hasData = true;
+                        break;
+                    }
+                }
+                const manifestDesc = document.getElementById('manifestDescriptionOfExhibits');
+                if (manifestDesc && manifestDesc.value && manifestDesc.value.trim() !== '') {
+                    hasData = true;
+                }
+                if (hasData) {
+                    const confirmed = confirm('Are you sure you want to reset the Seizure Item section? All entered seizure information will be cleared.');
+                    if (!confirmed) return;
+                }
+            }
+
+            // Reset count input to 1
+            const countInput = document.getElementById('seizureCountInput');
+            if (countInput) {
+                countInput.value = 1;
+            }
+
+            // Clear overall manifest description
+            const manifestDesc = document.getElementById('manifestDescriptionOfExhibits');
+            if (manifestDesc) {
+                manifestDesc.value = '';
+            }
+
+            // Remove extra blocks so only 1 remains
+            const allBlocks = container.querySelectorAll('.seizure-block');
+            for (let i = 1; i < allBlocks.length; i++) {
+                allBlocks[i].remove();
+            }
+
+            // Reset the remaining first block to clean/pristine state
+            const firstBlock = container.querySelector('.seizure-block');
+            if (firstBlock) {
+                firstBlock.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]), textarea').forEach(input => {
+                    input.value = '';
+                });
+                firstBlock.querySelectorAll('input[type="hidden"]').forEach(input => {
+                    input.value = '';
+                });
+                firstBlock.querySelectorAll('select').forEach(select => {
+                    select.selectedIndex = 0;
+                });
+                firstBlock.querySelector('.seizure-associated-person-select')?.removeAttribute('data-user-selected');
+                const photoGrid = firstBlock.querySelector('.seizurePhotosGrid');
+                if (photoGrid) { photoGrid.innerHTML = ''; photoGrid.classList.add('hidden'); }
+                const photoCount = firstBlock.querySelector('#seizurePhotosCount, .seizure-photos-count');
+                if (photoCount) { photoCount.innerText = '0 Photos Uploaded'; photoCount.classList.add('hidden'); }
+                const fileInput = firstBlock.querySelector('.fileSeizurePhoto');
+                if (fileInput) fileInput.value = '';
+                delete firstBlock.dataset.exhibitNumber;
+                delete firstBlock.dataset.labExhibitNo;
+                delete firstBlock.dataset.linkedExhibitId;
+                delete firstBlock.dataset.propertyId;
+
+                // Restore default unit category if defined
+                if (window._initialDefaultUnitCategory) {
+                    const catInput = firstBlock.querySelector('#newSeizureCategory, .new-seizure-category');
+                    const searchInput = firstBlock.querySelector('#exhibitSearchInput, .exhibit-search-input');
+                    if (catInput) catInput.value = window._initialDefaultUnitCategory;
+                    if (searchInput) searchInput.value = window._initialDefaultUnitCategory;
+                    if (typeof updateCommodityField === 'function') {
+                        updateCommodityField(window._initialDefaultUnitCategory, firstBlock);
+                    }
+                }
+            }
+
+            if (typeof updateSeizureBlockNumbers === 'function') {
+                updateSeizureBlockNumbers();
+            }
+
+            if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                syncSuspectDropdownsForExhibits();
+            }
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof evaluateLabExaminationVisibility === 'function') {
+                evaluateLabExaminationVisibility();
+            }
+        }
+
+function setSeizureBlocksCount(val) {
             const targetCount = parseInt(val, 10);
             const container = document.getElementById('seizuresListContainer');
             if (!container) return;
@@ -6617,6 +6722,9 @@
                 if (typeof evaluateLabExaminationVisibility === 'function') {
                     evaluateLabExaminationVisibility();
                 }
+                if (typeof unlockSection5Form === 'function') {
+                    unlockSection5Form();
+                }
             } else {
                 let hasData = false;
                 for (let i = finalTarget; i < currentCount; i++) {
@@ -6646,6 +6754,9 @@
                 }
                 if (typeof evaluateLabExaminationVisibility === 'function') {
                     evaluateLabExaminationVisibility();
+                }
+                if (typeof unlockSection5Form === 'function') {
+                    unlockSection5Form();
                 }
             }
         }
@@ -6915,11 +7026,17 @@
             const newIndex = container.querySelectorAll('.seizure-block').length + 1;
 
             clone.setAttribute('data-seizure-index', newIndex);
+            clone.dataset.hasSavedLab = 'false';
 
             const titleEl = clone.querySelector('.seizure-title');
             if (titleEl) titleEl.innerText = 'Seized Item ' + newIndex;
             const numberBadge = clone.querySelector('.seizure-number-badge');
             if (numberBadge) numberBadge.innerText = newIndex;
+
+            // Re-enable all inputs inside the clone
+            clone.querySelectorAll('input, select, textarea, button').forEach(el => {
+                el.disabled = false;
+            });
 
             clone.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea').forEach(input => {
                 input.value = '';
@@ -6965,6 +7082,15 @@
 
             container.appendChild(clone);
 
+            const defaultCat = window._initialDefaultUnitCategory || 'Drugs';
+            const cloneCatIn = clone.querySelector('#newSeizureCategory');
+            const cloneCatDis = clone.querySelector('#exhibitSearchInput');
+            if (cloneCatIn) cloneCatIn.value = defaultCat;
+            if (cloneCatDis) cloneCatDis.value = defaultCat;
+            if (typeof updateCommodityField === 'function') {
+                updateCommodityField(defaultCat, clone);
+            }
+
             if (shouldUpdate) {
                 updateSeizureBlockNumbers();
                 if (typeof syncSuspectDropdownsForExhibits === 'function') {
@@ -6975,6 +7101,9 @@
                 }
                 if (typeof evaluateLabExaminationVisibility === 'function') {
                     evaluateLabExaminationVisibility();
+                }
+                if (typeof unlockSection5Form === 'function') {
+                    unlockSection5Form();
                 }
             }
         }
@@ -7030,9 +7159,15 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            if (!window._initialDefaultUnitCategory) {
+                const initialCatEl = document.getElementById('newSeizureCategory');
+                const initialSearchEl = document.getElementById('exhibitSearchInput');
+                window._initialDefaultUnitCategory = (initialCatEl?.value || initialSearchEl?.value || '').trim();
+            }
             getPristineSeizureBlockTemplate();
-            if (window._savedCaseExhibitsData && window._savedCaseExhibitsData.length > 0) {
-                populateExistingManifestSections(window._savedCaseExhibitsData);
+            // Default Seizure Item section to 1 clean item for recording new exhibits
+            if (typeof resetSeizureItemSection === 'function') {
+                resetSeizureItemSection(false);
             }
         });
 
@@ -7380,7 +7515,15 @@
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = val;
 
-            onDrugTypeChange(null);
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof syncSection4ToSection5InReview === 'function') {
+                syncSection4ToSection5InReview();
+            }
+            if (typeof onDrugTypeChange === 'function') {
+                onDrugTypeChange(null);
+            }
         }
 
         function filterDrugList(el) {
@@ -7391,6 +7534,15 @@
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = rawVal;
             filterDrugListByQuery(rawVal.toLowerCase(), root);
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof syncSection4ToSection5InReview === 'function') {
+                syncSection4ToSection5InReview();
+            }
+            if (typeof onDrugTypeChange === 'function') {
+                onDrugTypeChange(null);
+            }
         }
 
         function filterDrugListInner(el) {
@@ -7400,7 +7552,18 @@
             if (hidden) hidden.value = rawVal;
             const textInput = root.querySelector('#newSeizureName');
             if (textInput) textInput.value = rawVal;
+            const display = root.querySelector('#drugSearchInput');
+            if (display) display.value = rawVal;
             filterDrugListByQuery(rawVal.toLowerCase(), root);
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof syncSection4ToSection5InReview === 'function') {
+                syncSection4ToSection5InReview();
+            }
+            if (typeof onDrugTypeChange === 'function') {
+                onDrugTypeChange(null);
+            }
         }
 
         function filterDrugListByQuery(q, rootEl) {
@@ -8441,6 +8604,11 @@
                         label.classList.add('bg-slate-50', 'border-slate-300');
                     }
                     s4Texts.forEach(el => el.innerText = 'Show Section 4');
+
+                    // Reset Seizure Item Section when toggled off so it starts clean next time
+                    if (typeof resetSeizureItemSection === 'function') {
+                        resetSeizureItemSection(false);
+                    }
                 }
             }
         }
@@ -8686,19 +8854,12 @@
                 });
             });
 
-            if (nlrSec) nlrSec.classList.remove('hidden');
-            if (isLabCompletedNow) {
-                if (nlrForm) nlrForm.classList.add('hidden');
-                if (form) form.classList.add('hidden');
-                const readOnlyView = document.getElementById('section5ReadOnlyDisplay');
-                if (readOnlyView) readOnlyView.classList.remove('hidden');
-                if (typeof emptySection5FormFields === 'function') {
-                    emptySection5FormFields();
-                }
-            } else {
-                if (nlrForm) nlrForm.classList.remove('hidden');
-                if (form) form.classList.remove('hidden');
-            }
+            if (nlrSec) nlrSec.classList.add('hidden');
+            const readOnlyView = document.getElementById('section5ReadOnlyDisplay');
+            if (readOnlyView) readOnlyView.classList.add('hidden');
+
+            if (nlrForm) nlrForm.classList.remove('hidden');
+            if (form) form.classList.remove('hidden');
 
             // 2. Hide GSA Section and completely disable its controls & form
             if (gsaSec) {
@@ -8748,16 +8909,44 @@
                 }
             }
 
-            if (!isLabCompletedNow) {
-                const examRefInput = document.getElementById('labExamReferenceInput');
-                if (examRefInput) {
-                    if (!examRefInput.value || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
-                        const randNum = Math.floor(1000 + Math.random() * 9000);
-                        examRefInput.value = `NLA-FM-T${randNum}-F`;
-                    } else if (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-')) {
-                        examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
-                    }
+            // Determine exhibit saved status
+            const exhSel = document.getElementById('labExhibitSelect');
+            const selectedOpt = exhSel ? exhSel.options[exhSel.selectedIndex] : null;
+            const isOptSaved = selectedOpt ? (selectedOpt.getAttribute('data-has-saved') === 'true' || selectedOpt.getAttribute('data-has-saved') === '1') : false;
+
+            const badgeStatus = document.getElementById('section5BadgeStatus');
+            if (badgeStatus) {
+                if (isOptSaved) {
+                    badgeStatus.className =
+                        'px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300';
+                    badgeStatus.textContent = '✓ LAB COMPLETED';
+                } else {
+                    badgeStatus.className =
+                        'px-2 py-0.5 rounded text-[9px] font-mono-code font-bold uppercase bg-slate-100 text-slate-800 border border-slate-300';
+                    badgeStatus.textContent = '⭕ LAB PENDING';
                 }
+            }
+
+            if (!isOptSaved && typeof unlockSection5Form === 'function') {
+                unlockSection5Form();
+            }
+
+            const examRefInput = document.getElementById('labExamReferenceInput');
+            if (examRefInput) {
+                if (!examRefInput.value || examRefInput.value.trim() === '' || examRefInput.value.startsWith('EXAM-') || examRefInput.value.includes('T28')) {
+                    const randNum = Math.floor(1000 + Math.random() * 9000);
+                    examRefInput.value = `NLA-FM-T${randNum}-F`;
+                } else if (examRefInput.value.startsWith('GSA-') || examRefInput.value.startsWith('NLR-') || examRefInput.value.startsWith('CSS-') || examRefInput.value.startsWith('EMU-')) {
+                    examRefInput.value = examRefInput.value.replace(/^(GSA|NLR|CSS|EMU)-/, 'NLA-');
+                }
+            }
+            const caseRefInput = document.getElementById('labCaseReferenceInput');
+            if (caseRefInput && (!caseRefInput.value || caseRefInput.value.trim() === '')) {
+                caseRefInput.value = window.caseNumber || @json($case->case_number ?? '');
+            }
+            const labNumInput = document.getElementById('formLabNumber');
+            if (labNumInput && (!labNumInput.value || labNumInput.value.trim() === '')) {
+                labNumInput.value = @json($labNumber ?? '');
             }
 
             // Update hidden inputs for server-side form submission
@@ -8774,7 +8963,7 @@
             const section5CompletedInput = document.getElementById('section5CompletedInput');
             if (section5CompletedInput) section5CompletedInput.value = '1';
 
-            const targetSec = nlrForm || nlrSec;
+            const targetSec = nlrForm;
             if (targetSec) {
                 targetSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
@@ -9340,6 +9529,18 @@
                 if (resultInput) resultInput.value = 'NO (Negative Reaction)';
             }
 
+            // Keep legacy aliases synchronized
+            const revYes = document.getElementById('presumptiveTestYesReview') || document.querySelector('input[name="form_presumptive_radio"][value="YES"]');
+            const revNo = document.getElementById('presumptiveTestNoReview') || document.querySelector('input[name="form_presumptive_radio"][value="NO"]');
+            if (revYes && choice === 'YES') {
+                revYes.checked = true;
+                if (typeof onPresumptiveRadioChange === 'function') onPresumptiveRadioChange('YES');
+            }
+            if (revNo && choice === 'NO') {
+                revNo.checked = true;
+                if (typeof onPresumptiveRadioChange === 'function') onPresumptiveRadioChange('NO');
+            }
+
             if (idx === 1) {
                 const legacyYes = document.getElementById('presumptiveTestYes');
                 const legacyNo = document.getElementById('presumptiveTestNo');
@@ -9472,6 +9673,18 @@
                 if (noBox) noBox.checked = true;
                 if (weightContainer) weightContainer.classList.add('hidden');
                 if (resultInput) resultInput.value = 'NO';
+            }
+
+            // Keep legacy aliases synchronized
+            const revConfYes = document.getElementById('confirmatoryTestYesReview') || document.querySelector('input[name="form_confirmatory_radio"][value="YES"]');
+            const revConfNo = document.getElementById('confirmatoryTestNoReview') || document.querySelector('input[name="form_confirmatory_radio"][value="NO"]');
+            if (revConfYes && choice === 'YES') {
+                revConfYes.checked = true;
+                if (typeof toggleConfirmatoryTestReview === 'function') toggleConfirmatoryTestReview('YES');
+            }
+            if (revConfNo && choice === 'NO') {
+                revConfNo.checked = true;
+                if (typeof toggleConfirmatoryTestReview === 'function') toggleConfirmatoryTestReview('NO');
             }
 
             if (idx === 1) {
@@ -9790,6 +10003,10 @@
                     </div>
                 `;
                 container.appendChild(card);
+                const revNo = document.getElementById('presumptiveTestNoReview') || document.querySelector('input[name="form_presumptive_radio"][value="NO"]');
+                if (revNo && !document.querySelector('input[name="form_presumptive_radio"]:checked')) {
+                    revNo.checked = true;
+                }
             } else {
                 const titleEl = card.querySelector('.presumptive-card-title');
                 if (titleEl) titleEl.innerHTML = `Presumptive Test — Exhibit #${idx}: <span class="text-emerald-700">${safeName}</span>`;
@@ -9939,6 +10156,10 @@
                     </div>
                 `;
                 container.appendChild(card);
+                const revConfNo = document.getElementById('confirmatoryTestNoReview') || document.querySelector('input[name="form_confirmatory_radio"][value="NO"]');
+                if (revConfNo && !document.querySelector('input[name="form_confirmatory_radio"]:checked')) {
+                    revConfNo.checked = true;
+                }
                 addDetectedSubstanceRowForExhibit(idx, '', '');
             } else {
                 const titleEl = card.querySelector('.confirmatory-card-title');
@@ -10087,6 +10308,8 @@
                     opt.setAttribute('data-owner', owner);
                     opt.setAttribute('data-exhibit-number', systemExhibitId);
                     opt.setAttribute('data-lab-exhibit-no', exhNoVal);
+                    const isBlockSaved = block.dataset.hasSavedLab === 'true' || block.dataset.hasSavedLab === '1';
+                    opt.setAttribute('data-has-saved', isBlockSaved ? 'true' : 'false');
                     selectEl.appendChild(opt);
                 }
 
@@ -10172,6 +10395,9 @@
                 }
             }
             onLabExhibitSelected();
+            if (typeof onReviewLabExhibitChange === 'function') {
+                onReviewLabExhibitChange(selectEl);
+            }
         }
 
         function onCardExhibitNoChange(input, itemNum) {
@@ -10241,6 +10467,29 @@
                     descInput.value = window.labExhibitUserEdits[idx];
                 }
             }
+
+            const sampleDescReview = document.getElementById('sampleWeightDescriptionReview');
+            const sampleDescMain = document.getElementById('sampleWeightDescription');
+            const subIdReview = document.getElementById('confirmatorySubstanceIdentificationReview');
+            const subIdMain = document.getElementById('confirmatorySubstanceIdentification');
+            const unitsReview = document.getElementById('sampleWeightUnitsReview');
+            const unitsMain = document.getElementById('sampleWeightUnits');
+            const grossReview = document.getElementById('sampleWeightGrossReview');
+            const grossMain = document.getElementById('sampleWeightGross');
+            const unitAddonReview = document.getElementById('sampleWeightTakenUnitAddonReview');
+
+            let uText = (qty && pkg) ? `${qty} ${pkg}`.trim() : (qty || pkg || '');
+            let gText = (weight && unit) ? `${weight} ${unit}`.trim() : (weight || unit || uText || '');
+
+            if (sampleDescReview && name) sampleDescReview.value = name;
+            if (sampleDescMain && name) sampleDescMain.value = name;
+            if (subIdReview && name) subIdReview.value = name;
+            if (subIdMain && name) subIdMain.value = name;
+            if (unitsReview && uText) unitsReview.value = uText;
+            if (unitsMain && uText) unitsMain.value = uText;
+            if (grossReview && gText) grossReview.value = gText;
+            if (grossMain && gText) grossMain.value = gText;
+            if (unitAddonReview && unit) unitAddonReview.textContent = unit;
         }
 
         window.NACOC_DEBUG = localStorage.getItem('NACOC_DEBUG') === '1' || {{ config('app.debug') ? 'true' : 'false' }};

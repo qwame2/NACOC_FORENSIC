@@ -72,7 +72,7 @@
                     <td class="py-3.5 px-5 whitespace-nowrap">
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold {{ $unitColorClass }}">
                             <span class="font-mono-code uppercase">{{ $unitCode }}</span>
-                            <span>&bull;</span>
+                            <span class="opacity-50" aria-hidden="true">|</span>
                             <span>{{ $officer->unit ?? 'Unassigned Unit' }}</span>
                         </span>
                     </td>
@@ -97,12 +97,10 @@
                         @endphp
                         @if($isOfficerOnline)
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono-code font-extrabold uppercase">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 Online
                             </span>
                         @else
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-mono-code font-extrabold uppercase">
-                                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                                 Offline
                             </span>
                         @endif
@@ -111,12 +109,10 @@
                     <td class="py-3.5 px-5 text-center whitespace-nowrap">
                         @if($officer->is_approved)
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono-code font-extrabold uppercase">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                 Approved
                             </span>
                         @else
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-mono-code font-extrabold uppercase">
-                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                                 Pending Unit Head
                             </span>
                         @endif

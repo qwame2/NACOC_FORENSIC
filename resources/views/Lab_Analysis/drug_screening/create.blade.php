@@ -247,10 +247,20 @@
 </head>
 
 <body class="min-h-screen flex antialiased bg-slate-50 text-slate-800 selection:bg-emerald-600 selection:text-white">
+@php
+    $isStaffUser = auth()->user() instanceof \App\Models\StaffAccount || request()->is('*/staff*') || (auth()->user() && !auth()->user()->is_head);
+    $screeningBaseUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening') : url('/Lab_Analysis/drug-screening');
+    $screeningCreateUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening/create') : url('/Lab_Analysis/drug-screening/create');
+    $screeningStoreUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening') : url('/Lab_Analysis/drug-screening');
+@endphp
 
     <div class="flex h-screen w-full overflow-hidden">
         <!-- SHARED SIDEBAR -->
-        @include('Crime_Scene_Support.partials.sidebar')
+        @if($isStaffUser)
+            @include('staff.partials.sidebar', ['sidebarUnit' => 'Lab Analysis'])
+        @else
+            @include('Crime_Scene_Support.partials.sidebar')
+        @endif
 
         <!-- MAIN WORKSPACE CONTAINER -->
         <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
@@ -258,7 +268,7 @@
             <!-- TOP NAVBAR -->
             <header class="h-16 bg-white border-b border-slate-200/90 px-6 flex items-center justify-between shrink-0 z-20 shadow-2xs">
                 <div class="flex items-center gap-3">
-                    <a href="{{ url('/Lab_Analysis/drug-screening') }}"
+                    <a href="{{ $screeningBaseUrl }}"
                         class="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors flex items-center space-x-1.5 text-xs font-bold">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
@@ -369,12 +379,6 @@
                                 Submit a new biological or chemical drug screening record for an eligible suspect. Eligible candidates include suspects linked to drug commodities or those with no exhibits lodged yet.
                             </p>
                         </div>
-                        <div class="flex items-center gap-3 shrink-0">
-                            <div class="text-right">
-                                <div class="text-[10px] font-mono-code uppercase text-slate-400">Supervising Chemist</div>
-                                <div class="text-xs font-bold text-teal-600 font-mono-code">{{ $headName }}</div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -392,7 +396,7 @@
                         </div>
                     </div>
 
-                    <form id="screeningForm" action="{{ url('/Lab_Analysis/drug-screening') }}" method="POST" class="p-8 space-y-6">
+                    <form id="screeningForm" action="{{ $screeningStoreUrl }}" method="POST" class="p-8 space-y-6">
                         @csrf
                         <input type="hidden" name="screening_id" id="screeningIdInput" value="{{ old('screening_id') }}">
 
@@ -781,7 +785,7 @@
 
                         <!-- SUBMIT / ACTIONS BAR -->
                         <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <a href="{{ url('/Lab_Analysis/drug-screening') }}"
+                            <a href="{{ $screeningBaseUrl }}"
                                 class="w-full sm:w-auto px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition-colors text-center cursor-pointer">
                                 Cancel &amp; Return
                             </a>

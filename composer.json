@@ -50,6 +50,9 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "audit:locked": "composer audit --locked",
+        "safe-require": "php scripts/composer-preinstall-check.php",
+        "security:audit": "@php artisan security:audit",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

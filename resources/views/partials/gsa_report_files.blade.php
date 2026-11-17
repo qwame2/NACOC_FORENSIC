@@ -26,6 +26,20 @@
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             @foreach ($gsaFiles as $gsaF)
+                @php
+                    $isPrelimOrNlr = ($gsaF instanceof \App\Models\SuspectPreliminaryReport)
+                        || ($gsaF instanceof \App\Models\SuspectNlrReport) 
+                        || str_contains(strtoupper($gsaF->original_filename ?? ''), 'PRELIM')
+                        || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR');
+                    $isDpfReport = ($gsaF instanceof \App\Models\DpfReport)
+                        || str_contains(strtoupper($gsaF->original_filename ?? ''), 'EXTRACTION')
+                        || str_contains(strtoupper($gsaF->original_filename ?? ''), 'STATUS LOG')
+                        || str_contains(strtoupper($gsaF->original_filename ?? ''), 'DPF')
+                        || str_contains(strtoupper($gsaF->file_path ?? ''), 'DPF-REPORT-PDF');
+                    $fileOwner = $isPrelimOrNlr
+                        ? null
+                        : ($gsaF->suspect?->suspect_name ?? ($gsaF->associated_person ?? null));
+                @endphp
                 <div class="bg-white border border-blue-200/90 rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-blue-400 hover:shadow-sm transition-all">
                     <div class="flex items-center gap-2.5 min-w-0">
                         @if ($gsaF->is_image)
@@ -33,17 +47,6 @@
                                 <img src="{{ $gsaF->url }}" alt="{{ $gsaF->original_filename }}" class="w-full h-full object-cover">
                             </a>
                         @else
-                            @php
-                                $isPrelimOrNlr = ($gsaF instanceof \App\Models\SuspectPreliminaryReport)
-                                    || ($gsaF instanceof \App\Models\SuspectNlrReport) 
-                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'PRELIM')
-                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'NLR');
-                                $isDpfReport = ($gsaF instanceof \App\Models\DpfReport)
-                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'EXTRACTION')
-                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'STATUS LOG')
-                                    || str_contains(strtoupper($gsaF->original_filename ?? ''), 'DPF')
-                                    || str_contains(strtoupper($gsaF->file_path ?? ''), 'DPF-REPORT-PDF');
-                            @endphp
                             <div class="w-9 h-9 {{ $isPrelimOrNlr ? 'bg-emerald-600' : ($isDpfReport ? 'bg-indigo-600' : 'bg-blue-600') }} text-white rounded-lg flex items-center justify-center font-mono-code text-[9px] font-bold shrink-0 text-center" title="{{ $isPrelimOrNlr ? 'Preliminary Report' : ($isDpfReport ? 'Extraction & Investigation Status Log Report' : 'PDF Report') }}">
                                 {{ $isPrelimOrNlr ? 'PRELIM' : ($isDpfReport ? 'DPF' : strtoupper(substr($gsaF->file_extension ?? 'PDF', 0, 4))) }}
                             </div>
@@ -52,9 +55,16 @@
                             <div class="text-xs font-bold text-slate-900 truncate" title="{{ $gsaF->original_filename }}">
                                 {{ $gsaF->original_filename }}</div>
                             <div class="text-[10px] text-slate-500 font-mono-code">
-                                {{ $gsaF->file_size_label }} &bull;
+                                {{ $gsaF->file_size_label }} @if(request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*'))|@else&bull;@endif
                                 {{ $gsaF->created_at ? $gsaF->created_at->format('M d, Y H:i') : 'Attached' }}
                             </div>
+                            @if (!empty($fileOwner))
+                                <div class="mt-0.5 flex items-center gap-1">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono-code font-bold bg-slate-100 text-slate-700 border border-slate-200 truncate max-w-full" title="Associated: {{ $fileOwner }}">
+                                        {{ $fileOwner }}
+                                    </span>
+                                </div>
+                            @endif
                             @if (!empty($gsaF->exhibit_type))
                                 <div class="mt-0.5 flex items-center gap-1">
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-200 truncate max-w-full" title="Exhibit Type: {{ $gsaF->exhibit_type }}">

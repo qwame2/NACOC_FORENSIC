@@ -190,6 +190,42 @@ class NotificationsController extends Controller
     }
 
     /**
+     * Return live JSON payload of all sidebar badge counts for real-time background sync without page refreshes.
+     */
+    public function badgeCounts(Request $request)
+    {
+        $viewer = Auth::user();
+        if (!$viewer) {
+            return response()->json([
+                'success' => false,
+                'notifications' => 0,
+                'reviews_approvals' => 0,
+                'field_officers' => 0,
+            ], 401);
+        }
+
+        $context = $this->resolveContext($request, $viewer);
+        $unitKey = $context['unit_key'] ?? 'css';
+        $unitLabel = $context['unit_label'] ?? ($viewer->unit ?? 'Crime Scene Support');
+
+        $notificationsCount = static::countActiveForContext($unitLabel, $viewer, $unitKey);
+
+        $approvalsCount = \App\Models\StaffCaseSubmission::forUnit((string) $unitLabel)
+            ->where('status', 'Pending Approval')
+            ->count();
+
+        $fieldOfficersCount = \App\Http\Controllers\FieldOfficersController::countPendingApprovalsForContext((string) $unitLabel, $viewer);
+
+        return response()->json([
+            'success' => true,
+            'notifications' => $notificationsCount,
+            'reviews_approvals' => $approvalsCount,
+            'field_officers' => $fieldOfficersCount,
+            'unit' => $unitLabel,
+        ]);
+    }
+
+    /**
      * Count active unread notifications for sidebar badge rendering.
      */
     public static function countActiveForContext(?string $unitName, ?Authenticatable $viewer = null, ?string $explicitKey = null): int

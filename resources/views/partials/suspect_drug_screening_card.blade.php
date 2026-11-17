@@ -11,6 +11,10 @@
       $showEmpty    — (optional) bool (only show empty state in Lab Analysis)
 --}}
 
+@php
+    $isStaffUser = auth()->user() instanceof \App\Models\StaffAccount || request()->is('*/staff*') || (auth()->user() && !auth()->user()->is_head);
+@endphp
+
 @if (!empty($screening))
     @php
         $res = ucfirst(strtolower(trim($screening->result ?? 'Pending')));
@@ -22,13 +26,14 @@
         $badgeText = $isPos ? 'POSITIVE — SUBSTANCES DETECTED' : ($isNeg ? 'NEGATIVE — NO DRUGS DETECTED' : 'PENDING — AWAITING LAB OUTCOME');
         $substances = $screening->substance_list;
         $canShowActions = !empty($showActions);
+        $hideDotsForStaff = request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*');
     @endphp
 
     <div class="suspect-drug-screening-report mt-4 space-y-2 font-sans">
         {{-- Table Title Banner --}}
         <div class="flex items-center justify-between gap-2.5 pb-1 border-b border-slate-300">
             <div class="flex items-center space-x-2 flex-wrap">
-                <span class="w-2.5 h-2.5 rounded-full {{ $isPos ? 'bg-red-500' : ($isNeg ? 'bg-emerald-500' : 'bg-amber-500') }}"></span>
+                @unless($hideDotsForStaff)<span class="w-2.5 h-2.5 rounded-full {{ $isPos ? 'bg-red-500' : ($isNeg ? 'bg-emerald-500' : 'bg-amber-500') }}"></span>@endunless
                 <h4 class="text-xs font-black text-slate-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
                     <span>Drug Screening Report</span>
                     <span class="text-slate-400 font-normal">&mdash;</span>
@@ -40,19 +45,46 @@
                     {{ $badgeText }}
                 </span>
                 @if ($canShowActions)
+                    @php
+                        $isStaffUser = auth()->user() instanceof \App\Models\StaffAccount || request()->is('*/staff*') || (auth()->user() && !auth()->user()->is_head);
+                        $cardRegisterUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening?search=' . urlencode($suspectName)) : url('/Lab_Analysis/drug-screening?search=' . urlencode($suspectName));
+                        $cardCreateUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening/create') : url('/Lab_Analysis/drug-screening/create');
+                        $canStaffRecordLab = !auth()->user() || auth()->user()->is_head || (method_exists(auth()->user(), 'hasPermission') ? auth()->user()->hasPermission('record_lab_analysis', request()->path()) : true);
+                        $lockedDrugScreeningTooltip = 'Locked: Lab & Drug Screening permission is disabled by your Head of Unit';
+                    @endphp
                     <div class="flex items-center gap-1.5 no-print">
-                        <a href="{{ url('/Lab_Analysis/drug-screening?search=' . urlencode($suspectName)) }}"
-                            class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
-                            title="View Screening Register">
+                        <a @if($canStaffRecordLab) href="{{ $cardRegisterUrl }}" @endif
+                            data-staff-drug-screening-btn="card"
+                            data-drug-screening-url="{{ $cardRegisterUrl }}"
+                            aria-disabled="{{ $canStaffRecordLab ? 'false' : 'true' }}"
+                            @if(!$canStaffRecordLab)
+                                tabindex="0"
+                                title="{{ $lockedDrugScreeningTooltip }}"
+                                data-locked-tooltip="{{ $lockedDrugScreeningTooltip }}"
+                                onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                                style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                            @endif
+                            class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 shadow-2xs {{ $canStaffRecordLab ? 'cursor-pointer' : 'select-none' }}"
+                            title="{{ $canStaffRecordLab ? 'View Screening Register' : $lockedDrugScreeningTooltip }}">
                             <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                             </svg>
                             <span>View Screening Register</span>
                         </a>
-                        <a href="{{ url('/Lab_Analysis/drug-screening/create') }}"
-                            class="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
-                            title="Update / Re-Screen">
+                        <a @if($canStaffRecordLab) href="{{ $cardCreateUrl }}" @endif
+                            data-staff-drug-screening-btn="card-create"
+                            data-drug-screening-url="{{ $cardCreateUrl }}"
+                            aria-disabled="{{ $canStaffRecordLab ? 'false' : 'true' }}"
+                            @if(!$canStaffRecordLab)
+                                tabindex="0"
+                                title="{{ $lockedDrugScreeningTooltip }}"
+                                data-locked-tooltip="{{ $lockedDrugScreeningTooltip }}"
+                                onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                                style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                            @endif
+                            class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all flex items-center gap-1 shadow-2xs {{ $canStaffRecordLab ? 'bg-teal-600 hover:bg-teal-700 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 border border-slate-300 select-none' }}"
+                            title="{{ $canStaffRecordLab ? 'Update / Re-Screen' : $lockedDrugScreeningTooltip }}">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
@@ -137,7 +169,7 @@
         <div class="mt-3 p-3.5 bg-purple-50/50 rounded-xl border border-purple-200/80 space-y-2.5">
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <div class="flex items-center space-x-2">
-                    <span class="w-2 h-2 rounded-full bg-purple-600"></span>
+                    @unless($hideDotsForStaff)<span class="w-2 h-2 rounded-full bg-purple-600"></span>@endunless
                     <h5 class="text-[11px] font-black uppercase font-mono-code text-purple-950 tracking-wider flex items-center gap-1.5">
                         <span>Clinical Medications &amp; Prescriptions</span>
                         <span class="px-1.5 py-0.5 rounded text-[9.5px] bg-purple-200 text-purple-900 font-bold">On Active Medication</span>
@@ -217,8 +249,24 @@
                 <div class="text-[11px] text-slate-400">Substance screening has not yet been logged for {{ $suspectName }}.</div>
             </div>
         </div>
-        <a href="{{ url('/Lab_Analysis/drug-screening/create') }}"
-            class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[11px] font-bold transition-all shrink-0 cursor-pointer">
+        @php
+            $cardScreenSuspectUrl = $isStaffUser ? url('/Lab_Analysis/staff/drug-screening/create') : url('/Lab_Analysis/drug-screening/create');
+            $canStaffScreenEmpty = !auth()->user() || auth()->user()->is_head || (method_exists(auth()->user(), 'hasPermission') ? auth()->user()->hasPermission('record_lab_analysis', request()->path()) : true);
+            $lockedEmptyTooltip = 'Locked: Lab & Drug Screening permission is disabled by your Head of Unit';
+        @endphp
+        <a @if($canStaffScreenEmpty) href="{{ $cardScreenSuspectUrl }}" @endif
+            data-staff-drug-screening-btn="card-empty"
+            data-drug-screening-url="{{ $cardScreenSuspectUrl }}"
+            aria-disabled="{{ $canStaffScreenEmpty ? 'false' : 'true' }}"
+            @if(!$canStaffScreenEmpty)
+                tabindex="0"
+                title="{{ $lockedEmptyTooltip }}"
+                data-locked-tooltip="{{ $lockedEmptyTooltip }}"
+                onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+            @endif
+            class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shrink-0 {{ $canStaffScreenEmpty ? 'bg-slate-800 hover:bg-slate-900 text-white cursor-pointer' : 'bg-slate-200 text-slate-400 border border-slate-300 select-none' }}"
+            title="{{ $canStaffScreenEmpty ? '+ Screen Suspect' : $lockedEmptyTooltip }}">
             + Screen Suspect
         </a>
     </div>

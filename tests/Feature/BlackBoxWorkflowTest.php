@@ -76,7 +76,7 @@ class BlackBoxWorkflowTest extends TestCase
         $response = $this->post('/register', $validRegistrationData);
 
         $response->assertRedirect('/login');
-        $this->assertDatabaseHas('users', [
+        $this->assertDatabaseHas('staff_accounts', [
             'username' => 'kwamemensah',
             'service_id' => 'SD-888',
         ]);

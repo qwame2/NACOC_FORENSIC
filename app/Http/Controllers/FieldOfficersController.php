@@ -145,11 +145,11 @@ class FieldOfficersController extends Controller
             ? $user->effectivePermissions()
             : [];
         $pathContext = (string) ($request->query('path') ?: $request->query('unit') ?: '');
-        $canCreateCases = (bool) (
+        $checkPerm = static fn (string $perm): bool => (bool) (
             $user->is_head
             || (method_exists($user, 'hasPermission')
-                ? $user->hasPermission('create_cases', $pathContext !== '' ? $pathContext : null)
-                : ($effectivePerms['create_cases'] ?? true))
+                ? $user->hasPermission($perm, $pathContext !== '' ? $pathContext : null)
+                : ($effectivePerms[$perm] ?? true))
         );
 
         return response()->json([
@@ -161,7 +161,12 @@ class FieldOfficersController extends Controller
             'unit_slug' => ForensicUnit::resolveOperationalSlug($user->unit),
             'unit_head_name' => $unitHead?->fullname,
             'permissions' => $effectivePerms,
-            'can_create_cases' => $canCreateCases,
+            'can_create_cases' => $checkPerm('create_cases'),
+            'can_edit_cases' => $checkPerm('edit_cases'),
+            'can_add_associate' => $checkPerm('add_associate'),
+            'can_manage_exhibits' => $checkPerm('manage_exhibits'),
+            'can_record_lab_analysis' => $checkPerm('record_lab_analysis'),
+            'can_generate_reports' => $checkPerm('generate_reports'),
         ]);
     }
 

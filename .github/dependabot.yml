@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Maintain PHP dependencies in Composer
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "security"
+      - "dependencies"
+      - "composer"
+    versioning-strategy: increase
+
+  # Maintain JavaScript dependencies in NPM
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "security"
+      - "dependencies"
+      - "npm"
+    versioning-strategy: increase
+

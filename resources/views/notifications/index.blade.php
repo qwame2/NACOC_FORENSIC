@@ -211,7 +211,15 @@
                 });
                 const sidebarBadge = document.getElementById('sidebarNotificationsBadge');
                 if (sidebarBadge && stats.unread !== undefined) {
-                    sidebarBadge.textContent = String(stats.unread);
+                    const count = parseInt(stats.unread, 10) || 0;
+                    sidebarBadge.textContent = String(count);
+                    if (count > 0) {
+                        sidebarBadge.classList.remove('hidden');
+                        sidebarBadge.style.display = 'inline-flex';
+                    } else {
+                        sidebarBadge.classList.add('hidden');
+                        sidebarBadge.style.display = 'none';
+                    }
                 }
             }
 

@@ -3,7 +3,7 @@
         'isStaff'          => true,
         'unitKey'          => 'forensic_head',
         'userUnit'         => 'Forensic Directorate',
-        'unitBadge'        => 'Forensic Directorate • Staff',
+        'unitBadge'        => 'Forensic Directorate | Staff',
         'unitSubtitle'     => 'Forensic Directorate Staff Operations',
         'locationNoun'     => 'Forensic Cases',
         'pageTitle'        => 'NACOC FORENSIC | Forensic Directorate Staff Dashboard',
