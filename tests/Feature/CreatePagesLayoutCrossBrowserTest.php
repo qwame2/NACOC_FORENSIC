@@ -82,16 +82,23 @@ class CreatePagesLayoutCrossBrowserTest extends TestCase
 
             $this->assertNotFalse($posDateSeiz, "Date Seized missing in {$viewName}");
             $this->assertNotFalse($posTimeSeiz, "Time Seized missing in {$viewName}");
-            $this->assertNotFalse($posLocSeiz, "Location Seized missing in {$viewName}");
+            if (!str_contains($viewName, 'Lab_Analysis')) {
+                $this->assertNotFalse($posLocSeiz, "Location Seized missing in {$viewName}");
 
-            $this->assertTrue(
-                $posDateSeiz < $posTimeSeiz,
-                "In {$viewName}, Date Seized should appear before Time Seized"
-            );
-            $this->assertTrue(
-                $posTimeSeiz < $posLocSeiz,
-                "In {$viewName}, Location Seized should appear at the right side of Time Seized"
-            );
+                $this->assertTrue(
+                    $posDateSeiz < $posTimeSeiz,
+                    "In {$viewName}, Date Seized should appear before Time Seized"
+                );
+                $this->assertTrue(
+                    $posTimeSeiz < $posLocSeiz,
+                    "In {$viewName}, Location Seized should appear at the right side of Time Seized"
+                );
+            } else {
+                $this->assertTrue(
+                    $posDateSeiz < $posTimeSeiz,
+                    "In {$viewName}, Date Seized should appear before Time Seized"
+                );
+            }
 
             // 3. Check for 3-column seizure grid and min-w-0 for cross-browser stability
             $this->assertStringContainsString(

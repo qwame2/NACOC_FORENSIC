@@ -77,6 +77,7 @@ class PreliminaryExhibitAnalysisReportTest extends TestCase
             'sample_weight_taken' => '0.05 kg',
             'test_methods' => 'Fast Blue B Colorimetric Chemical Spot Test',
             'detected_substances' => [['substance' => 'Cannabis (THC)', 'purity' => 'Active']],
+            'presumptive_presence' => 'Cannabis (THC)',
             'specifications' => 'Characteristic violet-blue coloration observed within 30 seconds.',
             'remark' => 'Packaging intact upon receipt; evidence chain verified.',
             'disposition_of_exhibit' => 'Securely stored in the NACOC Forensic Laboratory Vault.',
@@ -145,7 +146,7 @@ class PreliminaryExhibitAnalysisReportTest extends TestCase
         $response->assertSee('Observation/Results');
         $response->assertSee('Interpretation');
         $response->assertSee('Cannabis (THC) detected');
-        $response->assertSee('Presumptive indication of the presence of Cannabis (THC)');
+        $response->assertSee('Cannabis (THC)');
 
         // Remarks & Disposition checks
         $response->assertSee('REMARKS');
@@ -219,6 +220,13 @@ class PreliminaryExhibitAnalysisReportTest extends TestCase
         // Vehicle must NOT appear in Table 3 of strictly drug exhibits
         $response->assertDontSee('Toyota Land Cruiser V8');
         $response->assertDontSee('LAB-VEH-002');
+
+        // Responsive styles check on Table 3 (DESCRIPTION OF EXHIBIT(S))
+        $html = $response->getContent();
+        $this->assertStringContainsString('doc-table-exhibits', $html);
+        $this->assertStringContainsString('table-layout: fixed', $html);
+        $this->assertStringContainsString('word-break: break-word', $html);
+        $this->assertStringContainsString('overflow-wrap: break-word', $html);
     }
 
     #[Test]
@@ -569,6 +577,7 @@ class PreliminaryExhibitAnalysisReportTest extends TestCase
             'presumptive_result' => 'YES',
             'presumptive_presence' => 'Cannabis; THC',
             'presumptive_percentage' => '78%; 14%',
+            'detected_substances' => [['substance' => 'Cannabis', 'percentage' => '78%'], ['substance' => 'THC', 'percentage' => '14%']],
             'confirmatory_result' => 'NO',
             'sample_weight_gross' => '4.80 kg',
             'sample_weight_reserved' => '4.75 kg',
@@ -615,11 +624,252 @@ class PreliminaryExhibitAnalysisReportTest extends TestCase
         $this->assertStringContainsString('Visual inspection, core sampling, and Duquenois-Levine color test.', $html);
         $this->assertStringContainsString('Duquenois-Levine Reagent, TruNarc Raman', $html);
         $this->assertStringContainsString('Duquenois-Levine Spot Test', $html);
-        $this->assertStringContainsString('Cannabis, THC detected', $html);
-        $this->assertStringContainsString('Presumptive indication of the presence of Cannabis, THC', $html);
+        $this->assertStringContainsString('Cannabis detected, THC detected', $html);
+        $this->assertStringContainsString('Presumptive indication of the presence of Cannabis; THC', $html);
         $this->assertStringContainsString('Exhibits received with seals intact.', $html);
         $this->assertStringContainsString('Deep purple-violet organic layer observed.', $html);
         $this->assertStringContainsString('Retained in NACOC Forensic Evidence Vault.', $html);
+    }
+
+    #[Test]
+    public function investigating_officer_column_does_not_display_arresting_officer(): void
+    {
+        $officer = $this->createLabOfficer();
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-IO-TEST-01',
+            'title' => 'Investigating Officer Separation Test',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Kofi Mensah',
+            'arresting_officer' => 'Detective Sgt. Kwesi Appiah (ID: NACOC-8821)',
+            'submitting_officer' => 'Officer Evans Tetteh',
+            'seizure_officer' => 'Officer Seizure Doe',
+        ]);
+
+        $exhibit = Exhibit::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'associated_person' => 'Kofi Mensah',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'White Powder',
+            'lab_exhibit_no' => 'A',
+            'source_of_exhibits' => 'Kotoka Terminal 3',
+            'investigating_officer' => null, // Explicitly null to verify no fallback to arresting officer
+            'seizure_officer' => 'Officer Seizure Doe',
+        ]);
+
+        LaboratoryExaminationResult::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_id' => $exhibit->id,
+            'exam_reference' => 'NACOC/FSD/LAU/999/2026',
+            'presumptive_result' => 'YES',
+            'presumptive_presence' => 'Cocaine',
+            'has_saved' => true,
+        ]);
+
+        $html = $this->actingAs($officer)
+            ->get('/Lab_Analysis/preliminary-report-pdf/' . $case->case_number)
+            ->assertOk()
+            ->getContent();
+
+        // Must display Unspecified, NOT the arresting officer
+        $this->assertMatchesRegularExpression(
+            '/<td>\s*Investigating Officer\s*<\/td>\s*<td>\s*Unspecified\s*<\/td>/si',
+            $html
+        );
+        $this->assertStringNotContainsString('Detective Sgt. Kwesi Appiah', $html);
+        $this->assertStringNotContainsString('NACOC-8821', $html);
+
+        // Now set investigating_officer explicitly and verify it is displayed
+        $exhibit->update(['investigating_officer' => 'D/Inspector Kwabena Darko (ID: NACOC-IO-101)']);
+
+        $htmlWithIO = $this->actingAs($officer)
+            ->get('/Lab_Analysis/preliminary-report-pdf/' . $case->case_number)
+            ->assertOk()
+            ->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/<td>\s*Investigating Officer\s*<\/td>\s*<td>\s*D\/Inspector Kwabena Darko \(ID: NACOC-IO-101\)\s*<\/td>/si',
+            $htmlWithIO
+        );
+    }
+
+    #[Test]
+    public function table_5_strictly_maps_interpretation_to_presumptive_presence_and_observation_to_detected_substances(): void
+    {
+        $officer = $this->createLabOfficer();
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-TABLE5-MAP-01',
+            'title' => 'Table 5 Mapping Test',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Abena Osei',
+        ]);
+
+        $exhibit = Exhibit::create([
+            'single_suspect_case_id' => $case->id,
+            'associated_person' => 'Abena Osei',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Brownish Rock Substance',
+            'lab_exhibit_no' => 'LAB-EX-99',
+            'source_of_exhibits' => 'Aflao Border Post',
+            'investigating_officer' => 'Officer Table5 IO',
+        ]);
+
+        LaboratoryExaminationResult::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_id' => $exhibit->id,
+            'exam_reference' => 'NACOC/FSD/LAU/T5/2026',
+            'test_methods' => 'Scott Reagent Chemical Spot Test & GC-MS',
+            'detected_substances' => [
+                ['substance' => 'Cocaine Hydrochloride', 'percentage' => '84.6%'],
+                ['substance' => 'Levamisole Adulterant', 'percentage' => '12.4%'],
+            ],
+            'presumptive_result' => 'YES',
+            'presumptive_presence' => 'Presumptive Positive: Cocaine HCl',
+            'has_saved' => true,
+        ]);
+
+        $html = $this->actingAs($officer)
+            ->get('/Lab_Analysis/preliminary-report-pdf/' . $case->case_number)
+            ->assertOk()
+            ->getContent();
+
+        // Observation/Results must strictly format as '[drug] detected' without percentage
+        $this->assertStringContainsString('Cocaine Hydrochloride detected, Levamisole Adulterant detected', $html);
+        $this->assertStringNotContainsString('84.6%', $html);
+
+        // Interpretation must strictly format as 'Presumptive indication of the presence of drug'
+        $this->assertStringContainsString('Presumptive indication of the presence of Cocaine HCl', $html);
+
+        // Responsive text-overflow styles check on Table 5
+        $this->assertStringContainsString('table-layout: fixed', $html);
+        $this->assertStringContainsString('word-break: break-word', $html);
+        $this->assertStringContainsString('overflow-wrap: break-word', $html);
+    }
+
+    #[Test]
+    public function laboratory_examination_results_deletes_substance_identification_and_separates_detected_substances_and_percentage(): void
+    {
+        // 1. Column structure assertions on MySQL table
+        $this->assertFalse(
+            \Illuminate\Support\Facades\Schema::hasColumn('laboratory_examination_results', 'substance_identification'),
+            'Column substance_identification must be deleted from laboratory_examination_results table'
+        );
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Schema::hasColumn('laboratory_examination_results', 'detected_subtances_percentage'),
+            'Column detected_subtances_percentage must exist in laboratory_examination_results table'
+        );
+        $this->assertFalse(
+            \Illuminate\Support\Facades\Schema::hasColumn('laboratory_examination_results', 'detected_substances_percentage'),
+            'Column detected_substances_percentage must not exist as a duplicate column in laboratory_examination_results table'
+        );
+
+        $officer = $this->createLabOfficer();
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-SEP-TEST-01',
+            'title' => 'Separated Substances Test',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Kwame Mensah',
+        ]);
+
+        $exhibit = Exhibit::create([
+            'single_suspect_case_id' => $case->id,
+            'associated_person' => 'Kwame Mensah',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Compressed Powder',
+            'lab_exhibit_no' => 'SEP-01',
+            'source_of_exhibits' => 'Accra Central',
+        ]);
+
+        // Create with separated substances and percentage
+        $lab = LaboratoryExaminationResult::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_id' => $exhibit->id,
+            'exam_reference' => 'NACOC/FSD/LAU/SEP/2026',
+            'detected_substances' => ['Heroin Hydrochloride', 'Paracetamol'],
+            'detected_subtances_percentage' => ['75%', '25%'],
+            'presumptive_result' => 'YES',
+            'presumptive_presence' => 'Heroin',
+            'has_saved' => true,
+        ]);
+
+        // Direct DB inspection to verify neither stores both
+        $rawDb = \Illuminate\Support\Facades\DB::table('laboratory_examination_results')->where('id', $lab->id)->first();
+        $this->assertNotNull($rawDb);
+        $this->assertStringContainsString('Heroin Hydrochloride', $rawDb->detected_substances);
+        $this->assertStringNotContainsString('75%', $rawDb->detected_substances);
+        $this->assertStringContainsString('75%', $rawDb->detected_subtances_percentage);
+        $this->assertStringNotContainsString('Heroin Hydrochloride', $rawDb->detected_subtances_percentage);
+
+        // PDF Table 5 renders detected substances strictly as '[drug] detected' without percentage
+        $html = $this->actingAs($officer)
+            ->get('/Lab_Analysis/preliminary-report-pdf/' . $case->case_number)
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Heroin Hydrochloride detected, Paracetamol detected', $html);
+        $this->assertStringContainsString('Presumptive indication of the presence of Heroin', $html);
+
+        // Review page must also load without Unknown column 'substance_identification' QueryException
+        $reviewHtml = $this->actingAs($officer)
+            ->get('/Lab_Analysis/cases/' . $case->case_number . '/review')
+            ->assertOk()
+            ->getContent();
+        $this->assertNotEmpty($reviewHtml);
+    }
+
+    #[Test]
+    public function observation_results_strictly_fetches_from_laboratory_examination_results_detected_substances(): void
+    {
+        $officer = $this->createLabOfficer();
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-STRICT-DET-01',
+            'title' => 'Strict Detected Substances Test',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Kweku Duah',
+            'docket_data' => [
+                'seizures' => [
+                    ['commodity_name' => 'Suspected Methamphetamine Crystals', 'detected_substances' => ['Methamphetamine']],
+                ],
+                'lab_examination' => ['detected_substances' => ['Methamphetamine']],
+            ],
+        ]);
+
+        $exhibit = Exhibit::create([
+            'single_suspect_case_id' => $case->id,
+            'associated_person' => 'Kweku Duah',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'Suspected Methamphetamine Crystals',
+            'lab_exhibit_no' => 'METH-01',
+            'source_of_exhibits' => 'Tema Harbour',
+        ]);
+
+        // LaboratoryExaminationResult has empty detected_substances
+        LaboratoryExaminationResult::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_id' => $exhibit->id,
+            'exam_reference' => 'NACOC/FSD/LAU/STRICT/2026',
+            'detected_substances' => [],
+            'presumptive_result' => 'YES',
+            'presumptive_presence' => 'Methamphetamine',
+            'has_saved' => true,
+        ]);
+
+        $html = $this->actingAs($officer)
+            ->get('/Lab_Analysis/preliminary-report-pdf/' . $case->case_number)
+            ->assertOk()
+            ->getContent();
+
+        // Must NOT fallback to docket Methamphetamine in Observation/Results column
+        $this->assertStringNotContainsString('Methamphetamine detected', $html);
+        $this->assertStringContainsString('Unspecified', $html);
     }
 }
 

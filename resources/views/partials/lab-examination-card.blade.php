@@ -150,14 +150,46 @@
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Confirmatory Test:</td>
-                    <td class="p-2.5 font-black text-emerald-900">
-                                                @if (($labExam['card_confirmatory_val'] ?? null) === 'YES')
-                            <span class="font-bold text-emerald-700">YES</span>
-                        @elseif (($labExam['card_confirmatory_val'] ?? null) === 'NO')
-                            <span class="font-bold text-red-700">NO</span>
-                        @else
-                            <span class="font-bold text-slate-500">N/A</span>
-                        @endif
+                    <td class="p-2 bg-white">
+                        @php
+                            $cRowsD = $labExam['card_confirmatory_rows'] ?? null;
+                            if (empty($cRowsD)) {
+                                $cVal = $labExam['card_confirmatory_val'] ?? ($labExam['confirmatory_result'] ?? ($labExam['confirmatory'] ?? null));
+                                $dSubs = $labExam['detected_substances'] ?? ($labExam['card_detected_substances'] ?? []);
+                                $dPcts = $labExam['detected_subtances_percentage'] ?? ($labExam['detected_substances_percentage'] ?? []);
+                                $cRowsD = \App\Models\ForensicCase::parseConfirmatoryRows($cVal, $dSubs, $dPcts);
+                            }
+                        @endphp
+                        <table
+                            class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                            <thead
+                                class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[10px]">
+                                <tr class="border-b border-slate-300">
+                                    <th
+                                        class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
+                                        Result</th>
+                                    <th
+                                        class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">
+                                        Substance Detected</th>
+                                    <th class="px-2 py-1 text-left bg-slate-200/70">
+                                        Purity/Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white">
+                                @foreach ($cRowsD as $cRowD)
+                                    <tr class="border-b border-slate-200 last:border-b-0">
+                                        <td
+                                            class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $cRowD['result'] === 'YES' ? 'text-emerald-800' : ($cRowD['result'] === 'NO' ? 'text-red-700' : 'text-slate-900') }}">
+                                            {{ $cRowD['result'] }}</td>
+                                        <td
+                                            class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
+                                            {{ $cRowD['presence'] }}</td>
+                                        <td class="px-2 py-1 font-bold text-slate-900">
+                                            {{ $cRowD['purity'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </td>
                 </tr>
                 <tr class="bg-slate-100/90 border-b border-slate-300">
@@ -204,41 +236,10 @@
                 <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                        Substance Identified:</td>
-                    <td class="p-2.5 font-black text-slate-950 border-r border-slate-300">
-                        {{ $labExam['substance_identification'] ?? 'N/A' }}</td>
-                    <td
-                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Test Specifications:</td>
-                    <td class="p-2.5 font-bold text-slate-900">
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
                         {{ $labExam['specifications'] ?? 'N/A' }}</td>
                 </tr>
-                                @if (!empty($labExam['card_detected_substances']) && is_array($labExam['card_detected_substances']) && count($labExam['card_detected_substances']) > 0)
-                    <tr class="bg-amber-50/70 border-b border-slate-300">
-                        <td
-                            class="p-2.5 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
-                            Result (Detected Substances & Purity %):</td>
-                        <td class="p-2.5" colspan="3">
-                            <div class="flex flex-wrap gap-2">
-                                @foreach ($labExam['card_detected_substances'] as $cSub)
-                                                                        <span
-                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-amber-300 shadow-2xs text-xs font-bold text-amber-950">
-                                        <span>{{ $cSub['name'] ?? 'Unknown' }}</span>
-                                        @php $detPct = $cSub['pct'] ?? ($cSub['purity'] ?? null); @endphp
-                                        @if (!empty($detPct))
-                                            <span
-                                                class="text-emerald-800 font-mono font-extrabold">({{ $detPct }}%)</span>
-                                        @endif
-                                        @if (!empty($cSub['method']))
-                                            <span
-                                                class="text-slate-500 font-mono text-[10px]">[{{ $cSub['method'] }}]</span>
-                                        @endif
-                                    </span>
-                                @endforeach
-                            </div>
-                        </td>
-                    </tr>
-                @endif
                 @php
                     $screeningMethodsVal = $labExam['screening_method'] ?? null;
                     if (is_string($screeningMethodsVal) && (str_starts_with(trim($screeningMethodsVal), '[') || str_starts_with(trim($screeningMethodsVal), '{'))) {
@@ -284,15 +285,6 @@
                         </td>
                     </tr>
                 @endif
-                <tr class="bg-slate-900 text-white">
-                    <td
-                        class="p-2.5 font-mono-code font-black text-emerald-400 uppercase border-r border-slate-800 bg-slate-950">
-                        Analytical Findings:</td>
-                    <td class="p-2.5 font-medium text-slate-100 leading-relaxed bg-slate-900"
-                        colspan="3">
-                        {{ $labExam['findings'] ?? 'No specific laboratory analytical findings logged yet.' }}
-                    </td>
-                </tr>
             </tbody>
         </table>
     </div>

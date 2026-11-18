@@ -420,7 +420,7 @@ class ShowReviewCharacterizationTest extends TestCase
         };
 
         $snapshotFile = $this->snapshotDir . "/show_review_{$unitKey}.html";
-        if (!file_exists($snapshotFile)) {
+        if (!file_exists($snapshotFile) || getenv('UPDATE_SNAPSHOTS')) {
             file_put_contents($snapshotFile, $normalizeHtml($html));
         }
 

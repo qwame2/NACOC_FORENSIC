@@ -198,7 +198,7 @@
         $case->unit_name ?? null,
     ]) ?? 'Unspecified';
 
-    // Investigating Officer
+    // Investigating Officer (strictly investigating officer fields; never fall back to arresting or seizure officers)
     $investigatingOfficer = $pickValid([
         $exhibitInvestigatingOfficer ?? null,
         $primaryExhibit->investigating_officer ?? null,
@@ -206,11 +206,6 @@
         $case->investigating_officer ?? null,
         $docketData['investigating_officer'] ?? null,
         $pickFromCollection($docketData['seizures'] ?? [], ['investigating_officer']),
-        $case->submitting_officer ?? null,
-        $case->arresting_officer ?? null,
-        $primaryExhibit->seizure_officer ?? null,
-        $pickFromCollection($allCaseExhibits, ['seizure_officer']),
-        $case->seizure_officer ?? null,
     ]) ?? 'Unspecified';
 
     // Date and Time Received
@@ -443,6 +438,167 @@
         return implode(', ', array_filter($parts, fn($v) => $v !== ''));
     };
 
+    // Helper to format detected_substances strictly from the detected_substances column in the laboratory_examination_results table
+    $formatDetectedSubstances = static function ($matchedLab, $fallbackLab = null) use ($isValidRefValue): string {
+        $lab = ($matchedLab instanceof \App\Models\LaboratoryExaminationResult)
+            ? $matchedLab
+            : (($fallbackLab instanceof \App\Models\LaboratoryExaminationResult) ? $fallbackLab : null);
+
+        if (!$lab && is_object($matchedLab) && isset($matchedLab->detected_substances)) {
+            $lab = $matchedLab;
+        } elseif (!$lab && is_object($fallbackLab) && isset($fallbackLab->detected_substances)) {
+            $lab = $fallbackLab;
+        }
+
+        if (!$lab) {
+            return 'Unspecified';
+        }
+
+        $rawDet = $lab->detected_substances ?? null;
+        if (empty($rawDet)) {
+            return 'Unspecified';
+        }
+
+        if (is_string($rawDet)) {
+            $trimmedDet = trim($rawDet);
+            if (str_starts_with($trimmedDet, '[') || str_starts_with($trimmedDet, '{')) {
+                $decoded = json_decode($trimmedDet, true);
+                if (is_array($decoded)) {
+                    $rawDet = $decoded;
+                }
+            } else {
+                $split = preg_split('/\s*[,;\n\r]+\s*/', $trimmedDet);
+                if (count($split) > 1) {
+                    $rawDet = $split;
+                }
+            }
+        }
+
+        $cleanSubstance = static function ($value) use ($isValidRefValue): ?string {
+            if (!is_scalar($value)) {
+                return null;
+            }
+            $str = trim((string)$value);
+            if (!$isValidRefValue($str)) {
+                return null;
+            }
+
+            // Strip any parenthetical percentage like (84.6%) or (84%)
+            $str = preg_replace('/\s*\(\s*\d+(?:\.\d+)?\s*%?\s*\)/', '', $str);
+            // Strip standalone percentage at the end like 84.6% or 84%
+            $str = preg_replace('/\s+\d+(?:\.\d+)?\s*%\s*$/', '', $str);
+            // Strip existing trailing "detected"
+            $str = preg_replace('/\bdetected\s*$/i', '', $str);
+            $str = trim($str, " \t\n\r\0\x0B,;:-");
+
+            if ($str === '' || !$isValidRefValue($str)) {
+                return null;
+            }
+
+            return $str . ' detected';
+        };
+
+        $obsList = [];
+        if (is_array($rawDet)) {
+            foreach (array_values($rawDet) as $dItem) {
+                if (is_array($dItem)) {
+                    $sName = trim((string)($dItem['substance'] ?? ($dItem['name'] ?? ($dItem['compound'] ?? ''))));
+                    $cleaned = $cleanSubstance($sName);
+                    if ($cleaned !== null) {
+                        $obsList[] = $cleaned;
+                    }
+                } elseif (is_scalar($dItem)) {
+                    $cleaned = $cleanSubstance($dItem);
+                    if ($cleaned !== null) {
+                        $obsList[] = $cleaned;
+                    }
+                }
+            }
+        } elseif (is_scalar($rawDet)) {
+            $cleaned = $cleanSubstance($rawDet);
+            if ($cleaned !== null) {
+                $obsList[] = $cleaned;
+            }
+        }
+
+        return !empty($obsList) ? implode(', ', $obsList) : 'Unspecified';
+    };
+
+    // Helper to format presumptive_presence strictly for Table 5 Interpretation
+    $formatPresumptivePresence = static function ($matchedLab, $fallbackLab = null, $docket = null, $case = null) use ($isValidRefValue, $resolveDrugName, $formatDrugDisplay): string {
+        $rawPresence = is_object($matchedLab)
+            ? ($matchedLab->presumptive_presence ?? null)
+            : ($matchedLab['presumptive_presence'] ?? null);
+
+        if (empty($rawPresence) && !empty($fallbackLab)) {
+            $rawPresence = is_object($fallbackLab)
+                ? ($fallbackLab->presumptive_presence ?? null)
+                : ($fallbackLab['presumptive_presence'] ?? null);
+        }
+
+        if (empty($rawPresence) && !empty($docket['presumptive_presence'])) {
+            $rawPresence = $docket['presumptive_presence'];
+        }
+
+        if (empty($rawPresence) && !empty($case->presumptive_presence)) {
+            $rawPresence = $case->presumptive_presence;
+        }
+
+        if (is_string($rawPresence)) {
+            $trimmedPres = trim($rawPresence);
+            if (str_starts_with($trimmedPres, '[') || str_starts_with($trimmedPres, '{')) {
+                $decoded = json_decode($trimmedPres, true);
+                if (is_array($decoded)) {
+                    $rawPresence = $decoded;
+                }
+            }
+        }
+
+        $cleanPresenceItem = static function ($text): ?string {
+            $str = trim((string)$text);
+            if ($str === '' || in_array(strtoupper($str), ['N/A', 'NA', 'NONE', 'NULL', '-', 'UNSPECIFIED'], true)) {
+                return null;
+            }
+            $cleaned = preg_replace('/^(?:yes|no)\s*[:|\-]\s*(?:test\s*#?\d+\s*[:|\-]?\s*)?/i', '', $str);
+            $cleaned = preg_replace('/^(?:presumptive\s+(?:positive|presence|indication(?:\s+of\s+the\s+presence(?:\s+of)?)?)\s*[:\-]?\s*|presence\s+of\s+)/i', '', trim($cleaned));
+            $cleaned = trim($cleaned);
+            return $cleaned !== '' ? $cleaned : null;
+        };
+
+        if (is_array($rawPresence)) {
+            $presList = [];
+            foreach ($rawPresence as $pItem) {
+                if (is_array($pItem)) {
+                    $val = $pItem['presence'] ?? ($pItem['name'] ?? ($pItem['substance'] ?? null));
+                } else {
+                    $val = $pItem;
+                }
+                if ($c = $cleanPresenceItem($val)) {
+                    $presList[] = $c;
+                }
+            }
+            if (!empty($presList)) {
+                return 'Presumptive indication of the presence of ' . implode(', ', array_unique($presList));
+            }
+        } elseif (is_scalar($rawPresence)) {
+            if ($c = $cleanPresenceItem($rawPresence)) {
+                return "Presumptive indication of the presence of {$c}";
+            }
+        }
+
+        $presResult = is_object($matchedLab) ? ($matchedLab->presumptive_result ?? null) : ($matchedLab['presumptive_result'] ?? null);
+        if (is_string($presResult) && (strtoupper(trim($presResult)) === 'NO' || stripos($presResult, 'negative') !== false)) {
+            return 'Presumptive test negative';
+        }
+
+        $fallbackDrug = $formatDrugDisplay($resolveDrugName($matchedLab, null, $case));
+        if ($fallbackDrug !== 'Unspecified') {
+            return "Presumptive indication of the presence of {$fallbackDrug}";
+        }
+
+        return 'Unspecified';
+    };
+
     // Prepare self-contained base64 logo for zero network dependency
     $logoPath = public_path('NACOC_LOGO.png');
     $logoBase64 = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : asset('NACOC_LOGO.png');
@@ -656,6 +812,8 @@
             border: 1px solid #000000;
             margin-bottom: 14px;
             font-size: 12pt;
+            table-layout: fixed;
+            word-wrap: break-word;
         }
 
         .doc-table th, 
@@ -665,6 +823,9 @@
             vertical-align: top;
             color: #000000;
             background: transparent;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
         }
 
         /* Bolden all table headers */
@@ -853,6 +1014,8 @@
                 border: 1px solid #000000 !important;
                 margin-bottom: 14px !important;
                 font-size: 12pt !important;
+                table-layout: fixed !important;
+                word-wrap: break-word !important;
             }
 
             .doc-table th, 
@@ -862,6 +1025,9 @@
                 vertical-align: top !important;
                 color: #000000 !important;
                 background: transparent !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+                white-space: normal !important;
             }
 
             .doc-table th,
@@ -1065,15 +1231,15 @@
             </div>
 
             <!-- TABLE 3 (headers on top) - STRICTLY DRUG EXHIBIT TYPE -->
-            <table class="doc-table">
+            <table class="doc-table doc-table-exhibits" style="width: 100%; table-layout: fixed; margin-top: 8px; margin-bottom: 22px;">
                 <thead>
                     <tr>
-                        <th style="width: 10%;">Exhibit No.</th>
-                        <th style="width: 34%;">Packaging as received<span style="display:none;">Package as Received</span></th>
-                        <th style="width: 26%;">Contents (visual)<span style="display:none;">Contents (Visual)</span></th>
-                        <th style="width: 12%;">Quantity</th>
-                        <th style="width: 9%; text-align: center;">Gross weight<span style="display:none;">Gross Weight</span></th>
-                        <th style="width: 9%; text-align: center;">Net weight<span style="display:none;">Net Weight</span></th>
+                        <th style="width: 12%; text-align: center; word-break: break-word; overflow-wrap: break-word;">Exhibit No.</th>
+                        <th style="width: 30%; word-break: break-word; overflow-wrap: break-word;">Packaging as received<span style="display:none;">Package as Received</span></th>
+                        <th style="width: 26%; word-break: break-word; overflow-wrap: break-word;">Contents (visual)<span style="display:none;">Contents (Visual)</span></th>
+                        <th style="width: 12%; text-align: center; word-break: break-word; overflow-wrap: break-word;">Quantity</th>
+                        <th style="width: 10%; text-align: center; word-break: break-word; overflow-wrap: break-word;">Gross weight<span style="display:none;">Gross Weight</span></th>
+                        <th style="width: 10%; text-align: center; word-break: break-word; overflow-wrap: break-word;">Net weight<span style="display:none;">Net Weight</span></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1148,12 +1314,12 @@
                             ]) ?? '-';
                         @endphp
                         <tr>
-                            <td>{{ $labExNo }}</td>
-                            <td>{{ $pkgReceived }}</td>
-                            <td>{{ $visualContents }}</td>
-                            <td>{{ $formattedQty }}</td>
-                            <td style="text-align: center;">{{ $grossWeight ?: '-' }}</td>
-                            <td style="text-align: center;">{{ $netWeight ?: '-' }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $labExNo }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $pkgReceived }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $visualContents }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $formattedQty }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $grossWeight ?: '-' }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $netWeight ?: '-' }}</td>
                         </tr>
                     @empty
                         @php
@@ -1163,12 +1329,12 @@
                             $formattedFallbackQty = is_numeric($fallbackQty) ? number_format((float)$fallbackQty) : $fallbackQty;
                         @endphp
                         <tr>
-                            <td>{{ $primaryExhibit->lab_exhibit_no ?? ($primaryExhibit->exhibit_number ?? 'A') }}</td>
-                            <td>{{ $primaryExhibit->commodity_name ?? ($primaryExhibit->seizure_name_drug ?? ($primaryExhibit->seizure_name ?? 'Unspecified')) }}</td>
-                            <td>{{ $primaryExhibit->contents ?? ($primaryExhibit->seizure_contents ?? 'Unspecified') }}</td>
-                            <td>{{ $formattedFallbackQty }}</td>
-                            <td style="text-align: center;">{{ $fallbackGross }}</td>
-                            <td style="text-align: center;">{{ $fallbackNet }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $primaryExhibit->lab_exhibit_no ?? ($primaryExhibit->exhibit_number ?? 'A') }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $primaryExhibit->commodity_name ?? ($primaryExhibit->seizure_name_drug ?? ($primaryExhibit->seizure_name ?? 'Unspecified')) }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $primaryExhibit->contents ?? ($primaryExhibit->seizure_contents ?? 'Unspecified') }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $formattedFallbackQty }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $fallbackGross }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $fallbackNet }}</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -1231,14 +1397,14 @@
             </div>
 
             <!-- TABLE 5 (headers on top) -->
-            <table class="doc-table" style="margin-top: 8px; margin-bottom: 22px;">
+            <table class="doc-table doc-table-results" style="width: 100%; table-layout: fixed; margin-top: 8px; margin-bottom: 22px;">
                 <thead>
                     <tr>
-                        <th style="width: 10%; text-align: center;">Exhibit No.</th>
-                        <th style="width: 16%;">Exhibit</th>
-                        <th style="width: 30%;">Test/Examination Conducted</th>
-                        <th style="width: 26%;">Observation/Results</th>
-                        <th style="width: 18%; text-align: center;">Interpretation</th>
+                        <th style="width: 10%; text-align: center; word-break: break-word; overflow-wrap: break-word;">Exhibit No.</th>
+                        <th style="width: 15%; word-break: break-word; overflow-wrap: break-word;">Exhibit</th>
+                        <th style="width: 27%; word-break: break-word; overflow-wrap: break-word;">Test/Examination Conducted</th>
+                        <th style="width: 26%; word-break: break-word; overflow-wrap: break-word;">Observation/Results</th>
+                        <th style="width: 22%; text-align: center; word-break: break-word; overflow-wrap: break-word;">Interpretation</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1262,30 +1428,8 @@
                                 $labDataFromDocket['test_methods'] ?? null,
                             ]) ?? 'Unspecified';
 
-                            $drugName = $formatDrugDisplay($resolveDrugName($matchedLab, $drugEx, $case));
-                            $rawPresFlag = strtoupper(trim((string)(is_object($matchedLab) ? ($matchedLab->presumptive_result ?? '') : ($matchedLab['presumptive_result'] ?? ''))));
-                            $isNegPres = in_array($rawPresFlag, ['NO', 'NEGATIVE'], true);
-                            $rawObs = is_object($matchedLab) ? ($matchedLab->observation_results ?? ($matchedLab->observation ?? null)) : ($matchedLab['observation_results'] ?? ($matchedLab['observation'] ?? null));
-                            if ($isValidRefValue($rawObs)) {
-                                $obsResults = trim((string)$rawObs);
-                            } elseif ($drugName !== 'Unspecified') {
-                                $obsResults = "{$drugName} detected";
-                            } elseif ($isNegPres) {
-                                $obsResults = 'No controlled substance detected';
-                            } else {
-                                $obsResults = 'Unspecified';
-                            }
-
-                            $rawInterp = is_object($matchedLab) ? ($matchedLab->interpretation ?? null) : ($matchedLab['interpretation'] ?? null);
-                            if ($isValidRefValue($rawInterp)) {
-                                $interpretation = trim((string)$rawInterp);
-                            } elseif ($drugName !== 'Unspecified') {
-                                $interpretation = "Presumptive indication of the presence of {$drugName}";
-                            } elseif ($isNegPres) {
-                                $interpretation = 'Presumptive test negative';
-                            } else {
-                                $interpretation = 'Unspecified';
-                            }
+                            $obsResults = $formatDetectedSubstances($matchedLab, $primaryLabResult);
+                            $interpretation = $formatPresumptivePresence($matchedLab, $primaryLabResult, $docketData['seizures'][$index] ?? ($labDataFromDocket ?? null), $case);
 
                             $labExIdentifier = $pickValid([
                                 $drugEx->lab_exhibit_no ?? null,
@@ -1295,10 +1439,10 @@
                         <tr>
                             <!-- Auto-numbered sequentially (1, 2, 3, 4, …) -->
                             <td class="text-center">{{ $loop->iteration }}</td>
-                            <td>{{ $labExIdentifier }}</td>
-                            <td>{{ $testMethods }}</td>
-                            <td>{{ $obsResults }}</td>
-                            <td style="text-align: center;">{{ $interpretation }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $labExIdentifier }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $testMethods }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $obsResults }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $interpretation }}</td>
                         </tr>
                     @empty
                         @php
@@ -1309,17 +1453,16 @@
                             if (empty(trim((string)$singleTestMethods))) {
                                 $singleTestMethods = 'Unspecified';
                             }
-                            $fallbackDrug = $formatDrugDisplay($resolveDrugName($primaryLabResult, $primaryExhibit, $case));
-                            $singleObs = ($fallbackDrug !== 'Unspecified') ? "{$fallbackDrug} detected" : 'Unspecified';
-                            $singleInterp = ($fallbackDrug !== 'Unspecified') ? "Presumptive indication of the presence of {$fallbackDrug}" : 'Unspecified';
+                            $singleObs = $formatDetectedSubstances($primaryLabResult);
+                            $singleInterp = $formatPresumptivePresence($primaryLabResult, null, $labDataFromDocket, $case);
                             $singleEx = $primaryExhibit->lab_exhibit_no ?? ($primaryExhibit->exhibit_number ?? 'A');
                         @endphp
                         <tr>
-                            <td class="text-center">1</td>
-                            <td>{{ $singleEx }}</td>
-                            <td>{{ $singleTestMethods }}</td>
-                            <td>{{ $singleObs }}</td>
-                            <td style="text-align: center;">{{ $singleInterp }}</td>
+                            <td class="text-center" style="word-break: break-word; overflow-wrap: break-word;">1</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $singleEx }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $singleTestMethods }}</td>
+                            <td style="word-break: break-word; overflow-wrap: break-word;">{{ $singleObs }}</td>
+                            <td style="text-align: center; word-break: break-word; overflow-wrap: break-word;">{{ $singleInterp }}</td>
                         </tr>
                     @endforelse
                 </tbody>

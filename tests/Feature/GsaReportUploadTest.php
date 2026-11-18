@@ -380,16 +380,20 @@ class GsaReportUploadTest extends TestCase
 
         $this->assertNotNull($labRecord, 'LaboratoryExaminationResult record should have been created');
         $this->assertIsArray($labRecord->detected_substances);
-        $this->assertEquals('Cocaine Hydrochloride', $labRecord->detected_substances[0]['substance']);
-        $this->assertEquals('85.4%', $labRecord->detected_substances[0]['percentage']);
+        $sub0 = is_array($labRecord->detected_substances[0]) ? $labRecord->detected_substances[0]['substance'] : $labRecord->detected_substances[0];
+        $pct0 = is_array($labRecord->detected_substances[0]) ? $labRecord->detected_substances[0]['percentage'] : ($labRecord->detected_subtances_percentage[0] ?? null);
+        $this->assertEquals('Cocaine Hydrochloride', $sub0);
+        $this->assertEquals('85.4%', $pct0);
 
-        // 2. Verify show_review page displays Result (Detected Substances & Purity %)
+        // 2. Verify show_review page displays Confirmatory Test table with detected substances & purity
         $reviewPage = $this->actingAs($user)->get("/cases/{$caseNumber}/review");
         $reviewPage->assertStatus(200);
         $reviewHtml = $reviewPage->getContent();
 
-        $this->assertStringContainsString('Cocaine Hydrochloride (85.4%)', $reviewHtml);
-        $this->assertStringContainsString('Levamisole Adulterant (14.6%)', $reviewHtml);
+        $this->assertStringContainsString('Cocaine Hydrochloride', $reviewHtml);
+        $this->assertStringContainsString('85.4%', $reviewHtml);
+        $this->assertStringContainsString('Levamisole Adulterant', $reviewHtml);
+        $this->assertStringContainsString('14.6%', $reviewHtml);
     }
 
     #[Test]

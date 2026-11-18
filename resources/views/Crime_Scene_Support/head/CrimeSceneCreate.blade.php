@@ -2757,6 +2757,54 @@
                                             </div>
                                         </div>
 
+                                        <!-- CHAIN OF CUSTODY (OPTIONAL) -->
+                                        <div class="col-span-full">
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-1.5">
+                                                    <svg class="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                                    <span>Chain of Custody <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                                </label>
+                                                <span class="text-[9px] font-mono-code font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 uppercase">CUSTODY TRANSFER</span>
+                                            </div>
+
+                                            <!-- HORIZONTAL LINE CHAIN OF CUSTODY WITH EXCHANGE ICON -->
+                                            <div class="flex items-center gap-2 sm:gap-2.5 w-full">
+                                                <!-- CURRENT LOCATION (FROM) -->
+                                                <div class="relative flex-1 min-w-0 flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newSeizureCustodyFrom"
+                                                        class="seizure-custody-from-input w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                                                        value="Crime Scene Support"
+                                                        placeholder="Current Location (e.g. Crime Scene Support)"
+                                                        oninput="updateChainOfCustodyValue(this)">
+                                                </div>
+
+                                                <!-- EXCHANGE ICON -->
+                                                <div class="flex items-center justify-center p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 shadow-2xs shrink-0 self-center" title="Custody Transfer / Exchange">
+                                                    <svg class="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                                    </svg>
+                                                </div>
+
+                                                <!-- DESTINATION / TRANSFER TO -->
+                                                <div class="relative flex-1 min-w-0 flex items-center group">
+                                                    <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                    </span>
+                                                    <input type="text" id="newSeizureCustodyTo"
+                                                        class="seizure-custody-to-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 placeholder:text-slate-400"
+                                                        placeholder="Transfer To (e.g. Central Vault, Forensic Lab, Court...)"
+                                                        oninput="updateChainOfCustodyValue(this)">
+                                                </div>
+                                            </div>
+
+                                            <!-- Synchronized textarea preserving existing id, name, and class -->
+                                            <textarea id="newSeizureChainOfCustody" name="chain_of_custody" rows="1" data-alt-id="newSeizureChainOfCustody"
+                                                class="hidden newSeizureChainOfCustody seizure-chain-of-custody-input">Crime Scene Support</textarea>
+                                        </div>
+
                                             <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA (MULTIPLE IMAGES) -->
                                 <div class="col-span-full pt-2 border-t border-slate-300/60 space-y-3">
                                     <div class="flex items-center justify-between">
@@ -4024,101 +4072,6 @@
                 return null;
             };
 
-            const s1MugFrontRaw = document.getElementById('preview-front')?.src || document.getElementById('hidden-front')?.value || null;
-            const s1MugLeftRaw  = document.getElementById('preview-left-profile')?.src || document.getElementById('hidden-left-profile')?.value || null;
-            const s1MugRightRaw = document.getElementById('preview-right-profile')?.src || document.getElementById('hidden-right-profile')?.value || null;
-
-            const s1MugFront = cleanMugshotSrc(s1MugFrontRaw);
-            const s1MugLeft  = cleanMugshotSrc(s1MugLeftRaw);
-            const s1MugRight = cleanMugshotSrc(s1MugRightRaw);
-
-            if (s1Name) {
-                suspects.push({
-                    suspect_number:   1,
-                    suspect_id:       'PRIM-001',
-                    is_associate:     false,
-                    is_co_suspect:    false,
-                    association_role: 'Primary Suspect',
-                    role:             'Primary Suspect',
-                    suspect_name:     s1Name,
-                    suspect_alias:    s1Alias,
-                    ghana_card:       s1Card,
-                    gender:           s1Gender,
-                    dob:              s1DOB,
-                    age:              s1Age,
-                    height:           s1Height,
-                    eye_color:        s1Eye,
-                    nationality:      s1Nat,
-                    pob:              s1POB,
-                    place_of_birth:   s1POB,
-                    hometown:         s1POB,
-                    phone:            s1Phone,
-                    phone_label:      document.querySelector('#suspectCard-1 select[name="phone_labels[]"], #suspectPhonesContainer select[data-phone-field="label"]')?.value || 'Primary',
-                    phones:           typeof getAllSuspectPhonesPayload === 'function' ? getAllSuspectPhonesPayload() : [],
-                    additional_phones:typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : [],
-                    additional_phone_labels: (typeof getAdditionalPhonesPayload === 'function' ? getAdditionalPhonesPayload() : []).map(p => p.label),
-                    address:          s1Address,
-                    residential_address: s1Address,
-                    gps:              s1Address,
-                    marital_status:   s1Marital,
-                    has_children:     s1HasKids,
-                    children_count:   s1Kids,
-                    spouse_name:      s1SpouseN,
-                    spouse_phone:     s1SpouseP,
-                    spouse_info:      s1SpouseI,
-                    partner_name:     s1PartnerN,
-                    partner_phone:    s1PartnerP,
-                    partner_info:     s1PartnerI,
-                    spouse_summary:   s1SpouseSummary,
-                    offense:          s1Offense,
-                    raid_location:    s1Raid,
-                    date_of_arrest:   s1Date,
-                    arrest_date:      s1Date,
-                    time_of_arrest:   s1Time,
-                    arrest_time:      s1Time,
-                    holding_facility: s1Facility,
-                    facility:         s1Facility,
-                    mugshot_front:    s1MugFront,
-                    mugshot_left:     s1MugLeft,
-                    mugshot_right:    s1MugRight,
-                    mugshots: {
-                        front: s1MugFront,
-                        left:  s1MugLeft,
-                        right: s1MugRight
-                    },
-                });
-            }
-
-            // --- Additional suspects: read via data-field attributes ---
-            const dynamicCards = document.querySelectorAll('.suspect-card-dynamic');
-            let suspectNum = 2;
-            dynamicCards.forEach(card => {
-                const getField = (field) => {
-                    const el = card.querySelector(`[data-field="${field}"]`);
-                    if (!el) return '';
-                    if (el.type === 'checkbox') return el.checked;
-                    return el.value?.trim() || '';
-                };
-                const sName     = getField('suspect_name');
-                const sAlias    = getField('suspect_alias');
-                const sCard     = getField('ghana_card');
-                const sGender   = getField('gender') || '';
-                const sDOB      = getField('dob');
-                const sAge      = getField('age');
-                const sHeight   = getField('height');
-                const sEye      = getField('eye_color');
-                const sNat      = getField('nationality') || '';
-                const sPOB      = getField('pob') || getField('place_of_birth') || getField('hometown') || card.querySelector('[data-field="pob"]')?.value?.trim() || card.querySelector('[data-field="place_of_birth"]')?.value?.trim() || card.querySelector('[data-field="hometown"]')?.value?.trim() || '';
-                // Collect multiple phone numbers for this co-suspect
-                let coSuspectPhones = [];
-                if (typeof getCardPhonesPayload === 'function') {
-                    coSuspectPhones = getCardPhonesPayload(card);
-                } else {
-                    const phoneRows = card.querySelectorAll('.suspect-phone-row');
-                    phoneRows.forEach((pRow, pIdx) => {
-                        const numEl = pRow.querySelector('[data-phone-field="number"]') || pRow.querySelector('input[type="text"]');
-                        const lblEl = pRow.querySelector('[data-phone-field="label"]') || pRow.querySelector('select');
-                        const num = numEl?.value?.trim() || '';
                         const lbl = lblEl?.value?.trim() || (pIdx === 0 ? 'Primary' : 'Alternate');
                         if (num) {
                             coSuspectPhones.push({
@@ -4823,6 +4776,7 @@
                 }
 
                 const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
+                const chainOfCustody = block.querySelector('#newSeizureChainOfCustody')?.value?.trim() || block.querySelector('.seizure-chain-of-custody-input')?.value?.trim() || block.querySelector('[name="chain_of_custody"]')?.value?.trim() || '';
 
                 seizuresList.push({
                     item_number: itemNum,
@@ -4856,6 +4810,7 @@
                     source_requesting_unit: sourceRequestingUnit,
                     seizure_reason: seizureReason,
                     exhibit_remark: exhibitRemark,
+                    chain_of_custody: chainOfCustody,
                     dev_model: devModel,
                     dev_serial_no: devSerialNo,
                     dev_imei1: devImei1,
@@ -5017,6 +4972,7 @@
                 exhibit_category: exhibitCat,
                 exhibits_summary: seizureSummary,
                 valuation: valuationText,
+                chain_of_custody: seizuresList[0]?.chain_of_custody || document.getElementById('newSeizureChainOfCustody')?.value || '',
                 seizures: seizuresList,
                 evidence_photos: seizedExhibitDataUrls,
                 vehicle: primarySeizure.veh || {},
@@ -6123,6 +6079,10 @@
             clone.querySelectorAll('input[type="hidden"]').forEach(input => {
                 input.value = '';
             });
+            const custodyFromInput = clone.querySelector('#newSeizureCustodyFrom') || clone.querySelector('.seizure-custody-from-input');
+            const custodyChainInput = clone.querySelector('#newSeizureChainOfCustody') || clone.querySelector('.seizure-chain-of-custody-input');
+            if (custodyFromInput) custodyFromInput.value = 'Crime Scene Support';
+            if (custodyChainInput) custodyChainInput.value = 'Crime Scene Support';
             clone.querySelectorAll('select').forEach(select => {
                 select.selectedIndex = 0;
             });
@@ -7515,6 +7475,32 @@
                 });
             });
         }, true);
+
+        // Chain of Custody Dynamic Synchronization
+        function updateChainOfCustodyValue(el) {
+            const block = el ? el.closest('.seizure-block') : document;
+            if (!block) return;
+            const fromInput = block.querySelector('#newSeizureCustodyFrom') || block.querySelector('.seizure-custody-from-input');
+            const toInput = block.querySelector('#newSeizureCustodyTo') || block.querySelector('.seizure-custody-to-input');
+            const hiddenInput = block.querySelector('#newSeizureChainOfCustody') || block.querySelector('.seizure-chain-of-custody-input');
+
+            const fromVal = fromInput ? fromInput.value.trim() : '';
+            const toVal = toInput ? toInput.value.trim() : '';
+
+            let combined = '';
+            if (fromVal && toVal) {
+                combined = `${fromVal} -> ${toVal}`;
+            } else if (fromVal) {
+                combined = fromVal;
+            } else if (toVal) {
+                combined = toVal;
+            }
+
+            if (hiddenInput) {
+                hiddenInput.value = combined;
+            }
+        }
+        window.updateChainOfCustodyValue = updateChainOfCustodyValue;
 
         // Seizing Officers Dynamic Multi-Row Handling
         function addSeizureOfficerRow(btn) {

@@ -520,7 +520,7 @@ class SeizureWithoutSuspectViewsTest extends TestCase
                 'Matched against NIST reference mass spectra',
                 'Controlled narcotic substance confirmed',
                 'Cocaine Hydrochloride',
-                '(82.5%)',
+                '82.5%',
                 '0.05 kg',
                 '2.35 kg',
             ] as $expectedField) {
@@ -669,7 +669,7 @@ class SeizureWithoutSuspectViewsTest extends TestCase
                 'Matched against certified THC standard',
                 'Narcotic plant material confirmed',
                 'Delta-9-Tetrahydrocannabinol (THC)',
-                '(18.4%)',
+                '18.4%',
                 '0.10 kg',
                 '4.10 kg',
             ] as $expectedField) {
@@ -1081,7 +1081,9 @@ class SeizureWithoutSuspectViewsTest extends TestCase
         $this->assertSame('YES', $labExam->confirmatory_result);
         $this->assertSame('15 g', $labExam->sample_weight_taken);
         $this->assertSame('4.485 kg', $labExam->sample_weight_reserved);
-        $this->assertSame('Delta-9-Tetrahydrocannabinol', $labExam->substance_identification);
+        $this->assertContains('Delta-9-THC', (array) $labExam->detected_substances);
+        $this->assertNotEmpty($labExam->detected_subtances_percentage);
+        $this->assertSame('Delta-9-THC', $createdCase->confirmatory_substance_identification);
         $this->assertSame('GC-MS', $labExam->test_methods);
         $this->assertSame('Agilent 7890B GC / 5977B MSD', $labExam->specifications);
         $this->assertSame('Confirmed cannabis resin & plant material.', $labExam->remark);

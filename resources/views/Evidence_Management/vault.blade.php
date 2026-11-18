@@ -749,21 +749,52 @@
 
                             <!-- Chain of Custody Input & Custody Trail -->
                             <div class="space-y-2 pt-2 border-t border-slate-100">
-                                <div class="flex items-center justify-between">
-                                    <label for="inspectChainOfCustody" class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
                                         <i data-lucide="link" class="w-3.5 h-3.5 text-teal-600"></i>
                                         <span>Chain of Custody</span>
                                     </label>
                                     <span class="text-[9.5px] font-mono-code font-bold uppercase text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
-                                        Custody Record
+                                        CUSTODY TRANSFER
                                     </span>
                                 </div>
-                                <div class="relative">
-                                    <textarea id="inspectChainOfCustody" 
-                                              rows="3" 
-                                              class="w-full text-xs font-mono-code p-3 rounded-2xl border border-slate-200 bg-slate-50/80 focus:bg-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 transition-all resize-y placeholder:text-slate-400 text-slate-800 outline-none" 
-                                              placeholder="Enter chain of custody logs, transferring officers, station handovers, or vault intake details..."></textarea>
+
+                                <!-- HORIZONTAL LINE CHAIN OF CUSTODY WITH EXCHANGE ICON -->
+                                <div class="flex items-center gap-2 sm:gap-2.5 w-full">
+                                    <!-- CURRENT LOCATION (FROM) -->
+                                    <div class="relative flex-1 min-w-0 flex items-center group">
+                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        </span>
+                                        <input type="text" id="inspectCustodyFrom"
+                                            class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                                            value="Evidence Vault"
+                                            placeholder="Current Location (e.g. Evidence Vault)"
+                                            oninput="updateInspectChainOfCustodyValue(this)">
+                                    </div>
+
+                                    <!-- EXCHANGE ICON -->
+                                    <div class="flex items-center justify-center p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 shadow-2xs shrink-0 self-center" title="Custody Transfer / Exchange">
+                                        <svg class="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                        </svg>
+                                    </div>
+
+                                    <!-- DESTINATION / TRANSFER TO -->
+                                    <div class="relative flex-1 min-w-0 flex items-center group">
+                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                        </span>
+                                        <input type="text" id="inspectCustodyTo"
+                                            class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 placeholder:text-slate-400"
+                                            placeholder="Transfer To (e.g. Central Vault, Forensic Lab, Court...)"
+                                            oninput="updateInspectChainOfCustodyValue(this)">
+                                    </div>
                                 </div>
+
+                                <!-- Hidden textarea synchronized with the inputs -->
+                                <textarea id="inspectChainOfCustody" class="hidden">Evidence Vault</textarea>
+
                                 <div class="flex items-center justify-between pt-1">
                                     <span class="text-[10px] text-slate-400 italic">Saved directly to central exhibit registry</span>
                                     <button type="button" 
@@ -1414,15 +1445,16 @@
             const seizureDate = exhibit.seizure_date || (exhibit.created_at ? exhibit.created_at.substring(0, 10) : 'N/A');
             const seizureTime = exhibit.seizure_time ? ' @ ' + exhibit.seizure_time : '';
             document.getElementById('modalDateTime').textContent = seizureDate + seizureTime;
-            document.getElementById('modalLocationQuick').textContent = exhibit.seizure_location || 'N/A';
+            const seizureLocationVal = exhibit.source_of_exhibit || exhibit.source_of_exhibits || exhibit.seizure_location || 'N/A';
+            document.getElementById('modalLocationQuick').textContent = seizureLocationVal;
             document.getElementById('modalOfficer').textContent = exhibit.seizure_officer || 'N/A';
-            document.getElementById('modalSource').textContent = 'Source: ' + (exhibit.source_of_exhibits || 'N/A');
+            document.getElementById('modalSource').textContent = 'Source: ' + (exhibit.source_of_exhibit || exhibit.source_of_exhibits || 'N/A');
 
             // Left Column Core Details
             document.getElementById('modalCaseNumberDetail').textContent = caseNo;
             document.getElementById('modalCommodityName').textContent = exhibit.commodity_name || 'N/A';
             document.getElementById('modalExhibitType').textContent = exhibit.exhibit_type || 'N/A';
-            document.getElementById('modalLocation').textContent = exhibit.seizure_location || 'N/A';
+            document.getElementById('modalLocation').textContent = seizureLocationVal;
             document.getElementById('modalConcealment').textContent = exhibit.seizure_concealment || 'None';
             document.getElementById('modalReason').textContent = exhibit.seizure_reason || 'N/A';
 
@@ -1438,9 +1470,26 @@
             if (statusLabel) statusLabel.textContent = exhibit.custodial_status || 'In Vault Custody';
 
             // Chain of Custody Input in Vault Custodial State
+            const cocVal = exhibit.chain_of_custody ? String(exhibit.chain_of_custody).trim() : '';
+            const fromInput = document.getElementById('inspectCustodyFrom');
+            const toInput = document.getElementById('inspectCustodyTo');
             const cocInput = document.getElementById('inspectChainOfCustody');
+
+            if (cocVal) {
+                if (cocVal.includes('->')) {
+                    const parts = cocVal.split('->');
+                    if (fromInput) fromInput.value = parts[0].trim();
+                    if (toInput) toInput.value = parts.slice(1).join(' -> ').trim();
+                } else {
+                    if (fromInput) fromInput.value = cocVal;
+                    if (toInput) toInput.value = '';
+                }
+            } else {
+                if (fromInput) fromInput.value = 'Evidence Vault';
+                if (toInput) toInput.value = '';
+            }
             if (cocInput) {
-                cocInput.value = exhibit.chain_of_custody || '';
+                cocInput.value = cocVal || (fromInput ? fromInput.value : 'Evidence Vault');
             }
 
             // ==========================================
@@ -1797,7 +1846,7 @@
             // Packaging, Concealment, Location, Officer, Date
             const packaging = clean(exhibit.seizure_packaging || '', 60);
             const concealment = clean(exhibit.seizure_concealment || '', 100);
-            const location = clean(exhibit.seizure_location || '', 100);
+            const location = clean(exhibit.source_of_exhibit || exhibit.source_of_exhibits || exhibit.seizure_location || '', 100);
             const officer = clean(exhibit.seizure_officer || '', 120);
             const sDate = exhibit.seizure_date || (exhibit.created_at ? exhibit.created_at.substring(0, 10) : '');
             const sTime = exhibit.seizure_time || '';
@@ -2248,9 +2297,34 @@
             }
         }
 
+        // Chain of Custody Dynamic Synchronization in Vault Custodial State
+        function updateInspectChainOfCustodyValue() {
+            const fromInput = document.getElementById('inspectCustodyFrom');
+            const toInput = document.getElementById('inspectCustodyTo');
+            const hiddenInput = document.getElementById('inspectChainOfCustody');
+
+            const fromVal = fromInput ? fromInput.value.trim() : '';
+            const toVal = toInput ? toInput.value.trim() : '';
+
+            let combined = '';
+            if (fromVal && toVal) {
+                combined = `${fromVal} -> ${toVal}`;
+            } else if (fromVal) {
+                combined = fromVal;
+            } else if (toVal) {
+                combined = toVal;
+            }
+
+            if (hiddenInput) {
+                hiddenInput.value = combined;
+            }
+            return combined;
+        }
+
         async function saveInspectChainOfCustody() {
             if (!window.currentModalExhibit || !window.currentModalExhibit.id) return;
             const ex = window.currentModalExhibit;
+            updateInspectChainOfCustodyValue();
             const input = document.getElementById('inspectChainOfCustody');
             if (!input) return;
             const val = input.value.trim();
@@ -2557,7 +2631,7 @@
         // ==========================================
         // DRUG CLASSIFICATION & EXHIBIT TYPE LOGIC
         // ==========================================
-        function openVaultClassifyModal(exhibit) {
+        function openVaultClassifyModal(exhibit, isDrugAssign = false) {
             if (!exhibit) return;
             activeClassifyExhibit = exhibit;
 
@@ -2567,16 +2641,20 @@
             document.getElementById('classifyTargetCase').textContent = exhibit.case_number || 'N/A';
 
             const categorySelect = document.getElementById('classifyCategory');
-            const existingCat = (exhibit.exhibit_category || 'General').toLowerCase();
-            let matchedCat = false;
-            for (let opt of categorySelect.options) {
-                if (opt.value.toLowerCase() === existingCat || existingCat.includes(opt.value.toLowerCase())) {
-                    categorySelect.value = opt.value;
-                    matchedCat = true;
-                    break;
+            const existingCat = (exhibit.exhibit_category || '').toLowerCase();
+            if (isDrugAssign && (!existingCat || existingCat === 'general' || existingCat === 'n/a')) {
+                categorySelect.value = 'Drugs';
+            } else {
+                let matchedCat = false;
+                for (let opt of categorySelect.options) {
+                    if (opt.value.toLowerCase() === existingCat || (existingCat && existingCat.includes(opt.value.toLowerCase()))) {
+                        categorySelect.value = opt.value;
+                        matchedCat = true;
+                        break;
+                    }
                 }
+                if (!matchedCat) categorySelect.value = isDrugAssign ? 'Drugs' : 'General';
             }
-            if (!matchedCat) categorySelect.value = 'General';
 
             document.getElementById('classifyCommodityName').value = exhibit.commodity_name || '';
 
@@ -2603,7 +2681,11 @@
                 typeSelect.appendChild(opt);
                 typeSelect.value = currentType;
             } else if (!matchedType) {
-                typeSelect.value = (existingCat === 'drugs' || (exhibit.commodity_name && /drug|cocaine|heroin|cannabis|meth|weed|hashish/i.test(exhibit.commodity_name))) ? 'Drug Exhibit' : (existingCat ? 'Non-Drug Exhibit' : '');
+                if (isDrugAssign || categorySelect.value === 'Drugs' || (exhibit.commodity_name && /drug|cocaine|heroin|cannabis|meth|weed|hashish/i.test(exhibit.commodity_name))) {
+                    typeSelect.value = 'Drug Exhibit';
+                } else {
+                    typeSelect.value = existingCat ? 'Non-Drug Exhibit' : '';
+                }
             }
 
             // Setup Drug Classification
@@ -2614,7 +2696,7 @@
                 <option value="Class B">Class B</option>
                 <option value="Class C">Class C</option>
             `;
-            const currentDrugCls = (exhibit.drug_classification || 'N/A').trim();
+            const currentDrugCls = (exhibit.drug_classification || '').trim();
             let matchedDrug = false;
             for (let opt of drugSelect.options) {
                 if (opt.value && opt.value.toLowerCase() === currentDrugCls.toLowerCase()) {
@@ -2630,7 +2712,7 @@
                 drugSelect.appendChild(opt);
                 drugSelect.value = currentDrugCls;
             } else if (!matchedDrug) {
-                drugSelect.value = 'N/A';
+                drugSelect.value = (isDrugAssign || categorySelect.value === 'Drugs') ? 'Class A' : 'N/A';
             }
 
             document.getElementById('classifyRemark').value = exhibit.exhibit_remark || '';
@@ -2639,6 +2721,13 @@
 
             modal.classList.remove('hidden');
             if (window.lucide) window.lucide.createIcons();
+
+            if (isDrugAssign) {
+                setTimeout(() => {
+                    const drugSel = document.getElementById('classifyDrugSchedule');
+                    if (drugSel) drugSel.focus();
+                }, 100);
+            }
         }
 
         function closeVaultClassifyModal() {
@@ -2776,19 +2865,35 @@
                 }
 
                 // Update classification & type if changed
-                if (exhibit.drug_classification) {
-                    const classifyBadges = el.querySelectorAll('[title*="Drug Classification"]');
+                if (exhibit.drug_classification && exhibit.drug_classification !== 'N/A') {
+                    const classifyBadges = el.querySelectorAll('.vault-drug-badge, [title*="Drug Classification"]');
                     classifyBadges.forEach(badge => {
-                        const span = badge.querySelector('span.truncate') || badge;
+                        const span = badge.querySelector('span.truncate') || badge.querySelector('span') || badge;
                         span.textContent = exhibit.drug_classification;
+                        badge.title = `Drug Classification: ${exhibit.drug_classification} - Click to reclassify`;
+                    });
+
+                    // Morph unclassified "Assign Drug Classification" button into the drug badge
+                    const unclassifiedBtns = el.querySelectorAll('.vault-classify-btn');
+                    unclassifiedBtns.forEach(btn => {
+                        if (btn.textContent.includes('Assign Drug Classification') || btn.textContent.includes('Assign Drug Class') || btn.title.includes('Assign Drug Classification')) {
+                            btn.className = "vault-drug-badge inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-bold transition-colors cursor-pointer";
+                            btn.title = `Drug Classification: ${exhibit.drug_classification} - Click to reclassify`;
+                            btn.onclick = () => openVaultClassifyModal(exhibit, true);
+                            btn.innerHTML = `<i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i><span class="truncate max-w-[160px]">${exhibit.drug_classification}</span>`;
+                        }
                     });
                 }
 
-                // If exhibit already has both drug classification and exhibit type, remove Classify buttons
-                const hasBothClsAndType = Boolean(exhibit.drug_classification && exhibit.drug_classification !== '' && exhibit.exhibit_type && exhibit.exhibit_type !== '');
+                // If exhibit already has both drug classification and exhibit type, remove Classify footer/action buttons
+                const hasBothClsAndType = Boolean(exhibit.drug_classification && exhibit.drug_classification !== 'N/A' && exhibit.exhibit_type && exhibit.exhibit_type !== '');
                 if (hasBothClsAndType) {
-                    const classifyBtns = el.querySelectorAll('.vault-classify-btn');
-                    classifyBtns.forEach(btn => btn.remove());
+                    const footerClassifyBtns = el.querySelectorAll('.vault-classify-btn');
+                    footerClassifyBtns.forEach(btn => {
+                        if (btn.textContent.trim() === 'Classify' || btn.title.includes('Classify Drug') || btn.title.includes('Set Exhibit Type')) {
+                            btn.remove();
+                        }
+                    });
 
                     const inspectBtn = document.getElementById('inspectClassifyBtn');
                     if (inspectBtn && window.currentModalExhibit && window.currentModalExhibit.id === exhibit.id) {

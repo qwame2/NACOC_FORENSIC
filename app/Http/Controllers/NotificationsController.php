@@ -221,6 +221,7 @@ class NotificationsController extends Controller
             'notifications' => $notificationsCount,
             'reviews_approvals' => $approvalsCount,
             'field_officers' => $fieldOfficersCount,
+            'vault_pending' => \App\Models\Exhibit::countPendingQrOrClassification(),
             'unit' => $unitLabel,
         ]);
     }

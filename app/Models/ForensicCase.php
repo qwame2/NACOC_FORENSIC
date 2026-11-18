@@ -626,7 +626,11 @@ class ForensicCase extends Model
                 'presumptive_presence'     => $primaryLab->presumptive_presence,
                 'presumptive_percentage'   => $primaryLab->presumptive_percentage,
                 'confirmatory_result'      => (!empty($primaryLab->confirmatory_result) && strtoupper(trim((string)$primaryLab->confirmatory_result)) === 'NO') ? 'NO' : 'YES',
-                'substance_identification' => $primaryLab->substance_identification,
+                'substance_identification' => $primaryLab->substance_identification
+                    ?: ($recDocket['lab_examination']['substance_identification']
+                    ?? ($primaryLab->sample_weight_description
+                    ?? ($recDocket['seizures'][0]['seizure_name_drug']
+                    ?? ($instance->seizure_name_drug ?? null)))),
                 'sample_weight_gross'      => $primaryLab->sample_weight_gross,
                 'sample_weight_description'=> $primaryLab->sample_weight_description,
                 'sample_weight_units'      => $primaryLab->sample_weight_units,
@@ -1573,6 +1577,8 @@ class ForensicCase extends Model
                             'sample_weight_taken'     => $sz['sample_taken'] ?? ($sz['sample_weight_taken'] ?? ($labDataFromDocket['sample_weight_taken'] ?? ($labDataFromDocket['sample_taken'] ?? ($labDataFromDocket['sample_weight']['sample_taken'] ?? null)))),
                             'sample_weight_reserved'  => $sz['sample_reserved'] ?? ($sz['sample_weight_reserved'] ?? ($labDataFromDocket['sample_weight_reserved'] ?? ($labDataFromDocket['sample_reserved'] ?? ($labDataFromDocket['sample_weight']['reserved_samples'] ?? null)))),
                             'detected_substances'     => $sz['detected_substances'] ?? ($labDataFromDocket['detected_substances'] ?? []),
+                            'detected_subtances_percentage' => $sz['detected_subtances_percentage'] ?? ($sz['detected_substances_percentage'] ?? ($labDataFromDocket['detected_subtances_percentage'] ?? ($labDataFromDocket['detected_substances_percentage'] ?? null))),
+                            'detected_substances_percentage' => $sz['detected_substances_percentage'] ?? ($sz['detected_subtances_percentage'] ?? ($labDataFromDocket['detected_substances_percentage'] ?? ($labDataFromDocket['detected_subtances_percentage'] ?? null))),
                             'test_methods'            => self::normalizeLabStringField($sz['test_methods'] ?? ($labDataFromDocket['test_methods'] ?? null)),
                             'specifications'          => self::normalizeLabStringField($sz['specifications'] ?? ($labDataFromDocket['specifications'] ?? null)),
                             'remark'                  => self::normalizeLabStringField($sz['remark'] ?? ($labDataFromDocket['remark'] ?? null)),
@@ -2088,6 +2094,8 @@ class ForensicCase extends Model
                 'remark'                  => self::normalizeLabStringField($attributes['confirmatory_remark'] ?? ($attributes['remark'] ?? ($labDataFromDocket['remark'] ?? null))),
                 'disposition_of_exhibit'  => self::normalizeLabStringField($attributes['disposition_of_exhibit'] ?? ($attributes['confirmatory_disposition_of_exhibit'] ?? ($labDataFromDocket['disposition_of_exhibit'] ?? null))),
                 'detected_substances'     => $attributes['detected_substances'] ?? ($labDataFromDocket['detected_substances'] ?? null),
+                'detected_subtances_percentage' => $attributes['detected_subtances_percentage'] ?? ($attributes['detected_substances_percentage'] ?? ($labDataFromDocket['detected_subtances_percentage'] ?? ($labDataFromDocket['detected_substances_percentage'] ?? null))),
+                'detected_substances_percentage' => $attributes['detected_substances_percentage'] ?? ($attributes['detected_subtances_percentage'] ?? ($labDataFromDocket['detected_substances_percentage'] ?? ($labDataFromDocket['detected_subtances_percentage'] ?? null))),
                 'findings'                => self::normalizeLabStringField($attributes['laboratory_analytical_findings'] ?? ($labDataFromDocket['findings'] ?? null)),
                 'has_saved'               => $hasSavedLabExplicit,
             ]);
@@ -3968,6 +3976,8 @@ class ForensicCase extends Model
                     ],
                     'substance_identification' => $dbAssoc->substance_identification,
                     'detected_substances' => is_string($dbAssoc->detected_substances) ? (json_decode($dbAssoc->detected_substances, true) ?: []) : ($dbAssoc->detected_substances ?? []),
+                    'detected_subtances_percentage' => $dbAssoc->detected_subtances_percentage ?? ($dbAssoc->detected_substances_percentage ?? null),
+                    'detected_substances_percentage' => $dbAssoc->detected_substances_percentage ?? ($dbAssoc->detected_subtances_percentage ?? null),
                     'test_methods' => $dbAssoc->test_methods,
                     'specifications' => $dbAssoc->specifications,
                     'remark' => $dbAssoc->remark,
@@ -4040,8 +4050,13 @@ class ForensicCase extends Model
                         'sample_taken' => $dbPrimary->sample_weight_taken,
                         'reserved_samples' => $dbPrimary->sample_weight_reserved,
                     ],
-                    'substance_identification' => $dbPrimary->substance_identification,
+                    'substance_identification' => $dbPrimary->substance_identification
+                        ?: ($docketData['lab_examination']['substance_identification']
+                        ?? ($dbPrimary->sample_weight_description
+                        ?? ($docketData['seizures'][$suspectIndex]['seizure_name_drug'] ?? null))),
                     'detected_substances' => is_string($dbPrimary->detected_substances) ? (json_decode($dbPrimary->detected_substances, true) ?: []) : ($dbPrimary->detected_substances ?? []),
+                    'detected_subtances_percentage' => $dbPrimary->detected_subtances_percentage ?? ($dbPrimary->detected_substances_percentage ?? null),
+                    'detected_substances_percentage' => $dbPrimary->detected_substances_percentage ?? ($dbPrimary->detected_subtances_percentage ?? null),
                     'test_methods' => $dbPrimary->test_methods,
                     'specifications' => $dbPrimary->specifications,
                     'remark' => $dbPrimary->remark,
@@ -4458,6 +4473,120 @@ class ForensicCase extends Model
         return self::parsePresumptiveData($pRaw, $presence, $percentage)['rows'];
     }
 
+    /**
+     * Parse confirmatory test result into structured rows (Result, Presence of, Purity/Percentage).
+     *
+     * @param mixed $confResult
+     * @param mixed $detectedSubstances
+     * @param mixed $percentages
+     * @return array<int, array{result: string, presence: string, purity: string}>
+     */
+    public static function parseConfirmatoryRows(mixed $confResult = null, mixed $detectedSubstances = null, mixed $percentages = null): array
+    {
+        $resStr = is_scalar($confResult) ? trim((string)$confResult) : '';
+        $overallResult = null;
+        if (!empty($resStr)) {
+            $upper = strtoupper($resStr);
+            if (str_starts_with($upper, 'YES') || str_contains($upper, 'CONFIRMED') || str_starts_with($upper, 'POS')) {
+                $overallResult = 'YES';
+            } elseif (str_starts_with($upper, 'NO') || str_starts_with($upper, 'NEG')) {
+                $overallResult = 'NO';
+            } else {
+                $overallResult = $resStr;
+            }
+        }
+
+        // Normalize detected_substances
+        $detSubs = $detectedSubstances;
+        if (is_string($detSubs)) {
+            $trimmed = trim($detSubs);
+            if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+                $detSubs = json_decode($trimmed, true) ?: [];
+            } else {
+                $detSubs = preg_split('/\s*[,;\n\r]+\s*/', $trimmed);
+            }
+        }
+        if (!is_array($detSubs)) {
+            $detSubs = (!empty($detSubs) && is_scalar($detSubs)) ? [(string)$detSubs] : [];
+        }
+
+        // Normalize percentages
+        $pcts = $percentages;
+        if (is_string($pcts)) {
+            $trimmedPct = trim($pcts);
+            if (str_starts_with($trimmedPct, '[') || str_starts_with($trimmedPct, '{')) {
+                $pcts = json_decode($trimmedPct, true) ?: [];
+            } else {
+                $pcts = preg_split('/\s*[,;\n\r]+\s*/', $trimmedPct);
+            }
+        }
+        if (!is_array($pcts)) {
+            $pcts = (!empty($pcts) && is_scalar($pcts)) ? [(string)$pcts] : [];
+        }
+        $pcts = array_values($pcts);
+
+        $rows = [];
+        foreach (array_values($detSubs) as $idx => $item) {
+            $name = '';
+            $pct = $pcts[$idx] ?? null;
+            if (is_array($item)) {
+                $name = trim((string)($item['substance'] ?? ($item['name'] ?? ($item['compound'] ?? ''))));
+                if (empty($pct)) {
+                    $pct = $item['percentage'] ?? ($item['purity'] ?? ($item['concentration'] ?? null));
+                }
+            } elseif (is_scalar($item)) {
+                $name = trim((string)$item);
+            }
+
+            if ($name === '' || strtoupper($name) === 'N/A' || $name === '—') {
+                continue;
+            }
+
+            // Clean up name if it has parenthetical purity e.g. "Cocaine (88%)"
+            if (preg_match('/\s*\(\s*(\d+(?:\.\d+)?\s*%?)\s*\)/', $name, $mP)) {
+                if (empty($pct)) {
+                    $pct = $mP[1];
+                }
+                $name = trim(preg_replace('/\s*\(\s*\d+(?:\.\d+)?\s*%?\s*\)/', '', $name));
+            }
+            // Strip trailing "detected"
+            $name = trim(preg_replace('/\bdetected\s*$/i', '', $name));
+
+            $purityStr = '—';
+            if (!empty($pct)) {
+                $pStr = trim((string)$pct);
+                if (is_numeric(str_replace('%', '', $pStr)) && !str_ends_with($pStr, '%')) {
+                    $pStr .= '%';
+                }
+                $purityStr = $pStr;
+            }
+
+            $rows[] = [
+                'result'   => $overallResult ?? 'YES',
+                'presence' => $name,
+                'purity'   => $purityStr,
+            ];
+        }
+
+        if (empty($rows)) {
+            if ($overallResult !== null) {
+                $rows[] = [
+                    'result'   => $overallResult,
+                    'presence' => '—',
+                    'purity'   => '—',
+                ];
+            } else {
+                $rows[] = [
+                    'result'   => 'N/A',
+                    'presence' => 'N/A',
+                    'purity'   => 'N/A',
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
     public function resolveAllLabExamsForSuspect(?string $suspectName = null, $suspectDbId = null, $associateId = null, ?string $role = null, int $suspectIndex = 0): array
     {
         $primaryExam = $this->resolveLabExamForSuspect($suspectName, $suspectDbId, $associateId, $role, $suspectIndex);
@@ -4511,6 +4640,8 @@ class ForensicCase extends Model
                 ],
                 'substance_identification' => $r->substance_identification,
                 'detected_substances' => is_string($r->detected_substances) ? (json_decode($r->detected_substances, true) ?: []) : ($r->detected_substances ?? []),
+                'detected_subtances_percentage' => $r->detected_subtances_percentage ?? ($r->detected_substances_percentage ?? null),
+                'detected_substances_percentage' => $r->detected_substances_percentage ?? ($r->detected_subtances_percentage ?? null),
                 'test_methods' => $r->test_methods,
                 'specifications' => $r->specifications,
                 'remark' => $r->remark,

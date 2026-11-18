@@ -318,4 +318,60 @@ class LabAnalysisManifestSyncEnhancementTest extends TestCase
         $this->assertNotFalse($sourcePos);
         $this->assertLessThan($sourcePos, $timePos, 'Source of Exhibits must appear after (to the right of) Time Seized');
     }
+
+    #[Test]
+    public function lab_analysis_show_review_page_safely_removes_location_seized_input(): void
+    {
+        $officer = $this->createLabOfficer();
+
+        $case = ForensicCase::create([
+            'case_number' => 'NFC-2026-NOLOC01',
+            'title' => 'Republic vs Kwame Mensah',
+            'suspect_name' => 'Kwame Mensah',
+            'unit_name' => 'Laboratory Analysis (LAU)',
+            'status' => 'Pending Approval',
+            'description_of_exhibits' => 'Two sealed brown packages with tamper proof seals',
+            'docket_data' => [
+                'suspects' => [
+                    ['suspect_name' => 'Kwame Mensah', 'association_role' => 'Primary Suspect']
+                ],
+                'seizures' => [
+                    [
+                        'name' => 'Cocaine Powder',
+                        'category' => 'Drugs',
+                        'quantity' => '2',
+                        'packaging' => 'Slabs',
+                        'weight' => '2.5',
+                        'unit' => 'kg',
+                        'contents' => 'White compact crystalline powder'
+                    ]
+                ]
+            ]
+        ]);
+
+        $responseLab = $this->actingAs($officer)->get("/cases/{$case->case_number}/review?from=Laboratory+Analysis+(LAU)");
+        $responseLab->assertStatus(200);
+
+        // Verify Location Seized input is NOT present on Lab Analysis show_review page
+        $responseLab->assertDontSee('Location Seized', false);
+        $responseLab->assertDontSee('id="newSeizureLocation"', false);
+
+        // Verify Date Seized, Time Seized and Source of Exhibits are present
+        $responseLab->assertSee('id="newSeizureDate"', false);
+        $responseLab->assertSee('id="newSeizureTime"', false);
+        $responseLab->assertSee('id="newSeizureSourceOfExhibits"', false);
+
+        // Verify other units retain Location Seized on show_review
+        $hofOfficer = User::factory()->create([
+            'fullname' => 'HOF Officer',
+            'unit' => 'Forensic Directorate (HOF)',
+            'is_head' => true,
+            'is_approved' => true,
+            'is_staff' => true,
+        ]);
+        $responseHof = $this->actingAs($hofOfficer)->get("/Forensic_Head/cases/{$case->case_number}/review");
+        $responseHof->assertStatus(200);
+        $responseHof->assertSee('Location Seized', false);
+        $responseHof->assertSee('id="newSeizureLocation"', false);
+    }
 }

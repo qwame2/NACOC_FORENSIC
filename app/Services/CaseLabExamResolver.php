@@ -69,7 +69,7 @@ class CaseLabExamResolver
                         })->orWhere(function ($sub) {
                             $sub->whereNotNull('exam_reference')->where('exam_reference', '!=', '');
                         })->orWhere(function ($sub) {
-                            $sub->whereNotNull('substance_identification')->where('substance_identification', '!=', '');
+                            $sub->whereNotNull('detected_substances')->where('detected_substances', '!=', '')->where('detected_substances', '!=', '[]');
                         })->orWhere(function ($sub) {
                             $sub->whereNotNull('date_completed')->where('date_completed', '!=', '');
                         });
@@ -292,6 +292,8 @@ class CaseLabExamResolver
                 ],
                 'substance_identification' => $dbPrimaryLabExam->substance_identification,
                 'detected_substances' => $dbPrimaryLabExam->detected_substances,
+                'detected_subtances_percentage' => $dbPrimaryLabExam->detected_subtances_percentage ?? ($dbPrimaryLabExam->detected_substances_percentage ?? null),
+                'detected_substances_percentage' => $dbPrimaryLabExam->detected_substances_percentage ?? ($dbPrimaryLabExam->detected_subtances_percentage ?? null),
                 'test_methods' => $dbPrimaryLabExam->test_methods,
                 'specifications' => $dbPrimaryLabExam->specifications,
                 'remark' => $dbPrimaryLabExam->remark,
@@ -964,6 +966,14 @@ class CaseLabExamResolver
     }
 
     /**
+     * Parse confirmatory test result into structured rows (Result, Presence of, Purity/Percentage).
+     */
+    public function parseConfirmatoryRows(mixed $confResult = null, mixed $detectedSubstances = null, mixed $percentages = null): array
+    {
+        return ForensicCase::parseConfirmatoryRows($confResult, $detectedSubstances, $percentages);
+    }
+
+    /**
      * Resolve Section 5 Laboratory Analysis variables for the active suspect (lines 5836-6889).
      */
     public function resolveSection5LabAnalysisData(
@@ -1053,6 +1063,8 @@ class CaseLabExamResolver
                 ],
                 'substance_identification' => $dbActiveLabExam->substance_identification,
                 'detected_substances' => $dbActiveLabExam->detected_substances,
+                'detected_subtances_percentage' => $dbActiveLabExam->detected_subtances_percentage ?? ($dbActiveLabExam->detected_substances_percentage ?? null),
+                'detected_substances_percentage' => $dbActiveLabExam->detected_substances_percentage ?? ($dbActiveLabExam->detected_subtances_percentage ?? null),
                 'test_methods' => $dbActiveLabExam->test_methods,
                 'specifications' => $dbActiveLabExam->specifications,
                 'remark' => $dbActiveLabExam->remark,
@@ -2289,6 +2301,20 @@ class CaseLabExamResolver
 
             $pRowsAssoc = $this->parsePresumptiveRows($assocPresumptiveText, true);
 
+            $assocDetPcts =
+                $dbAssocExam && (!empty($dbAssocExam->detected_subtances_percentage) || !empty($dbAssocExam->detected_substances_percentage))
+                    ? ($dbAssocExam->detected_subtances_percentage ?? $dbAssocExam->detected_substances_percentage)
+                    : (!empty($docketAssocExam['detected_subtances_percentage'])
+                        ? $docketAssocExam['detected_subtances_percentage']
+                        : (!empty($docketAssocExam['detected_substances_percentage'])
+                            ? $docketAssocExam['detected_substances_percentage']
+                            : (!empty($assocLabExam['detected_subtances_percentage'])
+                                ? $assocLabExam['detected_subtances_percentage']
+                                : (!empty($assocLabExam['detected_substances_percentage'])
+                                    ? $assocLabExam['detected_substances_percentage']
+                                    : []))));
+            $cRowsAssoc = $this->parseConfirmatoryRows($assocConfirmatoryVal, $assocDetSubs ?? [], $assocDetPcts ?? []);
+
             $detListAssoc = [];
             $assocDetSubs =
                 $dbAssocExam && !empty($dbAssocExam->detected_substances)
@@ -2377,6 +2403,7 @@ class CaseLabExamResolver
                 'secondaryBadge' => $secondaryBadge,
                 'secondaryBadgeBg' => $secondaryBadgeBg,
                 'pRowsAssoc' => $pRowsAssoc,
+                'cRowsAssoc' => $cRowsAssoc,
                 'detListAssoc' => $detListAssoc,
             ];
         }
@@ -2448,15 +2475,21 @@ class CaseLabExamResolver
         if (is_string($detSubs)) {
             $detSubs = json_decode($detSubs, true) ?: [];
         }
+        $detPcts = $sDossierLabExam['detected_subtances_percentage'] ?? ($sDossierLabExam['detected_substances_percentage'] ?? []);
+        if (is_string($detPcts)) {
+            $detPcts = json_decode($detPcts, true) ?: preg_split('/\s*[;,]\s*/', $detPcts);
+        }
+        $pctArr = is_array($detPcts) ? array_values($detPcts) : [];
+
         $normalizedDetSubs = [];
         if (is_array($detSubs)) {
-            foreach ($detSubs as $cSub) {
+            foreach (array_values($detSubs) as $idx => $cSub) {
                 $cName = is_array($cSub)
                     ? $cSub['compound'] ?? ($cSub['name'] ?? ($cSub['substance'] ?? 'Unknown'))
                     : $cSub;
                 $cPct = is_array($cSub)
-                    ? $cSub['purity'] ?? ($cSub['percentage'] ?? ($cSub['concentration'] ?? null))
-                    : null;
+                    ? $cSub['purity'] ?? ($cSub['percentage'] ?? ($cSub['concentration'] ?? ($pctArr[$idx] ?? null)))
+                    : ($pctArr[$idx] ?? null);
                 $cMeth = is_array($cSub) ? ($cSub['method'] ?? null) : null;
                 $normalizedDetSubs[] = [
                     'name' => $cName,
@@ -2465,6 +2498,12 @@ class CaseLabExamResolver
                 ];
             }
         }
+
+        $cRowsDos = $this->parseConfirmatoryRows(
+            $sDossierLabExam['confirmatory_result'] ?? ($sDossierLabExam['confirmatory'] ?? null),
+            $detSubs,
+            $pctArr
+        );
 
         return array_merge($sDossierLabExam, [
             'card_has_lab_data' => $hasLabData,
@@ -2475,6 +2514,7 @@ class CaseLabExamResolver
             'card_timeline_completed' => $timelineCompleted,
             'card_presumptive_rows' => $pRowsDos,
             'card_confirmatory_val' => $confVal,
+            'card_confirmatory_rows' => $cRowsDos,
             'card_detected_substances' => $normalizedDetSubs,
         ]);
     }

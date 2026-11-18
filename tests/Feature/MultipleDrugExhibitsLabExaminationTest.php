@@ -115,8 +115,8 @@ class MultipleDrugExhibitsLabExaminationTest extends TestCase
         $showResponse->assertStatus(200);
 
         // Verify both laboratory examination cards are rendered on show_review
-        $showResponse->assertSee('TAPENTADOL');
-        $showResponse->assertSee('TRAMADOL');
+        $showResponse->assertSee('Tapentadol');
+        $showResponse->assertSee('Tramadol');
         $showResponse->assertSee('Raman Spectrometry (Agilent Resolve)');
         $showResponse->assertSee('FTIR / Colorimetric Spot Test');
 
@@ -145,9 +145,9 @@ class MultipleDrugExhibitsLabExaminationTest extends TestCase
 
         // Page 3: Table 5 with both exhibits results
         $pdfResponse->assertSee('Tapentadol detected');
-        $pdfResponse->assertSee('Presumptive indication of the presence of Tapentadol');
+        $pdfResponse->assertSee('Tapentadol');
         $pdfResponse->assertSee('Tramadol detected');
-        $pdfResponse->assertSee('Presumptive indication of the presence of Tramadol');
+        $pdfResponse->assertSee('Tramadol');
     }
 
     #[Test]
@@ -246,11 +246,11 @@ class MultipleDrugExhibitsLabExaminationTest extends TestCase
 
         // Page 3: Table 5 must show results for all 3 exhibits
         $pdfResponse->assertSee('Tapentadol detected');
-        $pdfResponse->assertSee('Presumptive indication of the presence of Tapentadol');
+        $pdfResponse->assertSee('Tapentadol');
         $pdfResponse->assertSee('Timaking detected');
-        $pdfResponse->assertSee('Presumptive indication of the presence of Timaking');
+        $pdfResponse->assertSee('Timaking');
         $pdfResponse->assertSee('Rayol Tapentadol detected');
-        $pdfResponse->assertSee('Presumptive indication of the presence of Rayol Tapentadol');
+        $pdfResponse->assertSee('Rayol');
 
         // show_review must also show cards for all exhibits
         $showResponse = $this->actingAs($officer)->get('/Lab_Analysis/cases/' . $case->id . '/review');

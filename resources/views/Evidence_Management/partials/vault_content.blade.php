@@ -131,25 +131,22 @@
 
                                                 <!-- Custodial Classification & Type Control Strip -->
                                                 <div class="flex items-center gap-1.5 flex-wrap pt-1.5">
-                                                    @php
-                                                        $isDrugEx = str_contains(strtolower($exhibit->exhibit_category ?? ''), 'drug') || str_contains(strtolower($exhibit->exhibit_category ?? ''), 'narcotic');
-                                                    @endphp
-                                                    @if($isDrugEx || $exhibit->drug_classification)
-                                                        @if($exhibit->drug_classification)
-                                                            <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-900 border border-emerald-200 text-[10px] font-bold"
-                                                                  title="Drug Classification">
-                                                                <i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i>
-                                                                <span class="truncate max-w-[160px]">{{ $exhibit->drug_classification }}</span>
-                                                            </span>
-                                                        @else
-                                                            <button type="button" 
-                                                                    onclick='openVaultClassifyModal(@json($exhibit))'
-                                                                    class="vault-classify-btn inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-bold transition-colors animate-pulse"
-                                                                    title="Classify Drug Exhibit Now">
-                                                                <i data-lucide="alert-circle" class="w-3 h-3 text-rose-600"></i>
-                                                                <span>⚠️ Unclassified Drug • Classify</span>
-                                                            </button>
-                                                        @endif
+                                                    @if(!empty($exhibit->drug_classification) && $exhibit->drug_classification !== 'N/A')
+                                                        <button type="button" 
+                                                                onclick='openVaultClassifyModal(@json($exhibit), true)'
+                                                                class="vault-drug-badge inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                                                title="Drug Classification: {{ $exhibit->drug_classification }} - Click to reclassify">
+                                                            <i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i>
+                                                            <span class="truncate max-w-[160px]">{{ $exhibit->drug_classification }}</span>
+                                                        </button>
+                                                    @else
+                                                        <button type="button" 
+                                                                onclick='openVaultClassifyModal(@json($exhibit), true)'
+                                                                class="vault-classify-btn inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold transition-colors shadow-3xs cursor-pointer"
+                                                                title="Assign Drug Classification to this Exhibit">
+                                                            <i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i>
+                                                            <span>+ Assign Drug Classification</span>
+                                                        </button>
                                                     @endif
 
                                                     @if($exhibit->exhibit_type)
@@ -203,9 +200,12 @@
                                                             <span class="text-slate-400 font-normal">Pending Valuation</span>
                                                         @endif
                                                     </span>
-                                                    @if($exhibit->source_of_exhibits)
-                                                        <span class="text-[10px] text-slate-500 block truncate" title="Source: {{ $exhibit->source_of_exhibits }}">
-                                                            Src: {{ $exhibit->source_of_exhibits }}
+                                                    @php
+                                                        $sourceLocation = $exhibit->source_of_exhibit ?: ($exhibit->source_of_exhibits ?: ($exhibit->seizure_location ?: null));
+                                                    @endphp
+                                                    @if($sourceLocation)
+                                                        <span class="text-[10px] text-slate-500 block truncate" title="Source: {{ $sourceLocation }}">
+                                                            Src: {{ $sourceLocation }}
                                                         </span>
                                                     @endif
                                                 </div>
@@ -353,14 +353,14 @@
                                             </button>
 
                                             @php
-                                                $hasBothClassificationAndType = !empty($exhibit->drug_classification) && !empty($exhibit->exhibit_type);
+                                                $hasBothClassificationAndType = !empty($exhibit->drug_classification) && $exhibit->drug_classification !== 'N/A' && !empty($exhibit->exhibit_type);
                                             @endphp
                                             @if(!$hasBothClassificationAndType)
                                             <button type="button" 
-                                                    onclick='openVaultClassifyModal(@json($exhibit))' 
+                                                    onclick='openVaultClassifyModal(@json($exhibit), true)' 
                                                     class="vault-classify-btn px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[11px] rounded-lg transition-colors flex items-center space-x-1"
                                                     title="Classify Drug and Assign Exhibit Type">
-                                                <i data-lucide="sliders" class="w-3 h-3 text-slate-500"></i>
+                                                <i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i>
                                                 <span>Classify</span>
                                             </button>
                                             @endif
@@ -478,28 +478,25 @@
                                                     <div class="font-extrabold text-slate-900 truncate">
                                                         {{ $exhibit->commodity_name ?: ($exhibit->veh_model ?? $exhibit->wpn_model ?? $exhibit->dev_model ?? 'N/A') }}
                                                     </div>
-                                                    @php
-                                                        $isDrugEx = str_contains(strtolower($exhibit->exhibit_category ?? ''), 'drug') || str_contains(strtolower($exhibit->exhibit_category ?? ''), 'narcotic');
-                                                    @endphp
-                                                    @if($isDrugEx || $exhibit->drug_classification)
-                                                        <div class="mt-1">
-                                                            @if($exhibit->drug_classification)
-                                                                <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9.5px] font-bold font-mono-code inline-flex items-center space-x-1"
-                                                                      title="Drug Classification">
-                                                                    <i data-lucide="pill" class="w-2.5 h-2.5 text-emerald-600"></i>
-                                                                    <span class="truncate max-w-[140px]">{{ $exhibit->drug_classification }}</span>
-                                                                </span>
-                                                            @else
-                                                                <button type="button" 
-                                                                        onclick='openVaultClassifyModal(@json($exhibit))'
-                                                                        class="vault-classify-btn px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 text-[9.5px] font-bold inline-flex items-center space-x-1 transition-colors animate-pulse"
-                                                                        title="Classify Drug Now">
-                                                                    <i data-lucide="alert-circle" class="w-2.5 h-2.5 text-rose-600"></i>
-                                                                    <span>Classify Drug</span>
-                                                                </button>
-                                                            @endif
-                                                        </div>
-                                                    @endif
+                                                    <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                        @if(!empty($exhibit->drug_classification) && $exhibit->drug_classification !== 'N/A')
+                                                            <button type="button" 
+                                                                    onclick='openVaultClassifyModal(@json($exhibit), true)'
+                                                                    class="vault-drug-badge px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[9.5px] font-bold font-mono-code inline-flex items-center space-x-1 transition-colors cursor-pointer"
+                                                                    title="Drug Classification: {{ $exhibit->drug_classification }} - Click to reclassify">
+                                                                <i data-lucide="pill" class="w-2.5 h-2.5 text-emerald-600"></i>
+                                                                <span class="truncate max-w-[140px]">{{ $exhibit->drug_classification }}</span>
+                                                            </button>
+                                                        @else
+                                                            <button type="button" 
+                                                                    onclick='openVaultClassifyModal(@json($exhibit), true)'
+                                                                    class="vault-classify-btn px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9.5px] font-bold inline-flex items-center space-x-1 transition-colors cursor-pointer"
+                                                                    title="Assign Drug Classification to this Exhibit">
+                                                                <i data-lucide="pill" class="w-2.5 h-2.5 text-emerald-600"></i>
+                                                                <span>+ Assign Drug Class</span>
+                                                            </button>
+                                                        @endif
+                                                    </div>
                                                     @if($exhibit->exhibit_remark)
                                                         <div class="text-[10px] text-amber-700 italic truncate mt-0.5" title="{{ $exhibit->exhibit_remark }}">
                                                             "{{ $exhibit->exhibit_remark }}"
@@ -614,14 +611,14 @@
                                                             <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
                                                         </button>
                                                         @php
-                                                            $hasBothClassificationAndType = !empty($exhibit->drug_classification) && !empty($exhibit->exhibit_type);
+                                                            $hasBothClassificationAndType = !empty($exhibit->drug_classification) && $exhibit->drug_classification !== 'N/A' && !empty($exhibit->exhibit_type);
                                                         @endphp
                                                         @if(!$hasBothClassificationAndType)
                                                         <button type="button" 
-                                                                onclick='openVaultClassifyModal(@json($exhibit))' 
-                                                                class="vault-classify-btn p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg shadow-3xs transition-colors"
-                                                                title="Classify Drug & Set Exhibit Type">
-                                                            <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+                                                                onclick='openVaultClassifyModal(@json($exhibit), true)' 
+                                                                class="vault-classify-btn p-1.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-3xs transition-colors"
+                                                                title="Assign Drug Classification & Exhibit Type">
+                                                            <i data-lucide="pill" class="w-3.5 h-3.5 text-emerald-600"></i>
                                                         </button>
                                                         @endif
                                                         <button type="button" 
@@ -644,7 +641,7 @@
                     <!-- ============================================== -->
                     <!-- 6. PAGINATION CONTROLS                         -->
                     <!-- ============================================== -->
-                    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="mt-6 sm:mt-8 bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
                         <div class="text-xs text-slate-500 font-medium">
                             Showing <span class="font-bold text-slate-900">{{ $exhibits->firstItem() ?? 0 }}</span> to 
                             <span class="font-bold text-slate-900">{{ $exhibits->lastItem() ?? 0 }}</span> of 

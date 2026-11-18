@@ -70,6 +70,27 @@ class ChainOfCustodyPersistenceAndDisplayTest extends TestCase
         $staffResponse->assertSee('newSeizureChainOfCustody', false);
         $staffResponse->assertSee('seizure-chain-of-custody-input', false);
         $staffResponse->assertSee('name="chain_of_custody"', false);
+
+        // Crime Scene Support Head Create View
+        $cssOfficer = User::factory()->create([
+            'unit' => 'Crime Scene Support',
+            'is_approved' => true,
+            'is_head' => true,
+        ]);
+        $cssResponse = $this->actingAs($cssOfficer)->get('/Crime_Scene_Support/create');
+        $cssResponse->assertStatus(200);
+        $cssResponse->assertSee('Chain of Custody', false);
+        $cssResponse->assertSee('newSeizureChainOfCustody', false);
+        $cssResponse->assertSee('seizure-chain-of-custody-input', false);
+        $cssResponse->assertSee('name="chain_of_custody"', false);
+
+        // Crime Scene Support Staff Create View
+        $cssStaffResponse = $this->actingAs($cssOfficer)->get('/Crime_Scene_Support/staff/create');
+        $cssStaffResponse->assertStatus(200);
+        $cssStaffResponse->assertSee('Chain of Custody', false);
+        $cssStaffResponse->assertSee('newSeizureChainOfCustody', false);
+        $cssStaffResponse->assertSee('seizure-chain-of-custody-input', false);
+        $cssStaffResponse->assertSee('name="chain_of_custody"', false);
     }
 
     #[Test]
@@ -83,9 +104,14 @@ class ChainOfCustodyPersistenceAndDisplayTest extends TestCase
         $response = $this->actingAs($officer)->get('/Evidence_Management/vault');
         $response->assertStatus(200);
         $response->assertSee('Vault Custodial State', false);
+        $response->assertSee('inspectCustodyFrom', false);
+        $response->assertSee('inspectCustodyTo', false);
         $response->assertSee('inspectChainOfCustody', false);
         $response->assertSee('inspectSaveChainOfCustodyBtn', false);
         $response->assertSee('saveInspectChainOfCustody()', false);
+        $response->assertSee('updateInspectChainOfCustodyValue', false);
+        $response->assertSee('flex items-center gap-2 sm:gap-2.5 w-full', false);
+        $response->assertSee('Custody Transfer / Exchange', false);
     }
 
     #[Test]
@@ -150,6 +176,72 @@ class ChainOfCustodyPersistenceAndDisplayTest extends TestCase
 
         $this->assertDatabaseHas('exhibits', [
             'commodity_name' => 'Cocaine Brick',
+            'chain_of_custody' => $custodyTrail,
+        ]);
+    }
+
+    #[Test]
+    public function crime_scene_support_intake_persists_chain_of_custody_for_seized_items()
+    {
+        $officer = User::factory()->create([
+            'unit' => 'Crime Scene Support',
+            'is_approved' => true,
+            'is_head' => true,
+        ]);
+
+        $custodyTrail = 'Crime Scene Support -> Central Vault';
+
+        $postData = [
+            'case_number' => 'NACOC/CSS/2026/COC01',
+            'title' => 'CSS Intake With Chain of Custody',
+            'unit_name' => 'Crime Scene Support',
+            'suspect_name' => 'Jane Smith',
+            'exhibit_category' => 'Drugs',
+            'seizure_name_drug' => 'Heroin Brown Powder',
+            'commodity_name' => 'Heroin Brown Powder',
+            'seizure_quantity' => '1',
+            'seizure_weight' => '1.2',
+            'seizure_unit' => 'kg',
+            'chain_of_custody' => $custodyTrail,
+            'has_seizures' => true,
+            'seizures' => [
+                [
+                    'item_number' => 1,
+                    'name' => 'Heroin Brown Powder',
+                    'seizure_name' => 'Heroin Brown Powder',
+                    'seizure_name_drug' => 'Heroin Brown Powder',
+                    'commodity_name' => 'Heroin Brown Powder',
+                    'exhibit_category' => 'Drugs',
+                    'seizure_quantity' => '1',
+                    'seizure_weight' => '1.2',
+                    'seizure_unit' => 'kg',
+                    'seizure_reason' => 'Recovered at crime scene perimeter',
+                    'chain_of_custody' => $custodyTrail,
+                ]
+            ],
+            'docket_data' => [
+                'seizures' => [
+                    [
+                        'item_number' => 1,
+                        'name' => 'Heroin Brown Powder',
+                        'seizure_name' => 'Heroin Brown Powder',
+                        'seizure_name_drug' => 'Heroin Brown Powder',
+                        'commodity_name' => 'Heroin Brown Powder',
+                        'exhibit_category' => 'Drugs',
+                        'seizure_quantity' => '1',
+                        'seizure_weight' => '1.2',
+                        'seizure_unit' => 'kg',
+                        'chain_of_custody' => $custodyTrail,
+                    ]
+                ]
+            ]
+        ];
+
+        $resp = $this->actingAs($officer)->postJson('/cases', $postData);
+        $resp->assertSuccessful();
+
+        $this->assertDatabaseHas('exhibits', [
+            'commodity_name' => 'Heroin Brown Powder',
             'chain_of_custody' => $custodyTrail,
         ]);
     }
@@ -269,5 +361,36 @@ class ChainOfCustodyPersistenceAndDisplayTest extends TestCase
             'id' => $exhibit->id,
             'chain_of_custody' => $newTrail,
         ]);
+    }
+
+    #[Test]
+    public function chain_of_custody_inputs_render_in_single_horizontal_line_across_views()
+    {
+        $viewsToCheck = [
+            'Evidence_Management/create.blade.php',
+            'Evidence_Management/staff/create.blade.php',
+            'cases/create.blade.php',
+            'Crime_Scene_Support/head/CrimeSceneCreate.blade.php',
+            'Crime_Scene_Support/staff/create.blade.php',
+            'Evidence_Management/show_review.blade.php',
+            'Evidence_Management/staff/review.blade.php',
+            'Crime_Scene_Support/show_review.blade.php',
+            'Crime_Scene_Support/staff/review.blade.php',
+            'Digital_Forensics/show_review.blade.php',
+            'Digital_Forensics/staff/review.blade.php',
+            'Lab_Analysis/show_review.blade.php',
+            'Lab_Analysis/staff/review.blade.php',
+            'Forensic_Head/show_review.blade.php',
+            'Forensic_Head/staff/review.blade.php',
+        ];
+
+        foreach ($viewsToCheck as $viewFile) {
+            $content = file_get_contents(resource_path("views/{$viewFile}"));
+            $this->assertStringContainsString('flex items-center gap-2 sm:gap-2.5 w-full', $content, "View {$viewFile} must use horizontal flex container for Chain of Custody");
+            $this->assertStringContainsString('newSeizureCustodyFrom', $content, "View {$viewFile} must contain custody from input");
+            $this->assertStringContainsString('newSeizureCustodyTo', $content, "View {$viewFile} must contain custody to input");
+            $this->assertStringContainsString('newSeizureChainOfCustody', $content, "View {$viewFile} must contain synchronized chain of custody textarea");
+            $this->assertStringContainsString('updateChainOfCustodyValue', $content, "View {$viewFile} must contain updateChainOfCustodyValue handler");
+        }
     }
 }

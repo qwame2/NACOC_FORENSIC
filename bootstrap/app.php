@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             \App\Http\Middleware\EnforceStaffAccountStatus::class,
+            \App\Http\Middleware\LogStaffActivity::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'api/*',

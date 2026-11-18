@@ -265,6 +265,8 @@ class CaseReportController extends Controller
                             'screening_method' => $szItem['screening_method'] ?? ($labDataFromDocket['screening_method'] ?? null),
                             'test_methods' => $szItem['test_methods'] ?? ($labDataFromDocket['test_methods'] ?? null),
                             'detected_substances' => $szItem['detected_substances'] ?? ($labDataFromDocket['detected_substances'] ?? []),
+                            'detected_subtances_percentage' => $szItem['detected_subtances_percentage'] ?? ($szItem['detected_substances_percentage'] ?? ($labDataFromDocket['detected_subtances_percentage'] ?? ($labDataFromDocket['detected_substances_percentage'] ?? null))),
+                            'detected_substances_percentage' => $szItem['detected_substances_percentage'] ?? ($szItem['detected_subtances_percentage'] ?? ($labDataFromDocket['detected_substances_percentage'] ?? ($labDataFromDocket['detected_subtances_percentage'] ?? null))),
                             'presumptive_result' => $szItem['presumptive_result'] ?? ($labDataFromDocket['presumptive_result'] ?? null),
                             'presumptive_presence' => $szItem['presumptive_presence'] ?? ($labDataFromDocket['presumptive_presence'] ?? null),
                             'presumptive_percentage' => $szItem['presumptive_percentage'] ?? ($labDataFromDocket['presumptive_percentage'] ?? null),

@@ -37,8 +37,8 @@ class LaboratoryExaminationResult extends Model
         'sample_weight_gross',
         'sample_weight_taken',
         'sample_weight_reserved',
-        'substance_identification',
         'detected_substances',
+        'detected_subtances_percentage',
         'test_methods',
         'specifications',
         'remark',
@@ -48,11 +48,12 @@ class LaboratoryExaminationResult extends Model
     ];
 
     protected $casts = [
-        'detected_substances' => 'array',
-        'has_saved'           => 'boolean',
-        'date_received'       => 'date:Y-m-d',
-        'date_started'        => 'date:Y-m-d',
-        'date_completed'      => 'date:Y-m-d',
+        'detected_substances'            => 'array',
+        'detected_subtances_percentage'  => 'array',
+        'has_saved'                      => 'boolean',
+        'date_received'                  => 'date:Y-m-d',
+        'date_started'                   => 'date:Y-m-d',
+        'date_completed'                 => 'date:Y-m-d',
     ];
 
     protected function sanitizeStringOrArrayField($value): ?string
@@ -138,9 +139,48 @@ class LaboratoryExaminationResult extends Model
         $this->attributes['confirmatory_result'] = $this->sanitizeStringOrArrayField($value) ?? 'Pending';
     }
 
+    protected ?string $transientSubstanceIdentification = null;
+
     public function setSubstanceIdentificationAttribute($value)
     {
-        $this->attributes['substance_identification'] = $this->sanitizeStringOrArrayField($value);
+        // Column substance_identification deleted from database; safely keep transient in memory
+        $val = is_scalar($value) ? trim((string)$value) : null;
+        if ($val === '[]' || $val === '') {
+            $val = null;
+        }
+        $this->transientSubstanceIdentification = $val;
+        if ($val && (empty($this->attributes['detected_substances']) || $this->attributes['detected_substances'] === '[]')) {
+            $this->setDetectedSubstancesAttribute([$val]);
+        }
+    }
+
+    public function getSubstanceIdentificationAttribute()
+    {
+        if (!empty($this->transientSubstanceIdentification) && $this->transientSubstanceIdentification !== '[]') {
+            return $this->transientSubstanceIdentification;
+        }
+
+        $subs = $this->detected_substances;
+        if (is_string($subs)) {
+            $subs = json_decode($subs, true) ?: [];
+        }
+        if (is_array($subs) && !empty($subs)) {
+            $first = $subs[0];
+            if (is_array($first)) {
+                $candidate = $first['substance'] ?? ($first['name'] ?? null);
+            } else {
+                $candidate = is_string($first) ? $first : null;
+            }
+            if (!empty($candidate) && $candidate !== '[]') {
+                return $candidate;
+            }
+        }
+
+        if (!empty($this->sample_weight_description)) {
+            return $this->sample_weight_description;
+        }
+
+        return null;
     }
 
     public function setSampleWeightDescriptionAttribute($value)
@@ -184,14 +224,116 @@ class LaboratoryExaminationResult extends Model
             return $value;
         }
         if (is_string($value)) {
-            return json_decode($value, true) ?: [];
+            return json_decode($value, true) ?: (trim($value) !== '' ? [trim($value)] : []);
         }
         return [];
     }
 
     public function setDetectedSubstancesAttribute($value)
     {
-        $this->attributes['detected_substances'] = is_array($value) ? json_encode($value) : $value;
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            }
+        }
+
+        if (is_array($value)) {
+            $substances = [];
+            $percentages = [];
+            $hasStructuredPercentages = false;
+
+            foreach ($value as $item) {
+                if (is_array($item)) {
+                    $hasStructuredPercentages = true;
+                    $sName = trim((string)($item['substance'] ?? ($item['name'] ?? ($item['compound'] ?? ''))));
+                    $sPct = trim((string)($item['percentage'] ?? ($item['purity'] ?? ($item['concentration'] ?? ''))));
+                    if ($sName !== '') {
+                        $substances[] = $sName;
+                    }
+                    if ($sPct !== '' && strtoupper($sPct) !== 'N/A' && $sPct !== '—') {
+                        if (is_numeric(str_replace('%', '', $sPct)) && !str_ends_with($sPct, '%')) {
+                            $sPct .= '%';
+                        }
+                        $percentages[] = $sPct;
+                    }
+                } elseif (is_scalar($item) && trim((string)$item) !== '') {
+                    $substances[] = trim((string)$item);
+                }
+            }
+
+            if (empty($substances) && !empty($this->transientSubstanceIdentification) && $this->transientSubstanceIdentification !== '[]') {
+                $substances[] = $this->transientSubstanceIdentification;
+            }
+
+            $this->attributes['detected_substances'] = json_encode($substances);
+
+            if ($hasStructuredPercentages && !empty($percentages)) {
+                if (empty($this->attributes['detected_subtances_percentage'])) {
+                    $pctJson = json_encode($percentages);
+                    $this->attributes['detected_subtances_percentage'] = $pctJson;
+                }
+            }
+            return;
+        }
+
+        $this->attributes['detected_substances'] = $value;
+    }
+
+    public function setDetectedSubtancesPercentageAttribute($value)
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                $value = $decoded;
+            } else {
+                $value = array_values(array_filter(array_map('trim', preg_split('/\s*[;,]\s*/', $value) ?: []), fn($v) => $v !== ''));
+            }
+        }
+
+        if (is_array($value)) {
+            $formatted = [];
+            foreach ($value as $pct) {
+                if (is_scalar($pct)) {
+                    $p = trim((string)$pct);
+                    if ($p !== '' && strtoupper($p) !== 'N/A' && $p !== '—') {
+                        if (is_numeric(str_replace('%', '', $p)) && !str_ends_with($p, '%')) {
+                            $p .= '%';
+                        }
+                        $formatted[] = $p;
+                    }
+                }
+            }
+            $this->attributes['detected_subtances_percentage'] = json_encode($formatted);
+            return;
+        }
+
+        $this->attributes['detected_subtances_percentage'] = $value;
+    }
+
+    public function setDetectedSubstancesPercentageAttribute($value)
+    {
+        $this->setDetectedSubtancesPercentageAttribute($value);
+    }
+
+    public function getDetectedSubtancesPercentageAttribute($value)
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+            return trim($value) !== '' ? [trim($value)] : [];
+        }
+        return [];
+    }
+
+    public function getDetectedSubstancesPercentageAttribute()
+    {
+        return $this->getDetectedSubtancesPercentageAttribute($this->attributes['detected_subtances_percentage'] ?? null);
     }
 
     public function singleCase()

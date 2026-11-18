@@ -1894,8 +1894,32 @@
                             </table>
                         </td>
                         <td class="pdf-label-cell">Confirmatory Test:</td>
-                        <td class="pdf-value-cell font-black {{ $labConfirmatory === 'YES' ? 'text-emerald-950' : 'text-slate-950' }}">
-                            {{ $labConfirmatory === 'YES' ? 'YES' : 'NO' }}
+                        <td class="pdf-value-cell p-1.5">
+                            @php
+                                $cRowsPdf = \App\Models\ForensicCase::parseConfirmatoryRows(
+                                    $labConfirmatory ?? null,
+                                    $primaryLabExam->detected_substances ?? ($primaryLabResult->detected_substances ?? ($docketData['lab_examination']['detected_substances'] ?? ($labDetectedSubstances ?? []))),
+                                    $primaryLabExam->detected_subtances_percentage ?? ($primaryLabExam->detected_substances_percentage ?? ($primaryLabResult->detected_subtances_percentage ?? ($primaryLabResult->detected_substances_percentage ?? ($docketData['lab_examination']['detected_subtances_percentage'] ?? ($docketData['lab_examination']['detected_substances_percentage'] ?? [])))))
+                                );
+                            @endphp
+                            <table class="w-full text-[10.5px] border border-slate-300 rounded overflow-hidden">
+                                <thead class="bg-slate-100 text-slate-950 font-mono-code uppercase font-black text-[9px]">
+                                    <tr class="border-b border-slate-300">
+                                        <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
+                                        <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Substance Detected</th>
+                                        <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white">
+                                    @foreach($cRowsPdf as $cRowPdf)
+                                    <tr class="border-b border-slate-200 last:border-b-0">
+                                        <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $cRowPdf['result'] === 'YES' ? 'text-emerald-800' : ($cRowPdf['result'] === 'NO' ? 'text-red-700' : 'text-slate-900') }}">{{ $cRowPdf['result'] }}</td>
+                                        <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">{{ $cRowPdf['presence'] }}</td>
+                                        <td class="px-2 py-1 font-bold text-slate-900">{{ $cRowPdf['purity'] }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </td>
                     </tr>
                     <tr>
@@ -1936,10 +1960,8 @@
                         </td>
                     </tr>
                     <tr>
-                        <td class="pdf-label-cell">Substance Identified:</td>
-                        <td class="pdf-value-cell font-black text-slate-950">{{ $labSubstanceId ?: 'N/A' }}</td>
                         <td class="pdf-label-cell">Test Specifications:</td>
-                        <td class="pdf-value-cell font-bold">{{ $labSpecifications ?: 'N/A' }}</td>
+                        <td class="pdf-value-cell font-bold" colspan="3">{{ $labSpecifications ?: 'N/A' }}</td>
                     </tr>
                     <tr>
                         <td class="pdf-label-cell">Test Method(s):</td>
@@ -1948,63 +1970,6 @@
                     <tr>
                         <td class="pdf-label-cell">Analysis Remark:</td>
                         <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $labRemark ?: 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="pdf-label-cell">Detected Compounds:</td>
-                        <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
-                            @php 
-                                $pdfDetList = []; 
-                                $rawPdfDetList = $labDetectedSubstances ?? [];
-                                if (is_string($rawPdfDetList)) {
-                                    $rawPdfDetList = json_decode($rawPdfDetList, true) ?: [];
-                                }
-                                if (is_array($rawPdfDetList)) {
-                                    foreach ($rawPdfDetList as $subItem) {
-                                        if (is_array($subItem)) {
-                                            $sName = $subItem['substance'] ?? ($subItem['name'] ?? ($subItem['compound'] ?? ($subItem['drug_name'] ?? '')));
-                                            $sPct  = $subItem['percentage'] ?? ($subItem['purity'] ?? ($subItem['pct'] ?? ''));
-                                            if (!empty($sName)) {
-                                                $pdfDetList[] = $sName . (!empty($sPct) ? ' (' . rtrim(trim($sPct), '%') . '%)' : '');
-                                            }
-                                        }
-                                    }
-                                }
-                                if (empty($pdfDetList)) {
-                                    $pText = $labPresumptive ?? '';
-                                    if (!empty($pText) && (str_contains($pText, 'Presence of:') || str_contains($pText, 'YES'))) {
-                                        $cleanP = preg_replace('/^YES\s*\((.*)\)$/i', '$1', trim($pText));
-                                        $pSegs = explode(';', $cleanP);
-                                        foreach ($pSegs as $pSeg) {
-                                            $pSeg = trim($pSeg);
-                                            $pName = ''; $pPur = '';
-                                            if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)) {
-                                                $pName = trim($mP[1]);
-                                            }
-                                            if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $pSeg, $mPur)) {
-                                                $pPur = trim($mPur[1]);
-                                            }
-                                            if (!empty($pName)) {
-                                                $pdfDetList[] = $pName . (!empty($pPur) ? ' (' . rtrim(trim($pPur), '%') . '%)' : '');
-                                            }
-                                        }
-                                    }
-                                }
-                                if (empty($pdfDetList) && !empty($labSubstanceId) && $labSubstanceId !== 'N/A') {
-                                    $pdfDetList[] = $labSubstanceId;
-                                }
-                            @endphp
-                            @if(count($pdfDetList) > 0)
-                                <span>{{ implode(', ', $pdfDetList) }}</span>
-                            @else
-                                <span class="text-slate-700 font-bold italic text-xs">N/A</span>
-                            @endif
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="pdf-label-cell">Findings Log Summary:</td>
-                        <td class="pdf-value-cell font-medium text-slate-900 leading-relaxed" colspan="3">
-                            {{ $labFindings ?: 'N/A' }}
-                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -2353,7 +2318,33 @@
                                     </table>
                                 </td>
                                 <td class="pdf-label-cell bg-amber-50">Confirmatory Test:</td>
-                                <td class="pdf-value-cell font-black {{ $assocConfirmatoryVal === 'YES' ? 'text-emerald-950' : 'text-slate-950' }}">{{ $assocConfirmatoryVal === 'YES' ? 'YES' : 'NO' }}</td>
+                                <td class="pdf-value-cell p-1.5">
+                                    @php
+                                        $cRowsAssocPdf = \App\Models\ForensicCase::parseConfirmatoryRows(
+                                            $assocConfirmatoryVal ?? null,
+                                            $assocDetSubs ?? ($dbAssocExam->detected_substances ?? []),
+                                            $assocDetPcts ?? ($dbAssocExam->detected_subtances_percentage ?? ($dbAssocExam->detected_substances_percentage ?? []))
+                                        );
+                                    @endphp
+                                    <table class="w-full text-[10.5px] border border-amber-200 rounded overflow-hidden">
+                                        <thead class="bg-amber-100 text-amber-950 font-mono-code uppercase font-black text-[9px]">
+                                            <tr class="border-b border-amber-200">
+                                                <th class="px-2 py-1 border-r border-amber-200 text-left">Result</th>
+                                                <th class="px-2 py-1 border-r border-amber-200 text-left">Substance Detected</th>
+                                                <th class="px-2 py-1 text-left">Purity/Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white">
+                                            @foreach($cRowsAssocPdf as $cRowAssocPdf)
+                                            <tr class="border-b border-amber-100 last:border-b-0">
+                                                <td class="px-2 py-1 border-r border-amber-200 font-extrabold {{ $cRowAssocPdf['result'] === 'YES' ? 'text-emerald-800' : ($cRowAssocPdf['result'] === 'NO' ? 'text-red-700' : 'text-slate-900') }}">{{ $cRowAssocPdf['result'] }}</td>
+                                                <td class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">{{ $cRowAssocPdf['presence'] }}</td>
+                                                <td class="px-2 py-1 font-bold text-slate-900">{{ $cRowAssocPdf['purity'] }}</td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </td>
                             </tr>
                             <tr>
                                 <td class="pdf-label-cell bg-amber-50">Sample Metrology:</td>
@@ -2383,71 +2374,12 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td class="pdf-label-cell bg-amber-50">Substance Identified:</td>
-                                <td class="pdf-value-cell font-black text-slate-950">{{ $assocSubstanceIdVal }}</td>
                                 <td class="pdf-label-cell bg-amber-50">Test Specifications:</td>
-                                <td class="pdf-value-cell font-bold">{{ $assocSpecsVal }}</td>
+                                <td class="pdf-value-cell font-bold" colspan="3">{{ $assocSpecsVal }}</td>
                             </tr>
                             <tr>
                                 <td class="pdf-label-cell bg-amber-50">Test Method(s):</td>
                                 <td class="pdf-value-cell font-bold text-slate-900" colspan="3">{{ $assocMethodsVal ?: 'N/A' }}</td>
-                            </tr>
-                            <tr>
-                                <td class="pdf-label-cell bg-amber-50">Detected Compounds:</td>
-                                <td class="pdf-value-cell font-bold text-slate-900" colspan="3">
-                                    @php 
-                                        $detListAssocPdf = []; 
-                                        $assocDetSubsPdf = $dbAssocExamPdf && !empty($dbAssocExamPdf->detected_substances) ? $dbAssocExamPdf->detected_substances : (!empty($docketAssocExamPdf['detected_substances']) ? $docketAssocExamPdf['detected_substances'] : (!empty($assocLabExamPdf['detected_substances']) ? $assocLabExamPdf['detected_substances'] : (!empty($firstAssocEx['detected_substances']) ? $firstAssocEx['detected_substances'] : [])));
-                                        if (is_string($assocDetSubsPdf)) {
-                                            $assocDetSubsPdf = json_decode($assocDetSubsPdf, true) ?: [];
-                                        }
-                                        if (is_array($assocDetSubsPdf)) {
-                                            foreach ($assocDetSubsPdf as $subItem) {
-                                                if (is_array($subItem)) {
-                                                    $sName = $subItem['substance'] ?? ($subItem['name'] ?? ($subItem['compound'] ?? ($subItem['drug_name'] ?? '')));
-                                                    $sPct  = $subItem['percentage'] ?? ($subItem['purity'] ?? ($subItem['pct'] ?? ''));
-                                                    if (!empty($sName)) {
-                                                        $detListAssocPdf[] = $sName . (!empty($sPct) ? ' (' . rtrim(trim($sPct), '%') . '%)' : '');
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (empty($detListAssocPdf)) {
-                                            $pText = $assocPresumptiveTextPdf ?? ($assocPresumptiveText ?? '');
-                                            if (!empty($pText) && (str_contains($pText, 'Presence of:') || str_contains($pText, 'YES'))) {
-                                                $cleanP = preg_replace('/^YES\s*\((.*)\)$/i', '$1', trim($pText));
-                                                $pSegs = explode(';', $cleanP);
-                                                foreach ($pSegs as $pSeg) {
-                                                    $pSeg = trim($pSeg);
-                                                    $pName = ''; $pPur = '';
-                                                    if (preg_match('/Presence of:\s*([^\-\;\)]+)/i', $pSeg, $mP)) {
-                                                        $pName = trim($mP[1]);
-                                                    }
-                                                    if (preg_match('/Purity\/Percentage:\s*([^\;\)]+)/i', $pSeg, $mPur)) {
-                                                        $pPur = trim($mPur[1]);
-                                                    }
-                                                    if (!empty($pName)) {
-                                                        $detListAssocPdf[] = $pName . (!empty($pPur) ? ' (' . rtrim(trim($pPur), '%') . '%)' : '');
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        if (empty($detListAssocPdf) && !empty($assocSubstanceIdVal) && $assocSubstanceIdVal !== 'N/A') {
-                                            $detListAssocPdf[] = $assocSubstanceIdVal;
-                                        }
-                                    @endphp
-                                    @if(count($detListAssocPdf) > 0)
-                                        <span>{{ implode(', ', $detListAssocPdf) }}</span>
-                                    @else
-                                        <span class="text-slate-700 font-bold italic text-xs">N/A</span>
-                                    @endif
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="pdf-label-cell bg-amber-50">Findings Log Summary:</td>
-                                <td class="pdf-value-cell font-medium text-slate-900 leading-relaxed" colspan="3">
-                                    {{ $assocFindingsVal }}
-                                </td>
                             </tr>
                         </tbody>
                     </table>

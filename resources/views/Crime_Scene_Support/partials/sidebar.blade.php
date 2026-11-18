@@ -1,4 +1,14 @@
-@if(auth()->user() instanceof \App\Models\StaffAccount || request()->is('*/staff*'))
+@php
+    $isStaffAuditPath = request()->is('*staff-audit-logs*') || request()->is('staff-audit-logs*');
+    $isActualStaffRoute = !$isStaffAuditPath && (
+        request()->is('*/staff/*') ||
+        request()->is('*/staff') ||
+        request()->is('staff/*') ||
+        request()->is('staff')
+    );
+    $isStaffAccount = (auth()->user() instanceof \App\Models\StaffAccount) && !$isStaffAuditPath;
+@endphp
+@if($isStaffAccount || $isActualStaffRoute)
     @include('staff.partials.sidebar')
 @else
 @php
@@ -199,7 +209,7 @@
                     @php
                         $vaultExhibitsBadge = \App\Models\Exhibit::countPendingQrOrClassification();
                     @endphp
-                    <span class="ml-auto {{ $isVaultActive ? 'bg-white/20 text-white' : ($vaultExhibitsBadge > 0 ? 'bg-amber-500/15 text-amber-800 border border-amber-300/60' : 'bg-emerald-500/15 text-emerald-800') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold" title="{{ $vaultExhibitsBadge }} exhibit(s) pending QR code or classification">
+                    <span id="sidebarExhibitLogBadge" class="ml-auto {{ $vaultExhibitsBadge > 0 ? 'bg-red-600 text-white border border-red-400 animate-pulse shadow-xs' : ($isVaultActive ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-800') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold" title="{{ $vaultExhibitsBadge }} exhibit(s) pending QR code or classification">
                         {{ $vaultExhibitsBadge }}
                     </span>
                 </a>

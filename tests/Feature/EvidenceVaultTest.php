@@ -244,6 +244,8 @@ class EvidenceVaultTest extends TestCase
 
         // Verify full detailed sections
         $resp->assertSee('Seizure &amp; Custody Details', false);
+        $resp->assertSee('Seizure Location');
+        $resp->assertSee('id="modalLocation"', false);
         $resp->assertSee('id="modalCategorySpecsContainer"', false);
         $resp->assertSee('Associated Suspect(s) Profile', false);
         $resp->assertSee('id="modalSuspectsCountBadge"', false);
@@ -340,9 +342,10 @@ class EvidenceVaultTest extends TestCase
         $gridResp = $this->actingAs($officer)->get('/Evidence_Management/vault');
         $gridResp->assertStatus(200);
 
-        // Unclassified exhibit card should render the Classify button
+        // Unclassified exhibit card should render the Classify button and Assign Drug Classification button
         $gridResp->assertSee('EXH-UNCLS-001');
         $gridResp->assertSee('<span>Classify</span>', false);
+        $gridResp->assertSee('+ Assign Drug Classification');
 
         // In Table view
         $tableResp = $this->actingAs($officer)->get('/Evidence_Management/vault?view=table');
@@ -350,6 +353,71 @@ class EvidenceVaultTest extends TestCase
         $tableResp->assertSee('EXH-CLS-002');
         $tableResp->assertSee('Class A');
         $tableResp->assertSee('Drug Exhibit');
+    }
+
+    #[Test]
+    public function exhibit_card_includes_button_to_assign_drug_classification_to_new_exhibit()
+    {
+        $officer = User::factory()->create([
+            'unit' => 'Evidence Management',
+            'is_approved' => true,
+        ]);
+
+        $singleCase = SingleSuspectCase::create([
+            'case_number' => 'NACOC/EMU/2026/101',
+            'title' => 'New Exhibit Ingest Test',
+            'unit_name' => 'Evidence Management',
+            'suspect_name' => 'Ama Serwaa',
+        ]);
+
+        // New exhibit created with no drug classification yet
+        $newExhibit = Exhibit::create([
+            'single_suspect_case_id' => $singleCase->id,
+            'exhibit_number' => 'EXH-NEW-777',
+            'commodity_name' => 'Brown Compress Block',
+            'exhibit_category' => 'General',
+            'drug_classification' => null,
+            'exhibit_type' => null,
+        ]);
+
+        $resp = $this->actingAs($officer)->get('/Evidence_Management/vault');
+        $resp->assertStatus(200);
+        $resp->assertSee('EXH-NEW-777');
+        $resp->assertSee('+ Assign Drug Classification');
+        $resp->assertSee('Assign Drug Classification to this Exhibit');
+    }
+
+    #[Test]
+    public function inspect_container_seizure_location_fetches_from_source_of_exhibit()
+    {
+        $officer = User::factory()->create([
+            'unit' => 'Evidence Management',
+            'is_approved' => true,
+        ]);
+
+        $singleCase = SingleSuspectCase::create([
+            'case_number' => 'NACOC/EMU/2026/SOURCE1',
+            'title' => 'Tema Port Raid',
+            'unit_name' => 'Evidence Management',
+            'suspect_name' => 'Linda Dua',
+        ]);
+
+        $exhibit = Exhibit::create([
+            'single_suspect_case_id' => $singleCase->id,
+            'exhibit_number' => 'EXH-SRC-001',
+            'commodity_name' => 'Morphine (Raw Opium Extract)',
+            'exhibit_category' => 'Drugs',
+            'source_of_exhibits' => 'TEMA PORT',
+            'seizure_location' => null,
+        ]);
+
+        $this->assertEquals('TEMA PORT', $exhibit->source_of_exhibit);
+
+        $resp = $this->actingAs($officer)->get('/Evidence_Management/vault');
+        $resp->assertStatus(200);
+        $resp->assertSee('EXH-SRC-001');
+        $resp->assertSee('TEMA PORT');
+        $resp->assertSee('Src: TEMA PORT');
     }
 
     #[Test]
@@ -687,10 +755,12 @@ class EvidenceVaultTest extends TestCase
         // Badge count should now be 2 (no QR exhibit + unclassified exhibit)
         $this->assertEquals(2, Exhibit::countPendingQrOrClassification());
 
-        // 4. Check that sidebar renders this badge count (2)
+        // 4. Check that sidebar renders this badge count (2), is red, and blinks (animate-pulse)
         $resp = $this->actingAs($officer)->get('/Evidence_Management/vault');
         $resp->assertStatus(200);
         $resp->assertSee('2 exhibit(s) pending QR code or classification');
+        $resp->assertSee('bg-red-600');
+        $resp->assertSee('animate-pulse');
     }
 
     #[Test]

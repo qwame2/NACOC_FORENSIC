@@ -2209,7 +2209,7 @@
                                             &amp; Packaging Notes</label>
                                         <div class="relative flex items-center group">
                                             <span
-                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors">
+                                                class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                     viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
@@ -2223,77 +2223,108 @@
                                         </div>
                                     </div>
 
-                                    <!-- DATE, TIME & LOCATION SEIZED -->
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 col-span-full">
-                                        <!-- DATE SEIZED -->
-                                        <div class="min-w-0">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date Seized <span class="text-red-600 font-bold">*</span></label>
-                                            <div class="relative flex items-center group">
-                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                                </span>
-                                                <input type="date" id="newSeizureDate" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
-                                            </div>
+                                    <!-- DATE & TIME SEIZED -->
+                                    <div class="col-span-full md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Date
+                                                Seized</label>
+                                            <input type="date" id="newSeizureDate"
+                                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                                         </div>
-
-                                        <!-- TIME SEIZED -->
-                                        <div class="min-w-0">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time Seized</label>
-                                            <div class="relative flex items-center group">
-                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                </span>
-                                                <input type="time" id="newSeizureTime" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
-                                            </div>
+                                        <div>
+                                            <label
+                                                class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Time
+                                                Seized</label>
+                                            <input type="time" id="newSeizureTime"
+                                                class="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20">
                                         </div>
+                                    </div>
 
+                                    <!-- ROW: LOCATION SEIZED & INVESTIGATING OFFICER -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <!-- LOCATION SEIZED -->
-                                        <div class="min-w-0">
+                                        <div>
                                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">Location Seized <span class="text-red-600 font-bold">*</span></label>
                                             <div class="relative flex items-center group">
                                                 <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                                 </span>
-                                                <input type="text" id="newSeizureLocation" name="location_seized" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full min-w-0 pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                                <input type="text" id="newSeizureLocation" name="location_seized" placeholder="e.g. Tema Port, Gate 4 — Container Terminal" class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
+                                            </div>
+                                        </div>
+
+                                        <!-- INVESTIGATING OFFICER -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Investigating Officer
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureInvestigatingOfficer" name="investigating_officer"
+                                                    placeholder="e.g. Insp. Emmanuel Mensah / Service ID SD-0199"
+                                                    class="seizure-investigating-officer-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                             </div>
                                         </div>
                                     </div>
 
-                                    <!-- SEIZING OFFICERS (MULTI-ROW) -->
-                                    <div class="col-span-full">
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
-                                                Seizing Officer(s) <span class="text-red-600 font-bold">*</span>
-                                            </label>
-                                            <button type="button" onclick="addSeizureOfficerRow(this)" class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                                                Add Seizing Officer
-                                            </button>
-                                        </div>
+                                    <!-- ROW: SEIZING OFFICERS & SOURCE/REQUESTING UNIT -->
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                                        <!-- SEIZING OFFICERS (MULTI-ROW) -->
+                                        <div>
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase">
+                                                    Seizing Officer(s) <span class="text-red-600 font-bold">*</span>
+                                                </label>
+                                                <button type="button" onclick="addSeizureOfficerRow(this)" class="inline-flex items-center text-[10px] font-extrabold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                                                    Add Seizing Officer
+                                                </button>
+                                            </div>
 
-                                        <!-- OFFICER ROWS CONTAINER -->
-                                        <div id="seizureOfficersContainer" class="space-y-2">
-                                            <!-- Row 1 -->
-                                            <div class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                    <div class="relative flex items-center group">
-                                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                                                        </span>
-                                                        <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
-                                                    </div>
-                                                    <div class="flex items-center gap-1.5">
-                                                        <div class="relative flex-1 flex items-center group">
+                                            <!-- OFFICER ROWS CONTAINER -->
+                                            <div id="seizureOfficersContainer" class="space-y-2">
+                                                <!-- Row 1 -->
+                                                <div class="seizure-officer-row p-2.5 bg-slate-50 border border-slate-300/80 rounded-xl">
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        <div class="relative flex items-center group">
                                                             <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
-                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                                             </span>
-                                                            <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
+                                                            <input type="text" class="seizure-officer-name w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400" placeholder="Officer Full Name (e.g. DSP Kwame Mensah)">
                                                         </div>
-                                                        <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
-                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                                        </button>
+                                                        <div class="flex items-center gap-1.5">
+                                                            <div class="relative flex-1 flex items-center group">
+                                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                                                                </span>
+                                                                <input type="text" class="seizure-officer-service-id w-full pl-8 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 font-mono-code" placeholder="Service ID / Badge No (e.g. SD-0042)">
+                                                            </div>
+                                                            <button type="button" onclick="removeSeizureOfficerRow(this)" class="remove-officer-btn hidden p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-transparent hover:border-red-200 transition-colors cursor-pointer" title="Remove Officer">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- SOURCE / REQUESTING UNIT -->
+                                        <div>
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1">
+                                                Source/Requesting Unit
+                                            </label>
+                                            <div class="relative flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                                    </svg>
+                                                </span>
+                                                <input type="text" id="newSeizureSourceRequestingUnit" name="source_requesting_unit"
+                                                    placeholder="e.g. Enforcement and Operations Unit, KIA Command, DLEU..."
+                                                    class="seizure-source-requesting-unit-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400">
                                             </div>
                                         </div>
                                     </div>
@@ -2328,6 +2359,54 @@
                                                     class="newSeizureExhibitRemark seizure-remark-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 placeholder:text-slate-400 resize-none"></textarea>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <!-- CHAIN OF CUSTODY (OPTIONAL) -->
+                                    <div class="col-span-full">
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-1.5">
+                                                <svg class="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                                <span>Chain of Custody <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
+                                            </label>
+                                            <span class="text-[9px] font-mono-code font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 uppercase">CUSTODY TRANSFER</span>
+                                        </div>
+
+                                        <!-- HORIZONTAL LINE CHAIN OF CUSTODY WITH EXCHANGE ICON -->
+                                        <div class="flex items-center gap-2 sm:gap-2.5 w-full">
+                                            <!-- CURRENT LOCATION (FROM) -->
+                                            <div class="relative flex-1 min-w-0 flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureCustodyFrom"
+                                                    class="seizure-custody-from-input w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                                                    value="Digital Forensics"
+                                                    placeholder="Current Location (e.g. Digital Forensics)"
+                                                    oninput="updateChainOfCustodyValue(this)">
+                                            </div>
+
+                                            <!-- EXCHANGE ICON -->
+                                            <div class="flex items-center justify-center p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 shadow-2xs shrink-0 self-center" title="Custody Transfer / Exchange">
+                                                <svg class="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                                                </svg>
+                                            </div>
+
+                                            <!-- DESTINATION / TRANSFER TO -->
+                                            <div class="relative flex-1 min-w-0 flex items-center group">
+                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                </span>
+                                                <input type="text" id="newSeizureCustodyTo"
+                                                    class="seizure-custody-to-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 placeholder:text-slate-400"
+                                                    placeholder="Transfer To (e.g. Central Vault, Forensic Lab, Court...)"
+                                                    oninput="updateChainOfCustodyValue(this)">
+                                            </div>
+                                        </div>
+
+                                        <!-- Synchronized textarea preserving existing id, name, and class -->
+                                        <textarea id="newSeizureChainOfCustody" name="chain_of_custody" rows="1" data-alt-id="newSeizureChainOfCustody"
+                                            class="hidden newSeizureChainOfCustody seizure-chain-of-custody-input">Digital Forensics</textarea>
                                     </div>
 
                                     <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA -->
@@ -2537,12 +2616,34 @@
                             <td
                                 class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-amber-200 bg-amber-50/70">
                                 Confirmatory Test:</td>
-                            <td class="p-3 font-black bg-white text-emerald-950">
-                                <span class="inline-flex items-center space-x-1.5">
-                                    <span
-                                        class="w-2.5 h-2.5 rounded-full {{ $assocConfirmatoryVal === 'YES' ? 'bg-emerald-600' : 'bg-slate-600' }}"></span>
-                                    <span>{{ $assocConfirmatoryVal === 'YES' ? 'YES' : 'NO' }}</span>
-                                </span>
+                            <td class="p-2 bg-white">
+                                @php
+                                    $cRowsAssocCurrent = $cRowsAssoc ?? \App\Models\ForensicCase::parseConfirmatoryRows($assocConfirmatoryVal ?? null);
+                                @endphp
+                                <table class="w-full text-xs border border-amber-200 rounded overflow-hidden">
+                                    <thead
+                                        class="bg-amber-100/80 text-amber-950 font-mono-code uppercase font-black text-[10px]">
+                                        <tr class="border-b border-amber-200">
+                                            <th class="px-2 py-1 border-r border-amber-200 text-left">Result</th>
+                                            <th class="px-2 py-1 border-r border-amber-200 text-left">Substance Detected</th>
+                                            <th class="px-2 py-1 text-left">Purity/Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white">
+                                        @foreach ($cRowsAssocCurrent as $cRowAssoc)
+                                            <tr class="border-b border-amber-100 last:border-b-0">
+                                                <td
+                                                    class="px-2 py-1 border-r border-amber-200 font-extrabold {{ $cRowAssoc['result'] === 'YES' ? 'text-emerald-800' : ($cRowAssoc['result'] === 'NO' ? 'text-red-700' : 'text-slate-900') }}">
+                                                    {{ $cRowAssoc['result'] }}</td>
+                                                <td
+                                                    class="px-2 py-1 border-r border-amber-200 font-bold text-slate-900">
+                                                    {{ $cRowAssoc['presence'] }}</td>
+                                                <td class="px-2 py-1 font-bold text-slate-900">
+                                                    {{ $cRowAssoc['purity'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
                             </td>
                         </tr>
                         <tr class="bg-amber-100/60 border-b border-amber-200">
@@ -2593,27 +2694,8 @@
                         <tr class="border-b border-amber-200">
                             <td
                                 class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-amber-200 bg-amber-50/70">
-                                Substance Identified:</td>
-                            <td class="p-3 font-black text-slate-950 bg-white border-r border-amber-200">
-                                {{ $assocSubstanceIdVal }}</td>
-                            <td
-                                class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-amber-200 bg-amber-50/70">
                                 Test Specifications:</td>
-                            <td class="p-3 font-bold text-slate-900 bg-white">{{ $assocSpecsVal }}</td>
-                        </tr>
-                        <tr class="bg-amber-100/60 border-b border-amber-200">
-                            <td
-                                class="p-3 font-mono-code font-black text-amber-950 uppercase border-r border-amber-200">
-                                Detected Compounds:</td>
-                            <td class="p-3 bg-white font-bold text-slate-900 text-xs" colspan="3">
-                                @php @endphp
-                                @if (count($detListAssoc) > 0)
-                                    <span>{{ implode(', ', $detListAssoc) }}</span>
-                                @else
-                                    <span class="text-slate-700 font-bold italic text-xs">No individual compound
-                                        breakdown logged</span>
-                                @endif
-                            </td>
+                            <td class="p-3 font-bold text-slate-900 bg-white" colspan="3">{{ $assocSpecsVal }}</td>
                         </tr>
                         <tr class="border-b border-amber-200">
                             <td
@@ -2621,13 +2703,6 @@
                                 Test Methods:</td>
                             <td class="p-3 font-mono-code font-black text-slate-900 bg-white" colspan="3">
                                 {{ $assocMethodsVal }}</td>
-                        </tr>
-                        <tr class="bg-slate-900 text-white">
-                            <td
-                                class="p-3 font-mono-code font-black text-amber-400 uppercase border-r border-slate-800 bg-slate-950">
-                                Analytical Findings:</td>
-                            <td class="p-3 font-medium text-slate-100 leading-relaxed bg-slate-900" colspan="3">
-                                {{ $assocFindingsVal }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -3926,7 +4001,7 @@
                     const dateSeized = block.querySelector('#newSeizureDate')?.value || '';
                     const timeSeized = block.querySelector('#newSeizureTime')?.value || '';
                     const location = block.querySelector('#newSeizureLocation')?.value || '';
-                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || '';
+                    const sourceOfExhibits = block.querySelector('#newSeizureSourceOfExhibits')?.value || block.dataset?.preservedSourceOfExhibits || '';
                     const seizingOfficer = typeof getSeizureOfficersFormatted === 'function' ?
                         getSeizureOfficersFormatted(block) : '';
                     const investigatingOfficer = block.querySelector('#newSeizureInvestigatingOfficer')?.value || block.querySelector('.seizure-investigating-officer-input')?.value || block.querySelector('[name="investigating_officer"]')?.value || '';
@@ -3985,6 +4060,7 @@
                     const ammoConditionWhenReceivedVal = block.querySelector('#ammoConditionWhenReceived')?.value || '';
                     const otherExhibitDescription = block.querySelector('#newOtherExhibitDescription')?.value || block.querySelector('.other-exhibit-description-input')?.value || '';
                     const exhibitRemark = block.querySelector('#newSeizureRemark')?.value?.trim() || block.querySelector('.seizure-remark-input')?.value?.trim() || block.querySelector('[name="exhibit_remark"]')?.value?.trim() || '';
+                    const chainOfCustody = block.querySelector('#newSeizureChainOfCustody')?.value?.trim() || block.querySelector('.seizure-chain-of-custody-input')?.value?.trim() || block.querySelector('[name="chain_of_custody"]')?.value?.trim() || '';
 
                     const isAmmoCat = category === 'Ammunition' || (typeof category === 'string' && (category.toLowerCase().includes('ammo') || category.toLowerCase().includes('ammunition')));
                     const isOtherCat = category === 'Other Exhibits' || category === 'Other' || category === 'Other Exhibit' || (typeof category === 'string' && category.toLowerCase().includes('other'));
@@ -4046,6 +4122,7 @@
                             seizure_location: location,
                             source_of_exhibits: sourceOfExhibits,
                             exhibit_remark: exhibitRemark,
+                            chain_of_custody: chainOfCustody,
                             seizure_officer: seizingOfficer,
                             investigating_officer: investigatingOfficer,
                             source_requesting_unit: sourceRequestingUnit,
@@ -6021,9 +6098,28 @@ function setSeizureBlocksCount(val) {
             setVal('#newSeizureLocation', data.seizure_location || data.location);
             setVal('#newSeizureReason', data.seizure_reason || data.reason);
             setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            if (data.source_of_exhibits || data.source) {
+                block.dataset.preservedSourceOfExhibits = data.source_of_exhibits || data.source;
+            }
             setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
             setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
+            if (data.chain_of_custody) {
+                const cocVal = String(data.chain_of_custody).trim();
+                setVal('#newSeizureChainOfCustody', cocVal);
+                if (cocVal.includes('->')) {
+                    const cocParts = cocVal.split('->');
+                    setVal('#newSeizureCustodyFrom', cocParts[0].trim());
+                    setVal('#newSeizureCustodyTo', cocParts.slice(1).join(' -> ').trim());
+                } else {
+                    setVal('#newSeizureCustodyFrom', cocVal);
+                    setVal('#newSeizureCustodyTo', '');
+                }
+            } else {
+                setVal('#newSeizureCustodyFrom', 'Digital Forensics');
+                setVal('#newSeizureCustodyTo', '');
+                setVal('#newSeizureChainOfCustody', 'Digital Forensics');
+            }
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
             if (officer) {
@@ -6642,6 +6738,31 @@ function setSeizureBlocksCount(val) {
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
+        }
+
+        // Chain of Custody Dynamic Synchronization
+        function updateChainOfCustodyValue(el) {
+            const block = el ? el.closest('.seizure-block') : document;
+            if (!block) return;
+            const fromInput = block.querySelector('#newSeizureCustodyFrom') || block.querySelector('.seizure-custody-from-input');
+            const toInput = block.querySelector('#newSeizureCustodyTo') || block.querySelector('.seizure-custody-to-input');
+            const hiddenInput = block.querySelector('#newSeizureChainOfCustody') || block.querySelector('.seizure-chain-of-custody-input');
+
+            const fromVal = fromInput ? fromInput.value.trim() : '';
+            const toVal = toInput ? toInput.value.trim() : '';
+
+            let combined = '';
+            if (fromVal && toVal) {
+                combined = `${fromVal} -> ${toVal}`;
+            } else if (fromVal) {
+                combined = fromVal;
+            } else if (toVal) {
+                combined = toVal;
+            }
+
+            if (hiddenInput) {
+                hiddenInput.value = combined;
+            }
         }
 
         function selectDrugType(val, e) {
@@ -7677,6 +7798,7 @@ function setSeizureBlocksCount(val) {
         }
 
         function toggleSeizureItemSection(isActive, shouldScroll = true) {
+            window.toggleSeizureItemSection = toggleSeizureItemSection;
             const s4 = document.getElementById('section4Seizures');
             const chk = document.getElementById('toggleSeizureItemSectionCheckbox');
             const badge = document.getElementById('seizureItemStatusBadge');

@@ -50,6 +50,22 @@
                     if (data.field_officers !== undefined) {
                         updateBadgeElement('sidebarFieldOfficersBadge', data.field_officers);
                     }
+                    if (data.vault_pending !== undefined) {
+                        const vBadges = document.querySelectorAll('#sidebarExhibitLogBadge, #sidebarStaffExhibitLogBadge');
+                        const vCount = parseInt(data.vault_pending, 10) || 0;
+                        vBadges.forEach(function(badge) {
+                            badge.textContent = String(vCount);
+                            if (vCount > 0) {
+                                badge.className = 'ml-auto bg-red-600 text-white border border-red-400 animate-pulse shadow-xs font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold';
+                                badge.title = vCount + ' exhibit(s) pending QR code or classification';
+                                badge.classList.remove('hidden');
+                                badge.style.display = 'inline-flex';
+                            } else {
+                                badge.className = 'ml-auto bg-emerald-500/15 text-emerald-800 font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold';
+                                badge.title = '0 exhibit(s) pending QR code or classification';
+                            }
+                        });
+                    }
                 }
             }
         } catch (e) {

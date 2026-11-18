@@ -50,15 +50,49 @@ class LaboratoryExamService
         if (!is_array($detSubs)) {
             $detSubs = [];
         }
-        foreach ($detSubs as &$ds) {
-            if (is_array($ds) && isset($ds['percentage']) && $ds['percentage'] !== '') {
-                $pctVal = trim((string)$ds['percentage']);
-                if (!str_ends_with($pctVal, '%')) {
-                    $ds['percentage'] = $pctVal . '%';
+        $detSubstances = [];
+        $detPercentages = [];
+        foreach ($detSubs as $ds) {
+            if (is_array($ds)) {
+                $sName = trim((string)($ds['substance'] ?? ($ds['name'] ?? ($ds['compound'] ?? ''))));
+                $sPct = trim((string)($ds['percentage'] ?? ($ds['purity'] ?? ($ds['concentration'] ?? ''))));
+                if ($sName !== '') {
+                    $detSubstances[] = $sName;
                 }
+                if ($sPct !== '' && strtoupper($sPct) !== 'N/A' && $sPct !== '—') {
+                    if (is_numeric(str_replace('%', '', $sPct)) && !str_ends_with($sPct, '%')) {
+                        $sPct .= '%';
+                    }
+                    $detPercentages[] = $sPct;
+                }
+            } elseif (is_scalar($ds) && trim((string)$ds) !== '') {
+                $detSubstances[] = trim((string)$ds);
             }
         }
-        unset($ds);
+
+        if (empty($detSubstances)) {
+            $fallbackSub = $payload['confirmatory_substance_identification'] ?? ($payload['substance_identification'] ?? null);
+            if (!empty($fallbackSub) && is_scalar($fallbackSub) && trim((string)$fallbackSub) !== '' && trim((string)$fallbackSub) !== '[]') {
+                $detSubstances[] = trim((string)$fallbackSub);
+            }
+        }
+
+        $explicitPcts = $payload['detected_subtances_percentage'] ?? ($payload['detected_substances_percentage'] ?? null);
+        if (!empty($explicitPcts)) {
+            if (is_string($explicitPcts)) {
+                $decoded = json_decode($explicitPcts, true);
+                $explicitPcts = is_array($decoded) ? $decoded : preg_split('/\s*[;,]\s*/', $explicitPcts);
+            }
+            if (is_array($explicitPcts)) {
+                $detPercentages = array_values(array_filter(array_map(function($v) {
+                    $str = trim((string)$v);
+                    if ($str !== '' && is_numeric(str_replace('%', '', $str)) && !str_ends_with($str, '%')) {
+                        $str .= '%';
+                    }
+                    return $str;
+                }, $explicitPcts), fn($v) => $v !== ''));
+            }
+        }
 
         $rawScreening = $payload['screening_method'] ?? ($payload['confirmatory_screening_method'] ?? null);
         if (is_array($rawScreening)) {
@@ -119,8 +153,14 @@ class LaboratoryExamService
             'presumptive_percentage'   => $parsedPresumptive['percentage'],
             'confirmatory_result'      => $confirmatory,
             'sample_weight'            => $sampleWeight,
-            'substance_identification' => $payload['confirmatory_substance_identification'] ?? ($payload['substance_identification'] ?? null),
-            'detected_substances'      => $detSubs,
+            'substance_identification' => (!empty($payload['confirmatory_substance_identification']) && $payload['confirmatory_substance_identification'] !== '[]')
+                ? $payload['confirmatory_substance_identification']
+                : ((!empty($payload['substance_identification']) && $payload['substance_identification'] !== '[]')
+                    ? $payload['substance_identification']
+                    : ($detSubstances[0] ?? null)),
+            'detected_substances'           => $detSubstances,
+            'detected_subtances_percentage' => $detPercentages,
+            'detected_substances_percentage' => $detPercentages,
             'test_methods'             => $payload['confirmatory_test_methods'] ?? ($payload['test_methods'] ?? null),
             'specifications'           => $payload['confirmatory_specifications'] ?? ($payload['specifications'] ?? null),
             'remark'                   => $payload['confirmatory_remark'] ?? ($payload['remark'] ?? null),
@@ -281,6 +321,8 @@ class LaboratoryExamService
             $docketData['seizures'][$matchedSeizureIdx]['sample_taken']           = $examRecord['sample_weight']['sample_taken'];
             $docketData['seizures'][$matchedSeizureIdx]['sample_reserved']        = $examRecord['sample_weight']['reserved_samples'];
             $docketData['seizures'][$matchedSeizureIdx]['detected_substances']    = $examRecord['detected_substances'];
+            $docketData['seizures'][$matchedSeizureIdx]['detected_subtances_percentage']  = $examRecord['detected_subtances_percentage'] ?? [];
+            $docketData['seizures'][$matchedSeizureIdx]['detected_substances_percentage'] = $examRecord['detected_substances_percentage'] ?? [];
             $docketData['seizures'][$matchedSeizureIdx]['test_methods']           = $examRecord['test_methods'];
             $docketData['seizures'][$matchedSeizureIdx]['specifications']         = $examRecord['specifications'];
             $docketData['seizures'][$matchedSeizureIdx]['remark']                 = $examRecord['remark'];
@@ -377,10 +419,10 @@ class LaboratoryExamService
                             'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
                             'sample_weight_gross'       => $examRecord['sample_weight']['gross_weight'],
                             'sample_weight_taken'       => $examRecord['sample_weight']['sample_taken'],
-                            'sample_weight_reserved'    => $examRecord['sample_weight']['reserved_samples'],
-                            'substance_identification'  => $examRecord['substance_identification'],
-                            'detected_substances'       => $examRecord['detected_substances'],
-                            'test_methods'              => $examRecord['test_methods'],
+                            'sample_weight_reserved'        => $examRecord['sample_weight']['reserved_samples'],
+                            'detected_substances'           => $examRecord['detected_substances'],
+                            'detected_subtances_percentage' => $examRecord['detected_subtances_percentage'] ?? null,
+                            'test_methods'                  => $examRecord['test_methods'],
                             'specifications'            => $examRecord['specifications'],
                             'remark'                    => $examRecord['remark'],
                             'disposition_of_exhibit'    => $examRecord['disposition_of_exhibit'] ?? ($payload['disposition_of_exhibit'] ?? ($payload['confirmatory_disposition_of_exhibit'] ?? null)),
@@ -496,10 +538,10 @@ class LaboratoryExamService
                             'sample_weight_units'       => $examRecord['sample_weight']['units_packaging'],
                             'sample_weight_gross'       => $examRecord['sample_weight']['gross_weight'],
                             'sample_weight_taken'       => $examRecord['sample_weight']['sample_taken'],
-                            'sample_weight_reserved'    => $examRecord['sample_weight']['reserved_samples'],
-                            'substance_identification'  => $examRecord['substance_identification'],
-                            'detected_substances'       => $examRecord['detected_substances'],
-                            'test_methods'              => $examRecord['test_methods'],
+                            'sample_weight_reserved'        => $examRecord['sample_weight']['reserved_samples'],
+                            'detected_substances'           => $examRecord['detected_substances'],
+                            'detected_subtances_percentage' => $examRecord['detected_subtances_percentage'] ?? null,
+                            'test_methods'                  => $examRecord['test_methods'],
                             'specifications'            => $examRecord['specifications'],
                             'remark'                    => $examRecord['remark'],
                             'disposition_of_exhibit'    => $examRecord['disposition_of_exhibit'] ?? ($payload['disposition_of_exhibit'] ?? ($payload['confirmatory_disposition_of_exhibit'] ?? null)),
@@ -533,50 +575,52 @@ class LaboratoryExamService
                 })->delete();
         }
 
-        // Synchronize case attributes
-        if (!empty($examRecord['laboratory_number'])) {
-            $case->laboratory_number = $examRecord['laboratory_number'];
-        }
-        if (!empty($examRecord['presumptive_result'])) {
-            $case->presumptive_test_result = $examRecord['presumptive_result'];
-        }
-        if (!empty($examRecord['confirmatory_result'])) {
-            $case->confirmatory_test_result = $examRecord['confirmatory_result'];
-        }
-        if (!empty($examRecord['sample_weight']['description'])) {
-            $case->sample_weight_description = $examRecord['sample_weight']['description'];
-        }
-        if (!empty($examRecord['sample_weight']['gross_weight'])) {
-            $case->sample_weight_gross = $examRecord['sample_weight']['gross_weight'];
-        }
-        if (!empty($examRecord['sample_weight']['sample_taken'])) {
-            $case->sample_weight_taken = $examRecord['sample_weight']['sample_taken'];
-        }
-        if (!empty($examRecord['sample_weight']['reserved_samples'])) {
-            $case->sample_weight_reserved = $examRecord['sample_weight']['reserved_samples'];
-        }
-        if (!empty($examRecord['substance_identification'])) {
-            $case->confirmatory_substance_identification = $examRecord['substance_identification'];
-        }
-        if (!empty($examRecord['detected_substances'])) {
-            $case->detected_substances = $examRecord['detected_substances'];
-            if ($case->underlyingRecord && \App\Services\SchemaCache::hasColumn($case->underlyingRecord->getTable(), 'detected_substances')) {
-                try {
-                    $case->underlyingRecord->detected_substances = is_array($examRecord['detected_substances'])
-                        ? json_encode($examRecord['detected_substances'])
-                        : $examRecord['detected_substances'];
-                    $case->underlyingRecord->save();
-                } catch (\Throwable $e) {}
+        // Synchronize case attributes for primary suspect only
+        if (!$isAssoc) {
+            if (!empty($examRecord['laboratory_number'])) {
+                $case->laboratory_number = $examRecord['laboratory_number'];
             }
-        }
-        if (!empty($examRecord['test_methods'])) {
-            $case->confirmatory_test_methods = $examRecord['test_methods'];
-        }
-        if (!empty($examRecord['specifications'])) {
-            $case->confirmatory_specifications = $examRecord['specifications'];
-        }
-        if (!empty($examRecord['remark'])) {
-            $case->confirmatory_remark = $examRecord['remark'];
+            if (!empty($examRecord['presumptive_result'])) {
+                $case->presumptive_test_result = $examRecord['presumptive_result'];
+            }
+            if (!empty($examRecord['confirmatory_result'])) {
+                $case->confirmatory_test_result = $examRecord['confirmatory_result'];
+            }
+            if (!empty($examRecord['sample_weight']['description'])) {
+                $case->sample_weight_description = $examRecord['sample_weight']['description'];
+            }
+            if (!empty($examRecord['sample_weight']['gross_weight'])) {
+                $case->sample_weight_gross = $examRecord['sample_weight']['gross_weight'];
+            }
+            if (!empty($examRecord['sample_weight']['sample_taken'])) {
+                $case->sample_weight_taken = $examRecord['sample_weight']['sample_taken'];
+            }
+            if (!empty($examRecord['sample_weight']['reserved_samples'])) {
+                $case->sample_weight_reserved = $examRecord['sample_weight']['reserved_samples'];
+            }
+            if (!empty($examRecord['substance_identification'])) {
+                $case->confirmatory_substance_identification = $examRecord['substance_identification'];
+            }
+            if (!empty($examRecord['detected_substances'])) {
+                $case->detected_substances = $examRecord['detected_substances'];
+                if ($case->underlyingRecord && \App\Services\SchemaCache::hasColumn($case->underlyingRecord->getTable(), 'detected_substances')) {
+                    try {
+                        $case->underlyingRecord->detected_substances = is_array($examRecord['detected_substances'])
+                            ? json_encode($examRecord['detected_substances'])
+                            : $examRecord['detected_substances'];
+                        $case->underlyingRecord->save();
+                    } catch (\Throwable $e) {}
+                }
+            }
+            if (!empty($examRecord['test_methods'])) {
+                $case->confirmatory_test_methods = $examRecord['test_methods'];
+            }
+            if (!empty($examRecord['specifications'])) {
+                $case->confirmatory_specifications = $examRecord['specifications'];
+            }
+            if (!empty($examRecord['remark'])) {
+                $case->confirmatory_remark = $examRecord['remark'];
+            }
         }
 
         $case->docket_data = $docketData;

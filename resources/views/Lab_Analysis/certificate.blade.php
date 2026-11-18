@@ -719,12 +719,40 @@
                                 <td class="p-3 font-mono-code font-black text-slate-900 uppercase border-r border-slate-300 bg-slate-100">
                                     Confirmatory Test:
                                 </td>
-                                <td class="p-3 font-black text-emerald-900">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="w-2.5 h-2.5 rounded-full {{ $res['confirmatory'] === 'YES' ? 'bg-emerald-600' : 'bg-red-600' }}"></span>
-                                        <span class="font-extrabold text-sm">{{ $res['confirmatory'] }}</span>
-                                        <span class="text-[11px] font-normal text-slate-600">(GC-MS &amp; FTIR Spectrometry)</span>
-                                    </div>
+                                <td class="p-2.5 bg-white">
+                                    @php
+                                        $cRowsCert = $res['confirmatory_rows'] ?? null;
+                                        if (empty($cRowsCert)) {
+                                            $cVal = $res['confirmatory'] ?? ($res['confirmatory_result'] ?? null);
+                                            $dSubs = $res['detected_substances'] ?? [];
+                                            $dPcts = $res['detected_subtances_percentage'] ?? ($res['detected_substances_percentage'] ?? []);
+                                            $cRowsCert = \App\Models\ForensicCase::parseConfirmatoryRows($cVal, $dSubs, $dPcts);
+                                        }
+                                    @endphp
+                                    <table class="w-full text-xs border border-slate-300 rounded overflow-hidden">
+                                        <thead class="bg-slate-100 text-slate-900 font-mono-code uppercase font-black text-[10px]">
+                                            <tr class="border-b border-slate-300">
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Result</th>
+                                                <th class="px-2 py-1 border-r border-slate-300 text-left bg-slate-200/70">Substance Detected</th>
+                                                <th class="px-2 py-1 text-left bg-slate-200/70">Purity/Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white">
+                                            @foreach ($cRowsCert as $cRowCert)
+                                                <tr class="border-b border-slate-200 last:border-b-0">
+                                                    <td class="px-2 py-1 border-r border-slate-300 font-extrabold {{ $cRowCert['result'] === 'YES' ? 'text-emerald-800' : ($cRowCert['result'] === 'NO' ? 'text-red-700' : 'text-slate-900') }}">
+                                                        {{ $cRowCert['result'] }}
+                                                    </td>
+                                                    <td class="px-2 py-1 border-r border-slate-300 font-bold text-slate-900">
+                                                        {{ $cRowCert['presence'] }}
+                                                    </td>
+                                                    <td class="px-2 py-1 font-bold text-slate-900">
+                                                        {{ $cRowCert['purity'] }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
                                 </td>
                             </tr>
 
@@ -759,48 +787,15 @@
                                 </td>
                             </tr>
 
-                            <!-- ROW 6: SUBSTANCE IDENTIFICATION & SPECIFICATIONS -->
+                            <!-- ROW 6: TEST SPECIFICATIONS -->
                             <tr class="border-b border-slate-300">
-                                <td class="p-3 font-mono-code font-black text-slate-900 uppercase border-r border-slate-300 bg-slate-100">
-                                    Substance Identified:
-                                </td>
-                                <td class="p-3 font-black text-slate-950 font-mono-code text-sm border-r border-slate-300">
-                                    {{ $res['substance_identification'] }}
-                                </td>
                                 <td class="p-3 font-mono-code font-black text-slate-900 uppercase border-r border-slate-300 bg-slate-100">
                                     Test Specifications:
                                 </td>
-                                <td class="p-3 font-bold text-slate-900">
+                                <td class="p-3 font-bold text-slate-900" colspan="3">
                                     {{ $res['specifications'] }}
                                 </td>
                             </tr>
-
-                            <!-- ROW 7: DETECTED SUBSTANCES & PURITY % (IF AVAILABLE) -->
-                            @if(!empty($res['detected_substances']) && is_array($res['detected_substances']) && count($res['detected_substances']) > 0)
-                                <tr class="bg-amber-50/70 border-b border-slate-300">
-                                    <td class="p-3 font-mono-code font-black text-amber-950 uppercase border-r border-slate-300 bg-amber-100/80">
-                                        Detected Substances &amp; Purity %:
-                                    </td>
-                                    <td class="p-3" colspan="3">
-                                        <div class="flex flex-wrap gap-2">
-                                            @foreach($res['detected_substances'] as $cSub)
-                                                @php
-                                                    $sNameItem = is_array($cSub) ? ($cSub['substance'] ?? ($cSub['name'] ?? '')) : (is_string($cSub) ? $cSub : '');
-                                                    $sPurItem = is_array($cSub) ? ($cSub['purity'] ?? ($cSub['percentage'] ?? '')) : '';
-                                                @endphp
-                                                @if(!empty($sNameItem))
-                                                    <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-amber-100 text-amber-950 border border-amber-300 font-mono-code font-extrabold text-xs shadow-2xs">
-                                                        <span>🧪 {{ $sNameItem }}</span>
-                                                        @if(!empty($sPurItem))
-                                                            <span class="px-1.5 py-0.5 rounded bg-amber-900 text-amber-100 text-[10px]">{{ $sPurItem }}</span>
-                                                        @endif
-                                                    </span>
-                                                @endif
-                                            @endforeach
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endif
                         </tbody>
                     </table>
                 </div>

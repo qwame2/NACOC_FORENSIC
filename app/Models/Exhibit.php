@@ -42,6 +42,7 @@ class Exhibit extends Model
         'source_requesting_unit',
         'seizure_reason',
         'source_of_exhibits',
+        'source_of_exhibit',
         'exhibit_remark',
         'lab_remark',
         'veh_make',
@@ -206,7 +207,21 @@ class Exhibit extends Model
         'associated_suspects',
         'tag_image',
         'qr_url',
+        'source_of_exhibit',
     ];
+
+    public function getSourceOfExhibitAttribute(): ?string
+    {
+        return $this->attributes['source_of_exhibits'] 
+            ?? $this->attributes['source_of_exhibit'] 
+            ?? null;
+    }
+
+    public function setSourceOfExhibitAttribute($value): void
+    {
+        $this->attributes['source_of_exhibits'] = $value;
+        $this->attributes['source_of_exhibit'] = $value;
+    }
 
     public function singleCase()
     {
@@ -941,6 +956,7 @@ class Exhibit extends Model
             'seizure_reason'            => $this->seizure_reason,
             'reason'                    => $this->seizure_reason,
             'source_of_exhibits'        => $this->source_of_exhibits,
+            'source_of_exhibit'         => $this->source_of_exhibit,
             'source'                    => $this->source_of_exhibits,
             'exhibit_remark'            => $this->exhibit_remark,
             'remark'                    => $this->exhibit_remark,

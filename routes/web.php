@@ -490,6 +490,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/reviews-approvals/{id}/decline', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'decline'])->name('reviews_approvals.decline');
     Route::post('/reviews-approvals/{id}/rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'rollback'])->name('reviews_approvals.rollback');
 
+    // UNIT HEAD STAFF AUDIT & ACTIVITY LOGS
+    Route::get('/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('staff_audit.index');
+    Route::get('/Crime_Scene_Support/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('crime_scene.staff_audit');
+    Route::get('/Lab_Analysis/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('lab.staff_audit');
+    Route::get('/Evidence_Management/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('evidence.staff_audit');
+    Route::get('/Digital_Forensics/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('digital.staff_audit');
+    Route::get('/Forensic_Head/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('forensic_head.staff_audit');
+
     // STAFF CASE ROLLBACK & CORRECTIONS ROUTES
     Route::get('/Crime_Scene_Support/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('crime_scene.staff.rollback');
     Route::get('/Crime_Scene_Support/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('crime_scene.staff.rollback.show');
